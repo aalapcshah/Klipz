@@ -452,6 +452,18 @@ export const appRouter = router({
         
         return { success: true };
       }),
+
+    // Get annotations by video
+    getByVideo: protectedProcedure
+      .input(z.object({ videoId: z.number() }))
+      .query(async ({ input, ctx }) => {
+        const video = await db.getVideoById(input.videoId);
+        if (!video || video.userId !== ctx.user.id) {
+          throw new Error("Video not found");
+        }
+        
+        return await db.getAnnotationsByVideoId(input.videoId);
+      }),
   }),
 
   // ============= KNOWLEDGE GRAPH ROUTER =============

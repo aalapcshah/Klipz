@@ -151,7 +151,7 @@ function FilesView() {
   );
 }
 
-import { VideoRecorder } from "@/components/videos/VideoRecorder";
+import { VideoRecorderWithTranscription } from "@/components/videos/VideoRecorderWithTranscription";
 import { VideoList } from "@/components/videos/VideoList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -171,7 +171,7 @@ function VideosView() {
           <TabsTrigger value="library">Video Library</TabsTrigger>
         </TabsList>
         <TabsContent value="record" className="mt-6">
-          <VideoRecorder />
+          <VideoRecorderWithTranscription />
         </TabsContent>
         <TabsContent value="library" className="mt-6">
           <VideoList />

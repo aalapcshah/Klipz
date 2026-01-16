@@ -74,3 +74,23 @@
 - [ ] Create project checkpoint
 - [ ] Document API and features
 - [ ] Prepare user documentation
+
+
+## Phase 9: Live Transcription & Keyword Detection
+- [x] Integrate Web Speech API for real-time transcription
+- [x] Display live transcript during recording
+- [x] Implement keyword extraction from transcript
+- [x] Build automatic file matching algorithm
+- [x] Show matched files in real-time sidebar
+- [x] Add confidence scores for matches
+- [x] Create annotation suggestions based on matches
+
+## Phase 10: Timeline-Based Annotation Editor
+- [x] Build video player with timeline scrubber
+- [x] Display transcript segments with timestamps
+- [x] Create annotation CRUD interface
+- [ ] Implement drag-and-drop for annotation timing
+- [x] Add file attachment to annotations
+- [x] Build picture-in-picture overlay preview
+- [ ] Add annotation export configuration
+- [ ] Implement video export with annotations

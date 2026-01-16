@@ -7,10 +7,20 @@ import {
   Loader2,
   Trash2,
   Play,
+  Edit3,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useState } from "react";
+import { AnnotationEditor } from "./AnnotationEditor";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export function VideoList() {
+  const [editingVideoId, setEditingVideoId] = useState<number | null>(null);
   const { data: videos, isLoading, refetch } = trpc.videos.list.useQuery();
   const deleteMutation = trpc.videos.delete.useMutation();
 
@@ -53,6 +63,7 @@ export function VideoList() {
   }
 
   return (
+    <>
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {videos.map((video) => (
         <Card key={video.id} className="p-4 space-y-3 group">
@@ -116,6 +127,13 @@ export function VideoList() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setEditingVideoId(video.id)}
+            >
+              <Edit3 className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => handleDelete(video.id)}
               disabled={deleteMutation.isPending}
             >
@@ -125,5 +143,16 @@ export function VideoList() {
         </Card>
       ))}
     </div>
+
+    {/* Annotation Editor Dialog */}
+    <Dialog open={editingVideoId !== null} onOpenChange={(open) => !open && setEditingVideoId(null)}>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit Annotations</DialogTitle>
+        </DialogHeader>
+        {editingVideoId && <AnnotationEditor videoId={editingVideoId} />}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
