@@ -11,6 +11,101 @@ import { nanoid } from "nanoid";
 import { exportVideoWithAnnotations } from "./videoExport";
 
 export const appRouter = router({
+  savedSearches: router({
+    list: protectedProcedure.query(({ ctx }) => db.getSavedSearchesByUser(ctx.user.id)),
+    
+    create: protectedProcedure
+      .input(
+        z.object({
+          name: z.string(),
+          query: z.string().optional(),
+          fileType: z.string().optional(),
+          tagIds: z.array(z.number()).optional(),
+          enrichmentStatus: z.enum(["pending", "completed", "failed"]).optional(),
+          dateFrom: z.date().optional(),
+          dateTo: z.date().optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        return db.createSavedSearch({
+          ...input,
+          userId: ctx.user.id,
+        });
+      }),
+    
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.deleteSavedSearch(input.id);
+        return { success: true };
+      }),
+  }),
+  
+  collections: router({
+    list: protectedProcedure.query(({ ctx }) => db.getCollectionsByUser(ctx.user.id)),
+    
+    get: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        const collection = await db.getCollectionById(input.id);
+        if (!collection) throw new Error("Collection not found");
+        
+        const files = await db.getFilesByCollection(input.id);
+        return { ...collection, files };
+      }),
+    
+    create: protectedProcedure
+      .input(
+        z.object({
+          name: z.string(),
+          description: z.string().optional(),
+          color: z.string().optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        return db.createCollection({
+          ...input,
+          userId: ctx.user.id,
+        });
+      }),
+    
+    update: protectedProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          name: z.string().optional(),
+          description: z.string().optional(),
+          color: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const { id, ...updates } = input;
+        await db.updateCollection(id, updates);
+        return { success: true };
+      }),
+    
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.deleteCollection(input.id);
+        return { success: true };
+      }),
+    
+    addFile: protectedProcedure
+      .input(z.object({ collectionId: z.number(), fileId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.addFileToCollection(input.collectionId, input.fileId);
+        return { success: true };
+      }),
+    
+    removeFile: protectedProcedure
+      .input(z.object({ collectionId: z.number(), fileId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.removeFileFromCollection(input.collectionId, input.fileId);
+        return { success: true };
+      }),
+  }),
+
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),

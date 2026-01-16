@@ -165,6 +165,59 @@ export type KnowledgeGraphEdge = typeof knowledgeGraphEdges.$inferSelect;
 export type InsertKnowledgeGraphEdge = typeof knowledgeGraphEdges.$inferInsert;
 
 /**
+ * Saved Searches - Store frequently-used search filter combinations
+ */
+export const savedSearches = mysqlTable("saved_searches", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  
+  // Search parameters stored as JSON
+  query: text("query"),
+  fileType: varchar("fileType", { length: 100 }),
+  tagIds: json("tagIds").$type<number[]>(),
+  enrichmentStatus: mysqlEnum("enrichmentStatus", ["pending", "completed", "failed"]),
+  dateFrom: timestamp("dateFrom"),
+  dateTo: timestamp("dateTo"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SavedSearch = typeof savedSearches.$inferSelect;
+export type InsertSavedSearch = typeof savedSearches.$inferInsert;
+
+/**
+ * Collections - Group files into named collections/projects
+ */
+export const collections = mysqlTable("collections", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  color: varchar("color", { length: 7 }), // Hex color code
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Collection = typeof collections.$inferSelect;
+export type InsertCollection = typeof collections.$inferInsert;
+
+/**
+ * Collection Files - Junction table for many-to-many relationship
+ */
+export const collectionFiles = mysqlTable("collection_files", {
+  id: int("id").autoincrement().primaryKey(),
+  collectionId: int("collectionId").notNull(),
+  fileId: int("fileId").notNull(),
+  addedAt: timestamp("addedAt").defaultNow().notNull(),
+});
+
+export type CollectionFile = typeof collectionFiles.$inferSelect;
+export type InsertCollectionFile = typeof collectionFiles.$inferInsert;
+
+/**
  * Relations for Drizzle ORM
  */
 export const usersRelations = relations(users, ({ many }) => ({

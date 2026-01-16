@@ -123,3 +123,36 @@
 - [x] Implement search result count display
 - [x] Add filter reset functionality
 - [ ] Test search with various filter combinations
+
+
+## Phase 13: Batch Operations
+- [x] Add multi-select checkbox to file grid
+- [x] Create batch action toolbar
+- [x] Implement bulk delete operation
+- [x] Implement bulk tag assignment
+- [x] Implement bulk enrichment trigger
+- [x] Add select all/none functionality
+- [x] Show selection count in toolbar
+- [x] Add confirmation dialogs for destructive actions
+- [ ] Test batch operations with large selections
+
+## Phase 14: Saved Searches
+- [x] Create saved_searches database table
+- [x] Add save search dialog in search page
+- [x] Implement search save/load/delete procedures
+- [x] Create saved searches dropdown in search page
+- [x] Add quick access to saved searches
+- [ ] Allow editing saved search names
+- [x] Show saved search count
+- [ ] Test saved searches persistence
+
+## Phase 15: File Collections
+- [x] Create collections database table
+- [x] Create collection_files junction table
+- [x] Add collection management UI
+- [x] Implement create/edit/delete collection procedures
+- [x] Add files to collections interface
+- [x] Create collection detail view
+- [ ] Add collection filter in file grid
+- [ ] Show collection badges on files
+- [ ] Test collection workflows

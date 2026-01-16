@@ -8,13 +8,18 @@ import {
   tags,
   InsertTag,
   fileTags,
-  InsertFileTag,
   videos,
   InsertVideo,
   annotations,
   InsertAnnotation,
   knowledgeGraphEdges,
   InsertKnowledgeGraphEdge,
+  savedSearches,
+  InsertSavedSearch,
+  collections,
+  InsertCollection,
+  collectionFiles,
+  InsertCollectionFile,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -511,4 +516,157 @@ export async function getKnowledgeGraphForUser(userId: number) {
     .from(knowledgeGraphEdges)
     .innerJoin(files, eq(knowledgeGraphEdges.sourceFileId, files.id))
     .where(eq(files.userId, userId));
+}
+
+
+// ============= SAVED SEARCHES QUERIES =============
+
+export async function createSavedSearch(search: InsertSavedSearch) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const [result] = await db.insert(savedSearches).values(search);
+  return { id: Number(result.insertId) };
+}
+
+export async function getSavedSearchesByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(savedSearches)
+    .where(eq(savedSearches.userId, userId))
+    .orderBy(desc(savedSearches.createdAt));
+}
+
+export async function deleteSavedSearch(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.delete(savedSearches).where(eq(savedSearches.id, id));
+}
+
+// ============= COLLECTIONS QUERIES =============
+
+export async function createCollection(collection: InsertCollection) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const [result] = await db.insert(collections).values(collection);
+  return { id: Number(result.insertId) };
+}
+
+export async function getCollectionsByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const userCollections = await db
+    .select()
+    .from(collections)
+    .where(eq(collections.userId, userId))
+    .orderBy(desc(collections.createdAt));
+
+  // Get file counts for each collection
+  const collectionsWithCounts = await Promise.all(
+    userCollections.map(async (collection) => {
+      const fileCount = await db
+        .select({ count: sql`count(*)` })
+        .from(collectionFiles)
+        .where(eq(collectionFiles.collectionId, collection.id));
+
+      return {
+        ...collection,
+        fileCount: Number(fileCount[0]?.count || 0),
+      };
+    })
+  );
+
+  return collectionsWithCounts;
+}
+
+export async function getCollectionById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const [collection] = await db
+    .select()
+    .from(collections)
+    .where(eq(collections.id, id))
+    .limit(1);
+
+  return collection || null;
+}
+
+export async function updateCollection(
+  id: number,
+  updates: Partial<InsertCollection>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(collections).set(updates).where(eq(collections.id, id));
+}
+
+export async function deleteCollection(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Delete all file associations first
+  await db.delete(collectionFiles).where(eq(collectionFiles.collectionId, id));
+
+  // Delete the collection
+  await db.delete(collections).where(eq(collections.id, id));
+}
+
+export async function addFileToCollection(collectionId: number, fileId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.insert(collectionFiles).values({ collectionId, fileId });
+}
+
+export async function removeFileFromCollection(
+  collectionId: number,
+  fileId: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .delete(collectionFiles)
+    .where(
+      and(
+        eq(collectionFiles.collectionId, collectionId),
+        eq(collectionFiles.fileId, fileId)
+      )
+    );
+}
+
+export async function getFilesByCollection(collectionId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const result = await db
+    .select({
+      id: files.id,
+      title: files.title,
+      description: files.description,
+      url: files.url,
+      fileKey: files.fileKey,
+      filename: files.filename,
+      mimeType: files.mimeType,
+      fileSize: files.fileSize,
+      enrichmentStatus: files.enrichmentStatus,
+      createdAt: files.createdAt,
+      updatedAt: files.updatedAt,
+      userId: files.userId,
+      addedAt: collectionFiles.addedAt,
+    })
+    .from(collectionFiles)
+    .innerJoin(files, eq(collectionFiles.fileId, files.id))
+    .where(eq(collectionFiles.collectionId, collectionId))
+    .orderBy(desc(collectionFiles.addedAt));
+
+  return result;
 }

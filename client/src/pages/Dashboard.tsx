@@ -10,7 +10,8 @@ import {
   LogOutIcon,
   Sparkles,
   Upload,
-  Search as SearchIcon
+  Search as SearchIcon,
+  FolderIcon
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -50,6 +51,7 @@ export default function Dashboard() {
     { href: "/", label: "Files", icon: FileIcon },
     { href: "/search", label: "Search", icon: SearchIcon },
     { href: "/videos", label: "Videos", icon: VideoIcon },
+    { href: "/collections", label: "Collections", icon: FolderIcon },
     { href: "/knowledge-graph", label: "Knowledge Graph", icon: NetworkIcon },
   ];
 
@@ -104,6 +106,7 @@ export default function Dashboard() {
         {/* This will be replaced by route-specific content */}
         {location === "/" && <FilesView />}
         {location === "/videos" && <VideosView />}
+        {location === "/collections" && <CollectionsManager />}
         {location === "/knowledge-graph" && <KnowledgeGraphView />}
       </main>
     </div>
@@ -112,7 +115,7 @@ export default function Dashboard() {
 
 // File management view
 import { FileUploadDialog } from "@/components/files/FileUploadDialog";
-import { FileGrid } from "@/components/files/FileGrid";
+import { FileGridWithBatch } from "@/components/files/FileGridWithBatch";
 import { FileDetailDialog } from "@/components/files/FileDetailDialog";
 
 function FilesView() {
@@ -134,7 +137,7 @@ function FilesView() {
         </Button>
       </div>
 
-      <FileGrid onFileClick={setSelectedFileId} />
+      <FileGridWithBatch onFileClick={setSelectedFileId} />
 
       <FileUploadDialog
         open={uploadDialogOpen}
@@ -184,6 +187,7 @@ function VideosView() {
 }
 
 import { KnowledgeGraphView as KnowledgeGraphComponent } from "@/components/knowledge-graph/KnowledgeGraphView";
+import { CollectionsManager } from "@/components/collections/CollectionsManager";
 
 function KnowledgeGraphView() {
   return (

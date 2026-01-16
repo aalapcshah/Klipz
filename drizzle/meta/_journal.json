@@ -15,6 +15,13 @@
       "when": 1768594098522,
       "tag": "0001_military_stature",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1768603258242,
+      "tag": "0002_aromatic_rockslide",
+      "breakpoints": true
     }
   ]
 }
