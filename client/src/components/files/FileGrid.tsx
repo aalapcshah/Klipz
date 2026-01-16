@@ -113,11 +113,7 @@ export function FileGrid({ onFileClick }: FileGridProps) {
                   Not Enriched
                 </Badge>
               )}
-              {file.voiceTranscript && (
-                <Badge variant="outline" className="text-xs">
-                  🎤 Voice
-                </Badge>
-              )}
+
             </div>
 
             {/* Tags */}

@@ -48,6 +48,8 @@ interface FileGridEnhancedProps {
 
 export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
   const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
+  const [isDragging, setIsDragging] = useState(false);
+  const [filterCollectionId, setFilterCollectionId] = useState<number | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [collectionDialogOpen, setCollectionDialogOpen] = useState(false);
@@ -56,7 +58,9 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
   const [draggedFileId, setDraggedFileId] = useState<number | null>(null);
   const [dragOverCollectionId, setDragOverCollectionId] = useState<number | null>(null);
 
-  const { data: filesData, isLoading } = trpc.files.list.useQuery();
+  const { data: filesData, isLoading } = trpc.files.list.useQuery(
+    filterCollectionId ? { collectionId: filterCollectionId } : undefined
+  );
   const { data: tags = [] } = trpc.tags.list.useQuery();
   const { data: collections = [] } = trpc.collections.list.useQuery();
   const utils = trpc.useUtils();
@@ -490,9 +494,48 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
             <DialogDescription>
               Select a collection to add all selected files
             </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Select
+          </DialogHeader>  return (
+    <div className="space-y-4">
+      {/* Collection Filter */}
+      <div className="flex items-center gap-2">
+        <label className="text-sm font-medium">Filter by Collection:</label>
+        <Select
+          value={filterCollectionId?.toString() || "all"}
+          onValueChange={(value) => {
+            if (value === "all") setFilterCollectionId(null);
+            else if (value === "none") setFilterCollectionId(-1);
+            else setFilterCollectionId(parseInt(value));
+          }}
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="All Collections" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Collections</SelectItem>
+            <SelectItem value="none">No Collection</SelectItem>
+            {collections?.map((collection) => (
+              <SelectItem key={collection.id} value={collection.id.toString()}>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: collection.color || "#6366f1" }}
+                  />
+                  {collection.name}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {filterCollectionId !== null && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setFilterCollectionId(null)}
+          >
+            Clear Filter
+          </Button>
+        )}
+      </div>         <Select
               value={selectedCollectionId}
               onValueChange={setSelectedCollectionId}
             >

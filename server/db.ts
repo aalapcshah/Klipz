@@ -643,7 +643,7 @@ export async function removeFileFromCollection(
     );
 }
 
-export async function getFilesByCollection(collectionId: number) {
+export async function getFilesByCollection(userId: number, collectionId: number) {
   const db = await getDb();
   if (!db) return [];
 

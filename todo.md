@@ -165,3 +165,32 @@
 - [x] Add visual feedback for drag-and-drop operations
 - [x] Show collection count on file cards
 - [ ] Test drag-and-drop across different screen sizes
+
+
+## Phase 17: Collection Filtering
+- [x] Add collection filter dropdown to Files view
+- [x] Implement filter by collection in file grid
+- [x] Add "All Collections" and "No Collection" options
+- [x] Show active collection filter in UI
+- [x] Clear collection filter functionality
+- [ ] Test filtering with multiple collections
+
+## Phase 18: Collection Sharing
+- [ ] Create collection_shares table for access control
+- [ ] Add share dialog to collections manager
+- [ ] Generate public share links with tokens
+- [ ] Implement read-only collection view for shared links
+- [ ] Add collaborator invitation system
+- [ ] Create access level management (read/edit)
+- [ ] Build shared collection viewer page
+- [ ] Test sharing workflows
+
+## Phase 19: Collection Templates
+- [ ] Create collection_templates table
+- [ ] Add template save dialog in collections manager
+- [ ] Store template configuration (tags, rules, structure)
+- [ ] Build template browser/selector UI
+- [ ] Implement apply template to new collection
+- [ ] Add template editing and deletion
+- [ ] Create default templates library
+- [ ] Test template workflows

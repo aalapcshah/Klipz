@@ -46,11 +46,11 @@ export const appRouter = router({
     
     get: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .query(async ({ input }) => {
+      .query(async ({ ctx, input }) => {
         const collection = await db.getCollectionById(input.id);
         if (!collection) throw new Error("Collection not found");
         
-        const files = await db.getFilesByCollection(input.id);
+        const files = await db.getFilesByCollection(ctx.user.id, input.id);
         return { ...collection, files };
       }),
     
@@ -145,8 +145,12 @@ export const appRouter = router({
   // ============= FILES ROUTER =============
   files: router({
     // List all files for current user
-    list: protectedProcedure.query(async ({ ctx }) => {
-      const files = await db.getFilesByUserId(ctx.user.id);
+    list: protectedProcedure
+      .input(z.object({ collectionId: z.number().optional() }).optional())
+      .query(async ({ ctx, input }) => {
+      const files = input?.collectionId
+        ? await db.getFilesByCollection(ctx.user.id, input.collectionId)
+        : await db.getFilesByUserId(ctx.user.id);
       
       // Get tags for each file
       const filesWithTags = await Promise.all(
