@@ -8,6 +8,7 @@ import { storagePut } from "./storage";
 import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
 import { nanoid } from "nanoid";
+import { exportVideoWithAnnotations } from "./videoExport";
 
 export const appRouter = router({
   system: systemRouter,
@@ -463,6 +464,49 @@ export const appRouter = router({
         }
         
         return await db.getAnnotationsByVideoId(input.videoId);
+      }),
+  }),
+
+  // ============= VIDEO EXPORT ROUTER =============
+  videoExport: router({
+    // Export video with annotations
+    export: protectedProcedure
+      .input(
+        z.object({
+          videoId: z.number(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        // Verify video ownership
+        const video = await db.getVideoById(input.videoId);
+        if (!video || video.userId !== ctx.user.id) {
+          throw new Error("Video not found");
+        }
+
+        // Get annotations with file data
+        const annotations = await db.getAnnotationsByVideoId(input.videoId);
+
+        // Export video
+        const result = await exportVideoWithAnnotations({
+          videoUrl: video.url,
+          annotations: annotations.map((ann: any) => ({
+            id: ann.id,
+            startTime: ann.startTime,
+            endTime: ann.endTime,
+            position: ann.position,
+            keyword: ann.keyword,
+            fileUrl: ann.file?.url,
+          })),
+          outputFilename: `${video.title || "video"}-annotated.mp4`,
+        });
+
+        if (!result.success) {
+          throw new Error(result.error || "Export failed");
+        }
+
+        return {
+          url: result.url,
+        };
       }),
   }),
 

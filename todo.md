@@ -94,3 +94,17 @@
 - [x] Build picture-in-picture overlay preview
 - [ ] Add annotation export configuration
 - [ ] Implement video export with annotations
+
+
+## Phase 11: Video Export with Burned-In Annotations
+- [x] Install FFmpeg in the server environment
+- [x] Create video export service module
+- [x] Implement FFmpeg command generation for overlays
+- [x] Build picture-in-picture positioning logic
+- [x] Add text overlay rendering for keywords
+- [ ] Create export queue and job management
+- [x] Implement progress tracking for exports
+- [x] Add export UI in annotation editor
+- [x] Create download link for exported videos
+- [ ] Test export with multiple annotations
+- [x] Handle export errors and cleanup

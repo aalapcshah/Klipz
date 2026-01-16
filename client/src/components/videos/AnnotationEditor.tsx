@@ -30,6 +30,7 @@ import {
   Download,
   Loader2,
   FileImage,
+  Film,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -62,6 +63,8 @@ export function AnnotationEditor({ videoId }: AnnotationEditorProps) {
   const [selectedAnnotation, setSelectedAnnotation] = useState<number | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [editingAnnotation, setEditingAnnotation] = useState<Annotation | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportedUrl, setExportedUrl] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -73,6 +76,7 @@ export function AnnotationEditor({ videoId }: AnnotationEditorProps) {
   const createAnnotation = trpc.annotations.create.useMutation();
   const updateAnnotation = trpc.annotations.update.useMutation();
   const deleteAnnotation = trpc.annotations.delete.useMutation();
+  const exportVideo = trpc.videoExport.export.useMutation();
 
   useEffect(() => {
     const videoEl = videoRef.current;
@@ -171,6 +175,26 @@ export function AnnotationEditor({ videoId }: AnnotationEditorProps) {
     );
   };
 
+  const handleExport = async () => {
+    if (annotations.length === 0) {
+      toast.error("Add at least one annotation before exporting");
+      return;
+    }
+
+    setIsExporting(true);
+    setExportedUrl(null);
+
+    try {
+      const result = await exportVideo.mutateAsync({ videoId });
+      setExportedUrl(result.url || null);
+      toast.success("Video exported successfully!");
+    } catch (error) {
+      toast.error("Export failed: " + (error instanceof Error ? error.message : "Unknown error"));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (!video) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -181,6 +205,29 @@ export function AnnotationEditor({ videoId }: AnnotationEditorProps) {
 
   return (
     <div className="space-y-6">
+      {/* Export Section */}
+      {exportedUrl && (
+        <Card className="p-4 bg-primary/10 border-primary">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Film className="h-5 w-5 text-primary" />
+              <div>
+                <h4 className="font-semibold">Exported Video Ready</h4>
+                <p className="text-sm text-muted-foreground">
+                  Your video with burned-in annotations is ready to download
+                </p>
+              </div>
+            </div>
+            <Button asChild>
+              <a href={exportedUrl} download target="_blank" rel="noopener noreferrer">
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </a>
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {/* Video Player with Overlay Preview */}
       <Card className="p-6">
         <div className="relative aspect-video bg-black rounded-lg overflow-hidden mb-4">
@@ -254,6 +301,24 @@ export function AnnotationEditor({ videoId }: AnnotationEditorProps) {
             <Button onClick={handleAddAnnotation} disabled={createAnnotation.isPending}>
               <Plus className="h-4 w-4 mr-2" />
               Add Annotation
+            </Button>
+
+            <Button
+              onClick={handleExport}
+              disabled={isExporting || annotations.length === 0}
+              variant="default"
+            >
+              {isExporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export Video
+                </>
+              )}
             </Button>
           </div>
 
