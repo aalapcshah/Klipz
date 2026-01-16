@@ -156,3 +156,12 @@
 - [ ] Add collection filter in file grid
 - [ ] Show collection badges on files
 - [ ] Test collection workflows
+
+
+## Phase 16: Collection Enhancements
+- [x] Implement drag-and-drop from file grid to collections sidebar
+- [x] Add collection badges to file cards showing collection membership
+- [x] Create bulk add-to-collection in batch operations toolbar
+- [x] Add visual feedback for drag-and-drop operations
+- [x] Show collection count on file cards
+- [ ] Test drag-and-drop across different screen sizes

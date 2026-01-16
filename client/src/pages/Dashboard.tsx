@@ -115,12 +115,16 @@ export default function Dashboard() {
 
 // File management view
 import { FileUploadDialog } from "@/components/files/FileUploadDialog";
-import { FileGridWithBatch } from "@/components/files/FileGridWithBatch";
+import { FileGridEnhanced } from "@/components/files/FileGridEnhanced";
 import { FileDetailDialog } from "@/components/files/FileDetailDialog";
 
 function FilesView() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFileId, setSelectedFileId] = useState<number | null>(null);
+
+  const handleFileClick = (fileId: number) => {
+    setSelectedFileId(fileId);
+  };
 
   return (
     <div className="space-y-6">
@@ -137,7 +141,7 @@ function FilesView() {
         </Button>
       </div>
 
-      <FileGridWithBatch onFileClick={setSelectedFileId} />
+        <FileGridEnhanced onFileClick={handleFileClick} />
 
       <FileUploadDialog
         open={uploadDialogOpen}
