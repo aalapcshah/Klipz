@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, or, like } from "drizzle-orm";
+import { eq, and, or, like, gte, lte, inArray, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
@@ -162,24 +162,139 @@ export async function searchFiles(userId: number, query: string) {
   const db = await getDb();
   if (!db) return [];
 
-  const searchPattern = `%${query}%`;
-  
-  return await db
+  const results = await db
     .select()
     .from(files)
     .where(
       and(
         eq(files.userId, userId),
         or(
-          like(files.title, searchPattern),
-          like(files.description, searchPattern),
-          like(files.aiAnalysis, searchPattern),
-          like(files.ocrText, searchPattern),
-          like(files.voiceTranscript, searchPattern)
-        )!
-      )!
-    )
+          like(files.title, `%${query}%`),
+          like(files.description, `%${query}%`)
+        )
+      )
+    );
+
+  return results;
+}
+
+export async function advancedSearchFiles(
+  userId: number,
+  filters: {
+    query?: string;
+    fileType?: string;
+    tagIds?: number[];
+    enrichmentStatus?: "pending" | "completed" | "failed";
+    dateFrom?: number;
+    dateTo?: number;
+    limit?: number;
+    offset?: number;
+  }
+) {
+  const db = await getDb();
+  if (!db) return { files: [], total: 0 };
+
+  const conditions: any[] = [eq(files.userId, userId)];
+
+  // Text search across title and description
+  if (filters.query && filters.query.trim()) {
+    conditions.push(
+      or(
+        like(files.title, `%${filters.query}%`),
+        like(files.description, `%${filters.query}%`)
+      )
+    );
+  }
+
+  // File type filter
+  if (filters.fileType) {
+    conditions.push(like(files.mimeType, `${filters.fileType}%`));
+  }
+
+  // Enrichment status filter
+  if (filters.enrichmentStatus) {
+    conditions.push(eq(files.enrichmentStatus, filters.enrichmentStatus));
+  }
+
+  // Date range filter
+  if (filters.dateFrom) {
+    conditions.push(gte(files.createdAt, new Date(filters.dateFrom)));
+  }
+  if (filters.dateTo) {
+    conditions.push(lte(files.createdAt, new Date(filters.dateTo)));
+  }
+
+  // Build base query
+  let query = db
+    .select({
+      id: files.id,
+      title: files.title,
+      description: files.description,
+      url: files.url,
+      fileKey: files.fileKey,
+      mimeType: files.mimeType,
+      fileSize: files.fileSize,
+      enrichmentStatus: files.enrichmentStatus,
+      aiAnalysis: files.aiAnalysis,
+      ocrText: files.ocrText,
+      createdAt: files.createdAt,
+      updatedAt: files.updatedAt,
+      userId: files.userId,
+    })
+    .from(files)
+    .where(and(...conditions));
+
+  // Tag filtering requires a join
+  if (filters.tagIds && filters.tagIds.length > 0) {
+    const filesWithTags = await db
+      .select({ fileId: fileTags.fileId })
+      .from(fileTags)
+      .where(inArray(fileTags.tagId, filters.tagIds))
+      .groupBy(fileTags.fileId);
+
+    const fileIds = filesWithTags.map((ft) => ft.fileId);
+    if (fileIds.length > 0) {
+      conditions.push(inArray(files.id, fileIds));
+    } else {
+      // No files match the tag filter
+      return { files: [], total: 0 };
+    }
+
+    // Rebuild query with tag filter
+    query = db
+      .select({
+        id: files.id,
+        title: files.title,
+        description: files.description,
+        url: files.url,
+        fileKey: files.fileKey,
+        mimeType: files.mimeType,
+        fileSize: files.fileSize,
+        enrichmentStatus: files.enrichmentStatus,
+        aiAnalysis: files.aiAnalysis,
+        ocrText: files.ocrText,
+        createdAt: files.createdAt,
+        updatedAt: files.updatedAt,
+        userId: files.userId,
+      })
+      .from(files)
+      .where(and(...conditions));
+  }
+
+  // Get total count
+  const countResult = await db
+    .select({ count: sql`count(*)` })
+    .from(files)
+    .where(and(...conditions));
+  const total = Number(countResult[0]?.count || 0);
+
+  // Apply pagination
+  const results = await query
+    .limit(filters.limit || 50)
+    .offset(filters.offset || 0)
     .orderBy(desc(files.createdAt));
+
+  return { files: results, total };
 }
 
 // ============= TAG QUERIES =============

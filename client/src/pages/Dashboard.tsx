@@ -9,7 +9,8 @@ import {
   SettingsIcon, 
   LogOutIcon,
   Sparkles,
-  Upload
+  Upload,
+  Search as SearchIcon
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -47,6 +48,7 @@ export default function Dashboard() {
 
   const navItems = [
     { href: "/", label: "Files", icon: FileIcon },
+    { href: "/search", label: "Search", icon: SearchIcon },
     { href: "/videos", label: "Videos", icon: VideoIcon },
     { href: "/knowledge-graph", label: "Knowledge Graph", icon: NetworkIcon },
   ];

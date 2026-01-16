@@ -137,15 +137,36 @@ export const appRouter = router({
         }
         
         await db.deleteFile(input.id);
-        
         return { success: true };
       }),
 
-    // Search files
+    // Search files by query
     search: protectedProcedure
-      .input(z.object({ query: z.string() }))
+      .input(
+        z.object({
+          query: z.string(),
+        })
+      )
       .query(async ({ input, ctx }) => {
         return await db.searchFiles(ctx.user.id, input.query);
+      }),
+
+    // Advanced search with filters
+    advancedSearch: protectedProcedure
+      .input(
+        z.object({
+          query: z.string().optional(),
+          fileType: z.string().optional(),
+          tagIds: z.array(z.number()).optional(),
+          enrichmentStatus: z.enum(["pending", "completed", "failed"]).optional(),
+          dateFrom: z.number().optional(), // Unix timestamp
+          dateTo: z.number().optional(), // Unix timestamp
+          limit: z.number().default(50),
+          offset: z.number().default(0),
+        })
+      )
+      .query(async ({ input, ctx }) => {
+        return await db.advancedSearchFiles(ctx.user.id, input);
       }),
 
     // Enrich file with AI

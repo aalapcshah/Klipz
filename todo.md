@@ -108,3 +108,18 @@
 - [x] Create download link for exported videos
 - [ ] Test export with multiple annotations
 - [x] Handle export errors and cleanup
+
+
+## Phase 12: Advanced Search with Faceted Filtering
+- [x] Create advanced search API endpoint
+- [x] Implement full-text search across metadata
+- [x] Add file type filtering
+- [x] Add tag filtering with multi-select
+- [x] Add date range filtering
+- [x] Add enrichment status filtering
+- [x] Build search UI page with filter sidebar
+- [x] Create search results grid with highlighting
+- [x] Add pagination for search results
+- [x] Implement search result count display
+- [x] Add filter reset functionality
+- [ ] Test search with various filter combinations
