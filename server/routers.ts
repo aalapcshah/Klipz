@@ -226,6 +226,34 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    // Batch update file metadata
+    batchUpdate: protectedProcedure
+      .input(
+        z.object({
+          fileIds: z.array(z.number()),
+          title: z.string().optional(),
+          description: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const { fileIds, ...updates } = input;
+        
+        // Verify all files belong to user
+        for (const fileId of fileIds) {
+          const file = await db.getFileById(fileId);
+          if (!file || file.userId !== ctx.user.id) {
+            throw new Error(`File ${fileId} not found`);
+          }
+        }
+        
+        // Update all files
+        for (const fileId of fileIds) {
+          await db.updateFile(fileId, updates);
+        }
+        
+        return { success: true, count: fileIds.length };
+      }),
+
     // Delete file
     delete: protectedProcedure
       .input(z.object({ id: z.number() }))

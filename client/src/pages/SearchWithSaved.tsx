@@ -38,6 +38,7 @@ export default function SearchWithSaved() {
   const [dateTo, setDateTo] = useState("");
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [searchName, setSearchName] = useState("");
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
 
   const { data: searchData, isLoading } = trpc.files.advancedSearch.useQuery({
     query: query || undefined,
@@ -49,6 +50,7 @@ export default function SearchWithSaved() {
   });
 
   const { data: tags = [] } = trpc.tags.list.useQuery();
+  const { data: collections = [] } = trpc.collections.list.useQuery();
   const { data: savedSearches = [] } = trpc.savedSearches.list.useQuery();
   const utils = trpc.useUtils();
 
@@ -103,6 +105,7 @@ export default function SearchWithSaved() {
     setFileType("");
     setEnrichmentStatus("");
     setSelectedTags([]);
+    setSelectedCollectionId("");
     setDateFrom("");
     setDateTo("");
   };
@@ -228,6 +231,26 @@ export default function SearchWithSaved() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Collections */}
+            {collections.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="collection">Collection</Label>
+                <Select value={selectedCollectionId} onValueChange={setSelectedCollectionId}>
+                  <SelectTrigger id="collection">
+                    <SelectValue placeholder="All collections" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value=" ">All collections</SelectItem>
+                    {collections.map((collection: any) => (
+                      <SelectItem key={collection.id} value={collection.id.toString()}>
+                        {collection.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Tags */}
             {tags.length > 0 && (

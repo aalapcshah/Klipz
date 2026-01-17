@@ -234,3 +234,16 @@
 - [x] Test bulk tag creation workflow
 - [x] Test hover preview functionality
 - [x] Test sort and filter controls
+
+## Phase 23: Advanced Content Management & Search
+- [x] Add batch edit metadata button to batch operations toolbar
+- [x] Create batch metadata edit dialog with title and description fields
+- [x] Implement batch metadata update mutation
+- [x] Add filter controls to search page (file type, collections, tags)
+- [x] Implement full-text search across titles, descriptions, and metadata
+- [x] Create file comparison view component
+- [x] Add "Compare" button for selecting 2+ files
+- [x] Implement side-by-side comparison layout
+- [x] Test batch metadata editing workflow
+- [x] Test advanced search with filters
+- [x] Test file comparison view

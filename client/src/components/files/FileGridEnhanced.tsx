@@ -22,6 +22,9 @@ import {
   Folder,
   FolderPlus,
   Plus,
+  Edit3,
+  GitCompare,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -85,6 +88,11 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
   const [isCreatingNewTag, setIsCreatingNewTag] = useState(false);
   const [sortBy, setSortBy] = useState<"date" | "size" | "enrichment">("date");
   const [filterType, setFilterType] = useState<"all" | "image" | "video" | "document">("all");
+  const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
+  const [batchTitle, setBatchTitle] = useState("");
+  const [batchDescription, setBatchDescription] = useState("");
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareFiles, setCompareFiles] = useState<number[]>([]);
   const deletedFilesRef = useRef<DeletedFile[]>([]);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -156,6 +164,17 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
       setSelectedTagId(newTag.id.toString());
       setIsCreatingNewTag(false);
       setNewTagName("");
+    },
+  });
+
+  const batchUpdateMutation = trpc.files.batchUpdate.useMutation({
+    onSuccess: (result) => {
+      utils.files.list.invalidate();
+      toast.success(`Updated ${result.count} files`);
+      setMetadataDialogOpen(false);
+      setBatchTitle("");
+      setBatchDescription("");
+      setSelectedFiles(new Set());
     },
   });
 
@@ -358,6 +377,37 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
       name: newTagName.trim(),
       source: "manual",
     });
+  };
+
+  const handleBatchMetadataUpdate = () => {
+    if (!batchTitle.trim() && !batchDescription.trim()) {
+      toast.error("Please enter at least a title or description");
+      return;
+    }
+
+    const updates: { title?: string; description?: string } = {};
+    if (batchTitle.trim()) updates.title = batchTitle.trim();
+    if (batchDescription.trim()) updates.description = batchDescription.trim();
+
+    batchUpdateMutation.mutate({
+      fileIds: Array.from(selectedFiles),
+      ...updates,
+    });
+  };
+
+  const toggleCompareFile = (fileId: number) => {
+    if (compareFiles.includes(fileId)) {
+      setCompareFiles(compareFiles.filter(id => id !== fileId));
+    } else if (compareFiles.length < 4) {
+      setCompareFiles([...compareFiles, fileId]);
+    } else {
+      toast.error("You can compare up to 4 files at once");
+    }
+  };
+
+  const exitCompareMode = () => {
+    setCompareMode(false);
+    setCompareFiles([]);
   };
 
   const handleBatchEnrich = () => {
@@ -571,6 +621,30 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={() => setMetadataDialogOpen(true)}
+                  disabled={batchUpdateMutation.isPending}
+                >
+                  {batchUpdateMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Edit3 className="h-4 w-4 mr-2" />
+                  )}
+                  Edit Metadata
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setCompareMode(true);
+                    setSelectedFiles(new Set());
+                  }}
+                >
+                  <GitCompare className="h-4 w-4 mr-2" />
+                  Compare Files
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => setTagDialogOpen(true)}
                   disabled={linkTagMutation.isPending}
                 >
@@ -628,8 +702,29 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
           </Card>
         )}
 
+        {/* Comparison Mode Banner */}
+        {compareMode && (
+          <Card className="p-4 bg-primary/10 border-primary">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <GitCompare className="h-5 w-5 text-primary" />
+                <div>
+                  <h3 className="font-semibold">Comparison Mode</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Select 2-4 files to compare ({compareFiles.length} selected)
+                  </p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={exitCompareMode}>
+                <X className="h-4 w-4 mr-2" />
+                Exit Comparison
+              </Button>
+            </div>
+          </Card>
+        )}
+
         {/* Select All */}
-        {files.length > 0 && (
+        {!compareMode && files.length > 0 && (
           <div className="flex items-center gap-2">
             <Checkbox
               checked={selectedFiles.size === files.length && files.length > 0}
@@ -637,6 +732,114 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
             />
             <span className="text-sm text-muted-foreground">Select All</span>
           </div>
+        )}
+
+        {/* Comparison View */}
+        {compareMode && compareFiles.length >= 2 && (
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Side-by-Side Comparison</h3>
+            <div className={`grid gap-4 ${compareFiles.length === 2 ? 'grid-cols-2' : compareFiles.length === 3 ? 'grid-cols-3' : 'grid-cols-2 lg:grid-cols-4'}`}>
+              {compareFiles.map(fileId => {
+                const file = files.find((f: any) => f.id === fileId);
+                if (!file) return null;
+                const fileCollections = getFileCollections(file.id);
+                return (
+                  <Card key={file.id} className="p-4 relative">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={() => toggleCompareFile(file.id)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <div className="space-y-3">
+                      {file.mimeType.startsWith("image/") ? (
+                        <img
+                          src={file.url}
+                          alt={file.title || file.filename}
+                          className="w-full h-48 object-contain bg-muted rounded"
+                        />
+                      ) : file.mimeType.startsWith("video/") ? (
+                        <video
+                          src={file.url}
+                          className="w-full h-48 object-contain bg-muted rounded"
+                          controls={false}
+                        />
+                      ) : (
+                        <div className="w-full h-48 flex flex-col items-center justify-center bg-muted rounded">
+                          {getFileIcon(file.mimeType)}
+                          <span className="mt-2 text-sm text-muted-foreground">
+                            {file.mimeType.split("/")[1]?.toUpperCase() || "FILE"}
+                          </span>
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="font-semibold text-sm line-clamp-2">
+                          {file.title || file.filename}
+                        </h4>
+                        {file.description && (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-3">
+                            {file.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Size:</span>
+                          <span>{formatFileSize(file.fileSize)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Status:</span>
+                          <span
+                            className={
+                              file.enrichmentStatus === "completed"
+                                ? "text-green-500"
+                                : "text-yellow-500"
+                            }
+                          >
+                            {file.enrichmentStatus === "completed"
+                              ? "Enriched"
+                              : "Not Enriched"}
+                          </span>
+                        </div>
+                        {fileCollections.length > 0 && (
+                          <div>
+                            <span className="text-muted-foreground">Collections:</span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {fileCollections.map((collection: any) => (
+                                <span
+                                  key={collection.id}
+                                  className="px-2 py-0.5 bg-muted rounded text-xs"
+                                >
+                                  {collection.name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {file.tags && file.tags.length > 0 && (
+                          <div>
+                            <span className="text-muted-foreground">Tags:</span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {file.tags.map((tag: any) => (
+                                <span
+                                  key={tag.id}
+                                  className="px-2 py-0.5 bg-primary/20 text-primary rounded text-xs"
+                                >
+                                  {tag.name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </Card>
         )}
 
         {/* File Grid */}
@@ -663,11 +866,19 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                       onDragEnd={handleDragEnd}
                     >
                   <div className="flex items-start gap-3">
-                    <Checkbox
-                      checked={selectedFiles.has(file.id)}
-                      onCheckedChange={() => toggleFile(file.id)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
+                    {compareMode ? (
+                      <Checkbox
+                        checked={compareFiles.includes(file.id)}
+                        onCheckedChange={() => toggleCompareFile(file.id)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <Checkbox
+                        checked={selectedFiles.has(file.id)}
+                        onCheckedChange={() => toggleFile(file.id)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    )}
                     <div
                       className="flex-1 min-w-0"
                       onClick={() => onFileClick?.(file.id)}
@@ -771,12 +982,12 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                           <span>•</span>
                           <span
                             className={
-                              file.enrichmentStatus === "enriched"
+                              file.enrichmentStatus === "completed"
                                 ? "text-green-500"
                                 : "text-yellow-500"
                             }
                           >
-                            {file.enrichmentStatus === "enriched"
+                            {file.enrichmentStatus === "completed"
                               ? "Enriched"
                               : "Not Enriched"}
                           </span>
@@ -841,6 +1052,61 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Batch Metadata Edit Dialog */}
+      <Dialog open={metadataDialogOpen} onOpenChange={setMetadataDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Metadata for {selectedFiles.size} Files</DialogTitle>
+            <DialogDescription>
+              Update title and/or description for all selected files. Leave fields empty to keep existing values.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="batch-title">Title</Label>
+              <Input
+                id="batch-title"
+                value={batchTitle}
+                onChange={(e) => setBatchTitle(e.target.value)}
+                placeholder="Enter new title (optional)"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="batch-description">Description</Label>
+              <Input
+                id="batch-description"
+                value={batchDescription}
+                onChange={(e) => setBatchDescription(e.target.value)}
+                placeholder="Enter new description (optional)"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setMetadataDialogOpen(false);
+                setBatchTitle("");
+                setBatchDescription("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBatchMetadataUpdate}
+              disabled={batchUpdateMutation.isPending}
+            >
+              {batchUpdateMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Edit3 className="h-4 w-4 mr-2" />
+              )}
+              Update Metadata
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Tag Dialog */}
       <Dialog open={tagDialogOpen} onOpenChange={setTagDialogOpen}>
