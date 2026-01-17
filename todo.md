@@ -198,3 +198,16 @@
 
 ## Bug Fixes
 - [x] Fix nested anchor tag error in navigation or file grid
+
+
+## Phase 20: UX Improvements - Loading States & Undo
+- [x] Test collection filter dropdown functionality
+- [x] Add loading spinner to bulk delete operation
+- [x] Add loading spinner to bulk tag operation
+- [x] Add loading spinner to bulk enrich operation
+- [x] Add loading spinner to bulk add-to-collection operation
+- [x] Implement undo functionality for bulk delete
+- [x] Implement undo functionality for single file delete
+- [x] Add toast notification with undo button
+- [x] Test undo functionality with various operations
+- [x] Add loading states to all batch operations

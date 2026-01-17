@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,19 @@ interface FileGridEnhancedProps {
   onFileClick?: (fileId: number) => void;
 }
 
+interface DeletedFile {
+  id: number;
+  title: string;
+  filename: string;
+  description: string;
+  mimeType: string;
+  fileSize: number;
+  fileKey: string;
+  url: string;
+  enrichmentStatus: string;
+  userId: number;
+}
+
 export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
   const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
   const [isDragging, setIsDragging] = useState(false);
@@ -57,6 +70,8 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [draggedFileId, setDraggedFileId] = useState<number | null>(null);
   const [dragOverCollectionId, setDragOverCollectionId] = useState<number | null>(null);
+  const deletedFilesRef = useRef<DeletedFile[]>([]);
+  const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: filesData, isLoading } = trpc.files.list.useQuery(
     filterCollectionId ? { collectionId: filterCollectionId } : undefined
@@ -65,12 +80,15 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
   const { data: collections = [] } = trpc.collections.list.useQuery();
   const utils = trpc.useUtils();
 
+  const createFileMutation = trpc.files.create.useMutation({
+    onSuccess: () => {
+      utils.files.list.invalidate();
+    },
+  });
+
   const deleteMutation = trpc.files.delete.useMutation({
     onSuccess: () => {
       utils.files.list.invalidate();
-      toast.success("Files deleted");
-      setSelectedFiles(new Set());
-      setDeleteDialogOpen(false);
     },
   });
 
@@ -126,10 +144,78 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
     }
   };
 
+  const handleUndo = async () => {
+    if (deletedFilesRef.current.length === 0) return;
+
+    // Clear the timeout
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+
+    // Restore all deleted files
+    const filesToRestore = [...deletedFilesRef.current];
+    deletedFilesRef.current = [];
+
+    try {
+      for (const file of filesToRestore) {
+        await createFileMutation.mutateAsync({
+          title: file.title,
+          filename: file.filename,
+          description: file.description,
+          mimeType: file.mimeType,
+          fileSize: file.fileSize,
+          fileKey: file.fileKey,
+          url: file.url,
+        });
+      }
+      toast.success(`Restored ${filesToRestore.length} file(s)`);
+    } catch (error: any) {
+      toast.error(`Failed to restore files: ${error.message}`);
+    }
+  };
+
   const handleBatchDelete = () => {
+    // Store deleted files for undo
+    const filesToDelete = files.filter((f: any) => selectedFiles.has(f.id));
+    deletedFilesRef.current = filesToDelete.map((f: any) => ({
+      id: f.id,
+      title: f.title,
+      filename: f.filename,
+      description: f.description,
+      mimeType: f.mimeType,
+      fileSize: f.fileSize,
+      fileKey: f.fileKey,
+      url: f.url,
+      enrichmentStatus: f.enrichmentStatus,
+      userId: f.userId,
+    }));
+
+    // Delete files
     selectedFiles.forEach((fileId) => {
       deleteMutation.mutate({ id: fileId });
     });
+
+    setDeleteDialogOpen(false);
+    setSelectedFiles(new Set());
+
+    // Show undo toast
+    toast.success(`Deleted ${filesToDelete.length} file(s)`, {
+      action: {
+        label: "Undo",
+        onClick: handleUndo,
+      },
+      duration: 10000, // 10 seconds to undo
+    });
+
+    // Set timeout to clear deleted files after 10 seconds
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+    }
+    undoTimeoutRef.current = setTimeout(() => {
+      deletedFilesRef.current = [];
+      undoTimeoutRef.current = null;
+    }, 10000);
   };
 
   const handleBatchTag = () => {
@@ -243,6 +329,47 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
     <div className="flex gap-6">
       {/* Main Content */}
       <div className="flex-1 space-y-4">
+        {/* Collection Filter */}
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">Filter by Collection:</label>
+          <Select
+            value={filterCollectionId?.toString() || "all"}
+            onValueChange={(value) => {
+              if (value === "all") setFilterCollectionId(null);
+              else if (value === "none") setFilterCollectionId(-1);
+              else setFilterCollectionId(parseInt(value));
+            }}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="All Collections" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Collections</SelectItem>
+              <SelectItem value="none">No Collection</SelectItem>
+              {collections?.map((collection: any) => (
+                <SelectItem key={collection.id} value={collection.id.toString()}>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: collection.color || "#6366f1" }}
+                    />
+                    {collection.name}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {filterCollectionId !== null && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilterCollectionId(null)}
+            >
+              Clear Filter
+            </Button>
+          )}
+        </div>
+
         {/* Batch Actions Toolbar */}
         {selectedFiles.size > 0 && (
           <Card className="p-4">
@@ -255,28 +382,52 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                   variant="outline"
                   size="sm"
                   onClick={() => setTagDialogOpen(true)}
+                  disabled={linkTagMutation.isPending}
                 >
-                  <Tag className="h-4 w-4 mr-2" />
+                  {linkTagMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Tag className="h-4 w-4 mr-2" />
+                  )}
                   Add Tag
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setCollectionDialogOpen(true)}
+                  disabled={bulkAddToCollectionMutation.isPending}
                 >
-                  <FolderPlus className="h-4 w-4 mr-2" />
+                  {bulkAddToCollectionMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <FolderPlus className="h-4 w-4 mr-2" />
+                  )}
                   Add to Collection
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleBatchEnrich}>
-                  <Sparkles className="h-4 w-4 mr-2" />
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleBatchEnrich}
+                  disabled={enrichMutation.isPending}
+                >
+                  {enrichMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4 mr-2" />
+                  )}
                   Enrich
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setDeleteDialogOpen(true)}
+                  disabled={deleteMutation.isPending}
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  {deleteMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
                   Delete
                 </Button>
               </div>
@@ -348,35 +499,29 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                         <span>•</span>
                         <span
                           className={
-                            file.enrichmentStatus === "completed"
+                            file.enrichmentStatus === "enriched"
                               ? "text-green-500"
-                              : file.enrichmentStatus === "failed"
-                              ? "text-red-500"
                               : "text-yellow-500"
                           }
                         >
-                          {file.enrichmentStatus === "completed"
+                          {file.enrichmentStatus === "enriched"
                             ? "Enriched"
-                            : file.enrichmentStatus === "failed"
-                            ? "Failed"
                             : "Not Enriched"}
                         </span>
                       </div>
 
-                      {/* Collection Badges */}
                       {fileCollections.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
-                          {fileCollections.map((col: any) => (
+                          {fileCollections.map((collection: any) => (
                             <div
-                              key={col.id}
-                              className="flex items-center gap-1 px-2 py-1 rounded text-xs"
-                              style={{
-                                backgroundColor: `${col.color}20`,
-                                color: col.color,
-                              }}
+                              key={collection.id}
+                              className="flex items-center gap-1 px-2 py-1 bg-muted rounded text-xs"
                             >
-                              <Folder className="h-3 w-3" />
-                              {col.name}
+                              <Folder
+                                className="h-3 w-3"
+                                style={{ color: collection.color || "#6366f1" }}
+                              />
+                              <span>{collection.name}</span>
                             </div>
                           ))}
                         </div>
@@ -439,7 +584,7 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {selectedFiles.size} files?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. The files will be permanently deleted.
+              You can undo this action within 10 seconds after deletion.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -494,48 +639,9 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
             <DialogDescription>
               Select a collection to add all selected files
             </DialogDescription>
-          </DialogHeader>  return (
-    <div className="space-y-4">
-      {/* Collection Filter */}
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-medium">Filter by Collection:</label>
-        <Select
-          value={filterCollectionId?.toString() || "all"}
-          onValueChange={(value) => {
-            if (value === "all") setFilterCollectionId(null);
-            else if (value === "none") setFilterCollectionId(-1);
-            else setFilterCollectionId(parseInt(value));
-          }}
-        >
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="All Collections" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Collections</SelectItem>
-            <SelectItem value="none">No Collection</SelectItem>
-            {collections?.map((collection) => (
-              <SelectItem key={collection.id} value={collection.id.toString()}>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: collection.color || "#6366f1" }}
-                  />
-                  {collection.name}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {filterCollectionId !== null && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setFilterCollectionId(null)}
-          >
-            Clear Filter
-          </Button>
-        )}
-      </div>         <Select
+          </DialogHeader>
+          <div className="space-y-4">
+            <Select
               value={selectedCollectionId}
               onValueChange={setSelectedCollectionId}
             >
