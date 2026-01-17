@@ -18,8 +18,9 @@ import {
   X,
   Plus,
   Download,
+  Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
 
@@ -29,6 +30,17 @@ interface FileDetailDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface DeletedFile {
+  id: number;
+  title: string | null;
+  filename: string;
+  description: string | null;
+  mimeType: string;
+  fileSize: number;
+  fileKey: string;
+  url: string;
+}
+
 export function FileDetailDialog({
   fileId,
   open,
@@ -36,6 +48,8 @@ export function FileDetailDialog({
 }: FileDetailDialogProps) {
   const [newTagName, setNewTagName] = useState("");
   const [isAddingTag, setIsAddingTag] = useState(false);
+  const deletedFileRef = useRef<DeletedFile | null>(null);
+  const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: file, isLoading, refetch } = trpc.files.get.useQuery(
     { id: fileId! },
@@ -47,6 +61,9 @@ export function FileDetailDialog({
   const createTagMutation = trpc.tags.create.useMutation();
   const linkTagMutation = trpc.tags.linkToFile.useMutation();
   const unlinkTagMutation = trpc.tags.unlinkFromFile.useMutation();
+  const deleteMutation = trpc.files.delete.useMutation();
+  const createFileMutation = trpc.files.create.useMutation();
+  const utils = trpc.useUtils();
 
   const { data: allTags } = trpc.tags.list.useQuery();
 
@@ -103,6 +120,75 @@ export function FileDetailDialog({
       refetch();
     } catch (error) {
       toast.error("Failed to link tag");
+    }
+  };
+
+  const handleUndo = async () => {
+    if (!deletedFileRef.current) return;
+
+    // Clear the timeout
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+
+    const fileToRestore = deletedFileRef.current;
+    deletedFileRef.current = null;
+
+    try {
+      await createFileMutation.mutateAsync({
+        title: fileToRestore.title || "",
+        filename: fileToRestore.filename,
+        description: fileToRestore.description || "",
+        mimeType: fileToRestore.mimeType,
+        fileSize: fileToRestore.fileSize,
+        fileKey: fileToRestore.fileKey,
+        url: fileToRestore.url,
+      });
+      toast.success("File restored");
+      utils.files.list.invalidate();
+    } catch (error: any) {
+      toast.error(`Failed to restore file: ${error.message}`);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!file || !fileId) return;
+
+    // Store file data for undo
+    deletedFileRef.current = {
+      id: file.id,
+      title: file.title,
+      filename: file.filename,
+      description: file.description,
+      mimeType: file.mimeType,
+      fileSize: file.fileSize,
+      fileKey: file.fileKey,
+      url: file.url,
+    };
+
+    try {
+      await deleteMutation.mutateAsync({ id: fileId });
+      onOpenChange(false);
+      toast.success("File deleted", {
+        action: {
+          label: "Undo",
+          onClick: handleUndo,
+        },
+        duration: 10000,
+      });
+      utils.files.list.invalidate();
+
+      // Set timeout to clear deleted file after 10 seconds
+      if (undoTimeoutRef.current) {
+        clearTimeout(undoTimeoutRef.current);
+      }
+      undoTimeoutRef.current = setTimeout(() => {
+        deletedFileRef.current = null;
+        undoTimeoutRef.current = null;
+      }, 10000);
+    } catch (error) {
+      toast.error("Failed to delete file");
     }
   };
 
@@ -359,12 +445,27 @@ export function FileDetailDialog({
 
               {/* Actions */}
               <div className="flex justify-between pt-4 border-t">
-                <Button variant="outline" asChild>
-                  <a href={file.url} download target="_blank" rel="noopener noreferrer">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </a>
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" asChild>
+                    <a href={file.url} download target="_blank" rel="noopener noreferrer">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </a>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleDelete}
+                    disabled={deleteMutation.isPending}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    {deleteMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4 mr-2" />
+                    )}
+                    Delete
+                  </Button>
+                </div>
                 <Button onClick={() => onOpenChange(false)}>Close</Button>
               </div>
             </div>

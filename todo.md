@@ -211,3 +211,14 @@
 - [x] Add toast notification with undo button
 - [x] Test undo functionality with various operations
 - [x] Add loading states to all batch operations
+
+## Phase 21: Advanced UX Enhancements
+- [x] Add undo functionality to individual file delete in file detail view
+- [x] Implement "Create New Collection" option in filter dropdown
+- [x] Add keyboard shortcut: Ctrl+A for select all files
+- [x] Add keyboard shortcut: Delete key for bulk delete
+- [x] Add keyboard shortcut: Ctrl+Z for undo last action
+- [x] Add keyboard shortcut: Escape to clear selection
+- [x] Test all keyboard shortcuts
+- [x] Test undo on individual file delete
+- [x] Test quick collection creation workflow

@@ -1,8 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   FileImage,
   FileText,
@@ -14,6 +16,7 @@ import {
   Sparkles,
   Folder,
   FolderPlus,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -66,10 +69,13 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [collectionDialogOpen, setCollectionDialogOpen] = useState(false);
+  const [createCollectionDialogOpen, setCreateCollectionDialogOpen] = useState(false);
   const [selectedTagId, setSelectedTagId] = useState<string>("");
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [draggedFileId, setDraggedFileId] = useState<number | null>(null);
   const [dragOverCollectionId, setDragOverCollectionId] = useState<number | null>(null);
+  const [newCollectionName, setNewCollectionName] = useState("");
+  const [newCollectionColor, setNewCollectionColor] = useState("#6366f1");
   const deletedFilesRef = useRef<DeletedFile[]>([]);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -124,7 +130,65 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
     },
   });
 
+  const createCollectionMutation = trpc.collections.create.useMutation({
+    onSuccess: () => {
+      utils.collections.list.invalidate();
+      toast.success("Collection created");
+      setCreateCollectionDialogOpen(false);
+      setNewCollectionName("");
+      setNewCollectionColor("#6366f1");
+    },
+  });
+
   const files = filesData || [];
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input field
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // Ctrl+A or Cmd+A: Select all files
+      if ((e.ctrlKey || e.metaKey) && e.key === "a") {
+        e.preventDefault();
+        if (files.length > 0) {
+          setSelectedFiles(new Set(files.map((f: any) => f.id)));
+          toast.success(`Selected all ${files.length} files`);
+        }
+      }
+
+      // Delete key: Open delete dialog for selected files
+      if (e.key === "Delete" && selectedFiles.size > 0) {
+        e.preventDefault();
+        setDeleteDialogOpen(true);
+      }
+
+      // Ctrl+Z or Cmd+Z: Undo last delete
+      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        e.preventDefault();
+        if (deletedFilesRef.current.length > 0) {
+          handleUndo();
+        }
+      }
+
+      // Escape: Clear selection
+      if (e.key === "Escape" && selectedFiles.size > 0) {
+        e.preventDefault();
+        setSelectedFiles(new Set());
+        toast.success("Selection cleared");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [files, selectedFiles]);
 
   const toggleFile = (fileId: number) => {
     const newSelected = new Set(selectedFiles);
@@ -265,6 +329,18 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
     });
   };
 
+  const handleCreateCollection = () => {
+    if (!newCollectionName.trim()) {
+      toast.error("Please enter a collection name");
+      return;
+    }
+
+    createCollectionMutation.mutate({
+      name: newCollectionName.trim(),
+      color: newCollectionColor,
+    });
+  };
+
   const handleDragStart = (e: React.DragEvent, fileId: number) => {
     setDraggedFileId(fileId);
     e.dataTransfer.effectAllowed = "move";
@@ -337,6 +413,7 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
             onValueChange={(value) => {
               if (value === "all") setFilterCollectionId(null);
               else if (value === "none") setFilterCollectionId(-1);
+              else if (value === "create") setCreateCollectionDialogOpen(true);
               else setFilterCollectionId(parseInt(value));
             }}
           >
@@ -357,6 +434,12 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                   </div>
                 </SelectItem>
               ))}
+              <SelectItem value="create">
+                <div className="flex items-center gap-2 text-primary font-medium">
+                  <Plus className="h-4 w-4" />
+                  Create New Collection
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
           {filterCollectionId !== null && (
@@ -368,6 +451,15 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
               Clear Filter
             </Button>
           )}
+        </div>
+
+        {/* Keyboard Shortcuts Hint */}
+        <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-2 rounded-md">
+          <span className="font-medium">Keyboard shortcuts:</span>{" "}
+          <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs">Ctrl+A</kbd> Select all,{" "}
+          <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs">Delete</kbd> Delete selected,{" "}
+          <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs">Ctrl+Z</kbd> Undo,{" "}
+          <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs">Esc</kbd> Clear selection
         </div>
 
         {/* Batch Actions Toolbar */}
@@ -671,6 +763,70 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
               Cancel
             </Button>
             <Button onClick={handleBatchAddToCollection}>Add to Collection</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Collection Dialog */}
+      <Dialog open={createCollectionDialogOpen} onOpenChange={setCreateCollectionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Collection</DialogTitle>
+            <DialogDescription>
+              Create a new collection to organize your files
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="collection-name">Collection Name</Label>
+              <Input
+                id="collection-name"
+                value={newCollectionName}
+                onChange={(e) => setNewCollectionName(e.target.value)}
+                placeholder="Enter collection name"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreateCollection();
+                }}
+              />
+            </div>
+            <div>
+              <Label htmlFor="collection-color">Collection Color</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="collection-color"
+                  type="color"
+                  value={newCollectionColor}
+                  onChange={(e) => setNewCollectionColor(e.target.value)}
+                  className="w-20 h-10"
+                />
+                <span className="text-sm text-muted-foreground">
+                  {newCollectionColor}
+                </span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCreateCollectionDialogOpen(false);
+                setNewCollectionName("");
+                setNewCollectionColor("#6366f1");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateCollection}
+              disabled={createCollectionMutation.isPending}
+            >
+              {createCollectionMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
+              Create Collection
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
