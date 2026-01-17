@@ -194,3 +194,7 @@
 - [ ] Add template editing and deletion
 - [ ] Create default templates library
 - [ ] Test template workflows
+
+
+## Bug Fixes
+- [x] Fix nested anchor tag error in navigation or file grid

@@ -61,11 +61,9 @@ export default function Dashboard() {
       <header className="border-b border-border bg-card sticky top-0 z-50">
         <div className="container flex items-center justify-between h-16">
           <div className="flex items-center gap-8">
-            <Link href="/">
-              <a className="flex items-center gap-2 font-bold text-xl">
-                <Sparkles className="h-6 w-6 text-primary" />
-                MetaClips
-              </a>
+            <Link href="/" className="flex items-center gap-2 font-bold text-xl">
+              <Sparkles className="h-6 w-6 text-primary" />
+              MetaClips
             </Link>
             
             <nav className="hidden md:flex items-center gap-1">
