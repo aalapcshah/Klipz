@@ -1,4 +1,9 @@
 import { useState, useRef, useEffect } from "react";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { trpc } from "@/lib/trpc";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,6 +81,10 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
   const [dragOverCollectionId, setDragOverCollectionId] = useState<number | null>(null);
   const [newCollectionName, setNewCollectionName] = useState("");
   const [newCollectionColor, setNewCollectionColor] = useState("#6366f1");
+  const [newTagName, setNewTagName] = useState("");
+  const [isCreatingNewTag, setIsCreatingNewTag] = useState(false);
+  const [sortBy, setSortBy] = useState<"date" | "size" | "enrichment">("date");
+  const [filterType, setFilterType] = useState<"all" | "image" | "video" | "document">("all");
   const deletedFilesRef = useRef<DeletedFile[]>([]);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -140,7 +149,50 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
     },
   });
 
-  const files = filesData || [];
+  const createTagMutation = trpc.tags.create.useMutation({
+    onSuccess: (newTag) => {
+      utils.tags.list.invalidate();
+      toast.success("Tag created");
+      setSelectedTagId(newTag.id.toString());
+      setIsCreatingNewTag(false);
+      setNewTagName("");
+    },
+  });
+
+  let files = filesData || [];
+
+  // Apply file type filter
+  if (filterType !== "all") {
+    files = files.filter((file: any) => {
+      if (filterType === "image") return file.mimeType.startsWith("image/");
+      if (filterType === "video") return file.mimeType.startsWith("video/");
+      if (filterType === "document")
+        return (
+          file.mimeType.includes("pdf") ||
+          file.mimeType.includes("document") ||
+          file.mimeType.includes("text")
+        );
+      return true;
+    });
+  }
+
+  // Apply sorting
+  files = [...files].sort((a: any, b: any) => {
+    if (sortBy === "date") {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }
+    if (sortBy === "size") {
+      return b.fileSize - a.fileSize;
+    }
+    if (sortBy === "enrichment") {
+      if (a.enrichmentStatus === "enriched" && b.enrichmentStatus !== "enriched")
+        return -1;
+      if (a.enrichmentStatus !== "enriched" && b.enrichmentStatus === "enriched")
+        return 1;
+      return 0;
+    }
+    return 0;
+  });
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -296,6 +348,18 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
     });
   };
 
+  const handleCreateTag = () => {
+    if (!newTagName.trim()) {
+      toast.error("Please enter a tag name");
+      return;
+    }
+
+    createTagMutation.mutate({
+      name: newTagName.trim(),
+      source: "manual",
+    });
+  };
+
   const handleBatchEnrich = () => {
     selectedFiles.forEach((fileId) => {
       enrichMutation.mutate({ id: fileId });
@@ -405,8 +469,10 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
     <div className="flex gap-6">
       {/* Main Content */}
       <div className="flex-1 space-y-4">
-        {/* Collection Filter */}
-        <div className="flex items-center gap-2">
+        {/* Filters and Sort */}
+        <div className="flex items-center gap-4 flex-wrap">
+          {/* Collection Filter */}
+          <div className="flex items-center gap-2">
           <label className="text-sm font-medium">Filter by Collection:</label>
           <Select
             value={filterCollectionId?.toString() || "all"}
@@ -451,6 +517,38 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
               Clear Filter
             </Button>
           )}
+          </div>
+
+          {/* File Type Filter */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">File Type:</label>
+            <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="image">Images</SelectItem>
+                <SelectItem value="video">Videos</SelectItem>
+                <SelectItem value="document">Documents</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Sort By */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Sort By:</label>
+            <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date">Date Added</SelectItem>
+                <SelectItem value="size">File Size</SelectItem>
+                <SelectItem value="enrichment">Enrichment Status</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Keyboard Shortcuts Hint */}
@@ -553,15 +651,17 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
             {files.map((file: any) => {
               const fileCollections = getFileCollections(file.id);
               return (
-                <Card
-                  key={file.id}
-                  className={`p-4 hover:border-primary/50 transition-colors cursor-pointer ${
-                    draggedFileId === file.id ? "opacity-50" : ""
-                  }`}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, file.id)}
-                  onDragEnd={handleDragEnd}
-                >
+                <HoverCard openDelay={300} closeDelay={100}>
+                  <HoverCardTrigger asChild>
+                    <Card
+                      key={file.id}
+                      className={`p-4 hover:border-primary/50 transition-colors cursor-pointer ${
+                        draggedFileId === file.id ? "opacity-50" : ""
+                      }`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, file.id)}
+                      onDragEnd={handleDragEnd}
+                    >
                   <div className="flex items-start gap-3">
                     <Checkbox
                       checked={selectedFiles.has(file.id)}
@@ -633,7 +733,58 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                       )}
                     </div>
                   </div>
-                </Card>
+                    </Card>
+                  </HoverCardTrigger>
+                  <HoverCardContent side="right" className="w-80">
+                    <div className="space-y-2">
+                      {file.mimeType.startsWith("image/") ? (
+                        <img
+                          src={file.url}
+                          alt={file.title || file.filename}
+                          className="w-full h-48 object-contain bg-muted rounded"
+                        />
+                      ) : file.mimeType.startsWith("video/") ? (
+                        <video
+                          src={file.url}
+                          className="w-full h-48 object-contain bg-muted rounded"
+                          controls={false}
+                        />
+                      ) : (
+                        <div className="w-full h-48 flex items-center justify-center bg-muted rounded">
+                          {getFileIcon(file.mimeType)}
+                          <span className="ml-2 text-sm text-muted-foreground">
+                            {file.mimeType.split("/")[1]?.toUpperCase() || "FILE"}
+                          </span>
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="font-semibold text-sm">
+                          {file.title || file.filename}
+                        </h4>
+                        {file.description && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {file.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                          <span>{formatFileSize(file.fileSize)}</span>
+                          <span>•</span>
+                          <span
+                            className={
+                              file.enrichmentStatus === "enriched"
+                                ? "text-green-500"
+                                : "text-yellow-500"
+                            }
+                          >
+                            {file.enrichmentStatus === "enriched"
+                              ? "Enriched"
+                              : "Not Enriched"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
               );
             })}
           </div>
@@ -697,28 +848,98 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
           <DialogHeader>
             <DialogTitle>Add Tag to {selectedFiles.size} Files</DialogTitle>
             <DialogDescription>
-              Select a tag to add to all selected files
+              {isCreatingNewTag
+                ? "Create a new tag and add it to all selected files"
+                : "Select a tag to add to all selected files"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <Select value={selectedTagId} onValueChange={setSelectedTagId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a tag" />
-              </SelectTrigger>
-              <SelectContent>
-                {tags.map((tag: any) => (
-                  <SelectItem key={tag.id} value={tag.id.toString()}>
-                    {tag.name}
+            {isCreatingNewTag ? (
+              <div className="space-y-2">
+                <Label htmlFor="new-tag-name">Tag Name</Label>
+                <Input
+                  id="new-tag-name"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  placeholder="Enter tag name"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleCreateTag();
+                  }}
+                />
+              </div>
+            ) : (
+              <Select
+                value={selectedTagId}
+                onValueChange={(value) => {
+                  if (value === "create-new") {
+                    setIsCreatingNewTag(true);
+                  } else {
+                    setSelectedTagId(value);
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a tag" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tags.map((tag: any) => (
+                    <SelectItem key={tag.id} value={tag.id.toString()}>
+                      {tag.name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="create-new">
+                    <div className="flex items-center gap-2 text-primary font-medium">
+                      <Plus className="h-4 w-4" />
+                      Create New Tag
+                    </div>
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                </SelectContent>
+              </Select>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTagDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleBatchTag}>Add Tag</Button>
+            <div className="flex justify-between w-full">
+              <div>
+                {isCreatingNewTag && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setIsCreatingNewTag(false);
+                      setNewTagName("");
+                    }}
+                  >
+                    Back
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setTagDialogOpen(false);
+                    setIsCreatingNewTag(false);
+                    setNewTagName("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                {isCreatingNewTag ? (
+                  <Button
+                    onClick={handleCreateTag}
+                    disabled={createTagMutation.isPending}
+                  >
+                    {createTagMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4 mr-2" />
+                    )}
+                    Create Tag
+                  </Button>
+                ) : (
+                  <Button onClick={handleBatchTag}>Add Tag</Button>
+                )}
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -222,3 +222,15 @@
 - [x] Test all keyboard shortcuts
 - [x] Test undo on individual file delete
 - [x] Test quick collection creation workflow
+
+## Phase 22: File Discovery & Batch Operations Enhancements
+- [x] Add "Create New Tag" option in batch tag dialog
+- [x] Implement tag creation form in batch tag dialog
+- [x] Add file preview on hover functionality
+- [x] Implement thumbnail preview component
+- [x] Add sort dropdown (by date, size, enrichment status)
+- [x] Add file type filter (images, videos, documents, all)
+- [x] Implement sort logic in backend or frontend
+- [x] Test bulk tag creation workflow
+- [x] Test hover preview functionality
+- [x] Test sort and filter controls
