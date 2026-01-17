@@ -247,3 +247,7 @@
 - [x] Test batch metadata editing workflow
 - [x] Test advanced search with filters
 - [x] Test file comparison view
+
+## Bug Fixes - React Errors
+- [x] Fix missing key prop error in FileGridEnhanced file list
+- [x] Fix nested anchor tag issue in file cards

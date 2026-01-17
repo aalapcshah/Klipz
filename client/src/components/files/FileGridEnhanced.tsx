@@ -854,17 +854,17 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
             {files.map((file: any) => {
               const fileCollections = getFileCollections(file.id);
               return (
-                <HoverCard openDelay={300} closeDelay={100}>
+                <HoverCard key={file.id} openDelay={300} closeDelay={100}>
                   <HoverCardTrigger asChild>
-                    <Card
-                      key={file.id}
-                      className={`p-4 hover:border-primary/50 transition-colors cursor-pointer ${
-                        draggedFileId === file.id ? "opacity-50" : ""
-                      }`}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, file.id)}
-                      onDragEnd={handleDragEnd}
-                    >
+                    <div>
+                      <Card
+                        className={`p-4 hover:border-primary/50 transition-colors cursor-pointer ${
+                          draggedFileId === file.id ? "opacity-50" : ""
+                        }`}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, file.id)}
+                        onDragEnd={handleDragEnd}
+                      >
                   <div className="flex items-start gap-3">
                     {compareMode ? (
                       <Checkbox
@@ -944,7 +944,8 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                       )}
                     </div>
                   </div>
-                    </Card>
+                      </Card>
+                    </div>
                   </HoverCardTrigger>
                   <HoverCardContent side="right" className="w-80">
                     <div className="space-y-2">
