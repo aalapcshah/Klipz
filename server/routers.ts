@@ -11,6 +11,69 @@ import { nanoid } from "nanoid";
 import { exportVideoWithAnnotations } from "./videoExport";
 
 export const appRouter = router({
+  metadataTemplates: router({
+    list: protectedProcedure.query(({ ctx }) => db.getMetadataTemplatesByUser(ctx.user.id)),
+    
+    trackUsage: protectedProcedure
+      .input(
+        z.object({
+          title: z.string().nullable(),
+          description: z.string().nullable(),
+          fileType: z.string(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        await db.trackMetadataUsage(ctx.user.id, input.title, input.description, input.fileType);
+        return { success: true };
+      }),
+    
+    getSuggestions: protectedProcedure
+      .input(
+        z.object({
+          fileType: z.string(),
+          limit: z.number().optional(),
+        })
+      )
+      .query(async ({ ctx, input }) => {
+        return db.getMetadataSuggestions(ctx.user.id, input.fileType, input.limit);
+      }),
+    
+    create: protectedProcedure
+      .input(
+        z.object({
+          name: z.string(),
+          titlePattern: z.string().optional(),
+          descriptionPattern: z.string().optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        return db.createMetadataTemplate({
+          ...input,
+          userId: ctx.user.id,
+        });
+      }),
+    
+    update: protectedProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          name: z.string().optional(),
+          titlePattern: z.string().optional(),
+          descriptionPattern: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        return db.updateMetadataTemplate(input.id, input);
+      }),
+    
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.deleteMetadataTemplate(input.id);
+        return { success: true };
+      }),
+  }),
+  
   savedSearches: router({
     list: protectedProcedure.query(({ ctx }) => db.getSavedSearchesByUser(ctx.user.id)),
     

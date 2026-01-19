@@ -50,6 +50,8 @@ export function FileUploadDialog({
   const [bulkEditMode, setBulkEditMode] = useState(false);
   const [bulkTitle, setBulkTitle] = useState("");
   const [bulkDescription, setBulkDescription] = useState("");
+  const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -86,18 +88,72 @@ export function FileUploadDialog({
   const applyTemplate = (templateKey: string) => {
     if (!templateKey || templateKey === "") return;
     
-    const template = metadataTemplates[templateKey as keyof typeof metadataTemplates];
-    if (!template) return;
-
-    setFiles((prev) =>
-      prev.map((f) => ({
-        ...f,
-        title: f.title || template.titlePattern,
-        description: f.description || template.descriptionPattern,
-      }))
-    );
-
-    toast.success(`Applied "${template.name}" template to all files`);
+    // Check preset templates first
+    const presetTemplate = metadataTemplates[templateKey as keyof typeof metadataTemplates];
+    if (presetTemplate) {
+      setFiles((prev) =>
+        prev.map((f) => ({
+          ...f,
+          title: f.title || presetTemplate.titlePattern,
+          description: f.description || presetTemplate.descriptionPattern,
+        }))
+      );
+      toast.success(`Applied "${presetTemplate.name}" template to all files`);
+      return;
+    }
+    
+    // Check custom templates
+    const customTemplate = customTemplates.find(t => t.id.toString() === templateKey);
+    if (customTemplate) {
+      setFiles((prev) =>
+        prev.map((f) => ({
+          ...f,
+          title: f.title || customTemplate.titlePattern || "",
+          description: f.description || customTemplate.descriptionPattern || "",
+        }))
+      );
+      toast.success(`Applied "${customTemplate.name}" template to all files`);
+    }
+  };
+  
+  const saveAsTemplate = async () => {
+    if (!newTemplateName.trim()) {
+      toast.error("Please enter a template name");
+      return;
+    }
+    
+    if (files.length === 0) {
+      toast.error("No files to save as template");
+      return;
+    }
+    
+    // Use the first file's metadata as the template
+    const firstFile = files[0];
+    
+    try {
+      await createTemplateMutation.mutateAsync({
+        name: newTemplateName,
+        titlePattern: firstFile.title || "",
+        descriptionPattern: firstFile.description || "",
+      });
+      
+      await refetchTemplates();
+      toast.success(`Template "${newTemplateName}" saved successfully`);
+      setShowSaveTemplateDialog(false);
+      setNewTemplateName("");
+    } catch (error) {
+      toast.error("Failed to save template");
+    }
+  };
+  
+  const deleteTemplate = async (templateId: number, templateName: string) => {
+    try {
+      await deleteTemplateMutation.mutateAsync({ id: templateId });
+      await refetchTemplates();
+      toast.success(`Template "${templateName}" deleted`);
+    } catch (error) {
+      toast.error("Failed to delete template");
+    }
   };
 
   const applyBulkEdit = () => {
@@ -118,8 +174,21 @@ export function FileUploadDialog({
   const transcribeVoiceMutation = trpc.files.transcribeVoice.useMutation();
   const enrichMutation = trpc.files.enrich.useMutation();
   const createTagMutation = trpc.tags.create.useMutation();
+  
+  // Custom templates
+  const { data: customTemplates = [], refetch: refetchTemplates } = trpc.metadataTemplates.list.useQuery();
+  const createTemplateMutation = trpc.metadataTemplates.create.useMutation();
+  const deleteTemplateMutation = trpc.metadataTemplates.delete.useMutation();
+  const trackUsageMutation = trpc.metadataTemplates.trackUsage.useMutation();
   const linkTagMutation = trpc.tags.linkToFile.useMutation();
-  const { data: existingTags = [] } = trpc.tags.list.useQuery(); 
+  const { data: existingTags = [] } = trpc.tags.list.useQuery();
+  
+  // Get metadata suggestions based on file type
+  const fileType = files.length > 0 ? files[0].file.type.split('/')[0] : '';
+  const { data: metadataSuggestions = [] } = trpc.metadataTemplates.getSuggestions.useQuery(
+    { fileType, limit: 3 },
+    { enabled: files.length > 0 && fileType.length > 0 }
+  ); 
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -403,6 +472,17 @@ export function FileUploadDialog({
 
           clearInterval(progressInterval);
           updateFileMetadata(i, { uploadStatus: 'completed', uploadProgress: 100 });
+          
+          // Track metadata usage for future suggestions
+          try {
+            await trackUsageMutation.mutateAsync({
+              title: extractedTitle,
+              description: extractedDescription,
+              fileType: fileData.file.type.split('/')[0], // image, video, application, etc.
+            });
+          } catch (error) {
+            console.log("Failed to track metadata usage:", error);
+          }
 
           // Auto-tag based on extracted keywords
           if (extractedKeywords.length > 0) {
@@ -463,6 +543,7 @@ export function FileUploadDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -519,11 +600,30 @@ export function FileUploadDialog({
                     <SelectItem value="none">No template</SelectItem>
                     {Object.entries(metadataTemplates).map(([key, template]) => (
                       <SelectItem key={key} value={key}>
-                        {template.name}
+                        📋 {template.name}
                       </SelectItem>
                     ))}
+                    {customTemplates.length > 0 && (
+                      <>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Custom Templates</div>
+                        {customTemplates.map((template) => (
+                          <SelectItem key={template.id} value={template.id.toString()}>
+                            ⭐ {template.name}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowSaveTemplateDialog(true)}
+                  disabled={files.length === 0}
+                  title="Save current metadata as template"
+                >
+                  💾
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -573,6 +673,45 @@ export function FileUploadDialog({
                   <Button onClick={applyBulkEdit} className="w-full">
                     Apply to All {files.length} Files
                   </Button>
+                </div>
+              </div>
+            )}
+            
+            {/* Metadata Suggestions from History */}
+            {metadataSuggestions.length > 0 && (
+              <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 space-y-3 border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-blue-600" />
+                  <h4 className="font-semibold text-blue-900 dark:text-blue-100">Suggested Metadata</h4>
+                  <span className="text-xs text-blue-600 dark:text-blue-400">Based on your previous uploads</span>
+                </div>
+                <div className="space-y-2">
+                  {metadataSuggestions.map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setFiles((prev) =>
+                          prev.map((f) => ({
+                            ...f,
+                            title: f.title || suggestion.title || "",
+                            description: f.description || suggestion.description || "",
+                          }))
+                        );
+                        toast.success("Applied suggested metadata");
+                      }}
+                      className="w-full text-left p-3 rounded-md bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-gray-200 dark:border-gray-700 transition-colors"
+                    >
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {suggestion.title || "(No title)"}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+                        {suggestion.description || "(No description)"}
+                      </div>
+                      <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                        Used {suggestion.usageCount} time{suggestion.usageCount !== 1 ? 's' : ''}
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -786,5 +925,51 @@ export function FileUploadDialog({
         </div>
       </DialogContent>
     </Dialog>
+    
+    {/* Save Template Dialog */}
+    <Dialog open={showSaveTemplateDialog} onOpenChange={setShowSaveTemplateDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Save as Template</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Save the current metadata (title and description) as a reusable template.
+          </p>
+          <div>
+            <Label htmlFor="template-name">Template Name</Label>
+            <Input
+              id="template-name"
+              value={newTemplateName}
+              onChange={(e) => setNewTemplateName(e.target.value)}
+              placeholder="e.g., Product Photos, Meeting Notes"
+              onKeyDown={(e) => e.key === 'Enter' && saveAsTemplate()}
+            />
+          </div>
+          <div className="bg-accent/10 rounded-lg p-3 space-y-2">
+            <div className="text-sm font-medium">Preview:</div>
+            <div className="text-xs space-y-1">
+              <div>
+                <span className="text-muted-foreground">Title: </span>
+                <span>{files[0]?.title || "(empty)"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Description: </span>
+                <span>{files[0]?.description || "(empty)"}</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowSaveTemplateDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveAsTemplate} disabled={!newTemplateName.trim()}>
+              Save Template
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

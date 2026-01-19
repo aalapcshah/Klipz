@@ -22,6 +22,10 @@ import {
   InsertCollectionFile,
   fileVersions,
   InsertFileVersion,
+  metadataTemplates,
+  InsertMetadataTemplate,
+  metadataHistory,
+  InsertMetadataHistory,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -721,4 +725,109 @@ export async function getFileVersionById(versionId: number) {
     .limit(1);
   
   return result[0] || null;
+}
+
+
+// ============= METADATA TEMPLATES =============
+
+export async function getMetadataTemplatesByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db
+    .select()
+    .from(metadataTemplates)
+    .where(eq(metadataTemplates.userId, userId))
+    .orderBy(desc(metadataTemplates.createdAt));
+}
+
+export async function createMetadataTemplate(template: InsertMetadataTemplate) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.insert(metadataTemplates).values(template);
+  return Number((result as any).insertId);
+}
+
+export async function updateMetadataTemplate(
+  id: number,
+  updates: Partial<InsertMetadataTemplate>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db
+    .update(metadataTemplates)
+    .set(updates)
+    .where(eq(metadataTemplates.id, id));
+}
+
+export async function deleteMetadataTemplate(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.delete(metadataTemplates).where(eq(metadataTemplates.id, id));
+}
+
+// ============= METADATA HISTORY =============
+
+export async function trackMetadataUsage(
+  userId: number,
+  title: string | null,
+  description: string | null,
+  fileType: string
+) {
+  const db = await getDb();
+  if (!db) return;
+  
+  // Check if this exact metadata combination exists
+  const existing = await db
+    .select()
+    .from(metadataHistory)
+    .where(
+      and(
+        eq(metadataHistory.userId, userId),
+        eq(metadataHistory.title, title || ""),
+        eq(metadataHistory.description, description || ""),
+        eq(metadataHistory.fileType, fileType)
+      )
+    )
+    .limit(1);
+  
+  if (existing.length > 0) {
+    // Increment usage count
+    await db
+      .update(metadataHistory)
+      .set({
+        usageCount: sql`${metadataHistory.usageCount} + 1`,
+        lastUsedAt: new Date(),
+      })
+      .where(eq(metadataHistory.id, existing[0].id));
+  } else {
+    // Create new history entry
+    await db.insert(metadataHistory).values({
+      userId,
+      title,
+      description,
+      fileType,
+      usageCount: 1,
+    });
+  }
+}
+
+export async function getMetadataSuggestions(userId: number, fileType: string, limit: number = 5) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db
+    .select()
+    .from(metadataHistory)
+    .where(
+      and(
+        eq(metadataHistory.userId, userId),
+        eq(metadataHistory.fileType, fileType)
+      )
+    )
+    .orderBy(desc(metadataHistory.usageCount), desc(metadataHistory.lastUsedAt))
+    .limit(limit);
 }

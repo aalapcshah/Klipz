@@ -256,6 +256,46 @@ export type FileVersion = typeof fileVersions.$inferSelect;
 export type InsertFileVersion = typeof fileVersions.$inferInsert;
 
 /**
+ * Metadata templates table - stores user-created reusable metadata templates
+ */
+export const metadataTemplates = mysqlTable("metadata_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  
+  name: varchar("name", { length: 100 }).notNull(), // Template name (e.g., "Legal Document")
+  titlePattern: varchar("titlePattern", { length: 255 }), // Title pattern with placeholders
+  descriptionPattern: text("descriptionPattern"), // Description pattern with placeholders
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type MetadataTemplate = typeof metadataTemplates.$inferSelect;
+export type InsertMetadataTemplate = typeof metadataTemplates.$inferInsert;
+
+/**
+ * Metadata history table - tracks previously used metadata for suggestions
+ */
+export const metadataHistory = mysqlTable("metadata_history", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  
+  // Track what metadata was used
+  title: varchar("title", { length: 255 }),
+  description: text("description"),
+  
+  // Context for suggestions
+  fileType: varchar("fileType", { length: 100 }), // MIME type category (image, video, pdf, etc.)
+  usageCount: int("usageCount").default(1).notNull(), // How many times this metadata was used
+  
+  lastUsedAt: timestamp("lastUsedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type MetadataHistory = typeof metadataHistory.$inferSelect;
+export type InsertMetadataHistory = typeof metadataHistory.$inferInsert;
+
+/**
  * Relations for Drizzle ORM
  */
 export const usersRelations = relations(users, ({ many }) => ({

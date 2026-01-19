@@ -427,3 +427,20 @@
 - [x] Allow editing title/description for multiple files at once
 - [x] Add "Apply to All" functionality for metadata fields
 - [x] Test all three features
+
+
+## Phase 34: Custom Templates & Metadata History
+- [x] Create metadata_templates table in database schema
+- [x] Create metadata_history table in database schema
+- [x] Push database schema changes
+- [x] Add template CRUD procedures (create, list, update, delete)
+- [x] Add metadata history tracking on file upload
+- [x] Implement template management UI (create, edit, delete)
+- [x] Add "Save as Template" button in upload dialog
+- [x] Show custom templates alongside preset templates with star icon
+- [x] Track metadata usage patterns in history with usage count
+- [x] Add metadata suggestions panel based on history
+- [x] Show frequently used titles/descriptions for similar file types
+- [x] Add one-click application of suggested metadata
+- [x] Test custom templates persistence across sessions
+- [x] Test metadata history suggestions
