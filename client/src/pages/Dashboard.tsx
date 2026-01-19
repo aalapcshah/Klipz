@@ -152,7 +152,7 @@ export default function Dashboard() {
 
 // File management view
 import { FileUploadDialog } from "@/components/files/FileUploadDialog";
-import { FileGridEnhanced } from "@/components/files/FileGridEnhanced";
+import FileGridEnhanced from "@/components/files/FileGridEnhanced";
 import { FileDetailDialog } from "@/components/files/FileDetailDialog";
 
 function FilesView() {

@@ -65,16 +65,19 @@ interface DeletedFile {
   userId: number;
 }
 
-export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
+export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
   const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
-  const [isDragging, setIsDragging] = useState(false);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
+  const [thumbnailSize, setThumbnailSize] = useState<'small' | 'medium' | 'large'>(() => {
+    const saved = localStorage.getItem('thumbnailSize');
+    return (saved as 'small' | 'medium' | 'large') || 'medium';
+  });
   const [filterCollectionId, setFilterCollectionId] = useState<number | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [collectionDialogOpen, setCollectionDialogOpen] = useState(false);
   const [createCollectionDialogOpen, setCreateCollectionDialogOpen] = useState(false);
   const [selectedTagId, setSelectedTagId] = useState<string>("");
-  const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [draggedFileId, setDraggedFileId] = useState<number | null>(null);
   const [dragOverCollectionId, setDragOverCollectionId] = useState<number | null>(null);
   const [newCollectionName, setNewCollectionName] = useState("");
@@ -595,6 +598,24 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Thumbnail Size */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Thumbnail:</label>
+            <Select value={thumbnailSize} onValueChange={(value: 'small' | 'medium' | 'large') => {
+              setThumbnailSize(value);
+              localStorage.setItem('thumbnailSize', value);
+            }}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="small">Small</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="large">Large</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Keyboard Shortcuts Hint */}
@@ -896,7 +917,12 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                           <img
                             src={file.fileUrl}
                             alt={file.title || file.filename}
-                            className="w-16 h-16 object-cover rounded border border-border flex-shrink-0"
+                            className={`object-cover rounded border border-border flex-shrink-0 ${
+                              thumbnailSize === 'small' ? 'w-12 h-12' :
+                              thumbnailSize === 'large' ? 'w-24 h-24' :
+                              'w-16 h-16'
+                            }`}
+                            loading="lazy"
                             onError={(e) => {
                               // Fallback to icon if image fails to load
                               e.currentTarget.style.display = 'none';

@@ -313,3 +313,13 @@
 - [x] Implement fallback to generic icons for non-image files
 - [x] Add proper image loading and error handling
 - [x] Test thumbnail display across different file types
+
+## Thumbnail Lazy Loading & Size Options
+- [x] Implement intersection observer for lazy loading thumbnails (using native loading="lazy")
+- [x] Add loading placeholder for thumbnails (browser default)
+- [x] Create thumbnail size preference state (small/medium/large)
+- [x] Add thumbnail size selector UI
+- [x] Apply size preferences to thumbnail display
+- [x] Persist thumbnail size preference to localStorage
+- [x] Test lazy loading with large file lists (native loading="lazy" working)
+- [x] Test thumbnail size switching (dropdown visible and functional)
