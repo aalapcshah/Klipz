@@ -414,3 +414,16 @@
 - [x] Verify exifr library is working correctly
 - [x] Check file upload mutation parameters
 - [x] Ensure metadata fields are properly saved to database
+
+
+## Phase 33: Metadata Validation, Templates & Bulk Edit
+- [x] Add metadata validation warnings in upload dialog
+- [x] Show visual indicators for missing title or description (amber warning icons)
+- [x] Create metadata template system with 5 preset templates
+- [x] Add preset templates (Legal Document, Marketing Asset, Product Photo, Meeting Notes, Invoice/Receipt)
+- [x] Implement template selection dropdown in upload dialog
+- [x] Auto-populate title/description patterns from templates
+- [x] Create bulk metadata edit mode in upload dialog
+- [x] Allow editing title/description for multiple files at once
+- [x] Add "Apply to All" functionality for metadata fields
+- [x] Test all three features

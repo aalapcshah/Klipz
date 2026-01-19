@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Upload, Mic, X, Loader2, Sparkles } from "lucide-react";
+import { Upload, Mic, X, Loader2, Sparkles, AlertCircle, FileText, Edit3 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { uploadFileToStorage } from "@/lib/storage";
@@ -45,9 +46,73 @@ export function FileUploadDialog({
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadCancelled, setUploadCancelled] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [bulkEditMode, setBulkEditMode] = useState(false);
+  const [bulkTitle, setBulkTitle] = useState("");
+  const [bulkDescription, setBulkDescription] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+
+  // Metadata templates
+  const metadataTemplates = {
+    "legal-document": {
+      name: "Legal Document",
+      titlePattern: "[Document Type] - [Date]",
+      descriptionPattern: "Legal document regarding [subject matter]. Filed on [date]. [Additional context].",
+    },
+    "marketing-asset": {
+      name: "Marketing Asset",
+      titlePattern: "[Campaign Name] - [Asset Type]",
+      descriptionPattern: "Marketing material for [campaign/product]. Target audience: [audience]. Purpose: [purpose].",
+    },
+    "product-photo": {
+      name: "Product Photo",
+      titlePattern: "[Product Name] - [Angle/View]",
+      descriptionPattern: "Product photograph of [product name]. [Color/variant]. Shot from [angle]. For use in [purpose].",
+    },
+    "meeting-notes": {
+      name: "Meeting Notes",
+      titlePattern: "[Meeting Title] - [Date]",
+      descriptionPattern: "Notes from [meeting type] on [date]. Attendees: [names]. Key topics: [topics]. Action items: [items].",
+    },
+    "invoice-receipt": {
+      name: "Invoice/Receipt",
+      titlePattern: "Invoice #[Number] - [Vendor]",
+      descriptionPattern: "Invoice from [vendor] dated [date]. Amount: [amount]. Payment method: [method]. Purpose: [description].",
+    },
+  };
+
+  const applyTemplate = (templateKey: string) => {
+    if (!templateKey || templateKey === "") return;
+    
+    const template = metadataTemplates[templateKey as keyof typeof metadataTemplates];
+    if (!template) return;
+
+    setFiles((prev) =>
+      prev.map((f) => ({
+        ...f,
+        title: f.title || template.titlePattern,
+        description: f.description || template.descriptionPattern,
+      }))
+    );
+
+    toast.success(`Applied "${template.name}" template to all files`);
+  };
+
+  const applyBulkEdit = () => {
+    setFiles((prev) =>
+      prev.map((f) => ({
+        ...f,
+        title: bulkTitle || f.title,
+        description: bulkDescription || f.description,
+      }))
+    );
+    toast.success(`Applied bulk edits to ${files.length} file(s)`);
+    setBulkEditMode(false);
+    setBulkTitle("");
+    setBulkDescription("");
+  };
 
   const createFileMutation = trpc.files.create.useMutation();
   const transcribeVoiceMutation = trpc.files.transcribeVoice.useMutation();
@@ -442,7 +507,76 @@ export function FileUploadDialog({
         {/* Uploaded Files List */}
         {files.length > 0 && (
           <div className="space-y-4 mt-6">
-            <h3 className="font-medium">Uploaded Files ({files.length})</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium">Uploaded Files ({files.length})</h3>
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <Select value={selectedTemplate} onValueChange={(value) => { setSelectedTemplate(value); applyTemplate(value); }}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Apply template..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No template</SelectItem>
+                    {Object.entries(metadataTemplates).map(([key, template]) => (
+                      <SelectItem key={key} value={key}>
+                        {template.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBulkEditMode(!bulkEditMode)}
+                >
+                  <Edit3 className="h-4 w-4 mr-2" />
+                  Bulk Edit
+                </Button>
+              </div>
+            </div>
+            
+            {/* Bulk Edit Panel */}
+            {bulkEditMode && (
+              <div className="bg-accent/10 border border-accent rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-accent flex items-center gap-2">
+                    <Edit3 className="h-4 w-4" />
+                    Bulk Edit Mode
+                  </h4>
+                  <Button variant="ghost" size="sm" onClick={() => setBulkEditMode(false)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Enter values below to apply to all {files.length} files. Leave blank to keep individual values.
+                </p>
+                <div className="space-y-2">
+                  <div>
+                    <Label htmlFor="bulk-title">Title (Apply to All)</Label>
+                    <Input
+                      id="bulk-title"
+                      value={bulkTitle}
+                      onChange={(e) => setBulkTitle(e.target.value)}
+                      placeholder="Enter title for all files..."
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bulk-description">Description (Apply to All)</Label>
+                    <Textarea
+                      id="bulk-description"
+                      value={bulkDescription}
+                      onChange={(e) => setBulkDescription(e.target.value)}
+                      placeholder="Enter description for all files..."
+                      rows={3}
+                    />
+                  </div>
+                  <Button onClick={applyBulkEdit} className="w-full">
+                    Apply to All {files.length} Files
+                  </Button>
+                </div>
+              </div>
+            )}
+            
             {files.map((fileData, index) => (
               <div
                 key={index}
@@ -549,7 +683,15 @@ export function FileUploadDialog({
 
                 <div className="space-y-2">
                   <div>
-                    <Label htmlFor={`title-${index}`}>Title</Label>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor={`title-${index}`}>Title</Label>
+                      {(!fileData.title || fileData.title.trim().length === 0) && (
+                        <div className="flex items-center gap-1 text-amber-500 text-xs">
+                          <AlertCircle className="h-3 w-3" />
+                          <span>Missing</span>
+                        </div>
+                      )}
+                    </div>
                     <Input
                       id={`title-${index}`}
                       value={fileData.title}
@@ -557,13 +699,22 @@ export function FileUploadDialog({
                         updateFileMetadata(index, { title: e.target.value })
                       }
                       placeholder="Enter file title"
+                      className={(!fileData.title || fileData.title.trim().length === 0) ? "border-amber-500" : ""}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor={`description-${index}`}>
-                      Description (Voice or Type)
-                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor={`description-${index}`}>
+                        Description (Voice or Type)
+                      </Label>
+                      {(!fileData.description || fileData.description.trim().length === 0) && (
+                        <div className="flex items-center gap-1 text-amber-500 text-xs">
+                          <AlertCircle className="h-3 w-3" />
+                          <span>Missing</span>
+                        </div>
+                      )}
+                    </div>
                     <div className="flex gap-2">
                       <Textarea
                         id={`description-${index}`}
