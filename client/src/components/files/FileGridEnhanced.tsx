@@ -868,8 +868,7 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
               const fileCollections = getFileCollections(file.id);
               return (
                 <HoverCard key={file.id} openDelay={300} closeDelay={100}>
-                  <HoverCardTrigger asChild>
-                    <div>
+                  <HoverCardTrigger>
                       <Card
                         className={`p-4 hover:border-primary/50 transition-colors cursor-pointer ${
                           draggedFileId === file.id ? "opacity-50" : ""
@@ -961,7 +960,6 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                     </div>
                   </div>
                       </Card>
-                    </div>
                   </HoverCardTrigger>
                   <HoverCardContent side="right" className="w-80">
                     <div className="space-y-2">

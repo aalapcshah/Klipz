@@ -218,6 +218,40 @@ export type CollectionFile = typeof collectionFiles.$inferSelect;
 export type InsertCollectionFile = typeof collectionFiles.$inferInsert;
 
 /**
+ * File Versions - Track file history and enable version restoration
+ */
+export const fileVersions = mysqlTable("file_versions", {
+  id: int("id").autoincrement().primaryKey(),
+  fileId: int("fileId").notNull(), // Reference to parent file
+  userId: int("userId").notNull(), // User who created this version
+  
+  // Version metadata
+  versionNumber: int("versionNumber").notNull(), // Sequential version number
+  changeDescription: text("changeDescription"), // What changed in this version
+  
+  // Snapshot of file state at this version
+  fileKey: varchar("fileKey", { length: 512 }).notNull(), // S3 key for this version
+  url: text("url").notNull(), // S3 URL for this version
+  filename: varchar("filename", { length: 255 }).notNull(),
+  mimeType: varchar("mimeType", { length: 100 }).notNull(),
+  fileSize: int("fileSize").notNull(),
+  
+  // Metadata snapshot
+  title: varchar("title", { length: 255 }),
+  description: text("description"),
+  
+  // AI enrichment snapshot
+  aiAnalysis: text("aiAnalysis"),
+  ocrText: text("ocrText"),
+  detectedObjects: json("detectedObjects").$type<string[]>(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type FileVersion = typeof fileVersions.$inferSelect;
+export type InsertFileVersion = typeof fileVersions.$inferInsert;
+
+/**
  * Relations for Drizzle ORM
  */
 export const usersRelations = relations(users, ({ many }) => ({

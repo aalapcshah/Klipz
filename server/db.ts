@@ -20,6 +20,8 @@ import {
   InsertCollection,
   collectionFiles,
   InsertCollectionFile,
+  fileVersions,
+  InsertFileVersion,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -669,4 +671,39 @@ export async function getFilesByCollection(userId: number, collectionId: number)
     .orderBy(desc(collectionFiles.addedAt));
 
   return result;
+}
+
+
+// ============= FILE VERSIONS QUERIES =============
+
+export async function createFileVersion(version: InsertFileVersion): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.insert(fileVersions).values(version);
+  return Number((result as any).insertId);
+}
+
+export async function getFileVersions(fileId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db
+    .select()
+    .from(fileVersions)
+    .where(eq(fileVersions.fileId, fileId))
+    .orderBy(desc(fileVersions.versionNumber));
+}
+
+export async function getFileVersionById(versionId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const result = await db
+    .select()
+    .from(fileVersions)
+    .where(eq(fileVersions.id, versionId))
+    .limit(1);
+  
+  return result[0] || null;
 }

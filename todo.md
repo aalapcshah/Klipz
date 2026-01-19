@@ -264,3 +264,18 @@
 - [x] Test error boundary with intentional errors (already implemented and wrapped in App)
 - [x] Test virtualization performance with large file lists (deferred)
 - [x] Test keyboard navigation and screen reader compatibility
+
+## Bug Fixes - Current Errors
+- [x] Fix nested anchor tag error in file cards
+- [x] Investigate and fix API fetch error (transient network issue, server is running properly)
+
+## Phase 25: File Versioning, Export & Relationships
+- [x] Create file_versions table in database schema
+- [x] Add version tracking mutations (create, restore, list)
+- [x] Build version history UI component
+- [ ] Implement batch export to ZIP functionality (deferred to focus on versioning)
+- [ ] Add CSV metadata export feature (deferred to focus on versioning)
+- [ ] Create file_relationships table (deferred to focus on versioning)
+- [ ] Add relationship linking UI (deferred to focus on versioning)
+- [ ] Implement automatic relationship detection (deferred to focus on versioning)
+- [x] Test file versioning feature

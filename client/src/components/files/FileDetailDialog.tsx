@@ -19,7 +19,9 @@ import {
   Plus,
   Download,
   Trash2,
+  History,
 } from "lucide-react";
+import { FileVersionHistory } from "./FileVersionHistory";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
@@ -467,6 +469,16 @@ export function FileDetailDialog({
                   </Button>
                 </div>
                 <Button onClick={() => onOpenChange(false)}>Close</Button>
+              </div>
+              
+              {/* Version History Section */}
+              <div className="mt-8 border-t pt-6">
+                <FileVersionHistory 
+                  fileId={fileId!} 
+                  onVersionRestored={() => {
+                    refetch();
+                  }}
+                />
               </div>
             </div>
           </>
