@@ -191,7 +191,7 @@ export async function advancedSearchFiles(
     query?: string;
     fileType?: string;
     tagIds?: number[];
-    enrichmentStatus?: "pending" | "completed" | "failed";
+    enrichmentStatus?: "pending" | "processing" | "completed" | "failed";
     dateFrom?: number;
     dateTo?: number;
     limit?: number;

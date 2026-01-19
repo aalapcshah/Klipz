@@ -21,7 +21,7 @@ export const appRouter = router({
           query: z.string().optional(),
           fileType: z.string().optional(),
           tagIds: z.array(z.number()).optional(),
-          enrichmentStatus: z.enum(["pending", "completed", "failed"]).optional(),
+          enrichmentStatus: z.enum(["pending", "processing", "completed", "failed"]).optional(),
           dateFrom: z.date().optional(),
           dateTo: z.date().optional(),
         })
@@ -285,7 +285,7 @@ export const appRouter = router({
           query: z.string().optional(),
           fileType: z.string().optional(),
           tagIds: z.array(z.number()).optional(),
-          enrichmentStatus: z.enum(["pending", "completed", "failed"]).optional(),
+          enrichmentStatus: z.enum(["pending", "processing", "completed", "failed"]).optional(),
           dateFrom: z.number().optional(), // Unix timestamp
           dateTo: z.number().optional(), // Unix timestamp
           limit: z.number().default(50),

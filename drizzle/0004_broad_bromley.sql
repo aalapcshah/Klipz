@@ -1,0 +1,1 @@
+ALTER TABLE `saved_searches` MODIFY COLUMN `enrichmentStatus` enum('pending','processing','completed','failed');

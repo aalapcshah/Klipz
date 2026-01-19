@@ -226,6 +226,7 @@ export default function SearchWithSaved() {
                 <SelectContent>
                   <SelectItem value=" ">All statuses</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="processing">Processing</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
                 </SelectContent>

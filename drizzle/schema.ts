@@ -176,7 +176,7 @@ export const savedSearches = mysqlTable("saved_searches", {
   query: text("query"),
   fileType: varchar("fileType", { length: 100 }),
   tagIds: json("tagIds").$type<number[]>(),
-  enrichmentStatus: mysqlEnum("enrichmentStatus", ["pending", "completed", "failed"]),
+  enrichmentStatus: mysqlEnum("enrichmentStatus", ["pending", "processing", "completed", "failed"]),
   dateFrom: timestamp("dateFrom"),
   dateTo: timestamp("dateTo"),
   

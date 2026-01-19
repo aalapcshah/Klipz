@@ -11,7 +11,9 @@ import {
   Sparkles,
   Upload,
   Search as SearchIcon,
-  FolderIcon
+  FolderIcon,
+  Menu,
+  X
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -20,6 +22,7 @@ import { Loader2 } from "lucide-react";
 export default function Dashboard() {
   const { user, loading, isAuthenticated, logout } = useAuth();
   const [location] = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   if (loading) {
     return (
@@ -92,12 +95,48 @@ export default function Dashboard() {
             <span className="text-sm text-muted-foreground hidden sm:inline">
               {user?.name || user?.email}
             </span>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="md:hidden"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle mobile menu"
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => logout()}>
               <LogOutIcon className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </header>
+
+      {/* Mobile Navigation Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-b border-border bg-card">
+          <nav className="container py-4 flex flex-col gap-2">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = location === item.href;
+              return (
+                <Link 
+                  key={item.href} 
+                  href={item.href}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Icon className="h-5 w-5" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="container py-8">
