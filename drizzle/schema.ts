@@ -68,7 +68,7 @@ export const tags = mysqlTable("tags", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 100 }).notNull(),
   userId: int("userId").notNull(),
-  source: mysqlEnum("source", ["manual", "ai", "voice"]).notNull(), // How tag was created
+  source: mysqlEnum("source", ["manual", "ai", "voice", "metadata"]).notNull(), // How tag was created
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

@@ -52,6 +52,9 @@ export function FileUploadDialog({
   const createFileMutation = trpc.files.create.useMutation();
   const transcribeVoiceMutation = trpc.files.transcribeVoice.useMutation();
   const enrichMutation = trpc.files.enrich.useMutation();
+  const createTagMutation = trpc.tags.create.useMutation();
+  const linkTagMutation = trpc.tags.linkToFile.useMutation();
+  const { data: existingTags = [] } = trpc.tags.list.useQuery(); 
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -335,6 +338,34 @@ export function FileUploadDialog({
 
           clearInterval(progressInterval);
           updateFileMetadata(i, { uploadStatus: 'completed', uploadProgress: 100 });
+
+          // Auto-tag based on extracted keywords
+          if (extractedKeywords.length > 0) {
+            for (const keyword of extractedKeywords) {
+              // Check if tag already exists
+              const existingTag = existingTags.find(
+                (t: any) => t.name.toLowerCase() === keyword.toLowerCase()
+              );
+              
+              if (existingTag) {
+                // Link existing tag
+                await linkTagMutation.mutateAsync({
+                  fileId: id,
+                  tagId: existingTag.id,
+                });
+              } else {
+                // Create new tag and link it
+                const { id: tagId } = await createTagMutation.mutateAsync({
+                  name: keyword,
+                  source: "metadata" as any,
+                });
+                await linkTagMutation.mutateAsync({
+                  fileId: id,
+                  tagId,
+                });
+              }
+            }
+          }
 
           // Enrich with AI if requested
           if (enrichWithAI) {

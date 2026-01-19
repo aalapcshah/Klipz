@@ -43,6 +43,13 @@
       "when": 1768813539528,
       "tag": "0005_cold_baron_strucker",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1768814349424,
+      "tag": "0006_fast_the_phantom",
+      "breakpoints": true
     }
   ]
 }

@@ -20,6 +20,7 @@ import {
   Download,
   Trash2,
   History,
+  GitCompare,
 } from "lucide-react";
 import { FileVersionHistory } from "./FileVersionHistory";
 import { useState, useRef } from "react";
@@ -351,8 +352,86 @@ export function FileDetailDialog({
                   )}
                 </div>
 
+                {/* Metadata Comparison View */}
+                {file.enrichmentStatus === "completed" && (file.extractedMetadata || file.description || file.title) && (
+                  <div className="border border-border rounded-lg p-4 space-y-3">
+                    <h3 className="font-semibold text-sm flex items-center gap-2">
+                      <GitCompare className="h-4 w-4" />
+                      Metadata Comparison
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      {/* Original Metadata Column */}
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-muted-foreground">Original Metadata</h4>
+                        {file.description && (
+                          <div className="bg-accent/10 rounded p-2">
+                            <Label className="text-xs">Description</Label>
+                            <p className="text-xs mt-1">{file.description}</p>
+                          </div>
+                        )}
+                        {file.extractedKeywords && file.extractedKeywords.length > 0 && (
+                          <div className="bg-accent/10 rounded p-2">
+                            <Label className="text-xs">Keywords</Label>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {file.extractedKeywords.map((keyword: string, idx: number) => (
+                                <Badge key={idx} variant="secondary" className="text-xs">
+                                  {keyword}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {file.extractedMetadata?.Make && (
+                          <div className="bg-accent/10 rounded p-2">
+                            <Label className="text-xs">Camera</Label>
+                            <p className="text-xs mt-1">{file.extractedMetadata.Make} {file.extractedMetadata.Model}</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* AI-Enriched Column */}
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-primary">AI-Enriched</h4>
+                        {file.aiAnalysis && (
+                          <div className="bg-primary/10 rounded p-2">
+                            <Label className="text-xs">AI Analysis</Label>
+                            <p className="text-xs mt-1 line-clamp-4">{file.aiAnalysis}</p>
+                          </div>
+                        )}
+                        {file.detectedObjects && file.detectedObjects.length > 0 && (
+                          <div className="bg-primary/10 rounded p-2">
+                            <Label className="text-xs">Detected Objects</Label>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {file.detectedObjects.slice(0, 5).map((obj, idx) => (
+                                <Badge key={idx} variant="default" className="text-xs">
+                                  {obj}
+                                </Badge>
+                              ))}
+                              {file.detectedObjects.length > 5 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{file.detectedObjects.length - 5} more
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {file.ocrText && (
+                          <div className="bg-primary/10 rounded p-2">
+                            <Label className="text-xs">Extracted Text (OCR)</Label>
+                            <p className="text-xs mt-1 line-clamp-3">{file.ocrText}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground italic">
+                      💡 Left shows original file metadata, right shows AI-enriched data
+                    </p>
+                  </div>
+                )}
+
                 {file.aiAnalysis && (
                   <div className="p-4 bg-muted rounded-lg">
+                    <Label className="text-sm mb-2 block">Full AI Analysis</Label>
                     <Streamdown>{file.aiAnalysis}</Streamdown>
                   </div>
                 )}

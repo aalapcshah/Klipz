@@ -1,0 +1,1 @@
+ALTER TABLE `tags` MODIFY COLUMN `source` enum('manual','ai','voice','metadata') NOT NULL;

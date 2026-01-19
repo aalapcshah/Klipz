@@ -370,3 +370,14 @@
 - [x] Add batch metadata export to CSV
 - [x] Add batch metadata export to JSON
 - [x] Test all metadata features
+
+
+## Phase 29: Auto-Tagging & Metadata Comparison
+- [x] Implement auto-tag creation from extracted keywords
+- [x] Apply auto-tags during file upload
+- [x] Add metadata comparison view in file detail dialog
+- [x] Show original vs AI-enriched metadata side-by-side
+- [x] Highlight differences between original and enriched data
+- [x] Test auto-tagging and comparison features
+- [x] Add "metadata" to tag source enum in database schema
+- [x] Push schema changes to database
