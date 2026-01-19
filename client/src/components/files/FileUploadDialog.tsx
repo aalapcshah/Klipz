@@ -536,7 +536,9 @@ export function FileUploadDialog({
           }
           
           // Upload file to S3
+          console.log('[FileUpload] About to upload file:', fileData.file.name, 'size:', fileData.file.size);
           const { url: fileUrl, fileKey } = await uploadToS3(fileData.file, fileData.file.name);
+          console.log('[FileUpload] Upload successful! URL:', fileUrl);
 
           // Upload voice recording if exists
           let voiceRecordingUrl: string | undefined;

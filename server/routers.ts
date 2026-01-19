@@ -185,7 +185,20 @@ export const appRouter = router({
 
   // ============= STORAGE ROUTER =============
   storage: router({
-    // Upload file data to S3
+    // Get upload URL for direct client-side upload
+    getUploadUrl: protectedProcedure
+      .input(
+        z.object({
+          filename: z.string(),
+          contentType: z.string(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const fileKey = `${ctx.user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}-${input.filename}`;
+        return { fileKey };
+      }),
+    
+    // Upload file data to S3 (legacy base64 method, kept for compatibility)
     uploadFile: protectedProcedure
       .input(
         z.object({
