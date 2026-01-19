@@ -259,6 +259,20 @@ export function FileDetailDialog({
                     </div>
                   )}
                 </div>
+                
+                {/* Extracted Keywords */}
+                {file.extractedKeywords && file.extractedKeywords.length > 0 && (
+                  <div className="col-span-2 mt-2">
+                    <span className="text-muted-foreground text-sm">Keywords from file:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {file.extractedKeywords.map((keyword: string, idx: number) => (
+                        <Badge key={idx} variant="secondary" className="text-xs">
+                          {keyword}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Basic Info */}

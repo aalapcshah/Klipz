@@ -347,3 +347,16 @@
 - [x] Clear all test/example files from database
 - [x] Display original file metadata (creation date, modification date, file system title/description)
 - [x] Show complete file information in detail view
+
+
+## Phase 27: Embedded Metadata Extraction
+- [x] Install exifr library for metadata extraction
+- [x] Add metadata extraction to file upload process
+- [x] Extract Description field from image metadata
+- [x] Extract Title field from image metadata
+- [x] Extract Keywords/Tags from image metadata
+- [x] Store extracted metadata in database (extractedMetadata, extractedKeywords fields)
+- [x] Display extracted keywords in file detail view
+- [x] Auto-populate description field with embedded metadata on upload
+- [x] Update database schema with new metadata fields
+- [x] Push schema changes to database

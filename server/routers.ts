@@ -191,6 +191,8 @@ export const appRouter = router({
           description: z.string().optional(),
           voiceRecordingUrl: z.string().optional(),
           voiceTranscript: z.string().optional(),
+          extractedMetadata: z.record(z.string(), z.any()).optional(),
+          extractedKeywords: z.array(z.string()).optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {

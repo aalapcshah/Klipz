@@ -14,6 +14,7 @@ import { Upload, Mic, X, Loader2, Sparkles } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { uploadFileToStorage } from "@/lib/storage";
+import exifr from "exifr";
 
 interface FileUploadDialogProps {
   open: boolean;
@@ -189,6 +190,58 @@ export function FileUploadDialog({
         }, 200);
 
         try {
+          // Extract metadata from image files
+          let extractedTitle = fileData.title;
+          let extractedDescription = fileData.description;
+          let extractedKeywords: string[] = [];
+          
+          if (fileData.file.type.startsWith("image/")) {
+            try {
+              const metadata = await exifr.parse(fileData.file, {
+                iptc: true,
+                xmp: true,
+                icc: false,
+                jfif: false,
+                ihdr: false,
+              });
+              
+              if (metadata) {
+                // Extract title from various metadata fields
+                if (!extractedTitle || extractedTitle === fileData.file.name.replace(/\.[^/.]+$/, "")) {
+                  extractedTitle = metadata.title || 
+                                 metadata.ObjectName || 
+                                 metadata.Headline || 
+                                 metadata.Title ||
+                                 extractedTitle;
+                }
+                
+                // Extract description from various metadata fields
+                if (!extractedDescription) {
+                  extractedDescription = metadata.description || 
+                                       metadata.ImageDescription ||
+                                       metadata.Caption ||
+                                       metadata["Caption-Abstract"] ||
+                                       metadata.UserComment ||
+                                       "";
+                }
+                
+                // Extract keywords/tags
+                if (metadata.Keywords) {
+                  extractedKeywords = Array.isArray(metadata.Keywords) 
+                    ? metadata.Keywords 
+                    : [metadata.Keywords];
+                } else if (metadata.Subject) {
+                  extractedKeywords = Array.isArray(metadata.Subject)
+                    ? metadata.Subject
+                    : [metadata.Subject];
+                }
+              }
+            } catch (metadataError) {
+              console.log("Could not extract metadata:", metadataError);
+              // Continue with upload even if metadata extraction fails
+            }
+          }
+          
           // Upload file to S3
           const { url: fileUrl, fileKey } = await uploadToS3(fileData.file, fileData.file.name);
 
@@ -202,17 +255,19 @@ export function FileUploadDialog({
             voiceRecordingUrl = url;
           }
 
-          // Create file record in database
+          // Create file record in database with extracted metadata
           const { id } = await createFileMutation.mutateAsync({
             fileKey,
             url: fileUrl,
             filename: fileData.file.name,
             mimeType: fileData.file.type,
             fileSize: fileData.file.size,
-            title: fileData.title,
-            description: fileData.description,
+            title: extractedTitle,
+            description: extractedDescription,
             voiceRecordingUrl,
             voiceTranscript: fileData.voiceTranscript,
+            extractedMetadata: fileData.file.type.startsWith("image/") ? await exifr.parse(fileData.file, { iptc: true, xmp: true }) : undefined,
+            extractedKeywords: extractedKeywords.length > 0 ? extractedKeywords : undefined,
           });
 
           clearInterval(progressInterval);

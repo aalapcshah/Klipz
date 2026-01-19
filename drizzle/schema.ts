@@ -46,6 +46,10 @@ export const files = mysqlTable("files", {
   ocrText: text("ocrText"), // Extracted text from image/PDF
   detectedObjects: json("detectedObjects").$type<string[]>(), // Detected objects/elements
   
+  // Extracted file metadata (EXIF, IPTC, XMP)
+  extractedMetadata: json("extractedMetadata").$type<Record<string, any>>(), // Raw metadata from file
+  extractedKeywords: json("extractedKeywords").$type<string[]>(), // Keywords from metadata
+  
   // Enrichment status
   enrichmentStatus: mysqlEnum("enrichmentStatus", ["pending", "processing", "completed", "failed"]).default("pending").notNull(),
   enrichedAt: timestamp("enrichedAt"),
