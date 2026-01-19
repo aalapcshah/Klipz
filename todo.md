@@ -279,3 +279,6 @@
 - [ ] Add relationship linking UI (deferred to focus on versioning)
 - [ ] Implement automatic relationship detection (deferred to focus on versioning)
 - [x] Test file versioning feature
+
+## Bug Fix - Nested Anchor Error
+- [x] Fix nested anchor tag error in FileGridEnhanced file cards
