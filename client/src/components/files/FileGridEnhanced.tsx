@@ -891,8 +891,23 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                       className="flex-1 min-w-0"
                       onClick={() => onFileClick?.(file.id)}
                     >
-                      <div className="flex items-start gap-2">
-                        <div className="text-primary">{getFileIcon(file.mimeType)}</div>
+                      <div className="flex items-start gap-3">
+                        {file.mimeType?.startsWith('image/') ? (
+                          <img
+                            src={file.fileUrl}
+                            alt={file.title || file.filename}
+                            className="w-16 h-16 object-cover rounded border border-border flex-shrink-0"
+                            onError={(e) => {
+                              // Fallback to icon if image fails to load
+                              e.currentTarget.style.display = 'none';
+                              const iconDiv = e.currentTarget.nextElementSibling as HTMLElement;
+                              if (iconDiv) iconDiv.style.display = 'block';
+                            }}
+                          />
+                        ) : null}
+                        <div className="text-primary" style={{ display: file.mimeType?.startsWith('image/') ? 'none' : 'block' }}>
+                          {getFileIcon(file.mimeType)}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold truncate">
                             {file.title || file.filename}
