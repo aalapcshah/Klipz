@@ -152,11 +152,47 @@ export const appRouter = router({
         ? await db.getFilesByCollection(ctx.user.id, input.collectionId)
         : await db.getFilesByUserId(ctx.user.id);
       
-      // Get tags for each file
+      // Get tags and calculate quality score for each file
       const filesWithTags = await Promise.all(
         files.map(async (file) => {
           const tags = await db.getFileTagsWithNames(file.id);
-          return { ...file, tags };
+          
+          // Calculate metadata quality score (0-100)
+          let score = 0;
+          let maxScore = 0;
+          
+          // Title (20 points)
+          maxScore += 20;
+          if (file.title && file.title.trim().length > 0) score += 20;
+          
+          // Description (20 points)
+          maxScore += 20;
+          if (file.description && file.description.trim().length > 0) score += 20;
+          
+          // Tags (15 points)
+          maxScore += 15;
+          if (tags && tags.length > 0) score += Math.min(tags.length * 5, 15);
+          
+          // AI Enrichment (25 points)
+          maxScore += 25;
+          if (file.enrichmentStatus === 'completed') {
+            if ((file as any).aiAnalysis) score += 15;
+            if ((file as any).ocrText) score += 5;
+            if ((file as any).detectedObjects && (file as any).detectedObjects.length > 0) score += 5;
+          }
+          
+          // Extracted Metadata (10 points)
+          maxScore += 10;
+          if ((file as any).extractedKeywords && (file as any).extractedKeywords.length > 0) score += 5;
+          if ((file as any).extractedMetadata) score += 5;
+          
+          // Voice annotation (10 points)
+          maxScore += 10;
+          if ((file as any).voiceTranscript) score += 10;
+          
+          const qualityScore = Math.round((score / maxScore) * 100);
+          
+          return { ...file, tags, qualityScore };
         })
       );
       
@@ -474,6 +510,65 @@ export const appRouter = router({
             createdAt: f.createdAt,
           }))
         };
+      }),
+
+    // Get smart tag suggestions for a file
+    suggestTags: protectedProcedure
+      .input(z.object({ fileId: z.number() }))
+      .query(async ({ input, ctx }) => {
+        const file = await db.getFileById(input.fileId);
+        if (!file || file.userId !== ctx.user.id) {
+          throw new Error("File not found");
+        }
+
+        // Get all files with similar characteristics
+        const allFiles = await db.getFilesByUserId(ctx.user.id);
+        
+        // Find similar files based on:
+        // 1. Same file type
+        // 2. Similar extracted keywords
+        // 3. Similar AI analysis themes
+        const similarFiles = allFiles.filter((f: any) => {
+          if (f.id === file.id) return false;
+          
+          // Same mime type category
+          const fileMimeCategory = file.mimeType.split('/')[0];
+          const fMimeCategory = f.mimeType.split('/')[0];
+          if (fileMimeCategory !== fMimeCategory) return false;
+          
+          // Has tags
+          if (!f.tags || f.tags.length === 0) return false;
+          
+          return true;
+        });
+
+        // Collect tags from similar files and count frequency
+        const tagFrequency = new Map<number, { tag: any; count: number }>();
+        
+        similarFiles.forEach((f: any) => {
+          f.tags?.forEach((tag: any) => {
+            if (tagFrequency.has(tag.id)) {
+              tagFrequency.get(tag.id)!.count++;
+            } else {
+              tagFrequency.set(tag.id, { tag, count: 1 });
+            }
+          });
+        });
+
+        // Filter out tags already on this file
+        const fileMimeCategory = file.mimeType.split('/')[0];
+        const existingTagIds = new Set((file as any).tags?.map((t: any) => t.id) || []);
+        const suggestions = Array.from(tagFrequency.values())
+          .filter(({ tag }) => !existingTagIds.has(tag.id))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5) // Top 5 suggestions
+          .map(({ tag, count }) => ({
+            ...tag,
+            relevanceScore: count,
+            reason: `Used in ${count} similar ${fileMimeCategory} file${count > 1 ? 's' : ''}`
+          }));
+
+        return suggestions;
       }),
 
     // Transcribe voice recording

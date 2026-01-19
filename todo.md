@@ -381,3 +381,14 @@
 - [x] Test auto-tagging and comparison features
 - [x] Add "metadata" to tag source enum in database schema
 - [x] Push schema changes to database
+
+
+## Phase 30: Tag Filtering, Smart Suggestions & Quality Scores
+- [x] Add tag source filter dropdown in file grid
+- [x] Implement tag filtering by source (manual, AI, voice, metadata)
+- [x] Add tag source badges to tag display
+- [x] Implement smart tag suggestion algorithm
+- [x] Show recommended tags in file detail dialog
+- [x] Calculate metadata quality score for files
+- [x] Display quality score in file cards and detail view
+- [x] Test all three features

@@ -88,6 +88,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
   const [isCreatingNewTag, setIsCreatingNewTag] = useState(false);
   const [sortBy, setSortBy] = useState<"date" | "size" | "enrichment">("date");
   const [filterType, setFilterType] = useState<"all" | "image" | "video" | "document">("all");
+  const [filterTagSource, setFilterTagSource] = useState<"all" | "manual" | "ai" | "voice" | "metadata">("all");
   const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
   const [batchTitle, setBatchTitle] = useState("");
   const [batchDescription, setBatchDescription] = useState("");
@@ -194,6 +195,14 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
           file.mimeType.includes("text")
         );
       return true;
+    });
+  }
+
+  // Apply tag source filter
+  if (filterTagSource !== "all") {
+    files = files.filter((file: any) => {
+      if (!file.tags || file.tags.length === 0) return false;
+      return file.tags.some((tag: any) => tag.source === filterTagSource);
     });
   }
 
@@ -730,6 +739,23 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
             </Select>
           </div>
 
+          {/* Tag Source Filter */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Tag Source:</label>
+            <Select value={filterTagSource} onValueChange={(value: any) => setFilterTagSource(value)}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Tags</SelectItem>
+                <SelectItem value="manual">Manual</SelectItem>
+                <SelectItem value="ai">AI Generated</SelectItem>
+                <SelectItem value="voice">Voice</SelectItem>
+                <SelectItem value="metadata">From Metadata</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Sort By */}
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium">Sort By:</label>
@@ -1115,20 +1141,37 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>{formatFileSize(file.fileSize)}</span>
-                        <span>•</span>
-                        <span
-                          className={
-                            file.enrichmentStatus === "enriched"
-                              ? "text-green-500"
-                              : "text-yellow-500"
-                          }
-                        >
-                          {file.enrichmentStatus === "enriched"
-                            ? "Enriched"
-                            : "Not Enriched"}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={
+                              file.enrichmentStatus === "completed"
+                                ? "text-green-500"
+                                : "text-yellow-500"
+                            }
+                          >
+                            {file.enrichmentStatus === "enriched"
+                              ? "Enriched"
+                              : "Not Enriched"}
+                          </span>
+                          {(file as any).qualityScore !== undefined && (
+                            <span
+                              className={
+                                `px-2 py-0.5 rounded text-xs font-medium ${
+                                  (file as any).qualityScore >= 80
+                                    ? "bg-green-500/20 text-green-600"
+                                    : (file as any).qualityScore >= 50
+                                    ? "bg-yellow-500/20 text-yellow-600"
+                                    : "bg-red-500/20 text-red-600"
+                                }`
+                              }
+                              title="Metadata Quality Score"
+                            >
+                              {(file as any).qualityScore}%
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {fileCollections.length > 0 && (
@@ -1153,9 +1196,12 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                           {file.tags.map((tag: any) => (
                             <span
                               key={tag.id}
-                              className="px-2 py-1 bg-primary/20 text-primary text-xs rounded"
+                              className="px-2 py-1 bg-primary/20 text-primary text-xs rounded flex items-center gap-1"
+                              title={`Source: ${tag.source}`}
                             >
                               {tag.name}
+                              {tag.source === "ai" && <Sparkles className="h-3 w-3" />}
+                              {tag.source === "metadata" && <FileIcon className="h-3 w-3" />}
                             </span>
                           ))}
                         </div>

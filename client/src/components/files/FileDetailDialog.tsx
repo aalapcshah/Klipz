@@ -490,6 +490,33 @@ export function FileDetailDialog({
                       </Button>
                     </div>
 
+                    {/* Smart tag suggestions */}
+                    {!isAddingTag && fileId && (() => {
+                      const { data: suggestions } = trpc.files.suggestTags.useQuery({ fileId });
+                      return suggestions && suggestions.length > 0 && (
+                        <div className="p-3 bg-accent/10 border border-accent rounded-md">
+                          <p className="text-xs font-medium mb-2 flex items-center gap-1">
+                            <Sparkles className="h-3 w-3" />
+                            Smart Suggestions:
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {suggestions.map((tag: any) => (
+                              <Badge
+                                key={tag.id}
+                                variant="outline"
+                                className="cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                                onClick={() => handleLinkExistingTag(tag.id)}
+                                title={tag.reason}
+                              >
+                                {tag.name}
+                                <span className="ml-1 text-xs opacity-70">({tag.relevanceScore})</span>
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {/* Existing tags to link */}
                     {allTags && allTags.length > 0 && (
                       <div className="p-3 bg-muted rounded-md">
