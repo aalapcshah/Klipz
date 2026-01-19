@@ -228,11 +228,11 @@ export const appRouter = router({
           
           // Title (20 points)
           maxScore += 20;
-          if (file.title && file.title.trim().length > 0) score += 20;
+          if (file.title && typeof file.title === 'string' && file.title.trim().length > 0) score += 20;
           
           // Description (20 points)
           maxScore += 20;
-          if (file.description && file.description.trim().length > 0) score += 20;
+          if (file.description && typeof file.description === 'string' && file.description.trim().length > 0) score += 20;
           
           // Tags (15 points)
           maxScore += 15;
