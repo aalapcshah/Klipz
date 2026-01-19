@@ -51,7 +51,19 @@ export function FileUploadDialog({
   const [bulkTitle, setBulkTitle] = useState("");
   const [bulkDescription, setBulkDescription] = useState("");
   const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
+  const [showEditTemplateDialog, setShowEditTemplateDialog] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<any>(null);
   const [newTemplateName, setNewTemplateName] = useState("");
+  const [editTemplateName, setEditTemplateName] = useState("");
+  const [editTemplateCategory, setEditTemplateCategory] = useState("General");
+  const [editTitlePattern, setEditTitlePattern] = useState("");
+  const [editDescriptionPattern, setEditDescriptionPattern] = useState("");
+  const [newTemplateCategory, setNewTemplateCategory] = useState("General");
+  const [titleSuggestions, setTitleSuggestions] = useState<string[]>([]);
+  const [descriptionSuggestions, setDescriptionSuggestions] = useState<string[]>([]);
+  const [showTitleSuggestions, setShowTitleSuggestions] = useState(false);
+  const [showDescriptionSuggestions, setShowDescriptionSuggestions] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -133,6 +145,7 @@ export function FileUploadDialog({
     try {
       await createTemplateMutation.mutateAsync({
         name: newTemplateName,
+        category: newTemplateCategory,
         titlePattern: firstFile.title || "",
         descriptionPattern: firstFile.description || "",
       });
@@ -155,6 +168,44 @@ export function FileUploadDialog({
       toast.error("Failed to delete template");
     }
   };
+  
+  const openEditTemplate = (template: any) => {
+    setEditingTemplate(template);
+    setEditTemplateName(template.name);
+    setEditTemplateCategory(template.category || "General");
+    setEditTitlePattern(template.titlePattern || "");
+    setEditDescriptionPattern(template.descriptionPattern || "");
+    setShowEditTemplateDialog(true);
+  };
+  
+  const saveEditedTemplate = async () => {
+    if (!editTemplateName.trim()) {
+      toast.error("Please enter a template name");
+      return;
+    }
+    
+    if (!editingTemplate) return;
+    
+    try {
+      await updateTemplateMutation.mutateAsync({
+        id: editingTemplate.id,
+        name: editTemplateName,
+        category: editTemplateCategory,
+        titlePattern: editTitlePattern,
+        descriptionPattern: editDescriptionPattern,
+      });
+      
+      await refetchTemplates();
+      toast.success(`Template "${editTemplateName}" updated successfully`);
+      setShowEditTemplateDialog(false);
+      setEditingTemplate(null);
+      setEditTemplateName("");
+      setEditTitlePattern("");
+      setEditDescriptionPattern("");
+    } catch (error) {
+      toast.error("Failed to update template");
+    }
+  };
 
   const applyBulkEdit = () => {
     setFiles((prev) =>
@@ -169,6 +220,47 @@ export function FileUploadDialog({
     setBulkTitle("");
     setBulkDescription("");
   };
+  
+  // Auto-complete handlers
+  const handleTitleChange = (index: number, value: string) => {
+    updateFileMetadata(index, { title: value });
+    
+    if (value.length > 1 && metadataSuggestions.length > 0) {
+      const suggestions = metadataSuggestions
+        .filter(s => s.title && s.title.toLowerCase().includes(value.toLowerCase()))
+        .map(s => s.title!)
+        .slice(0, 5);
+      setTitleSuggestions(suggestions);
+      setShowTitleSuggestions(suggestions.length > 0);
+    } else {
+      setShowTitleSuggestions(false);
+    }
+  };
+  
+  const handleDescriptionChange = (index: number, value: string) => {
+    updateFileMetadata(index, { description: value });
+    
+    if (value.length > 2 && metadataSuggestions.length > 0) {
+      const suggestions = metadataSuggestions
+        .filter(s => s.description && s.description.toLowerCase().includes(value.toLowerCase()))
+        .map(s => s.description!)
+        .slice(0, 5);
+      setDescriptionSuggestions(suggestions);
+      setShowDescriptionSuggestions(suggestions.length > 0);
+    } else {
+      setShowDescriptionSuggestions(false);
+    }
+  };
+  
+  const selectTitleSuggestion = (index: number, suggestion: string) => {
+    updateFileMetadata(index, { title: suggestion });
+    setShowTitleSuggestions(false);
+  };
+  
+  const selectDescriptionSuggestion = (index: number, suggestion: string) => {
+    updateFileMetadata(index, { description: suggestion });
+    setShowDescriptionSuggestions(false);
+  };
 
   const createFileMutation = trpc.files.create.useMutation();
   const transcribeVoiceMutation = trpc.files.transcribeVoice.useMutation();
@@ -178,6 +270,7 @@ export function FileUploadDialog({
   // Custom templates
   const { data: customTemplates = [], refetch: refetchTemplates } = trpc.metadataTemplates.list.useQuery();
   const createTemplateMutation = trpc.metadataTemplates.create.useMutation();
+  const updateTemplateMutation = trpc.metadataTemplates.update.useMutation();
   const deleteTemplateMutation = trpc.metadataTemplates.delete.useMutation();
   const trackUsageMutation = trpc.metadataTemplates.trackUsage.useMutation();
   const linkTagMutation = trpc.tags.linkToFile.useMutation();
@@ -605,11 +698,36 @@ export function FileUploadDialog({
                     ))}
                     {customTemplates.length > 0 && (
                       <>
-                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Custom Templates</div>
-                        {customTemplates.map((template) => (
-                          <SelectItem key={template.id} value={template.id.toString()}>
-                            ⭐ {template.name}
-                          </SelectItem>
+                        {Object.entries(
+                          customTemplates.reduce((acc: any, template: any) => {
+                            const category = template.category || "General";
+                            if (!acc[category]) acc[category] = [];
+                            acc[category].push(template);
+                            return acc;
+                          }, {})
+                        ).map(([category, templates]: [string, any]) => (
+                          <div key={category}>
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center justify-between">
+                              <span>{category}</span>
+                              <span className="text-xs text-muted-foreground">Right-click to edit</span>
+                            </div>
+                            {templates.map((template: any) => (
+                              <div
+                                key={template.id}
+                                className="relative group"
+                                onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  openEditTemplate(template);
+                                }}
+                              >
+                                <SelectItem value={template.id.toString()}>
+                                  <div className="flex items-center justify-between w-full">
+                                    <span>⭐ {template.name}</span>
+                                  </div>
+                                </SelectItem>
+                              </div>
+                            ))}
+                          </div>
                         ))}
                       </>
                     )}
@@ -831,15 +949,34 @@ export function FileUploadDialog({
                         </div>
                       )}
                     </div>
-                    <Input
-                      id={`title-${index}`}
-                      value={fileData.title}
-                      onChange={(e) =>
-                        updateFileMetadata(index, { title: e.target.value })
-                      }
-                      placeholder="Enter file title"
-                      className={(!fileData.title || fileData.title.trim().length === 0) ? "border-amber-500" : ""}
-                    />
+                    <div className="relative">
+                      <Input
+                        id={`title-${index}`}
+                        value={fileData.title}
+                        onChange={(e) => handleTitleChange(index, e.target.value)}
+                        onFocus={() => {
+                          if (fileData.title.length > 1 && titleSuggestions.length > 0) {
+                            setShowTitleSuggestions(true);
+                          }
+                        }}
+                        onBlur={() => setTimeout(() => setShowTitleSuggestions(false), 200)}
+                        placeholder="Enter file title"
+                        className={(!fileData.title || fileData.title.trim().length === 0) ? "border-amber-500" : ""}
+                      />
+                      {showTitleSuggestions && titleSuggestions.length > 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-auto">
+                          {titleSuggestions.map((suggestion, idx) => (
+                            <div
+                              key={idx}
+                              className="px-3 py-2 hover:bg-accent cursor-pointer text-sm"
+                              onClick={() => selectTitleSuggestion(index, suggestion)}
+                            >
+                              {suggestion}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div>
@@ -855,18 +992,35 @@ export function FileUploadDialog({
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Textarea
-                        id={`description-${index}`}
-                        value={fileData.description}
-                        onChange={(e) =>
-                          updateFileMetadata(index, {
-                            description: e.target.value,
-                          })
-                        }
-                        placeholder="Describe this file..."
-                        rows={3}
-                        className="flex-1"
-                      />
+                      <div className="relative flex-1">
+                        <Textarea
+                          id={`description-${index}`}
+                          value={fileData.description}
+                          onChange={(e) => handleDescriptionChange(index, e.target.value)}
+                          onFocus={() => {
+                            if (fileData.description.length > 2 && descriptionSuggestions.length > 0) {
+                              setShowDescriptionSuggestions(true);
+                            }
+                          }}
+                          onBlur={() => setTimeout(() => setShowDescriptionSuggestions(false), 200)}
+                          placeholder="Describe this file..."
+                          rows={3}
+                          className="flex-1"
+                        />
+                        {showDescriptionSuggestions && descriptionSuggestions.length > 0 && (
+                          <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-auto">
+                            {descriptionSuggestions.map((suggestion, idx) => (
+                              <div
+                                key={idx}
+                                className="px-3 py-2 hover:bg-accent cursor-pointer text-sm"
+                                onClick={() => selectDescriptionSuggestion(index, suggestion)}
+                              >
+                                {suggestion.substring(0, 100)}{suggestion.length > 100 ? '...' : ''}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <Button
                         type="button"
                         variant={fileData.isRecording ? "destructive" : "outline"}
@@ -946,6 +1100,22 @@ export function FileUploadDialog({
               onKeyDown={(e) => e.key === 'Enter' && saveAsTemplate()}
             />
           </div>
+          <div>
+            <Label htmlFor="template-category">Category</Label>
+            <Select value={newTemplateCategory} onValueChange={setNewTemplateCategory}>
+              <SelectTrigger id="template-category">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="General">General</SelectItem>
+                <SelectItem value="Work">Work</SelectItem>
+                <SelectItem value="Personal">Personal</SelectItem>
+                <SelectItem value="Legal">Legal</SelectItem>
+                <SelectItem value="Marketing">Marketing</SelectItem>
+                <SelectItem value="Finance">Finance</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="bg-accent/10 rounded-lg p-3 space-y-2">
             <div className="text-sm font-medium">Preview:</div>
             <div className="text-xs space-y-1">
@@ -966,6 +1136,82 @@ export function FileUploadDialog({
             <Button onClick={saveAsTemplate} disabled={!newTemplateName.trim()}>
               Save Template
             </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    
+    {/* Edit Template Dialog */}
+    <Dialog open={showEditTemplateDialog} onOpenChange={setShowEditTemplateDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Template</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="edit-template-name">Template Name</Label>
+            <Input
+              id="edit-template-name"
+              value={editTemplateName}
+              onChange={(e) => setEditTemplateName(e.target.value)}
+              placeholder="e.g., Product Photos, Meeting Notes"
+            />
+          </div>
+          <div>
+            <Label htmlFor="edit-template-category">Category</Label>
+            <Select value={editTemplateCategory} onValueChange={setEditTemplateCategory}>
+              <SelectTrigger id="edit-template-category">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="General">General</SelectItem>
+                <SelectItem value="Work">Work</SelectItem>
+                <SelectItem value="Personal">Personal</SelectItem>
+                <SelectItem value="Legal">Legal</SelectItem>
+                <SelectItem value="Marketing">Marketing</SelectItem>
+                <SelectItem value="Finance">Finance</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="edit-title-pattern">Title Pattern</Label>
+            <Input
+              id="edit-title-pattern"
+              value={editTitlePattern}
+              onChange={(e) => setEditTitlePattern(e.target.value)}
+              placeholder="e.g., Product - {filename}"
+            />
+          </div>
+          <div>
+            <Label htmlFor="edit-description-pattern">Description Pattern</Label>
+            <Textarea
+              id="edit-description-pattern"
+              value={editDescriptionPattern}
+              onChange={(e) => setEditDescriptionPattern(e.target.value)}
+              placeholder="e.g., High-quality product image for..."
+              rows={3}
+            />
+          </div>
+          <div className="flex justify-between gap-2">
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (editingTemplate) {
+                  deleteTemplate(editingTemplate.id, editingTemplate.name);
+                  setShowEditTemplateDialog(false);
+                }
+              }}
+            >
+              Delete Template
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowEditTemplateDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={saveEditedTemplate} disabled={!editTemplateName.trim()}>
+                Save Changes
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

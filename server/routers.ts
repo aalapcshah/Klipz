@@ -42,6 +42,7 @@ export const appRouter = router({
       .input(
         z.object({
           name: z.string(),
+          category: z.string().optional(),
           titlePattern: z.string().optional(),
           descriptionPattern: z.string().optional(),
         })
@@ -58,6 +59,7 @@ export const appRouter = router({
         z.object({
           id: z.number(),
           name: z.string().optional(),
+          category: z.string().optional(),
           titlePattern: z.string().optional(),
           descriptionPattern: z.string().optional(),
         })

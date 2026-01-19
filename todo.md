@@ -444,3 +444,18 @@
 - [x] Add one-click application of suggested metadata
 - [x] Test custom templates persistence across sessions
 - [x] Test metadata history suggestions
+
+
+## Phase 35: Template Editing, Categories & Auto-Complete
+- [x] Add right-click context menu to custom templates for editing
+- [x] Create edit template dialog with pre-filled values (name, category, title/description patterns)
+- [x] Implement template update mutation call
+- [x] Add category field to metadata_templates table
+- [x] Update database schema and push changes
+- [x] Add category selector in save/edit template dialog (6 preset categories)
+- [x] Group templates by category in template selector
+- [x] Implement auto-complete for title field based on metadata history
+- [x] Implement auto-complete for description field based on metadata history
+- [x] Show suggestions dropdown while typing (appears after 1-2 characters)
+- [x] Add click to select suggestion functionality
+- [x] Test all three features

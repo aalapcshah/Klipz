@@ -57,6 +57,13 @@
       "when": 1768843116747,
       "tag": "0007_yielding_meltdown",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1768843970950,
+      "tag": "0008_illegal_manta",
+      "breakpoints": true
     }
   ]
 }

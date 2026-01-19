@@ -263,6 +263,7 @@ export const metadataTemplates = mysqlTable("metadata_templates", {
   userId: int("userId").notNull(),
   
   name: varchar("name", { length: 100 }).notNull(), // Template name (e.g., "Legal Document")
+  category: varchar("category", { length: 50 }).default("General"), // Template category (e.g., "Work", "Personal", "Legal")
   titlePattern: varchar("titlePattern", { length: 255 }), // Title pattern with placeholders
   descriptionPattern: text("descriptionPattern"), // Description pattern with placeholders
   

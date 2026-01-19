@@ -1,0 +1,1 @@
+ALTER TABLE `metadata_templates` ADD `category` varchar(50) DEFAULT 'General';
