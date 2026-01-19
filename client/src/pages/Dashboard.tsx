@@ -158,6 +158,7 @@ import { FileDetailDialog } from "@/components/files/FileDetailDialog";
 function FilesView() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFileId, setSelectedFileId] = useState<number | null>(null);
+  const utils = trpc.useUtils();
 
   const handleFileClick = (fileId: number) => {
     setSelectedFileId(fileId);
@@ -184,7 +185,8 @@ function FilesView() {
         open={uploadDialogOpen}
         onOpenChange={setUploadDialogOpen}
         onUploadComplete={() => {
-          // Refresh file list
+          // Refresh file list immediately
+          utils.files.list.invalidate();
         }}
       />
 

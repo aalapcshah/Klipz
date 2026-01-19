@@ -224,6 +224,43 @@ export function FileDetailDialog({
                 </div>
               )}
 
+              {/* File Metadata */}
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                <h3 className="font-semibold text-sm mb-3">File Information</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Filename:</span>
+                    <p className="font-medium truncate">{file.filename}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Size:</span>
+                    <p className="font-medium">{(file.fileSize / 1024 / 1024).toFixed(2)} MB</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Type:</span>
+                    <p className="font-medium">{file.mimeType}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Enrichment:</span>
+                    <p className="font-medium capitalize">{file.enrichmentStatus}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Created:</span>
+                    <p className="font-medium">{new Date(file.createdAt).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Modified:</span>
+                    <p className="font-medium">{new Date(file.updatedAt).toLocaleString()}</p>
+                  </div>
+                  {file.enrichedAt && (
+                    <div>
+                      <span className="text-muted-foreground">Enriched:</span>
+                      <p className="font-medium">{new Date(file.enrichedAt).toLocaleString()}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Basic Info */}
               <div className="space-y-3">
                 <div>

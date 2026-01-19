@@ -340,3 +340,10 @@
 - [ ] Test batch export with multiple files
 - [ ] Test automatic version snapshots
 - [ ] Test upload progress indicators
+
+
+## Phase 26: Upload UX Fixes & Metadata Display
+- [x] Fix auto-refresh after file upload (files should appear immediately)
+- [x] Clear all test/example files from database
+- [x] Display original file metadata (creation date, modification date, file system title/description)
+- [x] Show complete file information in detail view
