@@ -142,6 +142,7 @@ export default function Dashboard() {
       <main className="container py-8">
         {/* This will be replaced by route-specific content */}
         {location === "/" && <FilesView />}
+        {location === "/search" && <SearchView />}
         {location === "/videos" && <VideosView />}
         {location === "/collections" && <CollectionsManager />}
         {location === "/knowledge-graph" && <KnowledgeGraphView />}
@@ -197,6 +198,12 @@ function FilesView() {
       />
     </div>
   );
+}
+
+import SearchWithSaved from "./SearchWithSaved";
+
+function SearchView() {
+  return <SearchWithSaved />;
 }
 
 import { VideoRecorderWithTranscription } from "@/components/videos/VideoRecorderWithTranscription";
