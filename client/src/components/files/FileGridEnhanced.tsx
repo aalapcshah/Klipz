@@ -559,11 +559,12 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
             </SelectContent>
           </Select>
           {filterCollectionId !== null && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setFilterCollectionId(null)}
-            >
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCollectionDialogOpen(true)}
+                aria-label={`Add ${selectedFiles.size} selected files to collection`}
+              >
               Clear Filter
             </Button>
           )}
@@ -642,12 +643,13 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                   <GitCompare className="h-4 w-4 mr-2" />
                   Compare Files
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setTagDialogOpen(true)}
-                  disabled={linkTagMutation.isPending}
-                >
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setTagDialogOpen(true)}
+                disabled={linkTagMutation.isPending}
+                aria-label={`Add tags to ${selectedFiles.size} selected files`}
+              >
                   {linkTagMutation.isPending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
@@ -668,12 +670,13 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                   )}
                   Add to Collection
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleBatchEnrich}
-                  disabled={enrichMutation.isPending}
-                >
+                <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBatchEnrich}
+                disabled={enrichMutation.isPending}
+                aria-label={`Enrich ${selectedFiles.size} selected files with AI`}
+              >
                   {enrichMutation.isPending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
@@ -686,6 +689,7 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                   size="sm"
                   onClick={() => setDeleteDialogOpen(true)}
                   disabled={deleteMutation.isPending}
+                  aria-label={`Delete ${selectedFiles.size} selected files`}
                 >
                   {deleteMutation.isPending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -695,7 +699,12 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                   Delete
                 </Button>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedFiles(new Set())}>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setSelectedFiles(new Set())}
+                aria-label="Clear file selection"
+              >
                 Clear Selection
               </Button>
             </div>
@@ -850,7 +859,11 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
             <p className="text-muted-foreground">Upload your first file to get started</p>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div 
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            role="grid"
+            aria-label="File grid"
+          >
             {files.map((file: any) => {
               const fileCollections = getFileCollections(file.id);
               return (
@@ -864,6 +877,9 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                         draggable
                         onDragStart={(e) => handleDragStart(e, file.id)}
                         onDragEnd={handleDragEnd}
+                        role="gridcell"
+                        aria-label={`File: ${file.title || file.filename}`}
+                        tabIndex={0}
                       >
                   <div className="flex items-start gap-3">
                     {compareMode ? (
