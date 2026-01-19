@@ -289,3 +289,9 @@
 - [x] Examine all clickable elements in file cards (Card, div with onClick, checkboxes)
 - [x] Identify actual source of nested anchor tags (tabIndex on Card with onClick div inside)
 - [x] Remove or restructure problematic elements (removed tabIndex from Card)
+
+## Bug Fix - Nested Anchor Error (Round 3)
+- [x] Inspect Card component source code from shadcn/ui (Card is just a div)
+- [x] Check for any Link components in file card tree (found in Dashboard navigation)
+- [x] Fix nested anchor in Dashboard.tsx navigation (removed inner <a> tag from Link)
+- [x] Verify fix eliminates nested anchor error

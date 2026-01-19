@@ -71,17 +71,17 @@ export default function Dashboard() {
                 const Icon = item.icon;
                 const isActive = location === item.href;
                 return (
-                  <Link key={item.href} href={item.href}>
-                    <a
-                      className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
-                        isActive
-                          ? "bg-primary text-primary-foreground"
-                          : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {item.label}
-                    </a>
+                  <Link 
+                    key={item.href} 
+                    href={item.href}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
                   </Link>
                 );
               })}
