@@ -392,3 +392,16 @@
 - [x] Calculate metadata quality score for files
 - [x] Display quality score in file cards and detail view
 - [x] Test all three features
+
+
+## Phase 31: Bulk Quality Improvement, Tag Merge & Score Filtering
+- [x] Add quality score range filter dropdown in file grid
+- [x] Implement quality score filtering logic
+- [x] Create "Improve Quality" batch action button
+- [x] Implement bulk enrichment for low-quality files
+- [x] Apply suggested tags automatically in bulk improvement
+- [x] Implement tag merge backend procedure
+- [x] Re-link all file associations when merging tags
+- [x] Delete merged (duplicate) tags after re-linking
+- [x] Add deleteTag function to db.ts
+- [x] Test all three features

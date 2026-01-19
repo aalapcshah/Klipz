@@ -363,6 +363,17 @@ export async function unlinkFileTag(fileId: number, tagId: number) {
     .where(and(eq(fileTags.fileId, fileId), eq(fileTags.tagId, tagId))!);
 }
 
+export async function deleteTag(tagId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // First delete all file-tag associations
+  await db.delete(fileTags).where(eq(fileTags.tagId, tagId));
+  
+  // Then delete the tag itself
+  await db.delete(tags).where(eq(tags.id, tagId));
+}
+
 export async function getFileTagsWithNames(fileId: number) {
   const db = await getDb();
   if (!db) return [];

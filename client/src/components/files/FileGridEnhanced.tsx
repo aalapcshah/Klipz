@@ -89,6 +89,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
   const [sortBy, setSortBy] = useState<"date" | "size" | "enrichment">("date");
   const [filterType, setFilterType] = useState<"all" | "image" | "video" | "document">("all");
   const [filterTagSource, setFilterTagSource] = useState<"all" | "manual" | "ai" | "voice" | "metadata">("all");
+  const [filterQualityScore, setFilterQualityScore] = useState<"all" | "high" | "medium" | "low">("all");
   const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
   const [batchTitle, setBatchTitle] = useState("");
   const [batchDescription, setBatchDescription] = useState("");
@@ -203,6 +204,17 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
     files = files.filter((file: any) => {
       if (!file.tags || file.tags.length === 0) return false;
       return file.tags.some((tag: any) => tag.source === filterTagSource);
+    });
+  }
+
+  // Apply quality score filter
+  if (filterQualityScore !== "all") {
+    files = files.filter((file: any) => {
+      const score = file.qualityScore || 0;
+      if (filterQualityScore === "high") return score >= 80;
+      if (filterQualityScore === "medium") return score >= 50 && score < 80;
+      if (filterQualityScore === "low") return score < 50;
+      return true;
     });
   }
 
@@ -425,6 +437,62 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
     selectedFiles.forEach((fileId) => {
       enrichMutation.mutate({ id: fileId });
     });
+  };
+
+  const handleBulkQualityImprovement = async () => {
+    const selectedFilesList = files.filter((f: any) =>
+      selectedFiles.has(f.id)
+    );
+
+    // Filter files with low quality scores (below 80%)
+    const lowQualityFiles = selectedFilesList.filter(
+      (f: any) => (f.qualityScore || 0) < 80
+    );
+
+    if (lowQualityFiles.length === 0) {
+      toast.info("All selected files already have high quality scores!");
+      return;
+    }
+
+    toast.info(
+      `Improving quality for ${lowQualityFiles.length} file${lowQualityFiles.length > 1 ? 's' : ''}...`
+    );
+
+    // Step 1: Enrich files that aren't enriched yet
+    const unenrichedFiles = lowQualityFiles.filter(
+      (f: any) => f.enrichmentStatus !== "completed"
+    );
+
+    for (const file of unenrichedFiles) {
+      enrichMutation.mutate({ id: file.id });
+    }
+
+    // Step 2: Apply suggested tags to all low quality files
+    const utils = trpc.useUtils();
+    for (const file of lowQualityFiles) {
+      try {
+        const suggestions = await utils.files.suggestTags.fetch({ fileId: file.id });
+        
+        if (suggestions && suggestions.length > 0) {
+          // Apply top 3 suggested tags
+          const topSuggestions = suggestions.slice(0, 3);
+          
+          for (const tag of topSuggestions) {
+            await linkTagMutation.mutateAsync({
+              fileId: file.id,
+              tagId: tag.id,
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to apply suggestions for file ${file.id}:`, error);
+      }
+    }
+
+    toast.success(
+      `Quality improvement complete for ${lowQualityFiles.length} file${lowQualityFiles.length > 1 ? 's' : ''}!`
+    );
+    setSelectedFiles(new Set());
   };
 
   const handleExportMetadata = () => {
@@ -771,6 +839,22 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
             </Select>
           </div>
 
+          {/* Quality Score Filter */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Quality:</label>
+            <Select value={filterQualityScore} onValueChange={(value: any) => setFilterQualityScore(value)}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Files</SelectItem>
+                <SelectItem value="high">High (80%+)</SelectItem>
+                <SelectItem value="medium">Medium (50-79%)</SelectItem>
+                <SelectItem value="low">Low (&lt;50%)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Thumbnail Size */}
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium">Thumbnail:</label>
@@ -894,6 +978,21 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                     <Sparkles className="h-4 w-4 mr-2" />
                   )}
                   Enrich
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleBulkQualityImprovement}
+                  disabled={enrichMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700"
+                  aria-label={`Automatically improve quality of ${selectedFiles.size} selected files`}
+                >
+                  {enrichMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4 mr-2" />
+                  )}
+                  Improve Quality
                 </Button>
                 <Button
                   variant="outline"

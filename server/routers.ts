@@ -754,6 +754,53 @@ export const appRouter = router({
         
         return { success: true };
       }),
+
+    // Merge tags - combine duplicate tags and re-link all files
+    merge: protectedProcedure
+      .input(
+        z.object({
+          sourceTagId: z.number(), // Tag to be merged (will be deleted)
+          targetTagId: z.number(), // Tag to keep
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        // Verify both tags belong to user
+        const sourceTags = await db.getTagsByUserId(ctx.user.id);
+        const sourceTag = sourceTags.find((t: any) => t.id === input.sourceTagId);
+        const targetTag = sourceTags.find((t: any) => t.id === input.targetTagId);
+        
+        if (!sourceTag || !targetTag) {
+          throw new Error("Tag not found");
+        }
+        
+        // Get all files linked to source tag
+        const allFiles = await db.getFilesByUserId(ctx.user.id);
+        const filesWithSourceTag = allFiles.filter((f: any) => 
+          (f as any).tags?.some((t: any) => t.id === input.sourceTagId)
+        );
+        
+        // Re-link all files from source tag to target tag
+        for (const file of filesWithSourceTag) {
+          // Check if file already has target tag
+          const hasTargetTag = (file as any).tags?.some((t: any) => t.id === input.targetTagId);
+          
+          if (!hasTargetTag) {
+            await db.linkFileTag(file.id, input.targetTagId);
+          }
+          
+          // Unlink source tag
+          await db.unlinkFileTag(file.id, input.sourceTagId);
+        }
+        
+        // Delete source tag
+        await db.deleteTag(input.sourceTagId);
+        
+        return { 
+          success: true, 
+          filesRelinked: filesWithSourceTag.length,
+          targetTagName: targetTag.name
+        };
+      }),
   }),
 
   // ============= VIDEOS ROUTER =============
