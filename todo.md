@@ -34,9 +34,9 @@
 ## Phase 5: Semantic Search
 - [x] Build search UI with filters
 - [x] Implement full-text search across metadata
-- [ ] Add tag-based filtering
-- [ ] Create search results view
-- [ ] Add search suggestions
+- [x] Add tag-based filtering
+- [x] Create search results view
+- [x] Add search suggestions
 
 ## Phase 6: Knowledge Graph
 - [x] Calculate semantic similarity between files
@@ -47,19 +47,19 @@
 
 ## Phase 7: Video Recording & Annotation
 - [x] Build webcam recording interface
-- [ ] Implement live speech-to-text transcription
-- [ ] Create keyword detection from transcript
-- [ ] Build auto-matching algorithm for files
-- [ ] Show suggested annotations in real-time
-- [ ] Create timeline visualization
+- [x] Implement live speech-to-text transcription (completed in Phase 9)
+- [x] Create keyword detection from transcript (completed in Phase 9)
+- [x] Build auto-matching algorithm for files (completed in Phase 9)
+- [x] Show suggested annotations in real-time (completed in Phase 9)
+- [x] Create timeline visualization (completed in Phase 10)
 
 ## Phase 8: Video Export
-- [ ] Build annotation editor UI
-- [ ] Implement video player with overlay preview
-- [ ] Create export configuration options
-- [ ] Generate video with picture-in-picture overlays
-- [ ] Add export progress tracking
-- [ ] Support multiple export formats
+- [x] Build annotation editor UI (completed in Phase 10)
+- [x] Implement video player with overlay preview (completed in Phase 10)
+- [x] Create export configuration options (completed in Phase 11)
+- [x] Generate video with picture-in-picture overlays (completed in Phase 11)
+- [x] Add export progress tracking (completed in Phase 11)
+- [x] Support multiple export formats (completed in Phase 11)
 
 ## Phase 9: Polish & Testing
 - [ ] Add loading states and error handling

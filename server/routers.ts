@@ -421,6 +421,32 @@ export const appRouter = router({
         return await db.searchFiles(ctx.user.id, input.query);
       }),
 
+    // Search suggestions based on existing files
+    searchSuggestions: protectedProcedure
+      .input(z.object({ query: z.string() }))
+      .query(async ({ ctx, input }) => {
+        if (input.query.length < 2) return [];
+        
+        const result = await db.advancedSearchFiles(ctx.user.id, {
+          query: input.query,
+          limit: 5,
+          offset: 0,
+        });
+        
+        // Return unique titles and descriptions as suggestions
+        const suggestions = new Set<string>();
+        result.files.forEach((file: any) => {
+          if (file.title && file.title.toLowerCase().includes(input.query.toLowerCase())) {
+            suggestions.add(file.title);
+          }
+          if (file.description && file.description.toLowerCase().includes(input.query.toLowerCase())) {
+            suggestions.add(file.description.substring(0, 100));
+          }
+        });
+        
+        return Array.from(suggestions).slice(0, 5);
+      }),
+    
     // Advanced search with filters
     advancedSearch: protectedProcedure
       .input(

@@ -26,6 +26,7 @@ import { toast } from "sonner";
 
 export default function Search() {
   const [query, setQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [fileType, setFileType] = useState<string>("");
   const [selectedTags, setSelectedTags] = useState<number[]>([]);
   const [enrichmentStatus, setEnrichmentStatus] = useState<string>("");
@@ -35,6 +36,10 @@ export default function Search() {
   const pageSize = 20;
 
   const { data: tags = [] } = trpc.tags.list.useQuery();
+  const { data: suggestions = [] } = trpc.files.searchSuggestions.useQuery(
+    { query },
+    { enabled: query.length > 1 }
+  );
   const { data: searchResults, isLoading, refetch } = trpc.files.advancedSearch.useQuery(
     {
       query: query || undefined,
@@ -195,21 +200,48 @@ export default function Search() {
         <div className="lg:col-span-3 space-y-6">
           {/* Search Bar */}
           <Card className="p-4">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Search files by title, description, or content..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="flex-1"
-              />
-              <Button onClick={handleSearch} disabled={isLoading}>
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <SearchIcon className="h-4 w-4" />
-                )}
-              </Button>
+            <div className="relative">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Search files by title, description, or content..."
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setShowSuggestions(e.target.value.length > 1);
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  onFocus={() => query.length > 1 && setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  className="flex-1"
+                />
+                <Button onClick={handleSearch} disabled={isLoading}>
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <SearchIcon className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              
+              {/* Search Suggestions Dropdown */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-auto">
+                  <div className="p-2 text-xs text-muted-foreground font-semibold">Suggestions</div>
+                  {suggestions.map((suggestion, idx) => (
+                    <div
+                      key={idx}
+                      className="px-3 py-2 hover:bg-accent cursor-pointer text-sm"
+                      onClick={() => {
+                        setQuery(suggestion);
+                        setShowSuggestions(false);
+                        setTimeout(() => handleSearch(), 100);
+                      }}
+                    >
+                      {suggestion}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </Card>
 
