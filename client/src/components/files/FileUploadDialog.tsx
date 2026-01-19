@@ -942,7 +942,7 @@ export function FileUploadDialog({
                   <div>
                     <div className="flex items-center gap-2">
                       <Label htmlFor={`title-${index}`}>Title</Label>
-                      {(!fileData.title || fileData.title.trim().length === 0) && (
+                      {(!fileData.title || (typeof fileData.title === 'string' && fileData.title.trim().length === 0)) && (
                         <div className="flex items-center gap-1 text-amber-500 text-xs">
                           <AlertCircle className="h-3 w-3" />
                           <span>Missing</span>
@@ -961,7 +961,7 @@ export function FileUploadDialog({
                         }}
                         onBlur={() => setTimeout(() => setShowTitleSuggestions(false), 200)}
                         placeholder="Enter file title"
-                        className={(!fileData.title || fileData.title.trim().length === 0) ? "border-amber-500" : ""}
+                        className={(!fileData.title || (typeof fileData.title === 'string' && fileData.title.trim().length === 0)) ? "border-amber-500" : ""}
                       />
                       {showTitleSuggestions && titleSuggestions.length > 0 && (
                         <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-auto">
@@ -984,7 +984,7 @@ export function FileUploadDialog({
                       <Label htmlFor={`description-${index}`}>
                         Description (Voice or Type)
                       </Label>
-                      {(!fileData.description || fileData.description.trim().length === 0) && (
+                      {(!fileData.description || (typeof fileData.description === 'string' && fileData.description.trim().length === 0)) && (
                         <div className="flex items-center gap-1 text-amber-500 text-xs">
                           <AlertCircle className="h-3 w-3" />
                           <span>Missing</span>
