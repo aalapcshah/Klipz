@@ -405,3 +405,12 @@
 - [x] Delete merged (duplicate) tags after re-linking
 - [x] Add deleteTag function to db.ts
 - [x] Test all three features
+
+
+## Phase 32: Fix Upload Error & Metadata Extraction
+- [x] Investigate file upload error
+- [x] Fix metadata extraction not populating fields
+- [x] Remove duplicate exifr.parse() call causing errors
+- [x] Verify exifr library is working correctly
+- [x] Check file upload mutation parameters
+- [x] Ensure metadata fields are properly saved to database

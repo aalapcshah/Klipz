@@ -332,7 +332,7 @@ export function FileUploadDialog({
             description: extractedDescription,
             voiceRecordingUrl,
             voiceTranscript: fileData.voiceTranscript,
-            extractedMetadata: fileData.file.type.startsWith("image/") ? await exifr.parse(fileData.file, { iptc: true, xmp: true }) : undefined,
+            extractedMetadata: fileData.extractedMetadata,
             extractedKeywords: extractedKeywords.length > 0 ? extractedKeywords : undefined,
           });
 
