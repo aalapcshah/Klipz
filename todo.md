@@ -360,3 +360,13 @@
 - [x] Auto-populate description field with embedded metadata on upload
 - [x] Update database schema with new metadata fields
 - [x] Push schema changes to database
+
+
+## Phase 28: Metadata Features & Bug Fixes
+- [x] Fix search page enrichment status validation error
+- [x] Add metadata preview in upload dialog
+- [x] Allow editing extracted metadata before upload
+- [x] Implement metadata search (keywords, EXIF data, AI analysis, OCR text)
+- [x] Add batch metadata export to CSV
+- [x] Add batch metadata export to JSON
+- [x] Test all metadata features

@@ -203,12 +203,16 @@ export async function advancedSearchFiles(
 
   const conditions: any[] = [eq(files.userId, userId)];
 
-  // Text search across title and description
+  // Text search across title, description, AI analysis, OCR text, and extracted keywords
   if (filters.query && filters.query.trim()) {
     conditions.push(
       or(
         like(files.title, `%${filters.query}%`),
-        like(files.description, `%${filters.query}%`)
+        like(files.description, `%${filters.query}%`),
+        like(files.aiAnalysis, `%${filters.query}%`),
+        like(files.ocrText, `%${filters.query}%`),
+        // Search in JSON extractedKeywords array
+        sql`JSON_SEARCH(${files.extractedKeywords}, 'one', ${`%${filters.query}%`}) IS NOT NULL`
       )
     );
   }

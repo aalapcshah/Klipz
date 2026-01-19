@@ -40,7 +40,7 @@ export default function Search() {
       query: query || undefined,
       fileType: fileType || undefined,
       tagIds: selectedTags.length > 0 ? selectedTags : undefined,
-      enrichmentStatus: enrichmentStatus as any || undefined,
+      enrichmentStatus: enrichmentStatus && enrichmentStatus !== "" ? (enrichmentStatus as "pending" | "processing" | "completed" | "failed") : undefined,
       dateFrom: dateFrom ? new Date(dateFrom).getTime() : undefined,
       dateTo: dateTo ? new Date(dateTo).getTime() : undefined,
       limit: pageSize,
@@ -137,8 +137,9 @@ export default function Search() {
                   <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value=" ">All statuses</SelectItem>
+                  <SelectItem value="">All statuses</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="processing">Processing</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
                 </SelectContent>

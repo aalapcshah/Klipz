@@ -418,6 +418,92 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
     });
   };
 
+  const handleExportMetadata = () => {
+    const selectedFilesList = files.filter((f: any) =>
+      selectedFiles.has(f.id)
+    );
+
+    // Prepare comprehensive metadata
+    const metadata = selectedFilesList.map((file: any) => ({
+      id: file.id,
+      filename: file.filename,
+      title: file.title,
+      description: file.description,
+      mimeType: file.mimeType,
+      fileSize: file.fileSize,
+      enrichmentStatus: file.enrichmentStatus,
+      aiAnalysis: file.aiAnalysis,
+      ocrText: file.ocrText,
+      detectedObjects: file.detectedObjects,
+      extractedKeywords: file.extractedKeywords,
+      extractedMetadata: file.extractedMetadata,
+      tags: file.tags?.map((t: any) => t.name).join(", "),
+      createdAt: file.createdAt,
+      updatedAt: file.updatedAt,
+      enrichedAt: file.enrichedAt,
+      url: file.url,
+    }));
+
+    // Export as JSON
+    const jsonBlob = new Blob([JSON.stringify(metadata, null, 2)], {
+      type: "application/json",
+    });
+    const jsonUrl = URL.createObjectURL(jsonBlob);
+    const jsonLink = document.createElement("a");
+    jsonLink.href = jsonUrl;
+    jsonLink.download = `metadata-export-${Date.now()}.json`;
+    jsonLink.click();
+    URL.revokeObjectURL(jsonUrl);
+
+    // Export as CSV
+    const csvHeaders = [
+      "ID",
+      "Filename",
+      "Title",
+      "Description",
+      "MIME Type",
+      "File Size (MB)",
+      "Enrichment Status",
+      "AI Analysis",
+      "OCR Text",
+      "Keywords",
+      "Tags",
+      "Created At",
+      "Updated At",
+      "URL",
+    ];
+    const csvRows = metadata.map((file) => [
+      file.id,
+      `"${file.filename?.replace(/"/g, '""') || ""}"`,
+      `"${file.title?.replace(/"/g, '""') || ""}"`,
+      `"${file.description?.replace(/"/g, '""') || ""}"`,
+      file.mimeType,
+      (file.fileSize / 1024 / 1024).toFixed(2),
+      file.enrichmentStatus,
+      `"${file.aiAnalysis?.replace(/"/g, '""') || ""}"`,
+      `"${file.ocrText?.replace(/"/g, '""') || ""}"`,
+      `"${file.extractedKeywords?.join(", ") || ""}"`,
+      `"${file.tags || ""}"`,
+      new Date(file.createdAt).toLocaleString(),
+      new Date(file.updatedAt).toLocaleString(),
+      file.url,
+    ]);
+    const csvContent = [
+      csvHeaders.join(","),
+      ...csvRows.map((row) => row.join(",")),
+    ].join("\n");
+
+    const csvBlob = new Blob([csvContent], { type: "text/csv" });
+    const csvUrl = URL.createObjectURL(csvBlob);
+    const csvLink = document.createElement("a");
+    csvLink.href = csvUrl;
+    csvLink.download = `metadata-export-${Date.now()}.csv`;
+    csvLink.click();
+    URL.revokeObjectURL(csvUrl);
+
+    toast.success(`Exported metadata for ${selectedFilesList.length} files (JSON + CSV)`);
+  };
+
   const handleBatchExport = async () => {
     setExportMutation({ isPending: true });
     try {
@@ -732,6 +818,15 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                     <Download className="h-4 w-4 mr-2" />
                   )}
                   Export ZIP
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportMetadata}
+                  aria-label={`Export metadata for ${selectedFiles.size} selected files`}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Export Metadata
                 </Button>
               <Button
                 variant="outline"

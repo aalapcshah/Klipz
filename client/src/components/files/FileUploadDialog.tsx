@@ -31,6 +31,9 @@ interface FileWithMetadata {
   isRecording?: boolean;
   uploadProgress?: number;
   uploadStatus?: 'pending' | 'uploading' | 'completed' | 'error';
+  extractedMetadata?: Record<string, any>;
+  extractedKeywords?: string[];
+  showMetadataPreview?: boolean;
 }
 
 export function FileUploadDialog({
@@ -75,14 +78,74 @@ export function FileUploadDialog({
     }
   }, []);
 
-  const addFiles = (newFiles: File[]) => {
-    const filesWithMetadata: FileWithMetadata[] = newFiles.map((file) => ({
-      file,
-      title: file.name.replace(/\.[^/.]+$/, ""), // Remove extension
-      description: "",
-      uploadProgress: 0,
-      uploadStatus: 'pending',
-    }));
+  const addFiles = async (newFiles: File[]) => {
+    const filesWithMetadata: FileWithMetadata[] = [];
+    
+    for (const file of newFiles) {
+      let extractedTitle = file.name.replace(/\.[^/.]+$/, "");
+      let extractedDescription = "";
+      let extractedKeywords: string[] = [];
+      let extractedMetadata: Record<string, any> | undefined;
+      
+      // Extract metadata from image files immediately
+      if (file.type.startsWith("image/")) {
+        try {
+          const metadata = await exifr.parse(file, {
+            iptc: true,
+            xmp: true,
+            icc: false,
+            jfif: false,
+            ihdr: false,
+          });
+          
+          if (metadata) {
+            extractedMetadata = metadata;
+            
+            // Extract title
+            const metadataTitle = metadata.title || 
+                                 metadata.ObjectName || 
+                                 metadata.Headline || 
+                                 metadata.Title;
+            if (metadataTitle) {
+              extractedTitle = metadataTitle;
+            }
+            
+            // Extract description
+            extractedDescription = metadata.description || 
+                                 metadata.ImageDescription ||
+                                 metadata.Caption ||
+                                 metadata["Caption-Abstract"] ||
+                                 metadata.UserComment ||
+                                 "";
+            
+            // Extract keywords
+            if (metadata.Keywords) {
+              extractedKeywords = Array.isArray(metadata.Keywords) 
+                ? metadata.Keywords 
+                : [metadata.Keywords];
+            } else if (metadata.Subject) {
+              extractedKeywords = Array.isArray(metadata.Subject)
+                ? metadata.Subject
+                : [metadata.Subject];
+            }
+          }
+        } catch (error) {
+          console.log("Could not extract metadata:", error);
+        }
+      }
+      
+      filesWithMetadata.push({
+        file,
+        title: extractedTitle,
+        description: extractedDescription,
+        uploadProgress: 0,
+        uploadStatus: 'pending',
+        extractedMetadata,
+        extractedKeywords,
+        showMetadataPreview: !!extractedMetadata,
+      });
+    }
+    
     setFiles((prev) => [...prev, ...filesWithMetadata]);
   };
 
@@ -396,6 +459,61 @@ export function FileUploadDialog({
                       style={{ width: `${fileData.uploadProgress}%` }}
                     />
                   </div>
+                )}
+
+                {/* Extracted Metadata Preview */}
+                {fileData.extractedMetadata && fileData.showMetadataPreview && (
+                  <div className="bg-accent/10 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-accent">📋 Extracted Metadata</h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => updateFileMetadata(index, { showMetadataPreview: false })}
+                      >
+                        Hide
+                      </Button>
+                    </div>
+                    <div className="text-xs space-y-1">
+                      {fileData.extractedKeywords && fileData.extractedKeywords.length > 0 && (
+                        <div>
+                          <span className="text-muted-foreground">Keywords: </span>
+                          <span className="font-medium">{fileData.extractedKeywords.join(", ")}</span>
+                        </div>
+                      )}
+                      {fileData.extractedMetadata.Make && (
+                        <div>
+                          <span className="text-muted-foreground">Camera: </span>
+                          <span className="font-medium">{fileData.extractedMetadata.Make} {fileData.extractedMetadata.Model}</span>
+                        </div>
+                      )}
+                      {fileData.extractedMetadata.DateTimeOriginal && (
+                        <div>
+                          <span className="text-muted-foreground">Taken: </span>
+                          <span className="font-medium">{new Date(fileData.extractedMetadata.DateTimeOriginal).toLocaleString()}</span>
+                        </div>
+                      )}
+                      {fileData.extractedMetadata.latitude && fileData.extractedMetadata.longitude && (
+                        <div>
+                          <span className="text-muted-foreground">Location: </span>
+                          <span className="font-medium">{fileData.extractedMetadata.latitude.toFixed(4)}, {fileData.extractedMetadata.longitude.toFixed(4)}</span>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground italic mt-2">
+                      ✓ Title and description have been auto-filled from file metadata. You can edit them below.
+                    </p>
+                  </div>
+                )}
+                {fileData.extractedMetadata && !fileData.showMetadataPreview && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => updateFileMetadata(index, { showMetadataPreview: true })}
+                    className="w-full"
+                  >
+                    📋 Show Extracted Metadata
+                  </Button>
                 )}
 
                 <div className="space-y-2">
