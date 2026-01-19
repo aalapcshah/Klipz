@@ -281,4 +281,6 @@
 - [x] Test file versioning feature
 
 ## Bug Fix - Nested Anchor Error
-- [x] Fix nested anchor tag error in FileGridEnhanced file cards
+- [x] Fix nested anchor tag error in FileGridEnhanced file cards (first attempt)
+- [x] Investigate HoverCard component source code
+- [x] Remove HoverCard or replace with custom tooltip to eliminate nested anchor

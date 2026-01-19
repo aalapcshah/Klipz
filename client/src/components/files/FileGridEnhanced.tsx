@@ -1,9 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
 import { trpc } from "@/lib/trpc";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -867,10 +862,8 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
             {files.map((file: any) => {
               const fileCollections = getFileCollections(file.id);
               return (
-                <HoverCard key={file.id} openDelay={300} closeDelay={100}>
-                  <HoverCardTrigger asChild>
-                    <div>
                       <Card
+                        key={file.id}
                         className={`p-4 hover:border-primary/50 transition-colors cursor-pointer ${
                           draggedFileId === file.id ? "opacity-50" : ""
                         }`}
@@ -961,58 +954,6 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                     </div>
                   </div>
                       </Card>
-                    </div>
-                  </HoverCardTrigger>
-                  <HoverCardContent side="right" className="w-80">
-                    <div className="space-y-2">
-                      {file.mimeType.startsWith("image/") ? (
-                        <img
-                          src={file.url}
-                          alt={file.title || file.filename}
-                          className="w-full h-48 object-contain bg-muted rounded"
-                        />
-                      ) : file.mimeType.startsWith("video/") ? (
-                        <video
-                          src={file.url}
-                          className="w-full h-48 object-contain bg-muted rounded"
-                          controls={false}
-                        />
-                      ) : (
-                        <div className="w-full h-48 flex items-center justify-center bg-muted rounded">
-                          {getFileIcon(file.mimeType)}
-                          <span className="ml-2 text-sm text-muted-foreground">
-                            {file.mimeType.split("/")[1]?.toUpperCase() || "FILE"}
-                          </span>
-                        </div>
-                      )}
-                      <div>
-                        <h4 className="font-semibold text-sm">
-                          {file.title || file.filename}
-                        </h4>
-                        {file.description && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {file.description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                          <span>{formatFileSize(file.fileSize)}</span>
-                          <span>•</span>
-                          <span
-                            className={
-                              file.enrichmentStatus === "completed"
-                                ? "text-green-500"
-                                : "text-yellow-500"
-                            }
-                          >
-                            {file.enrichmentStatus === "completed"
-                              ? "Enriched"
-                              : "Not Enriched"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </HoverCardContent>
-                </HoverCard>
               );
             })}
           </div>
