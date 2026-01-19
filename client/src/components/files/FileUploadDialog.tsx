@@ -28,6 +28,8 @@ interface FileWithMetadata {
   voiceRecording?: Blob;
   voiceTranscript?: string;
   isRecording?: boolean;
+  uploadProgress?: number;
+  uploadStatus?: 'pending' | 'uploading' | 'completed' | 'error';
 }
 
 export function FileUploadDialog({
@@ -38,6 +40,7 @@ export function FileUploadDialog({
   const [files, setFiles] = useState<FileWithMetadata[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadCancelled, setUploadCancelled] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -76,6 +79,8 @@ export function FileUploadDialog({
       file,
       title: file.name.replace(/\.[^/.]+$/, ""), // Remove extension
       description: "",
+      uploadProgress: 0,
+      uploadStatus: 'pending',
     }));
     setFiles((prev) => [...prev, ...filesWithMetadata]);
   };
@@ -158,51 +163,89 @@ export function FileUploadDialog({
     }
 
     setUploading(true);
+    setUploadCancelled(false);
 
     try {
-      for (const fileData of files) {
-        // Upload file to S3
-        const { url: fileUrl, fileKey } = await uploadToS3(fileData.file, fileData.file.name);
-
-        // Upload voice recording if exists
-        let voiceRecordingUrl: string | undefined;
-        if (fileData.voiceRecording) {
-          const { url } = await uploadToS3(
-            fileData.voiceRecording,
-            `voice-${fileData.file.name}.webm`
-          );
-          voiceRecordingUrl = url;
+      for (let i = 0; i < files.length; i++) {
+        if (uploadCancelled) {
+          toast.info("Upload cancelled");
+          break;
         }
 
-        // Create file record in database
-        const { id } = await createFileMutation.mutateAsync({
-          fileKey,
-          url: fileUrl,
-          filename: fileData.file.name,
-          mimeType: fileData.file.type,
-          fileSize: fileData.file.size,
-          title: fileData.title,
-          description: fileData.description,
-          voiceRecordingUrl,
-          voiceTranscript: fileData.voiceTranscript,
-        });
+        const fileData = files[i];
+        
+        // Update status to uploading
+        updateFileMetadata(i, { uploadStatus: 'uploading', uploadProgress: 0 });
 
-        // Enrich with AI if requested
-        if (enrichWithAI) {
-          enrichMutation.mutate({ id });
+        // Simulate progress for file upload (S3 upload doesn't provide progress)
+        const progressInterval = setInterval(() => {
+          setFiles((prev) =>
+            prev.map((f, idx) =>
+              idx === i
+                ? { ...f, uploadProgress: Math.min((f.uploadProgress || 0) + 10, 90) }
+                : f
+            )
+          );
+        }, 200);
+
+        try {
+          // Upload file to S3
+          const { url: fileUrl, fileKey } = await uploadToS3(fileData.file, fileData.file.name);
+
+          // Upload voice recording if exists
+          let voiceRecordingUrl: string | undefined;
+          if (fileData.voiceRecording) {
+            const { url } = await uploadToS3(
+              fileData.voiceRecording,
+              `voice-${fileData.file.name}.webm`
+            );
+            voiceRecordingUrl = url;
+          }
+
+          // Create file record in database
+          const { id } = await createFileMutation.mutateAsync({
+            fileKey,
+            url: fileUrl,
+            filename: fileData.file.name,
+            mimeType: fileData.file.type,
+            fileSize: fileData.file.size,
+            title: fileData.title,
+            description: fileData.description,
+            voiceRecordingUrl,
+            voiceTranscript: fileData.voiceTranscript,
+          });
+
+          clearInterval(progressInterval);
+          updateFileMetadata(i, { uploadStatus: 'completed', uploadProgress: 100 });
+
+          // Enrich with AI if requested
+          if (enrichWithAI) {
+            enrichMutation.mutate({ id });
+          }
+        } catch (error) {
+          clearInterval(progressInterval);
+          updateFileMetadata(i, { uploadStatus: 'error', uploadProgress: 0 });
+          throw error;
         }
       }
 
-      toast.success(`${files.length} file(s) uploaded successfully!`);
-      setFiles([]);
-      onOpenChange(false);
-      onUploadComplete?.();
+      if (!uploadCancelled) {
+        toast.success(`${files.length} file(s) uploaded successfully!`);
+        setFiles([]);
+        onOpenChange(false);
+        onUploadComplete?.();
+      }
     } catch (error) {
       console.error("Upload error:", error);
       toast.error("Failed to upload files");
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleCancelUpload = () => {
+    setUploadCancelled(true);
+    setUploading(false);
   };
 
   return (
@@ -264,15 +307,41 @@ export function FileUploadDialog({
                     <div className="text-xs text-muted-foreground">
                       {(fileData.file.size / 1024 / 1024).toFixed(2)} MB
                     </div>
+                    {fileData.uploadStatus === 'uploading' && (
+                      <div className="text-xs text-primary font-medium">
+                        Uploading... {fileData.uploadProgress}%
+                      </div>
+                    )}
+                    {fileData.uploadStatus === 'completed' && (
+                      <div className="text-xs text-green-500 font-medium">
+                        ✓ Uploaded
+                      </div>
+                    )}
+                    {fileData.uploadStatus === 'error' && (
+                      <div className="text-xs text-red-500 font-medium">
+                        ✗ Failed
+                      </div>
+                    )}
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => removeFile(index)}
+                    disabled={uploading}
                   >
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
+
+                {/* Progress Bar */}
+                {fileData.uploadStatus === 'uploading' && (
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div
+                      className="bg-primary h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${fileData.uploadProgress}%` }}
+                    />
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <div>
@@ -335,8 +404,11 @@ export function FileUploadDialog({
 
         {/* Action Buttons */}
         <div className="flex justify-between gap-2 mt-6">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+          <Button 
+            variant="outline" 
+            onClick={() => uploading ? handleCancelUpload() : onOpenChange(false)}
+          >
+            {uploading ? "Cancel Upload" : "Cancel"}
           </Button>
           <div className="flex gap-2">
             <Button

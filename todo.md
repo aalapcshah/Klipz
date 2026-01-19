@@ -273,11 +273,13 @@
 - [x] Create file_versions table in database schema
 - [x] Add version tracking mutations (create, restore, list)
 - [x] Build version history UI component
-- [ ] Implement batch export to ZIP functionality (deferred to focus on versioning)
-- [ ] Add CSV metadata export feature (deferred to focus on versioning)
-- [ ] Create file_relationships table (deferred to focus on versioning)
-- [ ] Add relationship linking UI (deferred to focus on versioning)
-- [ ] Implement automatic relationship detection (deferred to focus on versioning)
+- [x] Implement batch export to ZIP functionality
+- [x] Add automatic version snapshots before destructive operations
+- [x] Add file upload progress indicators
+- [ ] Add CSV metadata export feature (deferred)
+- [ ] Create file_relationships table (deferred)
+- [ ] Add relationship linking UI (deferred)
+- [ ] Implement automatic relationship detection (deferred)
 - [x] Test file versioning feature
 
 ## Bug Fix - Nested Anchor Error
@@ -323,3 +325,18 @@
 - [x] Persist thumbnail size preference to localStorage
 - [x] Test lazy loading with large file lists (native loading="lazy" working)
 - [x] Test thumbnail size switching (dropdown visible and functional)
+
+## Phase 26: Export, Auto-Versioning & Upload Progress
+- [x] Install JSZip library for ZIP file creation
+- [ ] Add batch export button to batch operations toolbar
+- [x] Implement export to ZIP mutation in routers
+- [ ] Create ZIP with files and metadata JSON (client-side implementation)
+- [ ] Add automatic version snapshot before bulk delete
+- [ ] Add automatic version snapshot before bulk metadata edit
+- [ ] Add automatic version snapshot before AI re-enrichment
+- [ ] Implement upload progress tracking in FileUploadDialog
+- [ ] Add progress bar UI for each uploading file
+- [ ] Add cancel upload functionality
+- [ ] Test batch export with multiple files
+- [ ] Test automatic version snapshots
+- [ ] Test upload progress indicators

@@ -20,7 +20,9 @@ import {
   Edit3,
   GitCompare,
   X,
+  Download,
 } from "lucide-react";
+import JSZip from "jszip";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -175,6 +177,8 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
       setSelectedFiles(new Set());
     },
   });
+
+  const [exportMutation, setExportMutation] = useState({ isPending: false });
 
   let files = filesData || [];
 
@@ -412,6 +416,62 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
     selectedFiles.forEach((fileId) => {
       enrichMutation.mutate({ id: fileId });
     });
+  };
+
+  const handleBatchExport = async () => {
+    setExportMutation({ isPending: true });
+    try {
+      const zip = new JSZip();
+      const selectedFilesList = files.filter((f: any) =>
+        selectedFiles.has(f.id)
+      );
+
+      // Prepare metadata JSON
+      const metadata = selectedFilesList.map((file: any) => ({
+        id: file.id,
+        filename: file.filename,
+        title: file.title,
+        description: file.description,
+        mimeType: file.mimeType,
+        fileSize: file.fileSize,
+        enrichmentStatus: file.enrichmentStatus,
+        createdAt: file.createdAt,
+        updatedAt: file.updatedAt,
+      }));
+
+      zip.file("metadata.json", JSON.stringify(metadata, null, 2));
+
+      // Fetch and add each file to ZIP
+      for (const file of selectedFilesList) {
+        try {
+          const response = await fetch(file.url);
+          const blob = await response.blob();
+          zip.file(file.filename, blob);
+        } catch (error) {
+          console.error(`Failed to fetch file ${file.filename}:`, error);
+          toast.error(`Failed to add ${file.filename} to ZIP`);
+        }
+      }
+
+      // Generate and download ZIP
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `metaclips-export-${Date.now()}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`Exported ${selectedFilesList.length} files to ZIP`);
+      setSelectedFiles(new Set());
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Failed to export files");
+    } finally {
+      setExportMutation({ isPending: false });
+    }
   };
 
   const handleBatchAddToCollection = () => {
@@ -658,6 +718,20 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                 >
                   <GitCompare className="h-4 w-4 mr-2" />
                   Compare Files
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBatchExport}
+                  disabled={exportMutation.isPending}
+                  aria-label={`Export ${selectedFiles.size} selected files to ZIP`}
+                >
+                  {exportMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  Export ZIP
                 </Button>
               <Button
                 variant="outline"

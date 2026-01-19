@@ -238,12 +238,32 @@ export const appRouter = router({
       .mutation(async ({ input, ctx }) => {
         const { fileIds, ...updates } = input;
         
-        // Verify all files belong to user
+        // Verify all files belong to user and create version snapshots
         for (const fileId of fileIds) {
           const file = await db.getFileById(fileId);
           if (!file || file.userId !== ctx.user.id) {
             throw new Error(`File ${fileId} not found`);
           }
+          
+          // Create automatic version snapshot before update
+          const versions = await db.getFileVersions(fileId);
+          const versionNumber = versions.length + 1;
+          await db.createFileVersion({
+            fileId,
+            userId: ctx.user.id,
+            versionNumber,
+            changeDescription: "Auto-snapshot before batch metadata update",
+            fileKey: file.fileKey,
+            url: file.url,
+            filename: file.filename,
+            mimeType: file.mimeType,
+            fileSize: file.fileSize,
+            title: file.title,
+            description: file.description,
+            aiAnalysis: file.aiAnalysis,
+            ocrText: file.ocrText,
+            detectedObjects: file.detectedObjects,
+          });
         }
         
         // Update all files
@@ -262,6 +282,26 @@ export const appRouter = router({
         if (!file || file.userId !== ctx.user.id) {
           throw new Error("File not found");
         }
+        
+        // Create automatic version snapshot before deletion
+        const versions = await db.getFileVersions(input.id);
+        const versionNumber = versions.length + 1;
+        await db.createFileVersion({
+          fileId: input.id,
+          userId: ctx.user.id,
+          versionNumber,
+          changeDescription: "Auto-snapshot before deletion",
+          fileKey: file.fileKey,
+          url: file.url,
+          filename: file.filename,
+          mimeType: file.mimeType,
+          fileSize: file.fileSize,
+          title: file.title,
+          description: file.description,
+          aiAnalysis: file.aiAnalysis,
+          ocrText: file.ocrText,
+          detectedObjects: file.detectedObjects,
+        });
         
         await db.deleteFile(input.id);
         return { success: true };
@@ -304,6 +344,26 @@ export const appRouter = router({
         if (!file || file.userId !== ctx.user.id) {
           throw new Error("File not found");
         }
+        
+        // Create automatic version snapshot before enrichment
+        const versions = await db.getFileVersions(input.id);
+        const versionNumber = versions.length + 1;
+        await db.createFileVersion({
+          fileId: input.id,
+          userId: ctx.user.id,
+          versionNumber,
+          changeDescription: "Auto-snapshot before AI enrichment",
+          fileKey: file.fileKey,
+          url: file.url,
+          filename: file.filename,
+          mimeType: file.mimeType,
+          fileSize: file.fileSize,
+          title: file.title,
+          description: file.description,
+          aiAnalysis: file.aiAnalysis,
+          ocrText: file.ocrText,
+          detectedObjects: file.detectedObjects,
+        });
         
         // Update status to processing
         await db.updateFile(input.id, { enrichmentStatus: "processing" });
@@ -384,6 +444,34 @@ export const appRouter = router({
           await db.updateFile(input.id, { enrichmentStatus: "failed" });
           throw error;
         }
+      }),
+
+    // Batch export files to ZIP
+    batchExport: protectedProcedure
+      .input(z.object({ fileIds: z.array(z.number()) }))
+      .mutation(async ({ input, ctx }) => {
+        const files = await Promise.all(
+          input.fileIds.map(id => db.getFileById(id))
+        );
+        
+        // Filter out files that don't exist or don't belong to user
+        const validFiles = files.filter((f): f is NonNullable<typeof f> => f !== null && f !== undefined && f.userId === ctx.user.id);
+        
+        // Return file data and metadata for client-side ZIP creation
+        return {
+          files: validFiles.map(f => ({
+            id: f.id,
+            url: f.url,
+            filename: f.filename,
+            mimeType: f.mimeType,
+            fileSize: f.fileSize,
+            title: f.title,
+            description: f.description,
+            aiAnalysis: f.aiAnalysis,
+            enrichmentStatus: f.enrichmentStatus,
+            createdAt: f.createdAt,
+          }))
+        };
       }),
 
     // Transcribe voice recording
