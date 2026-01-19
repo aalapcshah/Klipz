@@ -872,7 +872,6 @@ export function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
                         onDragEnd={handleDragEnd}
                         role="gridcell"
                         aria-label={`File: ${file.title || file.filename}`}
-                        tabIndex={0}
                       >
                   <div className="flex items-start gap-3">
                     {compareMode ? (

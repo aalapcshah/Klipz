@@ -284,3 +284,8 @@
 - [x] Fix nested anchor tag error in FileGridEnhanced file cards (first attempt)
 - [x] Investigate HoverCard component source code
 - [x] Remove HoverCard or replace with custom tooltip to eliminate nested anchor
+
+## Bug Fix - Nested Anchor Error (Round 2)
+- [x] Examine all clickable elements in file cards (Card, div with onClick, checkboxes)
+- [x] Identify actual source of nested anchor tags (tabIndex on Card with onClick div inside)
+- [x] Remove or restructure problematic elements (removed tabIndex from Card)
