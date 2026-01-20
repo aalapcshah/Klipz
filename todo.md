@@ -617,3 +617,11 @@
 - [x] Changed navigation breakpoint from md: (768px) to sm: (640px)
 - [x] Made filename bold in upload dialog file cards
 - [x] Updated mobile menu breakpoint to match navigation
+
+## Phase 47: Files Tab UI Fixes
+- [x] Fix dropdown background colors to stand out from black background
+- [x] Fix enrichmentStatus validation error on Files page
+- [x] Test dropdown visibility and contrast
+- [x] Verify enrichmentStatus validation works correctly
+- [x] Added bg-card class to all SelectTrigger components
+- [x] Added defensive enrichmentStatus normalization in files.list procedure

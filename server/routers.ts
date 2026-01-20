@@ -283,7 +283,13 @@ export const appRouter = router({
           
           const qualityScore = Math.round((score / maxScore) * 100);
           
-          return { ...file, tags, qualityScore };
+          // Defensive: ensure enrichmentStatus is always a valid enum value
+          const validStatuses = ['pending', 'processing', 'completed', 'failed'] as const;
+          const enrichmentStatus = validStatuses.includes(file.enrichmentStatus as any) 
+            ? file.enrichmentStatus 
+            : 'pending';
+          
+          return { ...file, enrichmentStatus, tags, qualityScore };
         })
       );
       

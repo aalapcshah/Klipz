@@ -754,7 +754,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
               else setFilterCollectionId(parseInt(value));
             }}
           >
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-[200px] bg-card">
               <SelectValue placeholder="All Collections" />
             </SelectTrigger>
             <SelectContent>
@@ -795,7 +795,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium">File Type:</label>
             <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -811,7 +811,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium">Tag Source:</label>
             <Select value={filterTagSource} onValueChange={(value: any) => setFilterTagSource(value)}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -828,7 +828,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium">Sort By:</label>
             <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -843,7 +843,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium">Quality:</label>
             <Select value={filterQualityScore} onValueChange={(value: any) => setFilterQualityScore(value)}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[150px] bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -862,7 +862,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
               setThumbnailSize(value);
               localStorage.setItem('thumbnailSize', value);
             }}>
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-[120px] bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
