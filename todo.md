@@ -810,3 +810,52 @@
 - [x] Build smart collections manager UI (backend API complete)
 - [x] Test rule evaluation with various conditions
 - [x] Test dynamic updates when files change
+
+## Bug Fix: API Query Error
+- [ ] Diagnose which tRPC query is failing on page load
+- [ ] Identify root cause of "Failed to fetch" error
+- [ ] Fix the backend query or frontend code
+- [ ] Test the fix thoroughly
+- [ ] Verify error no longer occurs
+
+## Phase 64: Smart Collections UI
+- [x] Create SmartCollectionsManager component
+- [x] Build rule builder interface with drag-and-drop
+- [x] Add predefined template selector
+- [x] Implement live preview of matching files (via evaluate button)
+- [x] Add create/edit/delete smart collection UI
+- [x] Show file count for each smart collection
+- [x] Add smart collections to Collections page
+- [x] Test rule evaluation in real-time
+
+## Phase 65: Scheduled Exports
+- [ ] Add scheduled_exports table to database
+- [ ] Create export scheduling UI component
+- [ ] Implement daily/weekly/monthly schedule options
+- [ ] Add email notification integration
+- [ ] Create export job runner (cron-based)
+- [ ] Add export history view
+- [ ] Test scheduled export execution
+- [ ] Verify email delivery
+
+## Phase 66: Lightbox Annotations
+- [ ] Add canvas overlay to lightbox
+- [ ] Implement drawing tools (arrow, line, rectangle, circle)
+- [ ] Add text annotation tool
+- [ ] Implement highlight/marker tool
+- [ ] Add color picker for annotations
+- [ ] Save annotations to database
+- [ ] Load and display saved annotations
+- [ ] Add annotation export (PNG with overlays)
+- [ ] Test annotation persistence
+
+## Phase 67: Upload & Enrichment Flow Testing
+- [ ] Test file upload with various formats
+- [ ] Verify AI enrichment triggers correctly
+- [ ] Check metadata extraction
+- [ ] Test tag generation (manual, AI, metadata)
+- [ ] Verify quality score calculation
+- [ ] Test thumbnail generation
+- [ ] Check storage integration
+- [ ] Verify database persistence
+- [ ] Test error handling for failed uploads

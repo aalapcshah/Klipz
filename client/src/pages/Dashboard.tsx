@@ -167,7 +167,7 @@ export default function Dashboard() {
         {location === "/" && <FilesView />}
         {location === "/search" && <SearchView />}
         {location === "/videos" && <VideosView />}
-        {location === "/collections" && <CollectionsManager />}
+        {location === "/collections" && <CollectionsPage />}
         {location === "/knowledge-graph" && <KnowledgeGraphView />}
         {location === "/analytics" && <AnalyticsView />}
         {location === "/settings" && <SettingsView />}
@@ -264,7 +264,7 @@ function VideosView() {
 import { KnowledgeGraphView as KnowledgeGraphComponent } from "@/components/knowledge-graph/KnowledgeGraphView";
 import SettingsPage from "./Settings";
 import { Analytics as AnalyticsPage } from "./Analytics";
-import { CollectionsManager } from "@/components/collections/CollectionsManager";
+import CollectionsPage from "./Collections";
 
 function KnowledgeGraphView() {
   return (
