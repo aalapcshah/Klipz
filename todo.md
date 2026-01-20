@@ -753,3 +753,25 @@
 - [x] Fixed menu bar category overlap with responsive gap and padding adjustments
 - [x] Decreased description font size from text-sm to text-xs in file tiles
 - [x] Fixed thumbnail images to use file.url instead of file.fileUrl
+
+## Phase 58: File Preview Lightbox
+- [x] Create full-screen image viewer component
+- [x] Add zoom in/out controls
+- [x] Implement keyboard navigation (←/→ arrows)
+- [x] Add close button and ESC key support
+- [x] Show file metadata in preview
+
+## Phase 59: Batch Operations UI
+- [x] Create floating action bar component
+- [x] Show bar when files are selected
+- [x] Add bulk download action
+- [x] Add bulk tag action
+- [x] Add bulk move to collection action
+- [x] Add bulk delete action
+- [x] Add select all/deselect all buttons
+
+## Phase 60: Sorting & Filter Persistence
+- [x] Save sort order to localStorage
+- [x] Save filter settings to localStorage
+- [x] Load preferences on component mount
+- [x] Add reset to defaults option

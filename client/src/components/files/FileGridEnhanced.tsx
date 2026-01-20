@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import { FilePreviewLightbox } from "./FilePreviewLightbox";
+import { FloatingActionBar } from "./FloatingActionBar";
 import { trpc } from "@/lib/trpc";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -86,15 +88,29 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
   const [newCollectionColor, setNewCollectionColor] = useState("#6366f1");
   const [newTagName, setNewTagName] = useState("");
   const [isCreatingNewTag, setIsCreatingNewTag] = useState(false);
-  const [sortBy, setSortBy] = useState<"date" | "size" | "enrichment">("date");
-  const [filterType, setFilterType] = useState<"all" | "image" | "video" | "document">("all");
-  const [filterTagSource, setFilterTagSource] = useState<"all" | "manual" | "ai" | "voice" | "metadata">("all");
-  const [filterQualityScore, setFilterQualityScore] = useState<"all" | "high" | "medium" | "low">("all");
+  const [sortBy, setSortBy] = useState<"date" | "size" | "enrichment">(() => {
+    const saved = localStorage.getItem('filesSortBy');
+    return (saved as "date" | "size" | "enrichment") || "date";
+  });
+  const [filterType, setFilterType] = useState<"all" | "image" | "video" | "document">(() => {
+    const saved = localStorage.getItem('filesFilterType');
+    return (saved as "all" | "image" | "video" | "document") || "all";
+  });
+  const [filterTagSource, setFilterTagSource] = useState<"all" | "manual" | "ai" | "voice" | "metadata">(() => {
+    const saved = localStorage.getItem('filesFilterTagSource');
+    return (saved as "all" | "manual" | "ai" | "voice" | "metadata") || "all";
+  });
+  const [filterQualityScore, setFilterQualityScore] = useState<"all" | "high" | "medium" | "low">(() => {
+    const saved = localStorage.getItem('filesFilterQualityScore');
+    return (saved as "all" | "high" | "medium" | "low") || "all";
+  });
   const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
   const [batchTitle, setBatchTitle] = useState("");
   const [batchDescription, setBatchDescription] = useState("");
   const [compareMode, setCompareMode] = useState(false);
   const [compareFiles, setCompareFiles] = useState<number[]>([]);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const deletedFilesRef = useRef<DeletedFile[]>([]);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -235,6 +251,23 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
     }
     return 0;
   });
+
+  // Save preferences to localStorage
+  useEffect(() => {
+    localStorage.setItem('filesSortBy', sortBy);
+  }, [sortBy]);
+
+  useEffect(() => {
+    localStorage.setItem('filesFilterType', filterType);
+  }, [filterType]);
+
+  useEffect(() => {
+    localStorage.setItem('filesFilterTagSource', filterTagSource);
+  }, [filterTagSource]);
+
+  useEffect(() => {
+    localStorage.setItem('filesFilterQualityScore', filterQualityScore);
+  }, [filterQualityScore]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -872,6 +905,24 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
               </SelectContent>
             </Select>
           </div>
+
+          {/* Reset Filters Button */}
+          {(sortBy !== "date" || filterType !== "all" || filterTagSource !== "all" || filterQualityScore !== "all" || filterCollectionId !== null) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSortBy("date");
+                setFilterType("all");
+                setFilterTagSource("all");
+                setFilterQualityScore("all");
+                setFilterCollectionId(null);
+                toast.info("Filters reset to defaults");
+              }}
+            >
+              Reset Filters
+            </Button>
+          )}
         </div>
 
         {/* Keyboard Shortcuts Hint */}
@@ -1223,12 +1274,18 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                           <img
                             src={file.url}
                             alt={file.filename}
-                            className={`object-cover rounded border border-border flex-shrink-0 ${
+                            className={`object-cover rounded border border-border flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity ${
                               thumbnailSize === 'small' ? 'w-12 h-12' :
                               thumbnailSize === 'large' ? 'w-24 h-24' :
                               'w-16 h-16'
                             }`}
                             loading="lazy"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const index = files.findIndex((f: any) => f.id === file.id);
+                              setLightboxIndex(index);
+                              setLightboxOpen(true);
+                            }}
                             onError={(e) => {
                               // Fallback to icon if image fails to load
                               e.currentTarget.style.display = 'none';
@@ -1641,6 +1698,36 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* File Preview Lightbox */}
+      <FilePreviewLightbox
+        files={files}
+        currentIndex={lightboxIndex}
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+        onIndexChange={setLightboxIndex}
+      />
+
+      {/* Floating Action Bar */}
+      {selectedFiles.size > 0 && (
+        <FloatingActionBar
+          selectedCount={selectedFiles.size}
+          totalCount={files.length}
+          onSelectAll={() => {
+            setSelectedFiles(new Set(files.map((f: any) => f.id)));
+            toast.success(`Selected all ${files.length} files`);
+          }}
+          onDeselectAll={() => {
+            setSelectedFiles(new Set());
+            toast.info("Selection cleared");
+          }}
+          onDownload={handleBulkQualityImprovement}
+          onTag={() => setTagDialogOpen(true)}
+          onMoveToCollection={() => setCollectionDialogOpen(true)}
+          onDelete={() => setDeleteDialogOpen(true)}
+          onClose={() => setSelectedFiles(new Set())}
+        />
+      )}
     </div>
   );
 }
