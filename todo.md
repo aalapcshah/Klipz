@@ -555,3 +555,9 @@
 - [x] Fixed Drizzle ORM parameter binding issue by using MySQL2 directly
 - [x] Added title truncation to 255 characters
 - [x] Fixed metadata_history table insertion with truncation
+
+## Phase 42: Fix Dialog Accessibility Warning
+- [x] Find dialog component missing DialogTitle
+- [x] Add DialogTitle for screen reader accessibility
+- [x] Test that warning is resolved
+- [x] Fixed ManusDialog to always render DialogTitle with VisuallyHidden wrapper when no title prop
