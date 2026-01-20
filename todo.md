@@ -608,3 +608,12 @@
 - [x] Create "Clear all" button for resetting filters
 - [x] Show filter summary with active count
 - [x] Improve visual feedback for applied filters
+
+## Phase 46: UX Refinements
+- [x] Fix navigation menu bar collapsing on narrow desktop screens
+- [x] Change upload dialog thumbnail title to show actual filename instead of metadata description
+- [x] Test navigation responsiveness at various screen widths
+- [x] Test upload dialog with files that have metadata
+- [x] Changed navigation breakpoint from md: (768px) to sm: (640px)
+- [x] Made filename bold in upload dialog file cards
+- [x] Updated mobile menu breakpoint to match navigation

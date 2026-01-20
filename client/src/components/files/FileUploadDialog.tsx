@@ -951,7 +951,7 @@ export function FileUploadDialog({
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">
+                    <div className="text-sm font-bold truncate">
                       {fileData.file.name}
                     </div>
                     <div className="text-xs text-muted-foreground">

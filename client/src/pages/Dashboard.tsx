@@ -69,7 +69,7 @@ export default function Dashboard() {
               MetaClips
             </Link>
             
-            <nav className="hidden md:flex items-center gap-1">
+            <nav className="hidden sm:flex items-center gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location === item.href;
@@ -98,7 +98,7 @@ export default function Dashboard() {
             <Button 
               variant="ghost" 
               size="icon" 
-              className="md:hidden"
+              className="sm:hidden"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Toggle mobile menu"
             >
@@ -113,7 +113,7 @@ export default function Dashboard() {
 
       {/* Mobile Navigation Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-border bg-card">
+        <div className="sm:hidden border-b border-border bg-card">
           <nav className="container py-4 flex flex-col gap-2">
             {navItems.map((item) => {
               const Icon = item.icon;
