@@ -561,3 +561,11 @@
 - [x] Add DialogTitle for screen reader accessibility
 - [x] Test that warning is resolved
 - [x] Fixed ManusDialog to always render DialogTitle with VisuallyHidden wrapper when no title prop
+
+## Phase 43: Fix Videos Page Validation Error
+- [x] Investigate enrichmentStatus validation error on videos page
+- [x] Find where invalid enrichmentStatus value is coming from
+- [x] Fix validation schema or default value
+- [x] Test videos page loads without errors
+- [x] Made enrichmentStatus nullable in savedSearches schema
+- [x] Added output validation to savedSearches.list with nullable enrichmentStatus

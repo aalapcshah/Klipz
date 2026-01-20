@@ -77,7 +77,20 @@ export const appRouter = router({
   }),
   
   savedSearches: router({
-    list: protectedProcedure.query(({ ctx }) => db.getSavedSearchesByUser(ctx.user.id)),
+    list: protectedProcedure
+      .output(z.array(z.object({
+        id: z.number(),
+        userId: z.number(),
+        name: z.string(),
+        query: z.string().nullable(),
+        fileType: z.string().nullable(),
+        tagIds: z.array(z.number()).nullable(),
+        enrichmentStatus: z.enum(["pending", "processing", "completed", "failed"]).nullable(),
+        dateFrom: z.date().nullable(),
+        dateTo: z.date().nullable(),
+        createdAt: z.date(),
+      })))
+      .query(({ ctx }) => db.getSavedSearchesByUser(ctx.user.id)),
     
     create: protectedProcedure
       .input(
@@ -86,7 +99,7 @@ export const appRouter = router({
           query: z.string().optional(),
           fileType: z.string().optional(),
           tagIds: z.array(z.number()).optional(),
-          enrichmentStatus: z.enum(["pending", "processing", "completed", "failed"]).optional(),
+          enrichmentStatus: z.enum(["pending", "processing", "completed", "failed"]).nullable().optional(),
           dateFrom: z.date().optional(),
           dateTo: z.date().optional(),
         })
