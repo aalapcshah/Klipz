@@ -67,13 +67,13 @@ export default function Dashboard() {
       {/* Top Navigation */}
       <header className="border-b border-border bg-card sticky top-0 z-50">
         <div className="container flex items-center justify-between h-16">
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-4 md:gap-8">
             <Link href="/" className="flex items-center gap-2 font-bold text-xl">
               <Sparkles className="h-6 w-6 text-primary" />
               MetaClips
             </Link>
             
-            <nav className="hidden sm:flex items-center gap-1">
+            <nav className="hidden sm:flex items-center gap-0.5 md:gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location === item.href;
@@ -81,7 +81,7 @@ export default function Dashboard() {
                   <Link 
                     key={item.href} 
                     href={item.href}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
+                    className={`flex items-center gap-1.5 px-2 md:px-4 py-2 rounded-md transition-colors text-sm ${
                       isActive
                         ? "bg-primary text-primary-foreground"
                         : "hover:bg-muted text-muted-foreground hover:text-foreground"

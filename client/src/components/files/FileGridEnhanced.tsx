@@ -1179,15 +1179,27 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
               return (
                       <Card
                         key={file.id}
-                        className={`p-4 hover:border-primary/50 transition-colors cursor-pointer ${
+                        className={`group p-4 hover:border-primary/50 transition-colors cursor-pointer relative ${
                           draggedFileId === file.id ? "opacity-50" : ""
                         }`}
                         draggable
                         onDragStart={(e) => handleDragStart(e, file.id)}
                         onDragEnd={handleDragEnd}
                         role="gridcell"
-                        aria-label={`File: ${file.title || file.filename}`}
+                        aria-label={`File: ${file.filename}`}
                       >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedFiles(new Set([file.id]));
+                      setDeleteDialogOpen(true);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                   <div className="flex items-start gap-3">
                     {compareMode ? (
                       <Checkbox
@@ -1209,8 +1221,8 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                       <div className="flex items-start gap-3">
                         {file.mimeType?.startsWith('image/') ? (
                           <img
-                            src={file.fileUrl}
-                            alt={file.title || file.filename}
+                            src={file.url}
+                            alt={file.filename}
                             className={`object-cover rounded border border-border flex-shrink-0 ${
                               thumbnailSize === 'small' ? 'w-12 h-12' :
                               thumbnailSize === 'large' ? 'w-24 h-24' :
@@ -1230,10 +1242,10 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold truncate">
-                            {file.title || file.filename}
+                            {file.filename}
                           </h3>
                           {file.description && (
-                            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                            <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
                               {file.description}
                             </p>
                           )}
