@@ -569,3 +569,42 @@
 - [x] Test videos page loads without errors
 - [x] Made enrichmentStatus nullable in savedSearches schema
 - [x] Added output validation to savedSearches.list with nullable enrichmentStatus
+
+## Phase 44: Video Recording Workflow Testing
+- [ ] Test video recording with camera and microphone access
+- [ ] Test real-time transcription during recording
+- [ ] Test file matching based on transcript keywords
+- [ ] Document any issues or improvements needed
+
+## Phase 45: Video Export Functionality
+- [ ] Design video export API endpoint
+- [ ] Implement annotation overlay rendering
+- [ ] Add export status tracking (processing → completed)
+- [ ] Add export button and progress UI in video library
+- [ ] Test video export with sample annotations
+
+## Phase 46: Search Suggestions UI Improvements
+- [ ] Add saved search quick-apply buttons on Search page
+- [ ] Show recent searches with one-click apply
+- [ ] Add visual indicators for active filters
+- [ ] Improve search history UX with delete/rename options
+
+## Phase 44: Video Export UI Implementation
+- [x] Add Download icon to VideoList imports
+- [x] Create exportMutation using trpc.videoExport.export
+- [x] Implement handleExport function with loading states
+- [x] Add Export button to video card actions
+- [x] Show loading spinner during export
+- [x] Open exported video automatically in new tab
+- [x] Add toast notifications for export progress
+- [x] Fix TypeScript error with AnnotationEditor props
+
+## Phase 45: Search Suggestions UI Enhancement
+- [x] Add quick-apply section for saved searches
+- [x] Display up to 5 recent searches as chips
+- [x] Show "more in dropdown" indicator for additional searches
+- [x] Implement active filter indicators
+- [x] Add individual filter remove buttons
+- [x] Create "Clear all" button for resetting filters
+- [x] Show filter summary with active count
+- [x] Improve visual feedback for applied filters

@@ -8,6 +8,7 @@ import {
   Trash2,
   Play,
   Edit3,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -21,8 +22,11 @@ import {
 
 export function VideoList() {
   const [editingVideoId, setEditingVideoId] = useState<number | null>(null);
+  const [exportingVideoId, setExportingVideoId] = useState<number | null>(null);
+  
   const { data: videos, isLoading, refetch } = trpc.videos.list.useQuery();
   const deleteMutation = trpc.videos.delete.useMutation();
+  const exportMutation = trpc.videoExport.export.useMutation();
 
   const handleDelete = async (videoId: number) => {
     if (!confirm("Are you sure you want to delete this video?")) return;
@@ -33,6 +37,27 @@ export function VideoList() {
       refetch();
     } catch (error) {
       toast.error("Failed to delete video");
+    }
+  };
+
+  const handleExport = async (videoId: number) => {
+    setExportingVideoId(videoId);
+    try {
+      toast.info("Starting video export with annotations...");
+      const result = await exportMutation.mutateAsync({ videoId });
+      toast.success("Video exported successfully!");
+      
+      // Refresh video list to show updated export status
+      refetch();
+      
+      // Open exported video in new tab
+      if (result.url) {
+        window.open(result.url, "_blank");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Export failed");
+    } finally {
+      setExportingVideoId(null);
     }
   };
 
@@ -64,95 +89,130 @@ export function VideoList() {
 
   return (
     <>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {videos.map((video) => (
-        <Card key={video.id} className="p-4 space-y-3 group">
-          {/* Video Thumbnail/Player */}
-          <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-            <video
-              src={video.url}
-              className="w-full h-full object-contain"
-              preload="metadata"
-            />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Button size="icon" variant="secondary" asChild>
-                <a href={video.url} target="_blank" rel="noopener noreferrer">
-                  <Play className="h-6 w-6" />
-                </a>
-              </Button>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {videos.map((video) => (
+          <Card key={video.id} className="p-4 space-y-3 group">
+            {/* Video Thumbnail/Player */}
+            <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+              <video
+                src={video.url}
+                className="w-full h-full object-contain"
+                preload="metadata"
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button size="icon" variant="secondary" asChild>
+                  <a href={video.url} target="_blank" rel="noopener noreferrer">
+                    <Play className="h-6 w-6" />
+                  </a>
+                </Button>
+              </div>
             </div>
-          </div>
 
-          {/* Video Info */}
-          <div className="space-y-2">
-            <h3 className="font-medium truncate">
-              {video.title || video.filename}
-            </h3>
-            
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-xs">
-                {formatDuration(video.duration)}
-              </Badge>
-              {video.exportStatus && (
-                <Badge
-                  variant={
-                    video.exportStatus === "completed"
-                      ? "default"
-                      : video.exportStatus === "processing"
-                        ? "secondary"
-                        : "outline"
-                  }
-                  className="text-xs"
-                >
-                  {video.exportStatus}
+            {/* Video Info */}
+            <div className="space-y-2">
+              <h3 className="font-medium truncate">
+                {video.title || video.filename}
+              </h3>
+              
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="secondary" className="text-xs">
+                  {formatDuration(video.duration)}
                 </Badge>
+                {video.exportStatus && (
+                  <Badge
+                    variant={
+                      video.exportStatus === "completed"
+                        ? "default"
+                        : video.exportStatus === "processing"
+                          ? "secondary"
+                          : "outline"
+                    }
+                    className="text-xs"
+                  >
+                    {video.exportStatus}
+                  </Badge>
+                )}
+              </div>
+
+              {video.description && (
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  {video.description}
+                </p>
+              )}
+
+              {/* Show exported video link if available */}
+              {video.exportStatus === "completed" && video.exportedUrl && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-xs"
+                  asChild
+                >
+                  <a href={video.exportedUrl} target="_blank" rel="noopener noreferrer">
+                    View Exported Video →
+                  </a>
+                </Button>
               )}
             </div>
 
-            {video.description && (
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                {video.description}
-              </p>
-            )}
-          </div>
+            {/* Actions */}
+            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button variant="outline" size="sm" className="flex-1" asChild>
+                <a href={video.url} target="_blank" rel="noopener noreferrer">
+                  <Play className="h-3 w-3 mr-1" />
+                  Play
+                </a>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditingVideoId(video.id)}
+              >
+                <Edit3 className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport(video.id)}
+                disabled={
+                  exportingVideoId === video.id ||
+                  video.exportStatus === "processing"
+                }
+                title="Export video with annotation overlays"
+              >
+                {exportingVideoId === video.id ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Download className="h-3 w-3" />
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDelete(video.id)}
+                disabled={deleteMutation.isPending}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          </Card>
+        ))}
+      </div>
 
-          {/* Actions */}
-          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button variant="outline" size="sm" className="flex-1" asChild>
-              <a href={video.url} target="_blank" rel="noopener noreferrer">
-                <Play className="h-3 w-3 mr-1" />
-                Play
-              </a>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditingVideoId(video.id)}
-            >
-              <Edit3 className="h-3 w-3" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleDelete(video.id)}
-              disabled={deleteMutation.isPending}
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
-          </div>
-        </Card>
-      ))}
-    </div>
-
-    {/* Annotation Editor Dialog */}
-    <Dialog open={editingVideoId !== null} onOpenChange={(open) => !open && setEditingVideoId(null)}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit Annotations</DialogTitle>
-        </DialogHeader>
-        {editingVideoId && <AnnotationEditor videoId={editingVideoId} />}
-      </DialogContent>
-    </Dialog>
+      {/* Annotation Editor Dialog */}
+      <Dialog
+        open={editingVideoId !== null}
+        onOpenChange={(open) => !open && setEditingVideoId(null)}
+      >
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Video & Annotations</DialogTitle>
+          </DialogHeader>
+          {editingVideoId && (
+            <AnnotationEditor videoId={editingVideoId} />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

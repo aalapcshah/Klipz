@@ -182,6 +182,67 @@ export default function SearchWithSaved() {
         </div>
       </div>
 
+      {/* Quick-apply Saved Searches */}
+      {savedSearches.length > 0 && (
+        <div className="mb-6">
+          <Label className="text-sm text-muted-foreground mb-2 block">Quick Apply</Label>
+          <div className="flex flex-wrap gap-2">
+            {savedSearches.slice(0, 5).map((search: any) => (
+              <Button
+                key={search.id}
+                variant="secondary"
+                size="sm"
+                onClick={() => loadSavedSearch(search)}
+                className="text-xs"
+              >
+                <Bookmark className="h-3 w-3 mr-1" />
+                {search.name}
+              </Button>
+            ))}
+            {savedSearches.length > 5 && (
+              <span className="text-xs text-muted-foreground self-center">
+                +{savedSearches.length - 5} more in dropdown
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Active Filters Indicator */}
+      {(query || fileType || enrichmentStatus || selectedTags.length > 0 || dateFrom || dateTo) && (
+        <div className="mb-4 flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-muted-foreground">Active filters:</span>
+          {query && (
+            <Button variant="outline" size="sm" onClick={() => setQuery("")} className="h-7 text-xs">
+              Query: "{query.substring(0, 20)}{query.length > 20 ? '...' : ''}" ×
+            </Button>
+          )}
+          {fileType && (
+            <Button variant="outline" size="sm" onClick={() => setFileType("")} className="h-7 text-xs">
+              Type: {fileType} ×
+            </Button>
+          )}
+          {enrichmentStatus && (
+            <Button variant="outline" size="sm" onClick={() => setEnrichmentStatus("")} className="h-7 text-xs">
+              Status: {enrichmentStatus} ×
+            </Button>
+          )}
+          {selectedTags.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setSelectedTags([])} className="h-7 text-xs">
+              {selectedTags.length} tag(s) ×
+            </Button>
+          )}
+          {(dateFrom || dateTo) && (
+            <Button variant="outline" size="sm" onClick={() => { setDateFrom(""); setDateTo(""); }} className="h-7 text-xs">
+              Date range ×
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={resetFilters} className="h-7 text-xs ml-auto">
+            Clear all
+          </Button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Filters Sidebar */}
         <Card className="p-6 h-fit">
