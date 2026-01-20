@@ -57,6 +57,7 @@ export default function Dashboard() {
     { href: "/videos", label: "Videos", icon: VideoIcon },
     { href: "/collections", label: "Collections", icon: FolderIcon },
     { href: "/knowledge-graph", label: "Knowledge Graph", icon: NetworkIcon },
+    { href: "/settings", label: "Settings", icon: SettingsIcon },
   ];
 
   return (
@@ -166,6 +167,7 @@ export default function Dashboard() {
         {location === "/videos" && <VideosView />}
         {location === "/collections" && <CollectionsManager />}
         {location === "/knowledge-graph" && <KnowledgeGraphView />}
+        {location === "/settings" && <SettingsView />}
       </main>
     </div>
   );
@@ -257,6 +259,7 @@ function VideosView() {
 }
 
 import { KnowledgeGraphView as KnowledgeGraphComponent } from "@/components/knowledge-graph/KnowledgeGraphView";
+import SettingsPage from "./Settings";
 import { CollectionsManager } from "@/components/collections/CollectionsManager";
 
 function KnowledgeGraphView() {
@@ -272,4 +275,8 @@ function KnowledgeGraphView() {
       <KnowledgeGraphComponent />
     </div>
   );
+}
+
+function SettingsView() {
+  return <SettingsPage />;
 }

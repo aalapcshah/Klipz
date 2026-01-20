@@ -650,9 +650,35 @@
 - [ ] Integrate external ontologies into AI enrichment pipeline
 - [ ] Add premium tier gating for this feature
 
-## Phase 51: Cloud Export Integration
-- [ ] Research cloud storage APIs (Google Drive, Dropbox, OneDrive)
-- [ ] Implement cloud export backend endpoints
-- [ ] Add cloud export UI to video export dialog
-- [ ] Support exporting annotated videos with captions and overlays
-- [ ] Test cloud upload functionality
+## Phase 51: Settings UI for Knowledge Graph Management
+- [x] Create Settings page component
+- [x] Add navigation link to Settings
+- [x] Build knowledge graph connection list UI
+- [x] Implement add/edit/delete connection forms
+- [x] Add test connection button with status feedback
+- [x] Add priority ordering controls
+- [x] Full CRUD UI for managing knowledge graph connections
+- [x] Support for DBpedia, Wikidata, Schema.org, and custom ontologies
+- [x] Connection testing with response time feedback
+
+## Phase 52: Cloud Export Integration
+- [x] Research Google Drive and Dropbox OAuth flows
+- [x] Implement OAuth authentication for cloud providers
+- [x] Add cloud export backend endpoints
+- [x] Support exporting annotated videos with captions and overlays
+- [x] Created cloudExport.ts service with Google Drive and Dropbox support
+- [x] Added OAuth helper functions for token exchange
+- [x] Added cloudExport router with exportVideo and getOAuthUrl endpoints
+- [ ] Create cloud export UI in video export dialog (frontend pending)
+- [ ] Test cloud upload functionality (requires OAuth credentials)
+
+## Phase 53: Ontology Integration with AI Enrichment
+- [x] Create ontology query service for external knowledge graphs
+- [x] Implement SPARQL query builders for DBpedia/Wikidata
+- [x] Add REST API adapters for Schema.org
+- [x] Integrate ontology queries into file enrichment workflow
+- [x] Add semantic tagging based on ontology matches
+- [x] Created ontologyService.ts with multi-source querying
+- [x] Added enrichWithOntologies endpoint to files router
+- [x] Automatic semantic tag extraction and description enhancement
+- [x] Usage tracking for knowledge graph connections

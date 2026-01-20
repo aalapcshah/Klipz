@@ -443,6 +443,66 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    // Enrich file with external knowledge graphs
+    enrichWithOntologies: protectedProcedure
+      .input(z.object({ fileId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const file = await db.getFileById(input.fileId);
+        if (!file || file.userId !== ctx.user.id) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        // Extract search terms from file metadata
+        const searchTerms: string[] = [];
+        if (file.title) searchTerms.push(file.title);
+        if (file.description) {
+          // Extract key words from description
+          const words = file.description
+            .split(/\s+/)
+            .filter((w) => w.length > 4)
+            .slice(0, 10);
+          searchTerms.push(...words);
+        }
+
+        // Query external knowledge graphs
+        const { enrichWithExternalKnowledgeGraphs, extractSemanticTags, generateEnhancedDescription } = await import("./ontologyService");
+        const ontologyResults = await enrichWithExternalKnowledgeGraphs(ctx.user.id, searchTerms);
+
+        if (ontologyResults.length === 0) {
+          return {
+            success: false,
+            message: "No external knowledge graphs configured or no results found",
+          };
+        }
+
+        // Extract semantic tags
+        const semanticTags = extractSemanticTags(ontologyResults);
+
+        // Add tags to file
+        for (const tagName of semanticTags.slice(0, 10)) {
+          // Limit to 10 tags
+          const tagId = await db.createTag({ userId: ctx.user.id, name: tagName, source: "ai" });
+          await db.linkFileTag(file.id, tagId);
+        }
+
+        // Generate enhanced description
+        const enhancedDescription = generateEnhancedDescription(
+          file.description || "",
+          ontologyResults
+        );
+
+        // Update file with enhanced metadata
+        await db.updateFile(file.id, {
+          description: enhancedDescription,
+        });
+
+        return {
+          success: true,
+          addedTags: semanticTags.length,
+          sources: ontologyResults.map((r) => r.source),
+        };
+      }),
+
     // Search files by query
     search: protectedProcedure
       .input(
@@ -1267,6 +1327,92 @@ export const appRouter = router({
           success: true, 
           message: `Successfully connected to ${kg.name}`,
           responseTime: 150 // ms
+        };
+      }),
+  }),
+
+  // Cloud Export Router
+  cloudExport: router({
+    // Export video to cloud storage
+    exportVideo: protectedProcedure
+      .input(
+        z.object({
+          videoId: z.number(),
+          provider: z.enum(["google_drive", "dropbox"]),
+          accessToken: z.string(),
+          folderId: z.string().optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const video = await db.getVideoById(input.videoId);
+        if (!video || video.userId !== ctx.user.id) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        // Check if video has been exported
+        if (!video.exportedUrl) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Video must be exported first before uploading to cloud",
+          });
+        }
+
+        // Import cloud export service
+        const { exportToCloud } = await import("./cloudExport");
+
+        // Export to cloud
+        const result = await exportToCloud({
+          provider: {
+            name: input.provider,
+            type: input.provider,
+            accessToken: input.accessToken,
+          },
+          filePath: video.exportedUrl,
+          fileName: `${video.title || "video"}_annotated.mp4`,
+          mimeType: "video/mp4",
+          folderId: input.folderId,
+        });
+
+        if (!result.success) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: result.error || "Cloud export failed",
+          });
+        }
+
+        return {
+          success: true,
+          result: result.result,
+        };
+      }),
+
+    // Get OAuth URL for cloud provider
+    getOAuthUrl: protectedProcedure
+      .input(
+        z.object({
+          provider: z.enum(["google_drive", "dropbox"]),
+          redirectUri: z.string(),
+        })
+      )
+      .query(({ input }) => {
+        // TODO: Replace with actual OAuth client IDs from environment variables
+        const clientIds = {
+          google_drive: process.env.GOOGLE_DRIVE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID",
+          dropbox: process.env.DROPBOX_CLIENT_ID || "YOUR_DROPBOX_CLIENT_ID",
+        };
+
+        const scopes = {
+          google_drive: "https://www.googleapis.com/auth/drive.file",
+          dropbox: "files.content.write",
+        };
+
+        const authUrls = {
+          google_drive: `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientIds.google_drive}&redirect_uri=${encodeURIComponent(input.redirectUri)}&response_type=code&scope=${encodeURIComponent(scopes.google_drive)}&access_type=offline&prompt=consent`,
+          dropbox: `https://www.dropbox.com/oauth2/authorize?client_id=${clientIds.dropbox}&redirect_uri=${encodeURIComponent(input.redirectUri)}&response_type=code`,
+        };
+
+        return {
+          url: authUrls[input.provider],
         };
       }),
   }),
