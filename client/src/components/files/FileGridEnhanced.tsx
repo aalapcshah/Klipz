@@ -528,7 +528,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
     setSelectedFiles(new Set());
   };
 
-  const handleExportMetadata = () => {
+  const handleExportCSV = () => {
     const selectedFilesList = files.filter((f: any) =>
       selectedFiles.has(f.id)
     );
@@ -553,17 +553,6 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
       enrichedAt: file.enrichedAt,
       url: file.url,
     }));
-
-    // Export as JSON
-    const jsonBlob = new Blob([JSON.stringify(metadata, null, 2)], {
-      type: "application/json",
-    });
-    const jsonUrl = URL.createObjectURL(jsonBlob);
-    const jsonLink = document.createElement("a");
-    jsonLink.href = jsonUrl;
-    jsonLink.download = `metadata-export-${Date.now()}.json`;
-    jsonLink.click();
-    URL.revokeObjectURL(jsonUrl);
 
     // Export as CSV
     const csvHeaders = [
@@ -611,7 +600,49 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
     csvLink.click();
     URL.revokeObjectURL(csvUrl);
 
-    toast.success(`Exported metadata for ${selectedFilesList.length} files (JSON + CSV)`);
+    toast.success(`Exported metadata for ${selectedFilesList.length} files as CSV`);
+  };
+
+  const handleExportJSON = () => {
+    const selectedFilesList = files.filter((f: any) =>
+      selectedFiles.has(f.id)
+    );
+
+    // Prepare comprehensive metadata
+    const metadata = selectedFilesList.map((file: any) => ({
+      id: file.id,
+      filename: file.filename,
+      title: file.title,
+      description: file.description,
+      mimeType: file.mimeType,
+      fileSize: file.fileSize,
+      enrichmentStatus: file.enrichmentStatus,
+      aiAnalysis: file.aiAnalysis,
+      ocrText: file.ocrText,
+      detectedObjects: file.detectedObjects,
+      extractedKeywords: file.extractedKeywords,
+      extractedMetadata: file.extractedMetadata,
+      tags: file.tags?.map((t: any) => ({ id: t.id, name: t.name, source: t.source })),
+      collections: file.collections?.map((c: any) => ({ id: c.id, name: c.name, color: c.color })),
+      createdAt: file.createdAt,
+      updatedAt: file.updatedAt,
+      enrichedAt: file.enrichedAt,
+      url: file.url,
+      qualityScore: file.qualityScore,
+    }));
+
+    // Export as JSON
+    const jsonBlob = new Blob([JSON.stringify(metadata, null, 2)], {
+      type: "application/json",
+    });
+    const jsonUrl = URL.createObjectURL(jsonBlob);
+    const jsonLink = document.createElement("a");
+    jsonLink.href = jsonUrl;
+    jsonLink.download = `metadata-export-${Date.now()}.json`;
+    jsonLink.click();
+    URL.revokeObjectURL(jsonUrl);
+
+    toast.success(`Exported metadata for ${selectedFilesList.length} files as JSON`);
   };
 
   const handleBatchExport = async () => {
@@ -983,11 +1014,11 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleExportMetadata}
+                  onClick={handleExportJSON}
                   aria-label={`Export metadata for ${selectedFiles.size} selected files`}
                 >
                   <FileText className="h-4 w-4 mr-2" />
-                  Export Metadata
+                  Export JSON
                 </Button>
               <Button
                 variant="outline"
@@ -1722,6 +1753,8 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
             toast.info("Selection cleared");
           }}
           onDownload={handleBulkQualityImprovement}
+          onExportCSV={handleExportCSV}
+          onExportJSON={handleExportJSON}
           onTag={() => setTagDialogOpen(true)}
           onMoveToCollection={() => setCollectionDialogOpen(true)}
           onDelete={() => setDeleteDialogOpen(true)}

@@ -21,6 +21,8 @@ import {
   InsertCollection,
   collectionFiles,
   InsertCollectionFile,
+  smartCollections,
+  InsertSmartCollection,
   fileVersions,
   InsertFileVersion,
   metadataTemplates,
@@ -936,4 +938,124 @@ export async function updateUser(userId: number, data: Partial<typeof users.$inf
   const db = await getDb();
   if (!db) return;
   await db.update(users).set(data).where(eq(users.id, userId));
+}
+
+// ============= SMART COLLECTION QUERIES =============
+
+export async function createSmartCollection(smartCollection: InsertSmartCollection) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const [result] = await db.insert(smartCollections).values(smartCollection);
+  return { id: Number(result.insertId) };
+}
+
+export async function getSmartCollectionsByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const userSmartCollections = await db
+    .select()
+    .from(smartCollections)
+    .where(eq(smartCollections.userId, userId))
+    .orderBy(desc(smartCollections.createdAt));
+
+  return userSmartCollections;
+}
+
+export async function getSmartCollectionById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const [smartCollection] = await db
+    .select()
+    .from(smartCollections)
+    .where(eq(smartCollections.id, id))
+    .limit(1);
+
+  return smartCollection || null;
+}
+
+export async function updateSmartCollection(
+  id: number,
+  updates: Partial<InsertSmartCollection>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(smartCollections).set(updates).where(eq(smartCollections.id, id));
+}
+
+export async function deleteSmartCollection(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.delete(smartCollections).where(eq(smartCollections.id, id));
+}
+
+export async function updateSmartCollectionCache(id: number, fileCount: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .update(smartCollections)
+    .set({ cachedFileCount: fileCount, lastEvaluatedAt: new Date() })
+    .where(eq(smartCollections.id, id));
+}
+
+export async function evaluateSmartCollection(userId: number, rules: any[]) {
+  const db = await getDb();
+  if (!db) return [];
+
+  // Build dynamic SQL conditions
+  const conditions: any[] = [eq(files.userId, userId)];
+
+  for (const rule of rules) {
+    const { field, operator, value } = rule;
+
+    // Map field names to actual column references
+    const fieldMap: Record<string, any> = {
+      fileSize: files.fileSize,
+      mimeType: files.mimeType,
+      enrichmentStatus: files.enrichmentStatus,
+      enrichedAt: files.enrichedAt,
+      createdAt: files.createdAt,
+      qualityScore: sql`(SELECT COUNT(*) FROM fileTags WHERE fileTags.fileId = files.id)`,
+      tagCount: sql`(SELECT COUNT(*) FROM fileTags WHERE fileTags.fileId = files.id)`,
+    };
+
+    const column = fieldMap[field];
+    if (!column) continue;
+
+    let condition;
+    switch (operator) {
+      case ">":
+        condition = sql`${column} > ${value}`;
+        break;
+      case "<":
+        condition = sql`${column} < ${value}`;
+        break;
+      case "=":
+        condition = sql`${column} = ${value}`;
+        break;
+      case "contains":
+        condition = sql`${column} LIKE ${`%${value}%`}`;
+        break;
+      case "startsWith":
+        condition = sql`${column} LIKE ${`${value}%`}`;
+        break;
+      default:
+        continue;
+    }
+
+    conditions.push(condition);
+  }
+
+  // Execute query with all conditions
+  const result = await db
+    .select()
+    .from(files)
+    .where(and(...conditions));
+
+  return result;
 }

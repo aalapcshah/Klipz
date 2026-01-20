@@ -7,6 +7,8 @@ import {
   X,
   CheckSquare,
   Square,
+  FileText,
+  FileJson,
 } from "lucide-react";
 
 interface FloatingActionBarProps {
@@ -15,6 +17,8 @@ interface FloatingActionBarProps {
   onSelectAll: () => void;
   onDeselectAll: () => void;
   onDownload: () => void;
+  onExportCSV: () => void;
+  onExportJSON: () => void;
   onTag: () => void;
   onMoveToCollection: () => void;
   onDelete: () => void;
@@ -27,6 +31,8 @@ export function FloatingActionBar({
   onSelectAll,
   onDeselectAll,
   onDownload,
+  onExportCSV,
+  onExportJSON,
   onTag,
   onMoveToCollection,
   onDelete,
@@ -75,10 +81,32 @@ export function FloatingActionBar({
             size="sm"
             onClick={onDownload}
             className="gap-2"
-            title="Download selected files"
+            title="Download selected files as ZIP"
           >
             <Download className="h-4 w-4" />
-            Download
+            ZIP
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onExportCSV}
+            className="gap-2"
+            title="Export metadata as CSV"
+          >
+            <FileText className="h-4 w-4" />
+            CSV
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onExportJSON}
+            className="gap-2"
+            title="Export metadata as JSON"
+          >
+            <FileJson className="h-4 w-4" />
+            JSON
           </Button>
 
           <Button

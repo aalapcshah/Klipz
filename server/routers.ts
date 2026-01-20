@@ -186,6 +186,129 @@ export const appRouter = router({
       }),
   }),
 
+  smartCollections: router({
+    list: protectedProcedure.query(({ ctx }) => db.getSmartCollectionsByUser(ctx.user.id)),
+    
+    get: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const smartCollection = await db.getSmartCollectionById(input.id);
+        if (!smartCollection) throw new Error("Smart collection not found");
+        
+        const files = await db.evaluateSmartCollection(ctx.user.id, smartCollection.rules);
+        return { ...smartCollection, files };
+      }),
+    
+    create: protectedProcedure
+      .input(
+        z.object({
+          name: z.string(),
+          description: z.string().optional(),
+          color: z.string().optional(),
+          icon: z.string().optional(),
+          rules: z.array(
+            z.object({
+              field: z.string(),
+              operator: z.string(),
+              value: z.any(),
+              logic: z.enum(["AND", "OR"]).optional(),
+            })
+          ),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        return db.createSmartCollection({
+          ...input,
+          userId: ctx.user.id,
+        });
+      }),
+    
+    update: protectedProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          name: z.string().optional(),
+          description: z.string().optional(),
+          color: z.string().optional(),
+          icon: z.string().optional(),
+          rules: z.array(
+            z.object({
+              field: z.string(),
+              operator: z.string(),
+              value: z.any(),
+              logic: z.enum(["AND", "OR"]).optional(),
+            })
+          ).optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const { id, ...updates } = input;
+        await db.updateSmartCollection(id, updates);
+        return { success: true };
+      }),
+    
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.deleteSmartCollection(input.id);
+        return { success: true };
+      }),
+    
+    evaluate: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const smartCollection = await db.getSmartCollectionById(input.id);
+        if (!smartCollection) throw new Error("Smart collection not found");
+        
+        const files = await db.evaluateSmartCollection(ctx.user.id, smartCollection.rules);
+        await db.updateSmartCollectionCache(input.id, files.length);
+        return { success: true, fileCount: files.length };
+      }),
+    
+    createFromTemplate: protectedProcedure
+      .input(z.enum(["large_images", "enriched_this_week", "high_quality_no_tags"]))
+      .mutation(async ({ ctx, input }) => {
+        const templates = {
+          large_images: {
+            name: "Large Images (>5MB)",
+            description: "All images larger than 5MB",
+            color: "#3b82f6",
+            icon: "image",
+            rules: [
+              { field: "mimeType", operator: "startsWith", value: "image/" },
+              { field: "fileSize", operator: ">", value: 5242880, logic: "AND" as const },
+            ],
+          },
+          enriched_this_week: {
+            name: "Enriched This Week",
+            description: "Files enriched in the past 7 days",
+            color: "#10b981",
+            icon: "sparkles",
+            rules: [
+              { field: "enrichmentStatus", operator: "=", value: "completed" },
+              { field: "enrichedAt", operator: ">", value: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), logic: "AND" as const },
+            ],
+          },
+          high_quality_no_tags: {
+            name: "High Quality Without Tags",
+            description: "Files with quality score above 80% but no tags",
+            color: "#f59e0b",
+            icon: "alert-circle",
+            rules: [
+              { field: "qualityScore", operator: ">", value: 80 },
+              { field: "tagCount", operator: "=", value: 0, logic: "AND" as const },
+            ],
+          },
+        };
+        
+        const template = templates[input];
+        return db.createSmartCollection({
+          ...template,
+          userId: ctx.user.id,
+        });
+      }),
+  }),
+
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),

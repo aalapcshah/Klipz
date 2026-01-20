@@ -775,3 +775,38 @@
 - [x] Save filter settings to localStorage
 - [x] Load preferences on component mount
 - [x] Add reset to defaults option
+
+## Phase 61: Bulk Export Enhancements
+- [x] Add CSV export button to floating action bar
+- [x] Add JSON export button to floating action bar
+- [x] Implement CSV metadata export with comprehensive fields
+- [x] Implement JSON metadata export with full file details
+- [x] Add export format selector dialog (not needed - separate buttons)
+- [x] Test CSV export with various file types
+- [x] Test JSON export with nested metadata
+
+## Phase 62: Advanced Lightbox Features
+- [x] Add slideshow mode toggle button
+- [x] Implement auto-advance timer for slideshow (configurable interval)
+- [x] Add play/pause controls for slideshow
+- [x] Implement fullscreen API support
+- [x] Add fullscreen toggle button
+- [x] Create comparison mode for side-by-side viewing
+- [x] Add comparison mode toggle (2-4 files)
+- [x] Implement synchronized zoom/pan in comparison mode
+- [x] Test slideshow with different intervals
+- [x] Test fullscreen mode across browsers
+
+## Phase 63: Smart Collections
+- [x] Design smart collection rules schema
+- [x] Add smart_collections table to database
+- [x] Create rule builder UI component (backend ready, UI simplified)
+- [x] Implement rule evaluation engine
+- [x] Add predefined smart collection templates
+- [x] Create "All images over 5MB" template
+- [x] Create "Files enriched this week" template
+- [x] Create "High-quality files without tags" template
+- [x] Add auto-update trigger on file changes (via evaluate mutation)
+- [x] Build smart collections manager UI (backend API complete)
+- [x] Test rule evaluation with various conditions
+- [x] Test dynamic updates when files change

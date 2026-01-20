@@ -229,6 +229,36 @@ export type CollectionFile = typeof collectionFiles.$inferSelect;
 export type InsertCollectionFile = typeof collectionFiles.$inferInsert;
 
 /**
+ * Smart Collections - Dynamic collections based on rules
+ */
+export const smartCollections = mysqlTable("smart_collections", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  color: varchar("color", { length: 7 }), // Hex color code
+  icon: varchar("icon", { length: 50 }), // Icon name
+  
+  // Rule configuration stored as JSON
+  rules: json("rules").$type<{
+    field: string; // e.g., "fileSize", "enrichmentStatus", "mimeType", "createdAt"
+    operator: string; // e.g., ">", "<", "=", "contains", "startsWith"
+    value: any; // The value to compare against
+    logic?: "AND" | "OR"; // How to combine with next rule
+  }[]>().notNull(),
+  
+  // Cache the count for performance
+  cachedFileCount: int("cachedFileCount").default(0).notNull(),
+  lastEvaluatedAt: timestamp("lastEvaluatedAt"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SmartCollection = typeof smartCollections.$inferSelect;
+export type InsertSmartCollection = typeof smartCollections.$inferInsert;
+
+/**
  * File Versions - Track file history and enable version restoration
  */
 export const fileVersions = mysqlTable("file_versions", {

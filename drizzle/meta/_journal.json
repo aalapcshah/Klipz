@@ -85,6 +85,13 @@
       "when": 1768877487603,
       "tag": "0011_nifty_omega_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1768888670112,
+      "tag": "0012_lyrical_arachne",
+      "breakpoints": true
     }
   ]
 }
