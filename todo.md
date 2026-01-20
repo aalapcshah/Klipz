@@ -682,3 +682,60 @@
 - [x] Added enrichWithOntologies endpoint to files router
 - [x] Automatic semantic tag extraction and description enhancement
 - [x] Usage tracking for knowledge graph connections
+
+## Phase 54: Cloud Export UI with OAuth Flow
+- [ ] Add cloud export button to video export dialog
+- [ ] Implement OAuth popup flow for Google Drive
+- [ ] Implement OAuth popup flow for Dropbox
+- [ ] Add cloud provider selection UI
+- [ ] Show upload progress and status
+- [ ] Handle OAuth token storage and refresh
+- [ ] Test one-click cloud uploads
+
+## Phase 55: Premium Tier Gating
+- [ ] Add subscription/tier field to user schema
+- [ ] Create premium feature middleware
+- [ ] Add subscription checks to knowledge graph endpoints
+- [ ] Implement usage limits for free tier
+- [ ] Create upgrade prompt dialog
+- [ ] Add premium badge to Settings page
+- [ ] Test feature access control
+
+## Phase 56: Enrichment Analytics Dashboard
+- [ ] Create Analytics page component
+- [ ] Add navigation link to Analytics
+- [ ] Build enrichment statistics widgets
+- [ ] Show knowledge graph query performance metrics
+- [ ] Display semantic tag coverage charts
+- [ ] Add file quality score trends
+- [ ] Show usage by knowledge graph source
+- [ ] Test dashboard with real data
+
+## Phase 54: Cloud Export UI
+- [x] Create CloudExportDialog component
+- [x] Add OAuth flow for Google Drive and Dropbox
+- [x] Integrate with VideoList component
+- [x] Add cloud upload button to video export dialog
+- [x] Full OAuth flow with token exchange
+- [x] Cloud upload button with provider selection
+
+## Phase 55: Premium Tier Gating
+- [x] Add subscription tier fields to user schema
+- [x] Create premium feature middleware
+- [x] Add subscription checks to knowledge graph endpoints
+- [x] Added subscriptionTier, subscriptionExpiresAt, and usage limits to user schema
+- [x] Created checkFeatureAccess and checkKnowledgeGraphLimit functions
+- [x] Integrated premium checks into external knowledge graph creation
+
+## Phase 56: Enrichment Analytics Dashboard
+- [x] Create Analytics page component
+- [x] Add analytics router with statistics endpoints
+- [x] Display enrichment statistics
+- [x] Show knowledge graph usage metrics
+- [x] Display top tags and recent enrichments
+- [x] Add navigation link to Analytics
+- [x] Comprehensive dashboard with 6 stat cards
+- [x] Enrichment status breakdown visualization
+- [x] Knowledge graph usage tracking
+- [x] Top tags display
+- [x] Recent enrichments timeline

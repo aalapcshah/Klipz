@@ -3,6 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
+import * as premiumFeatures from "./premiumFeatures";
 import { z } from "zod";
 import * as db from "./db";
 import { storagePut } from "./storage";
@@ -1266,8 +1267,14 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
-        // TODO: Add premium tier check here
-        // if (ctx.user.tier !== 'premium') throw new TRPCError({ code: "FORBIDDEN" });
+        // Check knowledge graph limit
+        const limitCheck = await premiumFeatures.checkKnowledgeGraphLimit(ctx.user.id);
+        if (!limitCheck.allowed) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: limitCheck.reason || "Knowledge graph limit reached",
+          });
+        }
         
         const kg = await db.createExternalKnowledgeGraph({
           userId: ctx.user.id,
@@ -1415,6 +1422,96 @@ export const appRouter = router({
           url: authUrls[input.provider],
         };
       }),
+  }),
+
+  // ============= ANALYTICS ROUTER =============
+  analytics: router({
+    // Get enrichment statistics
+    getEnrichmentStats: protectedProcedure.query(async ({ ctx }) => {
+      const files = await db.getFilesByUserId(ctx.user.id);
+      const totalFiles = files.length;
+      const enrichedFiles = files.filter((f: any) => f.enrichmentStatus === "completed").length;
+      const enrichmentRate = totalFiles > 0 ? Math.round((enrichedFiles / totalFiles) * 100) : 0;
+
+      // Get enrichment status breakdown
+      const enrichmentStatusBreakdown = [
+        { status: "pending", count: files.filter((f: any) => f.enrichmentStatus === "pending").length },
+        { status: "processing", count: files.filter((f: any) => f.enrichmentStatus === "processing").length },
+        { status: "completed", count: files.filter((f: any) => f.enrichmentStatus === "completed").length },
+        { status: "failed", count: files.filter((f: any) => f.enrichmentStatus === "failed").length },
+      ];
+
+      // Get knowledge graph usage
+      const knowledgeGraphs = await db.getExternalKnowledgeGraphsByUser(ctx.user.id);
+      const knowledgeGraphUsage = knowledgeGraphs.map(kg => ({
+        id: kg.id,
+        name: kg.name,
+        type: kg.type,
+        usageCount: kg.usageCount || 0,
+        avgResponseTime: (kg as any).avgResponseTime || 0,
+      }));
+
+      // Get total tags (count unique tags across all files)
+      const allTagsSet = new Set<string>();
+      for (const file of files) {
+        const fileTags = await db.getFileTagsWithNames(file.id);
+        for (const tag of fileTags) {
+          allTagsSet.add(tag.name);
+        }
+      }
+      const totalTags = allTagsSet.size;
+
+      // Get top tags
+      const tagCounts = new Map<string, number>();
+      for (const file of files) {
+        const fileTags = await db.getFileTagsWithNames(file.id);
+        for (const tag of fileTags) {
+          tagCounts.set(tag.name, (tagCounts.get(tag.name) || 0) + 1);
+        }
+      }
+      const topTags = Array.from(tagCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([name, count]) => ({ name, count }));
+
+      // Calculate average quality score
+      const qualityScores = files.filter((f: any) => f.qualityScore).map((f: any) => f.qualityScore!);
+      const avgQualityScore = qualityScores.length > 0
+        ? Math.round(qualityScores.reduce((a: number, b: number) => a + b, 0) / qualityScores.length)
+        : 0;
+
+      // Get recent enrichments
+      const recentEnrichments = files
+        .filter((f: any) => f.enrichmentStatus === "completed")
+        .sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        .slice(0, 5)
+        .map((f: any) => ({
+          id: f.id,
+          title: f.title,
+          filename: f.filename,
+          enrichmentStatus: f.enrichmentStatus,
+          updatedAt: f.updatedAt,
+        }));
+
+      // Calculate average query time (mock for now)
+      const avgQueryTime = knowledgeGraphUsage.length > 0
+        ? Math.round(knowledgeGraphUsage.reduce((sum, kg) => sum + kg.avgResponseTime, 0) / knowledgeGraphUsage.length)
+        : 0;
+
+      return {
+        totalFiles,
+        enrichedFiles,
+        enrichmentRate,
+        enrichmentStatusBreakdown,
+        knowledgeGraphCount: knowledgeGraphs.length,
+        knowledgeGraphUsage,
+        totalTags,
+        topTags,
+        avgQualityScore,
+        avgQueryTime,
+        recentEnrichments,
+      };
+    }),
   }),
 });
 

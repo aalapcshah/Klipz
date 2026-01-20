@@ -78,6 +78,13 @@
       "when": 1768876568251,
       "tag": "0010_new_piledriver",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1768877487603,
+      "tag": "0011_nifty_omega_sentinel",
+      "breakpoints": true
     }
   ]
 }

@@ -13,6 +13,7 @@ import {
   Search as SearchIcon,
   FolderIcon,
   Menu,
+  BarChart3,
   X,
   Mail
 } from "lucide-react";
@@ -57,6 +58,7 @@ export default function Dashboard() {
     { href: "/videos", label: "Videos", icon: VideoIcon },
     { href: "/collections", label: "Collections", icon: FolderIcon },
     { href: "/knowledge-graph", label: "Knowledge Graph", icon: NetworkIcon },
+    { href: "/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/settings", label: "Settings", icon: SettingsIcon },
   ];
 
@@ -167,6 +169,7 @@ export default function Dashboard() {
         {location === "/videos" && <VideosView />}
         {location === "/collections" && <CollectionsManager />}
         {location === "/knowledge-graph" && <KnowledgeGraphView />}
+        {location === "/analytics" && <AnalyticsView />}
         {location === "/settings" && <SettingsView />}
       </main>
     </div>
@@ -260,6 +263,7 @@ function VideosView() {
 
 import { KnowledgeGraphView as KnowledgeGraphComponent } from "@/components/knowledge-graph/KnowledgeGraphView";
 import SettingsPage from "./Settings";
+import { Analytics as AnalyticsPage } from "./Analytics";
 import { CollectionsManager } from "@/components/collections/CollectionsManager";
 
 function KnowledgeGraphView() {
@@ -275,6 +279,10 @@ function KnowledgeGraphView() {
       <KnowledgeGraphComponent />
     </div>
   );
+}
+
+function AnalyticsView() {
+  return <AnalyticsPage />;
 }
 
 function SettingsView() {

@@ -922,3 +922,18 @@ export async function deleteExternalKnowledgeGraph(id: number) {
     .delete(externalKnowledgeGraphs)
     .where(eq(externalKnowledgeGraphs.id, id));
 }
+
+
+// User management functions
+export async function getUserById(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  return user;
+}
+
+export async function updateUser(userId: number, data: Partial<typeof users.$inferInsert>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set(data).where(eq(users.id, userId));
+}

@@ -9,10 +9,12 @@ import {
   Play,
   Edit3,
   Download,
+  Cloud,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 import { AnnotationEditor } from "./AnnotationEditor";
+import { CloudExportDialog } from "./CloudExportDialog";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +25,7 @@ import {
 export function VideoList() {
   const [editingVideoId, setEditingVideoId] = useState<number | null>(null);
   const [exportingVideoId, setExportingVideoId] = useState<number | null>(null);
+  const [cloudExportVideo, setCloudExportVideo] = useState<{ id: number; title: string } | null>(null);
   
   const { data: videos, isLoading, refetch } = trpc.videos.list.useQuery();
   const deleteMutation = trpc.videos.delete.useMutation();
@@ -186,6 +189,16 @@ export function VideoList() {
                   <Download className="h-3 w-3" />
                 )}
               </Button>
+              {video.exportStatus === "completed" && video.exportedUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCloudExportVideo({ id: video.id, title: video.title || "video" })}
+                  title="Upload to cloud storage"
+                >
+                  <Cloud className="h-3 w-3" />
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -213,6 +226,16 @@ export function VideoList() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Cloud Export Dialog */}
+      {cloudExportVideo && (
+        <CloudExportDialog
+          open={cloudExportVideo !== null}
+          onOpenChange={(open) => !open && setCloudExportVideo(null)}
+          videoId={cloudExportVideo.id}
+          videoTitle={cloudExportVideo.title}
+        />
+      )}
     </>
   );
 }
