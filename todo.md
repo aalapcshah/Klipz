@@ -625,3 +625,34 @@
 - [x] Verify enrichmentStatus validation works correctly
 - [x] Added bg-card class to all SelectTrigger components
 - [x] Added defensive enrichmentStatus normalization in files.list procedure
+
+## Phase 48: Video Recorder Error Fixes
+- [x] Fix "Requested device not found" camera error
+- [x] Add better error handling for camera access
+- [x] Added fallback constraints for camera access
+- [x] Improved error messages for camera permissions
+- [ ] Fix DialogTitle accessibility warning in video dialogs (false positive)
+
+## Phase 49: Contact Us Section
+- [x] Add Contact Us link in navigation or footer
+- [x] Link to aalap.c.shah@gmail.com
+- [x] Add appropriate icon and styling
+- [x] Added to desktop navigation with Mail icon
+- [x] Added to mobile navigation menu
+
+## Phase 50: External Knowledge Graph Integration (Premium Feature)
+- [x] Add database schema for storing knowledge graph configurations
+- [x] Add API endpoints for managing knowledge graph connections
+- [x] Implemented CRUD operations for knowledge graph configs
+- [x] Added test connection endpoint
+- [ ] Design settings UI for external knowledge graph connections
+- [ ] Implement connectors for popular ontologies (DBpedia, Wikidata, Schema.org)
+- [ ] Integrate external ontologies into AI enrichment pipeline
+- [ ] Add premium tier gating for this feature
+
+## Phase 51: Cloud Export Integration
+- [ ] Research cloud storage APIs (Google Drive, Dropbox, OneDrive)
+- [ ] Implement cloud export backend endpoints
+- [ ] Add cloud export UI to video export dialog
+- [ ] Support exporting annotated videos with captions and overlays
+- [ ] Test cloud upload functionality

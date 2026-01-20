@@ -27,6 +27,8 @@ import {
   InsertMetadataTemplate,
   metadataHistory,
   InsertMetadataHistory,
+  externalKnowledgeGraphs,
+  InsertExternalKnowledgeGraph,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -866,4 +868,57 @@ export async function getMetadataSuggestions(userId: number, fileType: string, l
     )
     .orderBy(desc(metadataHistory.usageCount), desc(metadataHistory.lastUsedAt))
     .limit(limit);
+}
+
+
+// ============= EXTERNAL KNOWLEDGE GRAPHS =============
+
+export async function getExternalKnowledgeGraphsByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(externalKnowledgeGraphs)
+    .where(eq(externalKnowledgeGraphs.userId, userId))
+    .orderBy(desc(externalKnowledgeGraphs.priority));
+}
+
+export async function getExternalKnowledgeGraphById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const results = await db
+    .select()
+    .from(externalKnowledgeGraphs)
+    .where(eq(externalKnowledgeGraphs.id, id))
+    .limit(1);
+  return results[0] || null;
+}
+
+export async function createExternalKnowledgeGraph(data: InsertExternalKnowledgeGraph) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db
+    .insert(externalKnowledgeGraphs)
+    .values(data);
+  return await getExternalKnowledgeGraphById(Number(result.insertId));
+}
+
+export async function updateExternalKnowledgeGraph(
+  id: number,
+  updates: Partial<Omit<InsertExternalKnowledgeGraph, "userId">>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .update(externalKnowledgeGraphs)
+    .set(updates)
+    .where(eq(externalKnowledgeGraphs.id, id));
+}
+
+export async function deleteExternalKnowledgeGraph(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .delete(externalKnowledgeGraphs)
+    .where(eq(externalKnowledgeGraphs.id, id));
 }

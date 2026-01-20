@@ -13,7 +13,8 @@ import {
   Search as SearchIcon,
   FolderIcon,
   Menu,
-  X
+  X,
+  Mail
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -97,6 +98,17 @@ export default function Dashboard() {
             </span>
             <Button 
               variant="ghost" 
+              size="sm"
+              className="hidden sm:flex"
+              asChild
+            >
+              <a href="mailto:aalap.c.shah@gmail.com" className="flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Contact Us
+              </a>
+            </Button>
+            <Button 
+              variant="ghost" 
               size="icon" 
               className="sm:hidden"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -134,6 +146,14 @@ export default function Dashboard() {
                 </Link>
               );
             })}
+            <a 
+              href="mailto:aalap.c.shah@gmail.com"
+              className="flex items-center gap-3 px-4 py-3 rounded-md transition-colors hover:bg-muted text-muted-foreground hover:text-foreground"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <Mail className="h-5 w-5" />
+              Contact Us
+            </a>
           </nav>
         </div>
       )}

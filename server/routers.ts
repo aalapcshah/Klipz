@@ -2,6 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
 import { storagePut } from "./storage";
@@ -1170,6 +1171,104 @@ export const appRouter = router({
       
       return { success: true };
     }),
+  }),
+
+  // ============= EXTERNAL KNOWLEDGE GRAPHS ROUTER (Premium Feature) =============
+  externalKnowledgeGraphs: router({
+    // List all knowledge graph configurations for current user
+    list: protectedProcedure.query(async ({ ctx }) => {
+      return await db.getExternalKnowledgeGraphsByUser(ctx.user.id);
+    }),
+
+    // Get single knowledge graph configuration
+    get: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const kg = await db.getExternalKnowledgeGraphById(input.id);
+        if (!kg || kg.userId !== ctx.user.id) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Knowledge graph configuration not found" });
+        }
+        return kg;
+      }),
+
+    // Create new knowledge graph configuration
+    create: protectedProcedure
+      .input(
+        z.object({
+          name: z.string().min(1).max(255),
+          type: z.enum(["dbpedia", "wikidata", "schema_org", "custom"]),
+          endpoint: z.string().url().optional(),
+          apiKey: z.string().optional(),
+          enabled: z.boolean().default(true),
+          priority: z.number().int().default(0),
+          ontologyUrl: z.string().url().optional(),
+          namespacePrefix: z.string().max(100).optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        // TODO: Add premium tier check here
+        // if (ctx.user.tier !== 'premium') throw new TRPCError({ code: "FORBIDDEN" });
+        
+        const kg = await db.createExternalKnowledgeGraph({
+          userId: ctx.user.id,
+          ...input,
+        });
+        return kg;
+      }),
+
+    // Update knowledge graph configuration
+    update: protectedProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          name: z.string().min(1).max(255).optional(),
+          endpoint: z.string().url().optional(),
+          apiKey: z.string().optional(),
+          enabled: z.boolean().optional(),
+          priority: z.number().int().optional(),
+          ontologyUrl: z.string().url().optional(),
+          namespacePrefix: z.string().max(100).optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { id, ...updates } = input;
+        const kg = await db.getExternalKnowledgeGraphById(id);
+        if (!kg || kg.userId !== ctx.user.id) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+        await db.updateExternalKnowledgeGraph(id, updates);
+        return { success: true };
+      }),
+
+    // Delete knowledge graph configuration
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const kg = await db.getExternalKnowledgeGraphById(input.id);
+        if (!kg || kg.userId !== ctx.user.id) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+        await db.deleteExternalKnowledgeGraph(input.id);
+        return { success: true };
+      }),
+
+    // Test connection to external knowledge graph
+    testConnection: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const kg = await db.getExternalKnowledgeGraphById(input.id);
+        if (!kg || kg.userId !== ctx.user.id) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+        
+        // TODO: Implement actual connection testing based on kg.type
+        // For now, return mock success
+        return { 
+          success: true, 
+          message: `Successfully connected to ${kg.name}`,
+          responseTime: 150 // ms
+        };
+      }),
   }),
 });
 

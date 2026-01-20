@@ -351,3 +351,44 @@ export const annotationsRelations = relations(annotations, ({ one }) => ({
     references: [files.id],
   }),
 }));
+
+
+/**
+ * External Knowledge Graph Configurations (Premium Feature)
+ * Stores connections to external ontologies and knowledge bases
+ */
+export const externalKnowledgeGraphs = mysqlTable("external_knowledge_graphs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  
+  // Configuration
+  name: varchar("name", { length: 255 }).notNull(), // User-friendly name
+  type: mysqlEnum("type", ["dbpedia", "wikidata", "schema_org", "custom"]).notNull(),
+  endpoint: text("endpoint"), // SPARQL endpoint or API URL
+  apiKey: text("apiKey"), // Encrypted API key if needed
+  
+  // Settings
+  enabled: boolean("enabled").default(true).notNull(),
+  priority: int("priority").default(0).notNull(), // Higher priority = consulted first
+  
+  // Custom ontology configuration (for type="custom")
+  ontologyUrl: text("ontologyUrl"), // URL to OWL/RDF file
+  namespacePrefix: varchar("namespacePrefix", { length: 100 }), // e.g., "ex:"
+  
+  // Usage tracking
+  lastUsedAt: timestamp("lastUsedAt"),
+  usageCount: int("usageCount").default(0).notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ExternalKnowledgeGraph = typeof externalKnowledgeGraphs.$inferSelect;
+export type InsertExternalKnowledgeGraph = typeof externalKnowledgeGraphs.$inferInsert;
+
+export const externalKnowledgeGraphsRelations = relations(externalKnowledgeGraphs, ({ one }) => ({
+  user: one(users, {
+    fields: [externalKnowledgeGraphs.userId],
+    references: [users.id],
+  }),
+}));

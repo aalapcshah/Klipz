@@ -192,10 +192,21 @@ export function VideoRecorderWithTranscription() {
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720 },
-        audio: true,
-      });
+      // Try with ideal constraints first
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: true,
+        });
+      } catch (err) {
+        // Fallback to basic constraints if ideal fails
+        console.warn('Ideal camera constraints failed, trying basic constraints:', err);
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+      }
 
       streamRef.current = stream;
       if (videoRef.current) {
@@ -203,8 +214,15 @@ export function VideoRecorderWithTranscription() {
       }
       setIsPreviewing(true);
     } catch (error) {
-      toast.error("Failed to access camera");
-      console.error(error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('not found') || errorMessage.includes('NotFoundError')) {
+        toast.error("No camera found. Please connect a camera and try again.");
+      } else if (errorMessage.includes('Permission') || errorMessage.includes('NotAllowedError')) {
+        toast.error("Camera access denied. Please allow camera permissions.");
+      } else {
+        toast.error("Failed to access camera: " + errorMessage);
+      }
+      console.error('Camera error:', error);
     }
   };
 
