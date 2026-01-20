@@ -47,7 +47,7 @@ export const files = mysqlTable("files", {
   detectedObjects: json("detectedObjects").$type<string[]>(), // Detected objects/elements
   
   // Extracted file metadata (EXIF, IPTC, XMP)
-  extractedMetadata: json("extractedMetadata").$type<Record<string, any>>(), // Raw metadata from file
+  extractedMetadata: text("extractedMetadata"), // Raw metadata from file (JSON string)
   extractedKeywords: json("extractedKeywords").$type<string[]>(), // Keywords from metadata
   
   // Enrichment status

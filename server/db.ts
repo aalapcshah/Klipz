@@ -1,5 +1,6 @@
 import { eq, and, or, like, gte, lte, inArray, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import * as mysql from "mysql2/promise";
 import {
   InsertUser,
   users,
@@ -30,6 +31,7 @@ import {
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _pool: mysql.Pool | null = null;
 
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
@@ -119,11 +121,41 @@ export async function getUserByOpenId(openId: string) {
 // ============= FILE QUERIES =============
 
 export async function createFile(file: InsertFile) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
+  // Use MySQL2 connection pool directly to bypass Drizzle
+  if (!_pool && process.env.DATABASE_URL) {
+    _pool = mysql.createPool(process.env.DATABASE_URL);
+  }
+  if (!_pool) throw new Error("Database not available");
 
-  const result = await db.insert(files).values(file);
-  return result[0].insertId;
+  console.log('[createFile] Using MySQL2 directly');
+
+  // Truncate title to fit database column limit (255 chars)
+  const truncatedTitle = file.title ? file.title.substring(0, 255) : null;
+  
+  const [result] = await _pool.execute(
+    `INSERT INTO files (
+      userId, fileKey, url, filename, mimeType, fileSize,
+      title, description, voiceRecordingUrl, voiceTranscript,
+      extractedMetadata, extractedKeywords, enrichmentStatus
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      file.userId,
+      file.fileKey,
+      file.url,
+      file.filename,
+      file.mimeType,
+      file.fileSize,
+      truncatedTitle,
+      file.description || null,
+      file.voiceRecordingUrl || null,
+      file.voiceTranscript || null,
+      file.extractedMetadata || null,
+      file.extractedKeywords ? JSON.stringify(file.extractedKeywords) : null,
+      file.enrichmentStatus || 'pending'
+    ]
+  );
+  
+  return (result as any).insertId;
 }
 
 export async function getFilesByUserId(userId: number) {
@@ -780,6 +812,10 @@ export async function trackMetadataUsage(
   const db = await getDb();
   if (!db) return;
   
+  // Truncate to fit database column limits
+  const truncatedTitle = title ? title.substring(0, 255) : null;
+  const truncatedDescription = description ? description.substring(0, 10000) : null; // TEXT column limit
+  
   // Check if this exact metadata combination exists
   const existing = await db
     .select()
@@ -787,8 +823,8 @@ export async function trackMetadataUsage(
     .where(
       and(
         eq(metadataHistory.userId, userId),
-        eq(metadataHistory.title, title || ""),
-        eq(metadataHistory.description, description || ""),
+        eq(metadataHistory.title, truncatedTitle || ""),
+        eq(metadataHistory.description, truncatedDescription || ""),
         eq(metadataHistory.fileType, fileType)
       )
     )
@@ -807,8 +843,8 @@ export async function trackMetadataUsage(
     // Create new history entry
     await db.insert(metadataHistory).values({
       userId,
-      title,
-      description,
+      title: truncatedTitle,
+      description: truncatedDescription,
       fileType,
       usageCount: 1,
     });

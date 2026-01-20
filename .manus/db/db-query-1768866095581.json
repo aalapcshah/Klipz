@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO files (userId, fileKey, url, filename, mimeType, fileSize, title, description) VALUES (1, 'test/key.jpg', 'https://example.com/test.jpg', 'test.jpg', 'image/jpeg', 1000, 'Test Title', 'Test Description');",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute INSERT INTO files (userId, fileKey, url, filename, mimeType, fileSize, title, description) VALUES (1, 'test/key.jpg', 'https://example.com/test.jpg', 'test.jpg', 'image/jpeg', 1000, 'Test Title', 'Test Description');",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 467
+}

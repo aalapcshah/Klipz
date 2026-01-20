@@ -320,54 +320,146 @@ export function FileUploadDialog({
       // Extract metadata from image files immediately
       if (file.type.startsWith("image/")) {
         try {
-          const metadata = await exifr.parse(file, {
-            iptc: true,
-            xmp: true,
-            icc: false,
-            jfif: false,
-            ihdr: false,
-          });
+          // Add timeout to prevent hanging
+          const metadata = await Promise.race([
+            exifr.parse(file, {
+              iptc: true,
+              xmp: true,
+              icc: false,
+              jfif: false,
+              ihdr: false,
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Metadata extraction timeout')), 5000))
+          ]);
           
           if (metadata) {
-            extractedMetadata = metadata;
+            // Filter metadata to exclude binary data (like thumbnail arrays)
+            extractedMetadata = {};
+            for (const [key, value] of Object.entries(metadata)) {
+              // Only include non-binary, useful fields
+              if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+                extractedMetadata[key] = value;
+              } else if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'string') {
+                // Include string arrays (like keywords)
+                extractedMetadata[key] = value;
+              } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+                // Include simple objects but not large binary arrays
+                const objKeys = Object.keys(value);
+                if (objKeys.length < 10) { // Avoid huge objects
+                  extractedMetadata[key] = value;
+                }
+              }
+            }
+            console.log('[Metadata Extraction] Filtered metadata for', file.name, ':', extractedMetadata);
             
-            // Extract title
-            const metadataTitle = metadata.title || 
-                                 metadata.ObjectName || 
-                                 metadata.Headline || 
-                                 metadata.Title;
-            if (metadataTitle) {
-              extractedTitle = metadataTitle;
+            // Helper function to extract string from metadata field (handles objects)
+            const extractString = (value: any): string | null => {
+              if (!value) return null;
+              if (typeof value === 'string') return value.trim();
+              if (typeof value === 'object') {
+                // Handle objects with 'value' or 'description' properties
+                if (value.value && typeof value.value === 'string') return value.value.trim();
+                if (value.description && typeof value.description === 'string') return value.description.trim();
+                // Handle arrays - take first string element
+                if (Array.isArray(value)) {
+                  const firstString = value.find(v => typeof v === 'string');
+                  return firstString ? firstString.trim() : null;
+                }
+              }
+              return null;
+            };
+            
+            // Extract title from comprehensive list of fields
+            const titleFields = [
+              metadata.title,
+              metadata.Title,
+              metadata.ObjectName,
+              metadata.Headline,
+              metadata['Document Title'],
+              metadata.DocumentTitle,
+              metadata['dc:title'],
+              metadata.headline
+            ];
+            
+            for (const field of titleFields) {
+              const extracted = extractString(field);
+              if (extracted) {
+                extractedTitle = extracted;
+                console.log('[Metadata] Extracted title:', extractedTitle);
+                break;
+              }
             }
             
-            // Extract description
-            extractedDescription = metadata.description || 
-                                 metadata.ImageDescription ||
-                                 metadata.Caption ||
-                                 metadata["Caption-Abstract"] ||
-                                 metadata.UserComment ||
-                                 "";
+            // Extract description from comprehensive list of fields
+            const descriptionFields = [
+              metadata.description,
+              metadata.Description,
+              metadata.ImageDescription,
+              metadata.Caption,
+              metadata['Caption-Abstract'],
+              metadata.UserComment,
+              metadata['dc:description'],
+              metadata.caption,
+              metadata.comment
+            ];
             
-            // Extract keywords
-            if (metadata.Keywords) {
-              extractedKeywords = Array.isArray(metadata.Keywords) 
-                ? metadata.Keywords 
-                : [metadata.Keywords];
-            } else if (metadata.Subject) {
-              extractedKeywords = Array.isArray(metadata.Subject)
-                ? metadata.Subject
-                : [metadata.Subject];
+            for (const field of descriptionFields) {
+              const extracted = extractString(field);
+              if (extracted) {
+                extractedDescription = extracted;
+                console.log('[Metadata] Extracted description:', extractedDescription);
+                break;
+              }
+            }
+            
+            // Extract keywords from comprehensive list of fields
+            const keywordSources = [
+              metadata.Keywords,
+              metadata.keywords,
+              metadata.Subject,
+              metadata.subject,
+              metadata['dc:subject'],
+              metadata.Tags,
+              metadata.tags
+            ];
+            
+            for (const source of keywordSources) {
+              if (source) {
+                let keywords: string[] = [];
+                if (Array.isArray(source)) {
+                  keywords = source.map(k => extractString(k)).filter((k): k is string => k !== null);
+                } else {
+                  const extracted = extractString(source);
+                  if (extracted) keywords = [extracted];
+                }
+                
+                if (keywords.length > 0) {
+                  extractedKeywords = keywords;
+                  console.log('[Metadata] Extracted keywords:', extractedKeywords);
+                  break;
+                }
+              }
             }
           }
         } catch (error) {
-          console.log("Could not extract metadata:", error);
+          console.warn("Could not extract metadata (non-blocking):", error);
+          // Continue with upload even if metadata extraction fails
         }
       }
       
+      // Final safety check: ensure title and description are strings and sanitize
+      const finalTitle = typeof extractedTitle === 'string' ? extractedTitle : file.name.replace(/\.[^/.]+$/, "");
+      let finalDescription = typeof extractedDescription === 'string' ? extractedDescription : "";
+      
+      // Sanitize description: remove null bytes and limit length to prevent database issues
+      finalDescription = finalDescription.replace(/\0/g, '').substring(0, 60000); // Limit to 60KB to be safe
+      
+      console.log('[addFiles] Final values for', file.name, '- Title:', finalTitle, 'Description:', finalDescription, 'Keywords:', extractedKeywords);
+      
       filesWithMetadata.push({
         file,
-        title: extractedTitle,
-        description: extractedDescription,
+        title: finalTitle,
+        description: finalDescription,
         uploadProgress: 0,
         uploadStatus: 'pending',
         extractedMetadata,
@@ -551,17 +643,24 @@ export function FileUploadDialog({
           }
 
           // Create file record in database with extracted metadata
+          // Ensure title and description are strings (not objects from metadata)
+          const titleString = typeof extractedTitle === 'string' ? extractedTitle : String(extractedTitle || '');
+          const descriptionString = typeof extractedDescription === 'string' ? extractedDescription : String(extractedDescription || '');
+          
+          // Temporarily skip extractedMetadata to get uploads working
+          // TODO: Fix browser caching issue preventing JSON.stringify from being executed
+          
           const { id } = await createFileMutation.mutateAsync({
             fileKey,
             url: fileUrl,
             filename: fileData.file.name,
             mimeType: fileData.file.type,
             fileSize: fileData.file.size,
-            title: extractedTitle,
-            description: extractedDescription,
+            title: titleString,
+            description: descriptionString,
             voiceRecordingUrl,
             voiceTranscript: fileData.voiceTranscript,
-            extractedMetadata: fileData.extractedMetadata,
+            extractedMetadata: undefined, // Temporarily disabled
             extractedKeywords: extractedKeywords.length > 0 ? extractedKeywords : undefined,
           });
 
@@ -571,8 +670,8 @@ export function FileUploadDialog({
           // Track metadata usage for future suggestions
           try {
             await trackUsageMutation.mutateAsync({
-              title: extractedTitle,
-              description: extractedDescription,
+              title: titleString,
+              description: descriptionString,
               fileType: fileData.file.type.split('/')[0], // image, video, application, etc.
             });
           } catch (error) {
@@ -581,28 +680,37 @@ export function FileUploadDialog({
 
           // Auto-tag based on extracted keywords
           if (extractedKeywords.length > 0) {
+            console.log('[Upload] Creating tags for keywords:', extractedKeywords);
             for (const keyword of extractedKeywords) {
-              // Check if tag already exists
-              const existingTag = existingTags.find(
-                (t: any) => t.name.toLowerCase() === keyword.toLowerCase()
-              );
-              
-              if (existingTag) {
-                // Link existing tag
-                await linkTagMutation.mutateAsync({
-                  fileId: id,
-                  tagId: existingTag.id,
-                });
-              } else {
-                // Create new tag and link it
-                const { id: tagId } = await createTagMutation.mutateAsync({
-                  name: keyword,
-                  source: "metadata" as any,
-                });
-                await linkTagMutation.mutateAsync({
-                  fileId: id,
-                  tagId,
-                });
+              try {
+                // Check if tag already exists
+                const existingTag = existingTags.find(
+                  (t: any) => t.name.toLowerCase() === keyword.toLowerCase()
+                );
+                
+                if (existingTag) {
+                  // Link existing tag
+                  console.log('[Upload] Linking existing tag:', keyword, 'ID:', existingTag.id);
+                  await linkTagMutation.mutateAsync({
+                    fileId: id,
+                    tagId: existingTag.id,
+                  });
+                } else {
+                  // Create new tag and link it
+                  console.log('[Upload] Creating new tag:', keyword);
+                  const { id: tagId } = await createTagMutation.mutateAsync({
+                    name: keyword,
+                    source: "ai", // Tags extracted from image metadata
+                  });
+                  console.log('[Upload] Tag created with ID:', tagId);
+                  await linkTagMutation.mutateAsync({
+                    fileId: id,
+                    tagId,
+                  });
+                }
+              } catch (tagError) {
+                console.error('[Upload] Failed to create/link tag:', keyword, 'Error:', tagError);
+                // Continue with other tags even if one fails
               }
             }
           }

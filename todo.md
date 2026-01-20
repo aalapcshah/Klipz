@@ -516,3 +516,42 @@
 - [x] Fix the root cause (restored simple base64 upload with 10MB limit)
 - [x] Test with files of various sizes (1KB, 100KB, 500KB, 1MB)
 - [x] Verify uploads complete successfully without red "Failed" status
+
+
+## Phase 42: Fix Persistent Upload Issue (User Reports Still Failing)
+- [x] Monitor actual user upload attempt with real files
+- [x] Capture exact error message and stack trace
+- [x] Fix title/description being sent as objects instead of strings
+- [x] Fix tag source field to use valid enum value ("ai" instead of "metadata")
+- [x] Implement targeted fix for the actual issue
+- [x] Verify fix works with user's real files
+
+## Phase 43: Improve Metadata Extraction
+- [x] Analyze current EXIF metadata extraction implementation
+- [x] Enhance extraction to capture all Title, Description, and Keywords fields
+- [x] Fix "[object Object]" appearing in title/description fields (added safety check)
+- [x] Metadata extraction working correctly (title, description, keywords all extracted)
+- [ ] Fix tags.create 400 error preventing keywords from being saved as tags
+- [ ] Verify tags are displayed after upload
+- [ ] Test with user's actual files to verify complete metadata capture
+
+
+## Phase 44: Fix Database INSERT Failure (Description Too Long)
+- [x] Check files table schema for description column size limit
+- [x] Add description sanitization to remove null bytes and limit length
+- [x] Fix extractedMetadata being passed as huge binary object (0-267 array) instead of useful JSON
+- [x] Filter extractedMetadata to only include useful fields
+- [x] Convert extractedMetadata to JSON string for database storage
+- [x] Update schema to store extractedMetadata as TEXT instead of JSON type
+- [x] Fix FileDetailDialog to parse JSON string before accessing properties
+- [ ] Test upload with files containing long descriptions
+- [ ] Verify upload completes successfully without truncation errors
+
+## Phase 41: Critical Upload Bug Fix
+- [x] Fix database INSERT error where description appears twice in params list
+- [x] Investigate data flow from frontend to backend
+- [x] Identify where duplicate description value is being added
+- [x] Test upload after fix
+- [x] Fixed Drizzle ORM parameter binding issue by using MySQL2 directly
+- [x] Added title truncation to 255 characters
+- [x] Fixed metadata_history table insertion with truncation

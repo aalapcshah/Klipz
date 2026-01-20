@@ -381,12 +381,22 @@ export function FileDetailDialog({
                             </div>
                           </div>
                         )}
-                        {file.extractedMetadata?.Make && (
-                          <div className="bg-accent/10 rounded p-2">
-                            <Label className="text-xs">Camera</Label>
-                            <p className="text-xs mt-1">{file.extractedMetadata.Make} {file.extractedMetadata.Model}</p>
-                          </div>
-                        )}
+                        {(() => {
+                          try {
+                            const metadata = file.extractedMetadata ? JSON.parse(file.extractedMetadata) : null;
+                            if (metadata?.Make) {
+                              return (
+                                <div className="bg-accent/10 rounded p-2">
+                                  <Label className="text-xs">Camera</Label>
+                                  <p className="text-xs mt-1">{metadata.Make} {metadata.Model || ''}</p>
+                                </div>
+                              );
+                            }
+                          } catch (e) {
+                            // Invalid JSON, skip
+                          }
+                          return null;
+                        })()}
                       </div>
                       
                       {/* AI-Enriched Column */}

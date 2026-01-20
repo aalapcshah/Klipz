@@ -64,6 +64,13 @@
       "when": 1768843970950,
       "tag": "0008_illegal_manta",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1768865578123,
+      "tag": "0009_worthless_baron_zemo",
+      "breakpoints": true
     }
   ]
 }
