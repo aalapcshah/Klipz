@@ -919,3 +919,19 @@
 - [x] Create enrichment queue UI component (Enrich All button in floating bar)
 - [x] Show real-time progress updates (toast notifications)
 - [ ] Add pause/resume/cancel controls (future enhancement)
+
+## Phase 75: Smart Annotation Semantic Similarity
+- [x] Enhance auto-annotation to use semantic similarity
+- [x] Compare transcript segments with file descriptions
+- [x] Calculate cosine similarity scores (via LLM semantic understanding)
+- [x] Weight keyword matches with semantic relevance
+- [x] Improve confidence score calculation
+- [ ] Test with various video transcripts (requires user testing)
+
+## Phase 76: Parallel Bulk Enrichment
+- [x] Upgrade bulk enrichment to process 3 files simultaneously
+- [x] Implement Promise.allSettled() for parallel processing
+- [x] Add concurrency limit to prevent overload (batch size: 3)
+- [x] Update progress tracking for parallel execution
+- [x] Add overall progress percentage
+- [ ] Test with large file sets (requires user testing)

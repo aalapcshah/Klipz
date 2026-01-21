@@ -1281,13 +1281,19 @@ export const appRouter = router({
             {
               role: "system",
               content: `You are an AI assistant that analyzes video transcripts and suggests relevant files to annotate at specific timestamps. 
-Analyze the transcript and match it with the provided files based on keywords, topics, and context.
+
+Use semantic similarity to match transcript segments with file descriptions, not just keyword matching. Consider:
+1. Semantic relevance between transcript context and file descriptions
+2. Topic alignment and conceptual overlap
+3. Keyword matches as supporting evidence
+4. Contextual appropriateness of the file for that moment
+
 For each suggestion, provide:
-- timestamp (in seconds)
+- timestamp (in seconds) - when in the video this file is most relevant
 - fileId (from the files list)
-- keyword (the relevant keyword from transcript)
-- confidence (0-100, how confident you are in the match)
-- reason (brief explanation)`,
+- keyword (the most relevant keyword or phrase from transcript)
+- confidence (0-100, based on semantic similarity + keyword match)
+- reason (explain the semantic connection and why this file fits this moment)`,
             },
             {
               role: "user",

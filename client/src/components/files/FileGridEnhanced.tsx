@@ -1759,20 +1759,41 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
           onMoveToCollection={() => setCollectionDialogOpen(true)}
           onBulkEnrich={async () => {
             const fileIds = Array.from(selectedFiles);
-            toast.info(`Starting enrichment for ${fileIds.length} files...`);
+            const total = fileIds.length;
+            const concurrency = 3; // Process 3 files at a time
+            
+            toast.info(`Starting enrichment for ${total} files (${concurrency} at a time)...`);
             
             let completed = 0;
-            for (const fileId of fileIds) {
-              try {
-                await enrichMutation.mutateAsync({ id: fileId });
-                completed++;
-                toast.success(`Enriched ${completed}/${fileIds.length} files`);
-              } catch (error) {
-                toast.error(`Failed to enrich file ${fileId}`);
-              }
+            let failed = 0;
+            
+            // Process files in batches of 3
+            for (let i = 0; i < fileIds.length; i += concurrency) {
+              const batch = fileIds.slice(i, i + concurrency);
+              
+              const results = await Promise.allSettled(
+                batch.map(fileId => enrichMutation.mutateAsync({ id: fileId }))
+              );
+              
+              results.forEach((result, index) => {
+                if (result.status === 'fulfilled') {
+                  completed++;
+                } else {
+                  failed++;
+                  console.error(`Failed to enrich file ${batch[index]}:`, result.reason);
+                }
+              });
+              
+              const progress = Math.round((completed + failed) / total * 100);
+              toast.info(`Progress: ${progress}% (${completed} enriched, ${failed} failed)`);
             }
             
-            toast.success(`Bulk enrichment complete: ${completed}/${fileIds.length} files enriched`);
+            if (failed === 0) {
+              toast.success(`✅ Bulk enrichment complete: ${completed}/${total} files enriched`);
+            } else {
+              toast.warning(`⚠️ Enrichment complete: ${completed} succeeded, ${failed} failed`);
+            }
+            
             setSelectedFiles(new Set());
           }}
           onDelete={() => setDeleteDialogOpen(true)}
