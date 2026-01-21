@@ -54,6 +54,8 @@ import {
 
 interface FileGridEnhancedProps {
   onFileClick?: (fileId: number) => void;
+  selectedFileIds?: number[];
+  onSelectionChange?: (fileIds: number[]) => void;
 }
 
 interface DeletedFile {
@@ -69,8 +71,27 @@ interface DeletedFile {
   userId: number;
 }
 
-export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps) {
-  const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
+export default function FileGridEnhanced({ 
+  onFileClick,
+  selectedFileIds = [],
+  onSelectionChange 
+}: FileGridEnhancedProps) {
+  // Use external selection state if provided, otherwise use internal state
+  const isExternalSelection = onSelectionChange !== undefined;
+  const [internalSelectedFiles, setInternalSelectedFiles] = useState<Set<number>>(new Set());
+  
+  const selectedFilesSet = isExternalSelection 
+    ? new Set(selectedFileIds) 
+    : internalSelectedFiles;
+    
+  const setSelectedFiles = (updater: Set<number> | ((prev: Set<number>) => Set<number>)) => {
+    if (isExternalSelection) {
+      const newSet = typeof updater === 'function' ? updater(selectedFilesSet) : updater;
+      onSelectionChange(Array.from(newSet));
+    } else {
+      setInternalSelectedFiles(updater);
+    }
+  };
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [thumbnailSize, setThumbnailSize] = useState<'small' | 'medium' | 'large'>(() => {
     const saved = localStorage.getItem('thumbnailSize');
@@ -292,7 +313,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
       }
 
       // Delete key: Open delete dialog for selected files
-      if (e.key === "Delete" && selectedFiles.size > 0) {
+      if (e.key === "Delete" && selectedFilesSet.size > 0) {
         e.preventDefault();
         setDeleteDialogOpen(true);
       }
@@ -306,7 +327,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
       }
 
       // Escape: Clear selection
-      if (e.key === "Escape" && selectedFiles.size > 0) {
+      if (e.key === "Escape" && selectedFilesSet.size > 0) {
         e.preventDefault();
         setSelectedFiles(new Set());
         toast.success("Selection cleared");
@@ -315,10 +336,10 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [files, selectedFiles]);
+  }, [files, selectedFilesSet]);
 
   const toggleFile = (fileId: number) => {
-    const newSelected = new Set(selectedFiles);
+    const newSelected = new Set(selectedFilesSet);
     if (newSelected.has(fileId)) {
       newSelected.delete(fileId);
     } else {
@@ -328,7 +349,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
   };
 
   const toggleAll = () => {
-    if (selectedFiles.size === files.length) {
+    if (selectedFilesSet.size === files.length) {
       setSelectedFiles(new Set());
     } else {
       setSelectedFiles(new Set(files.map((f: any) => f.id)));
@@ -368,7 +389,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
 
   const handleBatchDelete = () => {
     // Store deleted files for undo
-    const filesToDelete = files.filter((f: any) => selectedFiles.has(f.id));
+    const filesToDelete = files.filter((f: any) => selectedFilesSet.has(f.id));
     deletedFilesRef.current = filesToDelete.map((f: any) => ({
       id: f.id,
       title: f.title,
@@ -383,7 +404,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
     }));
 
     // Delete files
-    selectedFiles.forEach((fileId) => {
+    selectedFilesSet.forEach((fileId) => {
       deleteMutation.mutate({ id: fileId });
     });
 
@@ -415,7 +436,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
       return;
     }
 
-    selectedFiles.forEach((fileId) => {
+    selectedFilesSet.forEach((fileId) => {
       linkTagMutation.mutate({
         fileId,
         tagId: parseInt(selectedTagId),
@@ -446,7 +467,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
     if (batchDescription.trim()) updates.description = batchDescription.trim();
 
     batchUpdateMutation.mutate({
-      fileIds: Array.from(selectedFiles),
+      fileIds: Array.from(selectedFilesSet),
       ...updates,
     });
   };
@@ -467,14 +488,14 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
   };
 
   const handleBatchEnrich = () => {
-    selectedFiles.forEach((fileId) => {
+    selectedFilesSet.forEach((fileId) => {
       enrichMutation.mutate({ id: fileId });
     });
   };
 
   const handleBulkQualityImprovement = async () => {
     const selectedFilesList = files.filter((f: any) =>
-      selectedFiles.has(f.id)
+      selectedFilesSet.has(f.id)
     );
 
     // Filter files with low quality scores (below 80%)
@@ -530,7 +551,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
 
   const handleExportCSV = () => {
     const selectedFilesList = files.filter((f: any) =>
-      selectedFiles.has(f.id)
+      selectedFilesSet.has(f.id)
     );
 
     // Prepare comprehensive metadata
@@ -605,7 +626,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
 
   const handleExportJSON = () => {
     const selectedFilesList = files.filter((f: any) =>
-      selectedFiles.has(f.id)
+      selectedFilesSet.has(f.id)
     );
 
     // Prepare comprehensive metadata
@@ -650,7 +671,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
     try {
       const zip = new JSZip();
       const selectedFilesList = files.filter((f: any) =>
-        selectedFiles.has(f.id)
+        selectedFilesSet.has(f.id)
       );
 
       // Prepare metadata JSON
@@ -709,9 +730,9 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
 
     const collectionId = parseInt(selectedCollectionId);
     let completed = 0;
-    const total = selectedFiles.size;
+    const total = selectedFilesSet.size;
 
-    selectedFiles.forEach((fileId) => {
+    selectedFilesSet.forEach((fileId) => {
       bulkAddToCollectionMutation.mutate(
         { collectionId, fileId },
         {
@@ -848,7 +869,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                 variant="outline"
                 size="sm"
                 onClick={() => setCollectionDialogOpen(true)}
-                aria-label={`Add ${selectedFiles.size} selected files to collection`}
+                aria-label={`Add ${selectedFilesSet.size} selected files to collection`}
               >
               Clear Filter
             </Button>
@@ -966,12 +987,12 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
         </div>
 
         {/* Batch Actions Toolbar */}
-        {selectedFiles.size > 0 && (
+        {selectedFilesSet.size > 0 && (
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <span className="text-sm font-medium">
-                  {selectedFiles.size} selected
+                  {selectedFilesSet.size} selected
                 </span>
                 <Button
                   variant="outline"
@@ -1002,7 +1023,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                   size="sm"
                   onClick={handleBatchExport}
                   disabled={exportMutation.isPending}
-                  aria-label={`Export ${selectedFiles.size} selected files to ZIP`}
+                  aria-label={`Export ${selectedFilesSet.size} selected files to ZIP`}
                 >
                   {exportMutation.isPending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1015,7 +1036,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                   variant="outline"
                   size="sm"
                   onClick={handleExportJSON}
-                  aria-label={`Export metadata for ${selectedFiles.size} selected files`}
+                  aria-label={`Export metadata for ${selectedFilesSet.size} selected files`}
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   Export JSON
@@ -1025,7 +1046,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                 size="sm"
                 onClick={() => setTagDialogOpen(true)}
                 disabled={linkTagMutation.isPending}
-                aria-label={`Add tags to ${selectedFiles.size} selected files`}
+                aria-label={`Add tags to ${selectedFilesSet.size} selected files`}
               >
                   {linkTagMutation.isPending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1052,7 +1073,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                 size="sm"
                 onClick={handleBatchEnrich}
                 disabled={enrichMutation.isPending}
-                aria-label={`Enrich ${selectedFiles.size} selected files with AI`}
+                aria-label={`Enrich ${selectedFilesSet.size} selected files with AI`}
               >
                   {enrichMutation.isPending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1067,7 +1088,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                   onClick={handleBulkQualityImprovement}
                   disabled={enrichMutation.isPending}
                   className="bg-green-600 hover:bg-green-700"
-                  aria-label={`Automatically improve quality of ${selectedFiles.size} selected files`}
+                  aria-label={`Automatically improve quality of ${selectedFilesSet.size} selected files`}
                 >
                   {enrichMutation.isPending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1081,7 +1102,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                   size="sm"
                   onClick={() => setDeleteDialogOpen(true)}
                   disabled={deleteMutation.isPending}
-                  aria-label={`Delete ${selectedFiles.size} selected files`}
+                  aria-label={`Delete ${selectedFilesSet.size} selected files`}
                 >
                   {deleteMutation.isPending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1128,7 +1149,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
         {!compareMode && files.length > 0 && (
           <div className="flex items-center gap-2">
             <Checkbox
-              checked={selectedFiles.size === files.length && files.length > 0}
+              checked={selectedFilesSet.size === files.length && files.length > 0}
               onCheckedChange={toggleAll}
             />
             <span className="text-sm text-muted-foreground">Select All</span>
@@ -1291,7 +1312,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
                       />
                     ) : (
                       <Checkbox
-                        checked={selectedFiles.has(file.id)}
+                        checked={selectedFilesSet.has(file.id)}
                         onCheckedChange={() => toggleFile(file.id)}
                         onClick={(e) => e.stopPropagation()}
                       />
@@ -1448,7 +1469,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selectedFiles.size} files?</AlertDialogTitle>
+            <AlertDialogTitle>Delete {selectedFilesSet.size} files?</AlertDialogTitle>
             <AlertDialogDescription>
               You can undo this action within 10 seconds after deletion.
             </AlertDialogDescription>
@@ -1469,7 +1490,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
       <Dialog open={metadataDialogOpen} onOpenChange={setMetadataDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Metadata for {selectedFiles.size} Files</DialogTitle>
+            <DialogTitle>Edit Metadata for {selectedFilesSet.size} Files</DialogTitle>
             <DialogDescription>
               Update title and/or description for all selected files. Leave fields empty to keep existing values.
             </DialogDescription>
@@ -1524,7 +1545,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
       <Dialog open={tagDialogOpen} onOpenChange={setTagDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Tag to {selectedFiles.size} Files</DialogTitle>
+            <DialogTitle>Add Tag to {selectedFilesSet.size} Files</DialogTitle>
             <DialogDescription>
               {isCreatingNewTag
                 ? "Create a new tag and add it to all selected files"
@@ -1626,7 +1647,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
       <Dialog open={collectionDialogOpen} onOpenChange={setCollectionDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add {selectedFiles.size} Files to Collection</DialogTitle>
+            <DialogTitle>Add {selectedFilesSet.size} Files to Collection</DialogTitle>
             <DialogDescription>
               Select a collection to add all selected files
             </DialogDescription>
@@ -1740,9 +1761,9 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
       />
 
       {/* Floating Action Bar */}
-      {selectedFiles.size > 0 && (
+      {selectedFilesSet.size > 0 && (
         <FloatingActionBar
-          selectedCount={selectedFiles.size}
+          selectedCount={selectedFilesSet.size}
           totalCount={files.length}
           onSelectAll={() => {
             setSelectedFiles(new Set(files.map((f: any) => f.id)));
@@ -1758,7 +1779,7 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
           onTag={() => setTagDialogOpen(true)}
           onMoveToCollection={() => setCollectionDialogOpen(true)}
           onBulkEnrich={async () => {
-            const fileIds = Array.from(selectedFiles);
+            const fileIds = Array.from(selectedFilesSet);
             const total = fileIds.length;
             const concurrency = 3; // Process 3 files at a time
             

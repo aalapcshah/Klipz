@@ -1039,3 +1039,17 @@ Note: This feature requires long-running background processes better suited for 
 - [ ] Test scheduled export execution
 
 Note: This feature requires server-side cron scheduling, email service integration, and production deployment infrastructure. The UI and database schema are already complete.
+
+## Phase 85: Bulk Operations UI
+- [x] Add bulk tag API endpoint (apply tags to multiple files)
+- [x] Add bulk delete API endpoint with transaction support
+- [x] Add bulk move to collection API endpoint
+- [x] Add bulk remove from collection API endpoint
+- [x] Create BulkOperationsToolbar component
+- [x] Add progress indicator component for bulk operations
+- [x] Integrate selection state management in Files tab
+- [x] Add "Select All" and "Clear Selection" actions (via existing FloatingActionBar)
+- [x] Show selected count in toolbar
+- [x] Add confirmation dialogs for destructive operations
+- [x] Handle errors gracefully with try-catch
+- [ ] Test bulk operations with large file sets (requires user testing)

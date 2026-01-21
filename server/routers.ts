@@ -1972,6 +1972,68 @@ For each suggestion, provide:
       }),
   }),
 
+  // ============= BULK OPERATIONS ROUTER =============
+  bulkOperations: router({
+    // Bulk delete files
+    deleteFiles: protectedProcedure
+      .input(z.object({ fileIds: z.array(z.number()) }))
+      .mutation(async ({ input, ctx }) => {
+        await db.bulkDeleteFiles(input.fileIds, ctx.user.id);
+        return { success: true, deletedCount: input.fileIds.length };
+      }),
+
+    // Bulk add tags to files
+    addTags: protectedProcedure
+      .input(
+        z.object({
+          fileIds: z.array(z.number()),
+          tagIds: z.array(z.number()),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const result = await db.bulkAddTagsToFiles(
+          input.fileIds,
+          input.tagIds,
+          ctx.user.id
+        );
+        return result;
+      }),
+
+    // Bulk add files to collection
+    addToCollection: protectedProcedure
+      .input(
+        z.object({
+          fileIds: z.array(z.number()),
+          collectionId: z.number(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const result = await db.bulkAddFilesToCollection(
+          input.fileIds,
+          input.collectionId,
+          ctx.user.id
+        );
+        return result;
+      }),
+
+    // Bulk remove files from collection
+    removeFromCollection: protectedProcedure
+      .input(
+        z.object({
+          fileIds: z.array(z.number()),
+          collectionId: z.number(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const result = await db.bulkRemoveFilesFromCollection(
+          input.fileIds,
+          input.collectionId,
+          ctx.user.id
+        );
+        return result;
+      }),
+  }),
+
   // ============= DUPLICATE DETECTION ROUTER =============
   duplicateDetection: router({
     // Check for duplicates before upload

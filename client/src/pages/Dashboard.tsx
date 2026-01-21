@@ -189,10 +189,12 @@ export default function Dashboard() {
 import { FileUploadDialog } from "@/components/files/FileUploadDialog";
 import FileGridEnhanced from "@/components/files/FileGridEnhanced";
 import { FileDetailDialog } from "@/components/files/FileDetailDialog";
+import { BulkOperationsToolbar } from "@/components/files/BulkOperationsToolbar";
 
 function FilesView() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFileId, setSelectedFileId] = useState<number | null>(null);
+  const [selectedFileIds, setSelectedFileIds] = useState<number[]>([]);
   const utils = trpc.useUtils();
 
   const handleFileClick = (fileId: number) => {
@@ -214,7 +216,11 @@ function FilesView() {
         </Button>
       </div>
 
-        <FileGridEnhanced onFileClick={handleFileClick} />
+        <FileGridEnhanced 
+          onFileClick={handleFileClick}
+          selectedFileIds={selectedFileIds}
+          onSelectionChange={setSelectedFileIds}
+        />
 
       <FileUploadDialog
         open={uploadDialogOpen}
@@ -229,6 +235,14 @@ function FilesView() {
         fileId={selectedFileId}
         open={selectedFileId !== null}
         onOpenChange={(open) => !open && setSelectedFileId(null)}
+      />
+
+      <BulkOperationsToolbar
+        selectedFileIds={selectedFileIds}
+        onClearSelection={() => setSelectedFileIds([])}
+        onOperationComplete={() => {
+          utils.files.list.invalidate();
+        }}
       />
     </div>
   );

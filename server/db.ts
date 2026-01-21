@@ -1307,3 +1307,149 @@ export async function deleteImageAnnotation(fileId: number) {
     .delete(imageAnnotations)
     .where(eq(imageAnnotations.fileId, fileId));
 }
+
+
+// ==================== Bulk Operations ====================
+
+export async function bulkDeleteFiles(fileIds: number[], userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  
+  // Delete files that belong to the user
+  const result = await db
+    .delete(files)
+    .where(
+      and(
+        inArray(files.id, fileIds),
+        eq(files.userId, userId)
+      )
+    );
+  
+  return result;
+}
+
+export async function bulkAddTagsToFiles(fileIds: number[], tagIds: number[], userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  
+  // Verify files belong to user
+  const userFiles = await db
+    .select({ id: files.id })
+    .from(files)
+    .where(
+      and(
+        inArray(files.id, fileIds),
+        eq(files.userId, userId)
+      )
+    );
+  
+  const validFileIds = userFiles.map(f => f.id);
+  
+  // Create file-tag associations
+  const associations = [];
+  for (const fileId of validFileIds) {
+    for (const tagId of tagIds) {
+      associations.push({ fileId, tagId });
+    }
+  }
+  
+  if (associations.length > 0) {
+    // Insert and skip duplicates
+    try {
+      await db.insert(fileTags).values(associations);
+    } catch (error: any) {
+      // Ignore duplicate key errors
+      if (!error.message?.includes('Duplicate entry')) {
+        throw error;
+      }
+    }
+  }
+  
+  return { filesTagged: validFileIds.length, tagsApplied: tagIds.length };
+}
+
+export async function bulkAddFilesToCollection(fileIds: number[], collectionId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  
+  // Verify collection belongs to user
+  const collection = await db
+    .select()
+    .from(collections)
+    .where(
+      and(
+        eq(collections.id, collectionId),
+        eq(collections.userId, userId)
+      )
+    )
+    .limit(1);
+  
+  if (collection.length === 0) {
+    throw new Error('Collection not found');
+  }
+  
+  // Verify files belong to user
+  const userFiles = await db
+    .select({ id: files.id })
+    .from(files)
+    .where(
+      and(
+        inArray(files.id, fileIds),
+        eq(files.userId, userId)
+      )
+    );
+  
+  const validFileIds = userFiles.map(f => f.id);
+  
+  // Add files to collection
+  const associations = validFileIds.map(fileId => ({
+    collectionId,
+    fileId,
+  }));
+  
+  if (associations.length > 0) {
+    try {
+      await db.insert(collectionFiles).values(associations);
+    } catch (error: any) {
+      // Ignore duplicate key errors
+      if (!error.message?.includes('Duplicate entry')) {
+        throw error;
+      }
+    }
+  }
+  
+  return { filesAdded: validFileIds.length };
+}
+
+export async function bulkRemoveFilesFromCollection(fileIds: number[], collectionId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  
+  // Verify collection belongs to user
+  const collection = await db
+    .select()
+    .from(collections)
+    .where(
+      and(
+        eq(collections.id, collectionId),
+        eq(collections.userId, userId)
+      )
+    )
+    .limit(1);
+  
+  if (collection.length === 0) {
+    throw new Error('Collection not found');
+  }
+  
+  // Remove files from collection
+  await db
+    .delete(collectionFiles)
+    .where(
+      and(
+        eq(collectionFiles.collectionId, collectionId),
+        inArray(collectionFiles.fileId, fileIds)
+      )
+    );
+  
+  return { filesRemoved: fileIds.length };
+}
