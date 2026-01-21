@@ -16,6 +16,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { uploadFileToStorage } from "@/lib/storage";
 import exifr from "exifr";
+import { DuplicateDetectionDialog } from "@/components/DuplicateDetectionDialog";
 
 interface FileUploadDialogProps {
   open: boolean;
@@ -65,7 +66,11 @@ export function FileUploadDialog({
   const [showTitleSuggestions, setShowTitleSuggestions] = useState(false);
   const [showDescriptionSuggestions, setShowDescriptionSuggestions] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [duplicates, setDuplicates] = useState<any[]>([]);
+  const [pendingFileHash, setPendingFileHash] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
@@ -267,6 +272,7 @@ export function FileUploadDialog({
   const transcribeVoiceMutation = trpc.files.transcribeVoice.useMutation();
   const enrichMutation = trpc.files.enrich.useMutation();
   const createTagMutation = trpc.tags.create.useMutation();
+  const checkDuplicatesMutation = trpc.duplicateDetection.checkDuplicates.useMutation();
   
   // Custom templates
   const { data: customTemplates = [], refetch: refetchTemplates } = trpc.metadataTemplates.list.useQuery();
@@ -456,6 +462,41 @@ export function FileUploadDialog({
       finalDescription = finalDescription.replace(/\0/g, '').substring(0, 60000); // Limit to 60KB to be safe
       
       console.log('[addFiles] Final values for', file.name, '- Title:', finalTitle, 'Description:', finalDescription, 'Keywords:', extractedKeywords);
+      
+      // Check for duplicates if it's an image
+      if (file.type.startsWith('image/')) {
+        try {
+          // Convert file to base64 for duplicate check
+          const reader = new FileReader();
+          const base64Promise = new Promise<string>((resolve) => {
+            reader.onload = () => {
+              const result = reader.result as string;
+              // Remove data URL prefix
+              const base64 = result.split(',')[1];
+              resolve(base64);
+            };
+            reader.readAsDataURL(file);
+          });
+          
+          const base64Data = await base64Promise;
+          const duplicateResult = await checkDuplicatesMutation.mutateAsync({
+            imageData: base64Data,
+            threshold: 5,
+          });
+          
+          if (duplicateResult.duplicates.length > 0) {
+            // Found duplicates - show dialog
+            setPendingFile(file);
+            setDuplicates(duplicateResult.duplicates);
+            setPendingFileHash(duplicateResult.hash);
+            setDuplicateDialogOpen(true);
+            return; // Don't add file yet, wait for user decision
+          }
+        } catch (error) {
+          console.warn('Duplicate detection failed, proceeding with upload:', error);
+          // Continue with upload if duplicate check fails
+        }
+      }
       
       filesWithMetadata.push({
         file,
@@ -652,6 +693,31 @@ export function FileUploadDialog({
           // Temporarily skip extractedMetadata to get uploads working
           // TODO: Fix browser caching issue preventing JSON.stringify from being executed
           
+          // Generate perceptual hash for images
+          let perceptualHash: string | undefined;
+          if (fileData.file.type.startsWith('image/')) {
+            try {
+              const reader = new FileReader();
+              const base64Promise = new Promise<string>((resolve) => {
+                reader.onload = () => {
+                  const result = reader.result as string;
+                  const base64 = result.split(',')[1];
+                  resolve(base64);
+                };
+                reader.readAsDataURL(fileData.file);
+              });
+              
+              const base64Data = await base64Promise;
+              const hashResult = await checkDuplicatesMutation.mutateAsync({
+                imageData: base64Data,
+                threshold: 0, // Just get the hash, don't check for duplicates
+              });
+              perceptualHash = hashResult.hash;
+            } catch (error) {
+              console.warn('Failed to generate perceptual hash:', error);
+            }
+          }
+
           const { id } = await createFileMutation.mutateAsync({
             fileKey,
             url: fileUrl,
@@ -664,7 +730,8 @@ export function FileUploadDialog({
             voiceTranscript: fileData.voiceTranscript,
             extractedMetadata: undefined, // Temporarily disabled
             extractedKeywords: extractedKeywords.length > 0 ? extractedKeywords : undefined,
-          });
+            perceptualHash,
+          } as any);
 
           clearInterval(progressInterval);
           updateFileMetadata(i, { uploadStatus: 'completed', uploadProgress: 100 });
@@ -1381,6 +1448,47 @@ export function FileUploadDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Duplicate Detection Dialog */}
+    <DuplicateDetectionDialog
+      open={duplicateDialogOpen}
+      onOpenChange={setDuplicateDialogOpen}
+      duplicates={duplicates}
+      onSkip={() => {
+        setPendingFile(null);
+        setDuplicates([]);
+        setPendingFileHash("");
+        toast.info("Upload skipped");
+      }}
+      onReplace={(fileId) => {
+        // TODO: Implement replace functionality
+        toast.info("Replace functionality coming soon");
+        setPendingFile(null);
+        setDuplicates([]);
+        setPendingFileHash("");
+      }}
+      onKeepBoth={() => {
+        if (pendingFile) {
+          // Add the file to the upload queue
+          const extractedTitle = pendingFile.name.replace(/\.[^/.]+$/, "");
+          setFiles((prev) => [
+            ...prev,
+            {
+              file: pendingFile,
+              title: extractedTitle,
+              description: "",
+              uploadProgress: 0,
+              uploadStatus: 'pending',
+              metadataCollapsed: true,
+            },
+          ]);
+          toast.success("File added to upload queue");
+        }
+        setPendingFile(null);
+        setDuplicates([]);
+        setPendingFileHash("");
+      }}
+    />
     </>
   );
 }

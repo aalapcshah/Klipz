@@ -140,8 +140,8 @@ export async function createFile(file: InsertFile) {
     `INSERT INTO files (
       userId, fileKey, url, filename, mimeType, fileSize,
       title, description, voiceRecordingUrl, voiceTranscript,
-      extractedMetadata, extractedKeywords, enrichmentStatus
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      extractedMetadata, extractedKeywords, enrichmentStatus, perceptualHash
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       file.userId,
       file.fileKey,
@@ -155,7 +155,8 @@ export async function createFile(file: InsertFile) {
       file.voiceTranscript || null,
       file.extractedMetadata || null,
       file.extractedKeywords ? JSON.stringify(file.extractedKeywords) : null,
-      file.enrichmentStatus || 'pending'
+      file.enrichmentStatus || 'pending',
+      (file as any).perceptualHash || null
     ]
   );
   
@@ -1058,4 +1059,72 @@ export async function evaluateSmartCollection(userId: number, rules: any[]) {
     .where(and(...conditions));
 
   return result;
+}
+
+
+// ============= DUPLICATE DETECTION =============
+
+/**
+ * Find files with similar perceptual hashes
+ * @param userId - User ID to search within
+ * @param hash - Perceptual hash to compare against
+ * @param threshold - Maximum Hamming distance (default: 5 for near-duplicates)
+ * @returns Array of similar files with similarity scores
+ */
+export async function findSimilarFiles(userId: number, hash: string, threshold: number = 5) {
+  const db = await getDb();
+  if (!db) return [];
+
+  // Get all files with perceptual hashes for this user
+  const allFiles = await db
+    .select()
+    .from(files)
+    .where(eq(files.userId, userId));
+
+  // Calculate Hamming distance for each file and filter by threshold
+  const { compareHashes, calculateSimilarity } = await import('./perceptualHash');
+  
+  const similarFiles = allFiles
+    .filter(file => file.perceptualHash)
+    .map(file => ({
+      ...file,
+      hammingDistance: compareHashes(hash, file.perceptualHash!),
+      similarity: calculateSimilarity(hash, file.perceptualHash!)
+    }))
+    .filter(file => file.hammingDistance <= threshold)
+    .sort((a, b) => a.hammingDistance - b.hammingDistance);
+
+  return similarFiles;
+}
+
+/**
+ * Update perceptual hash for a file
+ */
+export async function updateFileHash(fileId: number, perceptualHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .update(files)
+    .set({ perceptualHash })
+    .where(eq(files.id, fileId));
+}
+
+/**
+ * Check if a file with the same hash already exists for the user
+ */
+export async function findExactDuplicate(userId: number, hash: string) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const results = await db
+    .select()
+    .from(files)
+    .where(and(
+      eq(files.userId, userId),
+      eq(files.perceptualHash, hash)
+    ))
+    .limit(1);
+
+  return results[0] || null;
 }

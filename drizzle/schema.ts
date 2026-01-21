@@ -61,6 +61,9 @@ export const files = mysqlTable("files", {
   enrichmentStatus: mysqlEnum("enrichmentStatus", ["pending", "processing", "completed", "failed"]).default("pending").notNull(),
   enrichedAt: timestamp("enrichedAt"),
   
+  // Duplicate detection
+  perceptualHash: varchar("perceptualHash", { length: 64 }), // Image hash for duplicate detection
+  
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

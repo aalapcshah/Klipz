@@ -978,3 +978,28 @@
 - [x] Add horizontal scrolling for navigation on medium screens
 - [x] Use hamburger menu for screens under 768px (md breakpoint)
 - [x] Test navigation on various screen sizes
+
+## Phase 80: Duplicate Detection with Perceptual Hashing
+- [x] Research and select perceptual hashing library (sharp + image-hash)
+- [x] Add perceptual hash field to files table schema
+- [x] Implement hash generation during file upload
+- [x] Create duplicate detection procedure comparing hashes
+- [x] Add Hamming distance calculation for similarity threshold
+- [x] Create duplicate detection UI showing similar files
+- [x] Add user options: skip, replace, or keep both
+- [x] Store hash in database for future comparisons
+- [ ] Test with similar images and exact duplicates (requires user testing)
+- [ ] Handle video duplicate detection (frame sampling) (future enhancement)
+
+## Phase 81: Video Preview with File Overlays
+- [ ] Create video preview component in annotation editor
+- [ ] Implement canvas-based video compositing for preview
+- [ ] Render matched files at their timepoint positions
+- [ ] Add real-time preview playback with overlays
+- [ ] Implement overlay positioning controls (drag to reposition)
+- [ ] Add overlay size controls (resize handles)
+- [ ] Show timeline markers for annotation timepoints
+- [ ] Add play/pause controls for preview
+- [ ] Implement scrubbing through preview timeline
+- [ ] Add "Export as shown" button to render final video
+- [ ] Test preview performance with multiple overlays

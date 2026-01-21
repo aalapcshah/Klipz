@@ -1823,6 +1823,105 @@ For each suggestion, provide:
         }));
       }),
   }),
+
+  // ============= DUPLICATE DETECTION ROUTER =============
+  duplicateDetection: router({
+    // Check for duplicates before upload
+    checkDuplicates: protectedProcedure
+      .input(
+        z.object({
+          imageData: z.string(), // base64 image data
+          threshold: z.number().default(5), // Hamming distance threshold
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const { generatePerceptualHash } = await import('./perceptualHash');
+        
+        // Convert base64 to buffer
+        const buffer = Buffer.from(input.imageData, 'base64');
+        
+        // Generate hash for uploaded image
+        const hash = await generatePerceptualHash(buffer);
+        
+        // Find similar files
+        const similarFiles = await db.findSimilarFiles(ctx.user.id, hash, input.threshold);
+        
+        return {
+          hash,
+          duplicates: similarFiles.map(f => ({
+            id: f.id,
+            filename: f.filename,
+            url: f.url,
+            similarity: f.similarity,
+            hammingDistance: f.hammingDistance,
+            createdAt: f.createdAt,
+          })),
+        };
+      }),
+
+    // Generate and store hash for existing file
+    generateHash: protectedProcedure
+      .input(z.object({ fileId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const file = await db.getFileById(input.fileId);
+        if (!file || file.userId !== ctx.user.id) {
+          throw new Error('File not found');
+        }
+
+        // Only generate hash for images
+        if (!file.mimeType.startsWith('image/')) {
+          throw new Error('Hash generation only supported for images');
+        }
+
+        const { generatePerceptualHash } = await import('./perceptualHash');
+        const { storageGet } = await import('./storage');
+        
+        // Download file from S3
+        const response = await fetch(file.url);
+        const buffer = Buffer.from(await response.arrayBuffer());
+        
+        // Generate hash
+        const hash = await generatePerceptualHash(buffer);
+        
+        // Store hash in database
+        await db.updateFileHash(input.fileId, hash);
+        
+        return { hash };
+      }),
+
+    // Find duplicates of an existing file
+    findDuplicates: protectedProcedure
+      .input(
+        z.object({
+          fileId: z.number(),
+          threshold: z.number().default(5),
+        })
+      )
+      .query(async ({ input, ctx }) => {
+        const file = await db.getFileById(input.fileId);
+        if (!file || file.userId !== ctx.user.id) {
+          throw new Error('File not found');
+        }
+
+        if (!file.perceptualHash) {
+          throw new Error('File does not have a perceptual hash');
+        }
+
+        // Find similar files (excluding the file itself)
+        const similarFiles = await db.findSimilarFiles(ctx.user.id, file.perceptualHash, input.threshold);
+        
+        return similarFiles
+          .filter(f => f.id !== input.fileId)
+          .map(f => ({
+            id: f.id,
+            filename: f.filename,
+            url: f.url,
+            similarity: f.similarity,
+            hammingDistance: f.hammingDistance,
+            createdAt: f.createdAt,
+          }));
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
