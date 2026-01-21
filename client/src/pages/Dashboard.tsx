@@ -75,7 +75,8 @@ export default function Dashboard() {
               MetaClips
             </Link>
             
-            <nav className="hidden sm:flex items-center gap-0.5 md:gap-1">
+            {/* Desktop Navigation - horizontal scroll on medium screens */}
+            <nav className="hidden md:flex items-center gap-1 lg:gap-2 overflow-x-auto scrollbar-hide max-w-[calc(100vw-400px)] lg:max-w-none">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location === item.href;
@@ -83,18 +84,28 @@ export default function Dashboard() {
                   <Link 
                     key={item.href} 
                     href={item.href}
-                    className={`flex items-center gap-1.5 px-2 md:px-4 py-2 rounded-md transition-colors text-sm ${
+                    className={`flex items-center gap-1.5 px-3 lg:px-4 py-2 rounded-md transition-colors text-sm whitespace-nowrap ${
                       isActive
                         ? "bg-primary text-primary-foreground"
                         : "hover:bg-muted text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="hidden lg:inline">{item.label}</span>
                   </Link>
                 );
               })}
             </nav>
+            
+            {/* Mobile Menu Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -112,15 +123,7 @@ export default function Dashboard() {
                 Contact Us
               </a>
             </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="sm:hidden"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Toggle mobile menu"
-            >
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
+
             <Button variant="ghost" size="icon" onClick={() => logout()}>
               <LogOutIcon className="h-4 w-4" />
             </Button>
@@ -130,7 +133,7 @@ export default function Dashboard() {
 
       {/* Mobile Navigation Menu */}
       {mobileMenuOpen && (
-        <div className="sm:hidden border-b border-border bg-card">
+        <div className="md:hidden border-b border-border bg-card">
           <nav className="container py-4 flex flex-col gap-2">
             {navItems.map((item) => {
               const Icon = item.icon;

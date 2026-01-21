@@ -57,6 +57,19 @@ export function VideoRecorderWithTranscription() {
   const { data: allFiles } = trpc.files.list.useQuery();
   const trpcUtils = trpc.useUtils();
 
+  // Warn before leaving with unsaved recording
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (recordedBlob) {
+        e.preventDefault();
+        e.returnValue = 'You have an unsaved recording. Are you sure you want to leave?';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [recordedBlob]);
+
   useEffect(() => {
     // Initialize Web Speech API
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -450,12 +463,23 @@ export function VideoRecorderWithTranscription() {
           </div>
 
           {recordedBlob && (
-            <div className="mt-4 text-center">
-              <Badge variant="secondary">
-                Duration: {formatTime(recordingTime)} • Size:{" "}
-                {(recordedBlob.size / 1024 / 1024).toFixed(2)} MB
-              </Badge>
-            </div>
+            <>
+              <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-500 mb-2">
+                  <Upload className="h-4 w-4" />
+                  <span className="font-semibold">Don't forget to save your recording!</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Click "Upload Video" to save your recording permanently. Unsaved recordings will be lost if you leave this page.
+                </p>
+              </div>
+              <div className="mt-2 text-center">
+                <Badge variant="secondary">
+                  Duration: {formatTime(recordingTime)} • Size:{" "}
+                  {(recordedBlob.size / 1024 / 1024).toFixed(2)} MB
+                </Badge>
+              </div>
+            </>
           )}
         </Card>
 

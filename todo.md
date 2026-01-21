@@ -955,3 +955,26 @@
 - [x] Add one-click tag addition from suggestions
 - [x] Display confidence scores for suggestions
 - [ ] Test tag suggestions with various file types (requires user testing)
+
+## Bug Fix: Video Recording Not Saving
+- [x] Add save button to video recorder (already exists)
+- [x] Upload recorded video to S3 storage (already exists)
+- [x] Save video metadata to database (already exists)
+- [x] Persist recording across page refreshes (added unsaved warning)
+- [x] Add recording to Videos list (already exists)
+- [x] Add prominent save reminder alert
+- [x] Add browser warning before leaving with unsaved recording
+
+## Phase 79: Video Preview with File Overlays
+- [ ] Create video preview mode UI
+- [ ] Render matched files at their timepoint annotations
+- [ ] Show preview before final video render
+- [ ] Add timeline scrubber showing annotation markers
+- [ ] Allow editing overlay positions and sizes
+- [ ] Add export preview as final video
+
+## Bug Fix: Navigation Menu Responsive Design
+- [x] Fix menu item overlap on small screens
+- [x] Add horizontal scrolling for navigation on medium screens
+- [x] Use hamburger menu for screens under 768px (md breakpoint)
+- [x] Test navigation on various screen sizes
