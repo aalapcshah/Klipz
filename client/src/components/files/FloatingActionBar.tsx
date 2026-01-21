@@ -9,6 +9,7 @@ import {
   Square,
   FileText,
   FileJson,
+  Sparkles,
 } from "lucide-react";
 
 interface FloatingActionBarProps {
@@ -21,6 +22,7 @@ interface FloatingActionBarProps {
   onExportJSON: () => void;
   onTag: () => void;
   onMoveToCollection: () => void;
+  onBulkEnrich: () => void;
   onDelete: () => void;
   onClose: () => void;
 }
@@ -35,6 +37,7 @@ export function FloatingActionBar({
   onExportJSON,
   onTag,
   onMoveToCollection,
+  onBulkEnrich,
   onDelete,
   onClose,
 }: FloatingActionBarProps) {
@@ -129,6 +132,17 @@ export function FloatingActionBar({
           >
             <Folder className="h-4 w-4" />
             Move
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBulkEnrich}
+            className="gap-2 text-primary hover:text-primary hover:bg-primary/10"
+            title="Enrich all selected files with AI"
+          >
+            <Sparkles className="h-4 w-4" />
+            Enrich All
           </Button>
 
           <Button

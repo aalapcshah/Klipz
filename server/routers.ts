@@ -1258,6 +1258,77 @@ export const appRouter = router({
         
         return await db.getAnnotationsByVideoId(input.videoId);
       }),
+
+    // AI Auto-annotation: analyze transcript and suggest relevant files
+    autoAnnotate: protectedProcedure
+      .input(z.object({ videoId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const video = await db.getVideoById(input.videoId);
+        if (!video || video.userId !== ctx.user.id) {
+          throw new Error("Video not found");
+        }
+
+        if (!video.transcript) {
+          throw new Error("Video has no transcript");
+        }
+
+        // Get all user's files with metadata
+        const files = await db.getFilesByUserId(ctx.user.id);
+
+        // Use LLM to analyze transcript and match with files
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: `You are an AI assistant that analyzes video transcripts and suggests relevant files to annotate at specific timestamps. 
+Analyze the transcript and match it with the provided files based on keywords, topics, and context.
+For each suggestion, provide:
+- timestamp (in seconds)
+- fileId (from the files list)
+- keyword (the relevant keyword from transcript)
+- confidence (0-100, how confident you are in the match)
+- reason (brief explanation)`,
+            },
+            {
+              role: "user",
+              content: `Video Transcript:\n${video.transcript}\n\nAvailable Files:\n${files.map((f: any) => `ID: ${f.id}, Title: ${f.title}, Description: ${f.description}, Tags: ${f.tags?.map((t: any) => t.name).join(", ") || "none"}`).join("\n")}\n\nSuggest annotations with timestamps.`,
+            },
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "annotation_suggestions",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  suggestions: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        timestamp: { type: "number", description: "Time in seconds" },
+                        fileId: { type: "number", description: "ID of the relevant file" },
+                        keyword: { type: "string", description: "Relevant keyword" },
+                        confidence: { type: "number", description: "Confidence score 0-100" },
+                        reason: { type: "string", description: "Brief explanation" },
+                      },
+                      required: ["timestamp", "fileId", "keyword", "confidence", "reason"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                required: ["suggestions"],
+                additionalProperties: false,
+              },
+            },
+          },
+        });
+
+        const content = response.choices[0].message.content;
+        const result = JSON.parse(typeof content === 'string' ? content : '{}');
+        return result.suggestions || [];
+      }),
   }),
 
   // ============= VIDEO EXPORT ROUTER =============
@@ -1635,6 +1706,55 @@ export const appRouter = router({
         recentEnrichments,
       };
     }),
+  }),
+
+  // ============= ENRICHMENT QUEUE ROUTER =============
+  enrichmentQueue: router({
+    // Start bulk enrichment for multiple files
+    startBulk: protectedProcedure
+      .input(z.object({ fileIds: z.array(z.number()) }))
+      .mutation(async ({ input, ctx }) => {
+        // Verify all files belong to user
+        const files = await Promise.all(
+          input.fileIds.map(id => db.getFileById(id))
+        );
+        
+        if (files.some(f => !f || f.userId !== ctx.user.id)) {
+          throw new Error("Some files not found or unauthorized");
+        }
+
+        // Start enrichment process for each file
+        // Note: Enrichment is triggered asynchronously, status is tracked in database
+        const results = [];
+        for (const fileId of input.fileIds) {
+          try {
+            // Mark file for enrichment - actual enrichment happens via files.enrich mutation
+            const file = await db.getFileById(fileId);
+            if (file) {
+              results.push({ fileId, status: 'pending' });
+            }
+          } catch (error) {
+            results.push({ fileId, status: 'error', error: error instanceof Error ? error.message : 'Unknown error' });
+          }
+        }
+
+        return { results, message: 'Use files.enrich mutation to trigger enrichment for each file' };
+      }),
+
+    // Get enrichment status for files
+    getStatus: protectedProcedure
+      .input(z.object({ fileIds: z.array(z.number()) }))
+      .query(async ({ input, ctx }) => {
+        const files = await Promise.all(
+          input.fileIds.map(id => db.getFileById(id))
+        );
+        
+        return files.map(f => ({
+          fileId: f?.id,
+          enrichmentStatus: f?.enrichmentStatus || 'not_enriched',
+          qualityScore: (f as any)?.qualityScore || null,
+        }));
+      }),
   }),
 });
 

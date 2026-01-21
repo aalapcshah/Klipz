@@ -1757,6 +1757,24 @@ export default function FileGridEnhanced({ onFileClick }: FileGridEnhancedProps)
           onExportJSON={handleExportJSON}
           onTag={() => setTagDialogOpen(true)}
           onMoveToCollection={() => setCollectionDialogOpen(true)}
+          onBulkEnrich={async () => {
+            const fileIds = Array.from(selectedFiles);
+            toast.info(`Starting enrichment for ${fileIds.length} files...`);
+            
+            let completed = 0;
+            for (const fileId of fileIds) {
+              try {
+                await enrichMutation.mutateAsync({ id: fileId });
+                completed++;
+                toast.success(`Enriched ${completed}/${fileIds.length} files`);
+              } catch (error) {
+                toast.error(`Failed to enrich file ${fileId}`);
+              }
+            }
+            
+            toast.success(`Bulk enrichment complete: ${completed}/${fileIds.length} files enriched`);
+            setSelectedFiles(new Set());
+          }}
           onDelete={() => setDeleteDialogOpen(true)}
           onClose={() => setSelectedFiles(new Set())}
         />

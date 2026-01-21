@@ -65,6 +65,8 @@ export function AnnotationEditor({ videoId }: AnnotationEditorProps) {
   const [editingAnnotation, setEditingAnnotation] = useState<Annotation | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportedUrl, setExportedUrl] = useState<string | null>(null);
+  const [autoSuggestions, setAutoSuggestions] = useState<any[]>([]);
+  const [showSuggestionsDialog, setShowSuggestionsDialog] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -77,6 +79,7 @@ export function AnnotationEditor({ videoId }: AnnotationEditorProps) {
   const updateAnnotation = trpc.annotations.update.useMutation();
   const deleteAnnotation = trpc.annotations.delete.useMutation();
   const exportVideo = trpc.videoExport.export.useMutation();
+  const autoAnnotate = trpc.annotations.autoAnnotate.useMutation();
 
   useEffect(() => {
     const videoEl = videoRef.current;
@@ -301,6 +304,38 @@ export function AnnotationEditor({ videoId }: AnnotationEditorProps) {
             <Button onClick={handleAddAnnotation} disabled={createAnnotation.isPending}>
               <Plus className="h-4 w-4 mr-2" />
               Add Annotation
+            </Button>
+
+            <Button
+              onClick={async () => {
+                try {
+                  const suggestions = await autoAnnotate.mutateAsync({ videoId });
+                  if (suggestions && suggestions.length > 0) {
+                    toast.success(`Found ${suggestions.length} suggested annotations!`);
+                    // Show suggestions dialog
+                    setAutoSuggestions(suggestions);
+                    setShowSuggestionsDialog(true);
+                  } else {
+                    toast.info("No relevant files found for auto-annotation");
+                  }
+                } catch (error) {
+                  toast.error("Failed to generate auto-annotations");
+                }
+              }}
+              disabled={autoAnnotate.isPending || !video?.transcript}
+              variant="outline"
+            >
+              {autoAnnotate.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <Film className="h-4 w-4 mr-2" />
+                  Auto-Annotate
+                </>
+              )}
             </Button>
 
             <Button
@@ -535,6 +570,60 @@ export function AnnotationEditor({ videoId }: AnnotationEditorProps) {
           </ScrollArea>
         </Card>
       )}
+
+      {/* Auto-Suggestions Dialog */}
+      <Dialog open={showSuggestionsDialog} onOpenChange={setShowSuggestionsDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>AI-Suggested Annotations</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="h-96">
+            <div className="space-y-3 pr-4">
+              {autoSuggestions.map((suggestion: any, index: number) => (
+                <Card key={index} className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{formatTime(suggestion.timestamp)}</Badge>
+                        <Badge variant="secondary">{suggestion.confidence}% confident</Badge>
+                        {suggestion.source === "auto" && <Badge>Auto</Badge>}
+                      </div>
+                      <p className="text-sm font-medium">{suggestion.keyword}</p>
+                      <p className="text-xs text-muted-foreground">{suggestion.reason}</p>
+                      <p className="text-xs text-muted-foreground">
+                        File: {files.find((f: any) => f.id === suggestion.fileId)?.title || "Unknown"}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await createAnnotation.mutateAsync({
+                            videoId,
+                            fileId: suggestion.fileId,
+                            startTime: Math.floor(suggestion.timestamp),
+                            endTime: Math.floor(suggestion.timestamp) + 3,
+                            position: "right",
+                            keyword: suggestion.keyword,
+                            confidence: suggestion.confidence,
+                            source: "auto",
+                          });
+                          toast.success("Annotation added");
+                          refetchAnnotations();
+                        } catch (error) {
+                          toast.error("Failed to add annotation");
+                        }
+                      }}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
