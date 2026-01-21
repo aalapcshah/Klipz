@@ -329,8 +329,9 @@ export function FilePreviewLightbox({
                 imageUrl={currentFile.url}
                 imageWidth={1200}
                 imageHeight={800}
+                fileId={currentFile.id}
                 onSave={(dataUrl) => {
-                  // Could save to database here
+                  // Annotation is auto-saved via API
                   console.log("Annotation saved:", dataUrl);
                 }}
               />

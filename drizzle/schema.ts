@@ -504,3 +504,54 @@ export const exportHistory = mysqlTable("export_history", {
 
 export type ExportHistory = typeof exportHistory.$inferSelect;
 export type InsertExportHistory = typeof exportHistory.$inferInsert;
+
+
+/**
+ * Image Annotations table - stores drawing annotations on images (lightbox drawings)
+ */
+export const imageAnnotations = mysqlTable("image_annotations", {
+  id: int("id").autoincrement().primaryKey(),
+  fileId: int("fileId").notNull(),
+  userId: int("userId").notNull(),
+  
+  // Annotation data stored as JSON
+  annotationData: json("annotationData").notNull(), // Array of strokes, shapes, text objects
+  
+  // Metadata
+  version: int("version").default(1).notNull(), // For versioning annotations
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ImageAnnotation = typeof imageAnnotations.$inferSelect;
+export type InsertImageAnnotation = typeof imageAnnotations.$inferInsert;
+
+
+/**
+ * Enrichment Queue table - manages background AI enrichment jobs
+ */
+export const enrichmentQueue = mysqlTable("enrichment_queue", {
+  id: int("id").autoincrement().primaryKey(),
+  fileId: int("fileId").notNull(),
+  userId: int("userId").notNull(),
+  
+  // Job status
+  status: mysqlEnum("status", ["pending", "processing", "completed", "failed"]).default("pending").notNull(),
+  priority: int("priority").default(0).notNull(), // Higher number = higher priority
+  
+  // Retry logic
+  attempts: int("attempts").default(0).notNull(),
+  maxAttempts: int("maxAttempts").default(3).notNull(),
+  
+  // Error tracking
+  errorMessage: text("errorMessage"),
+  
+  // Timing
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  startedAt: timestamp("startedAt"),
+  completedAt: timestamp("completedAt"),
+});
+
+export type EnrichmentQueue = typeof enrichmentQueue.$inferSelect;
+export type InsertEnrichmentQueue = typeof enrichmentQueue.$inferInsert;

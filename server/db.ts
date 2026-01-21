@@ -35,6 +35,8 @@ import {
   InsertScheduledExport,
   exportHistory,
   InsertExportHistory,
+  imageAnnotations,
+  InsertImageAnnotation,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -1239,4 +1241,69 @@ export async function getExportHistoryByScheduledExport(scheduledExportId: numbe
     .where(eq(exportHistory.scheduledExportId, scheduledExportId))
     .orderBy(desc(exportHistory.createdAt))
     .limit(limit);
+}
+
+
+// ==================== Image Annotations ====================
+
+export async function saveImageAnnotation(data: {
+  fileId: number;
+  userId: number;
+  annotationData: any;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  
+  // Check if annotation already exists for this file
+  const existing = await db
+    .select()
+    .from(imageAnnotations)
+    .where(eq(imageAnnotations.fileId, data.fileId))
+    .limit(1);
+  
+  if (existing.length > 0) {
+    // Update existing annotation
+    await db
+      .update(imageAnnotations)
+      .set({
+        annotationData: data.annotationData,
+        version: existing[0].version + 1,
+        updatedAt: new Date(),
+      })
+      .where(eq(imageAnnotations.id, existing[0].id));
+    
+    return existing[0].id;
+  } else {
+    // Create new annotation
+    const result = await db.insert(imageAnnotations).values({
+      fileId: data.fileId,
+      userId: data.userId,
+      annotationData: data.annotationData,
+      version: 1,
+    });
+    
+    return result[0].insertId;
+  }
+}
+
+export async function getImageAnnotation(fileId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  
+  const result = await db
+    .select()
+    .from(imageAnnotations)
+    .where(eq(imageAnnotations.fileId, fileId))
+    .limit(1);
+  
+  return result[0] || null;
+}
+
+export async function deleteImageAnnotation(fileId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  
+  await db
+    .delete(imageAnnotations)
+    .where(eq(imageAnnotations.fileId, fileId));
 }

@@ -1004,3 +1004,38 @@
 - [ ] Implement scrubbing through preview timeline
 - [ ] Add "Export as shown" button to render final video
 - [ ] Test preview performance with multiple overlays
+
+## Phase 82: Annotation Persistence
+- [x] Add image_annotations table to database schema
+- [x] Store annotation data (strokes, shapes, text) as JSON
+- [x] Create API endpoints to save annotations
+- [x] Create API endpoints to load annotations
+- [x] Update AnnotationCanvas with save button
+- [x] Load existing annotations when opening lightbox
+- [x] Add annotation versioning tracking
+- [ ] Test annotation save/load functionality (requires user testing)
+
+## Phase 83: Batch Enrichment Queue (DEFERRED - requires production deployment)
+- [x] Add enrichment_queue table to database schema
+- [ ] Create job queue system for enrichment tasks (requires background worker)
+- [ ] Implement background worker to process queue (requires PM2/process management)
+- [ ] Update file upload to queue enrichment jobs
+- [ ] Add job status tracking (pending, processing, completed, failed)
+- [ ] Create UI to show enrichment progress
+- [ ] Add retry logic for failed enrichment jobs
+- [ ] Test queue processing with multiple files
+
+Note: This feature requires long-running background processes better suited for production deployment with proper process management (PM2, Docker, etc.).
+
+## Phase 84: Cron Job Integration for Scheduled Exports (DEFERRED - requires production deployment)
+- [ ] Install node-cron package
+- [ ] Create cron scheduler service
+- [ ] Load scheduled exports from database on startup
+- [ ] Execute export jobs at scheduled times
+- [ ] Generate export files (video/zip)
+- [ ] Send email notifications on completion (requires email service)
+- [ ] Update export status in database
+- [ ] Add error handling and logging
+- [ ] Test scheduled export execution
+
+Note: This feature requires server-side cron scheduling, email service integration, and production deployment infrastructure. The UI and database schema are already complete.

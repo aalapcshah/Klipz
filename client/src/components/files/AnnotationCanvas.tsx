@@ -20,11 +20,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
 
 interface AnnotationCanvasProps {
   imageUrl: string;
   imageWidth: number;
   imageHeight: number;
+  fileId: number;
   onSave?: (dataUrl: string) => void;
 }
 
@@ -45,6 +47,7 @@ export function AnnotationCanvas({
   imageUrl, 
   imageWidth, 
   imageHeight,
+  fileId,
   onSave 
 }: AnnotationCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -58,6 +61,19 @@ export function AnnotationCanvas({
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [imageLoaded, setImageLoaded] = useState(false);
   const imageRef = useRef<HTMLImageElement | null>(null);
+
+  // Load existing annotation
+  const { data: existingAnnotation } = trpc.imageAnnotations.load.useQuery({ fileId });
+  const saveAnnotationMutation = trpc.imageAnnotations.save.useMutation();
+
+  // Load existing annotation data
+  useEffect(() => {
+    if (existingAnnotation?.annotationData && Array.isArray(existingAnnotation.annotationData)) {
+      setElements(existingAnnotation.annotationData as DrawingElement[]);
+      setHistory([existingAnnotation.annotationData as DrawingElement[]]);
+      setHistoryIndex(0);
+    }
+  }, [existingAnnotation]);
 
   // Load image
   useEffect(() => {
@@ -308,20 +324,31 @@ export function AnnotationCanvas({
     }
   };
 
-  const saveAnnotation = () => {
+  const saveAnnotation = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const dataUrl = canvas.toDataURL("image/png");
-    onSave?.(dataUrl);
-    
-    // Download
-    const link = document.createElement("a");
-    link.download = "annotated-image.png";
-    link.href = dataUrl;
-    link.click();
-    
-    toast.success("Annotation saved");
+    // Save annotation data to database
+    try {
+      await saveAnnotationMutation.mutateAsync({
+        fileId,
+        annotationData: elements,
+      });
+      
+      const dataUrl = canvas.toDataURL("image/png");
+      onSave?.(dataUrl);
+      
+      // Download
+      const link = document.createElement("a");
+      link.download = "annotated-image.png";
+      link.href = dataUrl;
+      link.click();
+      
+      toast.success("Annotation saved");
+    } catch (error) {
+      toast.error("Failed to save annotation");
+      console.error(error);
+    }
   };
 
   const colors = [

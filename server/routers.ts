@@ -1935,6 +1935,43 @@ For each suggestion, provide:
       }),
   }),
 
+  // ============= IMAGE ANNOTATIONS ROUTER =============
+  imageAnnotations: router({
+    // Save annotation for a file
+    save: protectedProcedure
+      .input(
+        z.object({
+          fileId: z.number(),
+          annotationData: z.any(), // JSON data with strokes, shapes, text
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const annotationId = await db.saveImageAnnotation({
+          fileId: input.fileId,
+          userId: ctx.user.id,
+          annotationData: input.annotationData,
+        });
+        
+        return { success: true, id: annotationId };
+      }),
+
+    // Load annotation for a file
+    load: protectedProcedure
+      .input(z.object({ fileId: z.number() }))
+      .query(async ({ input }) => {
+        const annotation = await db.getImageAnnotation(input.fileId);
+        return annotation;
+      }),
+
+    // Delete annotation for a file
+    delete: protectedProcedure
+      .input(z.object({ fileId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        await db.deleteImageAnnotation(input.fileId);
+        return { success: true };
+      }),
+  }),
+
   // ============= DUPLICATE DETECTION ROUTER =============
   duplicateDetection: router({
     // Check for duplicates before upload
