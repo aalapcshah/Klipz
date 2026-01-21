@@ -1109,6 +1109,66 @@ export const appRouter = router({
           targetTagName: targetTag.name
         };
       }),
+
+    // Suggest tags for a file using AI
+    suggestTags: protectedProcedure
+      .input(z.object({ fileId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const file = await db.getFileById(input.fileId);
+        if (!file || file.userId !== ctx.user.id) {
+          throw new Error("File not found");
+        }
+
+        // Get all existing tags for this user
+        const existingTags = await db.getTagsByUserId(ctx.user.id);
+        const tagNames = existingTags.map((t: any) => t.name);
+
+        // Use LLM to suggest relevant tags
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: `You are an AI assistant that suggests relevant tags for files based on their content and metadata. Analyze the file information and suggest tags from the existing tag library that are most relevant. Also suggest new tags if appropriate. Consider semantic relevance, not just keyword matching.`,
+            },
+            {
+              role: "user",
+              content: `File Information:\nTitle: ${file.title || file.filename}\nDescription: ${file.description || "none"}\nAI Analysis: ${file.aiAnalysis || "none"}\nOCR Text: ${file.ocrText || "none"}\nDetected Objects: ${file.detectedObjects ? JSON.stringify(file.detectedObjects) : "none"}\n\nExisting Tags Library:\n${tagNames.join(", ")}\n\nSuggest relevant tags with confidence scores.`,
+            },
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "tag_suggestions",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  suggestions: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        tagName: { type: "string", description: "Suggested tag name" },
+                        confidence: { type: "number", description: "Confidence score 0-100" },
+                        reason: { type: "string", description: "Why this tag is relevant" },
+                        isNew: { type: "boolean", description: "Whether this is a new tag or from existing library" },
+                      },
+                      required: ["tagName", "confidence", "reason", "isNew"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                required: ["suggestions"],
+                additionalProperties: false,
+              },
+            },
+          },
+        });
+
+        const content = response.choices[0].message.content;
+        const result = JSON.parse(typeof content === 'string' ? content : '{}');
+        return result.suggestions || [];
+      }),
   }),
 
   // ============= VIDEOS ROUTER =============

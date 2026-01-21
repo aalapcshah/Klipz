@@ -935,3 +935,23 @@
 - [x] Update progress tracking for parallel execution
 - [x] Add overall progress percentage
 - [ ] Test with large file sets (requires user testing)
+
+## Phase 77: Enrichment Queue Dashboard
+- [x] Create enrichment_queue database table with status tracking (not needed - using files.enrichmentStatus)
+- [x] Add enrichment queue page to navigation
+- [x] Build queue dashboard UI component
+- [x] Show pending, in-progress, completed, and failed files
+- [x] Add retry button for failed enrichments
+- [x] Display enrichment history with timestamps
+- [x] Add bulk retry for all failed items
+- [ ] Test queue management workflows (requires user testing)
+
+## Phase 78: AI-Powered Tag Suggestions
+- [x] Create tag suggestion backend procedure
+- [x] Analyze file content and existing tags
+- [x] Generate relevant tag suggestions using LLM
+- [x] Add tag suggestion UI to file detail view
+- [x] Show suggestions when adding tags manually
+- [x] Add one-click tag addition from suggestions
+- [x] Display confidence scores for suggestions
+- [ ] Test tag suggestions with various file types (requires user testing)

@@ -15,7 +15,8 @@ import {
   Menu,
   BarChart3,
   X,
-  Mail
+  Mail,
+  ListChecks
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -57,6 +58,7 @@ export default function Dashboard() {
     { href: "/search", label: "Search", icon: SearchIcon },
     { href: "/videos", label: "Videos", icon: VideoIcon },
     { href: "/collections", label: "Collections", icon: FolderIcon },
+    { href: "/enrichment-queue", label: "Enrichment Queue", icon: ListChecks },
     { href: "/knowledge-graph", label: "Knowledge Graph", icon: NetworkIcon },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/settings", label: "Settings", icon: SettingsIcon },
@@ -168,6 +170,7 @@ export default function Dashboard() {
         {location === "/search" && <SearchView />}
         {location === "/videos" && <VideosView />}
         {location === "/collections" && <CollectionsPage />}
+        {location === "/enrichment-queue" && <EnrichmentQueueView />}
         {location === "/knowledge-graph" && <KnowledgeGraphView />}
         {location === "/analytics" && <AnalyticsView />}
         {location === "/settings" && <SettingsView />}
@@ -266,6 +269,7 @@ import { ExternalKnowledgeSourcesManager } from "@/components/knowledge-graph/Ex
 import SettingsPage from "./Settings";
 import { Analytics as AnalyticsPage } from "./Analytics";
 import CollectionsPage from "./Collections";
+import EnrichmentQueuePage from "./EnrichmentQueue";
 
 function KnowledgeGraphView() {
   const [showExternalSources, setShowExternalSources] = useState(false);
@@ -301,6 +305,10 @@ function KnowledgeGraphView() {
       )}
     </div>
   );
+}
+
+function EnrichmentQueueView() {
+  return <EnrichmentQueuePage />;
 }
 
 function AnalyticsView() {

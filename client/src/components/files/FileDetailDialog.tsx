@@ -51,6 +51,7 @@ export function FileDetailDialog({
 }: FileDetailDialogProps) {
   const [newTagName, setNewTagName] = useState("");
   const [isAddingTag, setIsAddingTag] = useState(false);
+  const [tagSuggestions, setTagSuggestions] = useState<any[]>([]);
   const deletedFileRef = useRef<DeletedFile | null>(null);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -66,6 +67,7 @@ export function FileDetailDialog({
   const unlinkTagMutation = trpc.tags.unlinkFromFile.useMutation();
   const deleteMutation = trpc.files.delete.useMutation();
   const createFileMutation = trpc.files.create.useMutation();
+  const suggestTagsMutation = trpc.tags.suggestTags.useMutation();
   const utils = trpc.useUtils();
 
   const { data: allTags } = trpc.tags.list.useQuery();
@@ -111,6 +113,25 @@ export function FileDetailDialog({
       refetch();
     } catch (error) {
       toast.error("Failed to remove tag");
+    }
+  };
+
+  const handleSuggestTags = async () => {
+    if (!fileId) return;
+
+    try {
+      const suggestions = await suggestTagsMutation.mutateAsync({ fileId });
+      
+      // Show suggestions in a toast with actions
+      if (suggestions && suggestions.length > 0) {
+        toast.success(`Found ${suggestions.length} tag suggestions! Check below the Add Tag button.`);
+        // Store suggestions in state to display them
+        setTagSuggestions(suggestions);
+      } else {
+        toast.info("No tag suggestions found for this file.");
+      }
+    } catch (error) {
+      toast.error("Failed to generate tag suggestions");
     }
   };
 
@@ -501,31 +522,66 @@ export function FileDetailDialog({
                     </div>
 
                     {/* Smart tag suggestions */}
-                    {!isAddingTag && fileId && (() => {
-                      const { data: suggestions } = trpc.files.suggestTags.useQuery({ fileId });
-                      return suggestions && suggestions.length > 0 && (
-                        <div className="p-3 bg-accent/10 border border-accent rounded-md">
-                          <p className="text-xs font-medium mb-2 flex items-center gap-1">
-                            <Sparkles className="h-3 w-3" />
-                            Smart Suggestions:
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {suggestions.map((tag: any) => (
-                              <Badge
-                                key={tag.id}
-                                variant="outline"
-                                className="cursor-pointer hover:bg-accent hover:text-accent-foreground"
-                                onClick={() => handleLinkExistingTag(tag.id)}
-                                title={tag.reason}
-                              >
-                                {tag.name}
-                                <span className="ml-1 text-xs opacity-70">({tag.relevanceScore})</span>
-                              </Badge>
-                            ))}
+                    {!isAddingTag && fileId && (
+                      <>
+                        <Button
+                          onClick={handleSuggestTags}
+                          size="sm"
+                          variant="outline"
+                          disabled={suggestTagsMutation.isPending}
+                          className="w-full"
+                        >
+                          {suggestTagsMutation.isPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                              Analyzing...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-4 w-4 mr-1" />
+                              Suggest Tags with AI
+                            </>
+                          )}
+                        </Button>
+                        
+                        {tagSuggestions.length > 0 && (
+                          <div className="p-3 bg-accent/10 border border-accent rounded-md">
+                            <p className="text-xs font-medium mb-2 flex items-center gap-1">
+                              <Sparkles className="h-3 w-3" />
+                              AI Suggested Tags:
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {tagSuggestions.map((suggestion: any, idx: number) => (
+                                <Badge
+                                  key={idx}
+                                  variant="outline"
+                                  className="cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                                  onClick={async () => {
+                                    try {
+                                      const { id: tagId } = await createTagMutation.mutateAsync({
+                                        name: suggestion.tagName,
+                                        source: "ai",
+                                      });
+                                      await linkTagMutation.mutateAsync({ fileId, tagId });
+                                      toast.success(`Tag "${suggestion.tagName}" added`);
+                                      refetch();
+                                      // Remove from suggestions
+                                      setTagSuggestions(prev => prev.filter((_, i) => i !== idx));
+                                    } catch (error) {
+                                      toast.error("Failed to add tag");
+                                    }
+                                  }}
+                                  title={`${suggestion.reason} (Confidence: ${suggestion.confidence}%)`}
+                                >
+                                  {suggestion.tagName}
+                                  <span className="ml-1 text-xs opacity-70">({suggestion.confidence}%)</span>
+                                </Badge>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })()}
+                        )}
+                      </>
+                    )}
 
                     {/* Existing tags to link */}
                     {allTags && allTags.length > 0 && (
