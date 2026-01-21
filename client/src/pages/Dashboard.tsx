@@ -262,11 +262,14 @@ function VideosView() {
 }
 
 import { KnowledgeGraphView as KnowledgeGraphComponent } from "@/components/knowledge-graph/KnowledgeGraphView";
+import { ExternalKnowledgeSourcesManager } from "@/components/knowledge-graph/ExternalKnowledgeSourcesManager";
 import SettingsPage from "./Settings";
 import { Analytics as AnalyticsPage } from "./Analytics";
 import CollectionsPage from "./Collections";
 
 function KnowledgeGraphView() {
+  const [showExternalSources, setShowExternalSources] = useState(false);
+  
   return (
     <div className="space-y-6">
       <div>
@@ -276,7 +279,26 @@ function KnowledgeGraphView() {
         </p>
       </div>
       
-      <KnowledgeGraphComponent />
+      <div className="flex gap-2">
+        <Button
+          variant={!showExternalSources ? "default" : "outline"}
+          onClick={() => setShowExternalSources(false)}
+        >
+          Internal Graph
+        </Button>
+        <Button
+          variant={showExternalSources ? "default" : "outline"}
+          onClick={() => setShowExternalSources(true)}
+        >
+          External Knowledge Sources
+        </Button>
+      </div>
+      
+      {!showExternalSources ? (
+        <KnowledgeGraphComponent />
+      ) : (
+        <ExternalKnowledgeSourcesManager />
+      )}
     </div>
   );
 }

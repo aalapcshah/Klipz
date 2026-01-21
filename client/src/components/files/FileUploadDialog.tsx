@@ -35,6 +35,7 @@ interface FileWithMetadata {
   extractedMetadata?: Record<string, any>;
   extractedKeywords?: string[];
   showMetadataPreview?: boolean;
+  metadataCollapsed?: boolean;
 }
 
 export function FileUploadDialog({
@@ -465,6 +466,7 @@ export function FileUploadDialog({
         extractedMetadata,
         extractedKeywords,
         showMetadataPreview: !!extractedMetadata,
+        metadataCollapsed: true,
       });
     }
     
@@ -748,7 +750,7 @@ export function FileUploadDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Upload & Tag Files</DialogTitle>
           <DialogDescription>
@@ -792,8 +794,23 @@ export function FileUploadDialog({
         {files.length > 0 && (
           <div className="space-y-4 mt-6">
             <div className="flex items-center justify-between">
-              <h3 className="font-medium">Uploaded Files ({files.length})</h3>
+              <div className="flex items-center gap-3">
+                <h3 className="font-medium">Uploaded Files ({files.length})</h3>
+                <span className="text-sm text-muted-foreground">
+                  {(files.reduce((sum, f) => sum + f.file.size, 0) / 1024 / 1024).toFixed(2)} MB total
+                </span>
+              </div>
               <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const allCollapsed = files.every(f => f.metadataCollapsed);
+                    setFiles(prev => prev.map(f => ({ ...f, metadataCollapsed: !allCollapsed })));
+                  }}
+                >
+                  {files.every(f => f.metadataCollapsed) ? "Expand All" : "Collapse All"}
+                </Button>
                 <FileText className="h-4 w-4 text-muted-foreground" />
                 <Select value={selectedTemplate} onValueChange={(value) => { setSelectedTemplate(value); applyTemplate(value); }}>
                   <SelectTrigger className="w-[200px]">
@@ -951,6 +968,14 @@ export function FileUploadDialog({
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => updateFileMetadata(index, { metadataCollapsed: !fileData.metadataCollapsed })}
+                      className="p-1 h-auto"
+                    >
+                      {fileData.metadataCollapsed ? "▶" : "▼"}
+                    </Button>
                     <div className="text-sm font-bold truncate">
                       {fileData.file.name}
                     </div>
@@ -993,6 +1018,9 @@ export function FileUploadDialog({
                   </div>
                 )}
 
+                {/* Collapsible Metadata Section */}
+                {!fileData.metadataCollapsed && (
+                  <>
                 {/* Extracted Metadata Preview */}
                 {fileData.extractedMetadata && fileData.showMetadataPreview && (
                   <div className="bg-accent/10 rounded-lg p-3 space-y-2">
@@ -1155,6 +1183,8 @@ export function FileUploadDialog({
                     )}
                   </div>
                 </div>
+                  </>
+                )}
               </div>
             ))}
           </div>

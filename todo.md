@@ -859,3 +859,29 @@
 - [ ] Check storage integration
 - [ ] Verify database persistence
 - [ ] Test error handling for failed uploads
+
+## Phase 68: Batch Upload UX Improvements
+- [x] Make upload dialog wider (max-w-7xl instead of max-w-4xl)
+- [x] Make metadata fields collapsible per file
+- [x] Start with metadata collapsed by default
+- [x] Add expand/collapse all button
+- [x] Show file count and total size in header
+- [x] Improve vertical layout for multiple files
+
+## Phase 69: External Knowledge Graph Integration
+- [x] Add external ontology connection UI to Knowledge Graph tab
+- [x] Create database schema for external knowledge sources (already exists)
+- [x] Implement Wikidata integration (UI ready, backend exists)
+- [x] Implement DBpedia integration (UI ready, backend exists)
+- [x] Add manual topic linking interface (connection management UI)
+- [ ] Show external connections in knowledge graph visualization (future enhancement)
+- [ ] Add search for external topics/concepts (future enhancement)
+
+## Phase 70: Video Timeline Annotations
+- [x] Add timeline annotation UI to video player (already exists)
+- [x] Create database schema for video annotations (already exists)
+- [x] Implement time-point markers for file references
+- [x] Add drag-and-drop files onto timeline
+- [x] Show annotation markers on video scrubber (already exists)
+- [x] Click marker to see referenced file/metadata (already exists)
+- [x] Export video with annotation timestamps (already exists)

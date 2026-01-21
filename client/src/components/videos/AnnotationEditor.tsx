@@ -326,6 +326,39 @@ export function AnnotationEditor({ videoId }: AnnotationEditorProps) {
           <div
             ref={timelineRef}
             className="relative h-16 bg-muted rounded-lg overflow-hidden"
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.currentTarget.classList.add('ring-2', 'ring-primary');
+            }}
+            onDragLeave={(e) => {
+              e.currentTarget.classList.remove('ring-2', 'ring-primary');
+            }}
+            onDrop={async (e) => {
+              e.preventDefault();
+              e.currentTarget.classList.remove('ring-2', 'ring-primary');
+              
+              const fileId = e.dataTransfer.getData('fileId');
+              if (!fileId || !duration) return;
+              
+              const rect = e.currentTarget.getBoundingClientRect();
+              const clickX = e.clientX - rect.left;
+              const timeAtClick = (clickX / rect.width) * duration;
+              
+              try {
+                await createAnnotation.mutateAsync({
+                  videoId,
+                  fileId: Number(fileId),
+                  startTime: Math.floor(timeAtClick),
+                  endTime: Math.floor(timeAtClick) + 3,
+                  position: 'right',
+                  source: 'manual',
+                });
+                toast.success('File added to timeline');
+                refetchAnnotations();
+              } catch (error) {
+                toast.error('Failed to add annotation');
+              }
+            }}
           >
             {/* Current Time Indicator */}
             <div
@@ -352,6 +385,45 @@ export function AnnotationEditor({ videoId }: AnnotationEditorProps) {
             ))}
           </div>
         </div>
+      </Card>
+
+      {/* Draggable Files Panel */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Available Files</h3>
+          <Badge variant="secondary">{files.length} files</Badge>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Drag files onto the timeline to add them as annotations at specific time points
+        </p>
+        <ScrollArea className="h-48">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pr-4">
+            {files.slice(0, 20).map((file: any) => (
+              <div
+                key={file.id}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('fileId', file.id.toString());
+                  e.dataTransfer.effectAllowed = 'copy';
+                }}
+                className="relative group cursor-move border-2 border-border rounded-lg overflow-hidden hover:border-primary transition-colors"
+              >
+                <div className="aspect-square bg-muted flex items-center justify-center">
+                  {file.mimeType?.startsWith('image/') ? (
+                    <img src={file.url} alt={file.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <FileImage className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <p className="text-white text-xs text-center px-2 line-clamp-2">
+                    {file.title || file.filename}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
       </Card>
 
       {/* Annotations List */}
