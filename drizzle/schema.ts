@@ -432,3 +432,75 @@ export const externalKnowledgeGraphsRelations = relations(externalKnowledgeGraph
     references: [users.id],
   }),
 }));
+
+/**
+ * Scheduled Exports table - stores recurring export jobs
+ */
+export const scheduledExports = mysqlTable("scheduled_exports", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  
+  // Export configuration
+  name: varchar("name", { length: 255 }).notNull(),
+  exportType: mysqlEnum("exportType", ["video", "files", "metadata"]).notNull(),
+  format: mysqlEnum("format", ["mp4", "csv", "json", "zip"]).notNull(),
+  
+  // Scheduling
+  schedule: mysqlEnum("schedule", ["daily", "weekly", "monthly"]).notNull(),
+  scheduleTime: varchar("scheduleTime", { length: 10 }).notNull(), // HH:MM format
+  dayOfWeek: int("dayOfWeek"), // 0-6 for weekly, null for others
+  dayOfMonth: int("dayOfMonth"), // 1-31 for monthly, null for others
+  timezone: varchar("timezone", { length: 50 }).default("UTC").notNull(),
+  
+  // Filters and options
+  collectionId: int("collectionId"), // Optional: export specific collection
+  filters: text("filters"), // JSON string of filter criteria
+  includeMetadata: boolean("includeMetadata").default(true).notNull(),
+  
+  // Notification settings
+  emailNotification: boolean("emailNotification").default(true).notNull(),
+  notificationEmail: varchar("notificationEmail", { length: 320 }),
+  
+  // Status tracking
+  isActive: boolean("isActive").default(true).notNull(),
+  lastRunAt: timestamp("lastRunAt"),
+  lastRunStatus: mysqlEnum("lastRunStatus", ["success", "failed", "pending"]),
+  nextRunAt: timestamp("nextRunAt"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ScheduledExport = typeof scheduledExports.$inferSelect;
+export type InsertScheduledExport = typeof scheduledExports.$inferInsert;
+
+/**
+ * Export History table - tracks all export executions
+ */
+export const exportHistory = mysqlTable("export_history", {
+  id: int("id").autoincrement().primaryKey(),
+  scheduledExportId: int("scheduledExportId"),
+  userId: int("userId").notNull(),
+  
+  // Export details
+  exportType: mysqlEnum("exportType", ["video", "files", "metadata"]).notNull(),
+  format: mysqlEnum("format", ["mp4", "csv", "json", "zip"]).notNull(),
+  
+  // Results
+  status: mysqlEnum("status", ["pending", "processing", "completed", "failed"]).default("pending").notNull(),
+  fileUrl: text("fileUrl"), // S3 URL of exported file
+  fileSize: int("fileSize"), // bytes
+  itemCount: int("itemCount"), // number of files/videos exported
+  
+  // Error tracking
+  errorMessage: text("errorMessage"),
+  
+  // Timing
+  startedAt: timestamp("startedAt").defaultNow().notNull(),
+  completedAt: timestamp("completedAt"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ExportHistory = typeof exportHistory.$inferSelect;
+export type InsertExportHistory = typeof exportHistory.$inferInsert;

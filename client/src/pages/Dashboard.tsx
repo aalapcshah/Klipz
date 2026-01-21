@@ -16,7 +16,8 @@ import {
   BarChart3,
   X,
   Mail,
-  ListChecks
+  ListChecks,
+  Calendar
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -61,6 +62,7 @@ export default function Dashboard() {
     { href: "/enrichment-queue", label: "Enrichment Queue", icon: ListChecks },
     { href: "/knowledge-graph", label: "Knowledge Graph", icon: NetworkIcon },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/scheduled-exports", label: "Scheduled Exports", icon: Calendar },
     { href: "/settings", label: "Settings", icon: SettingsIcon },
   ];
 
@@ -176,6 +178,7 @@ export default function Dashboard() {
         {location === "/enrichment-queue" && <EnrichmentQueueView />}
         {location === "/knowledge-graph" && <KnowledgeGraphView />}
         {location === "/analytics" && <AnalyticsView />}
+        {location === "/scheduled-exports" && <ScheduledExportsView />}
         {location === "/settings" && <SettingsView />}
       </main>
     </div>
@@ -272,6 +275,7 @@ import { ExternalKnowledgeSourcesManager } from "@/components/knowledge-graph/Ex
 import SettingsPage from "./Settings";
 import { Analytics as AnalyticsPage } from "./Analytics";
 import CollectionsPage from "./Collections";
+import { ScheduledExportsManager } from "@/components/ScheduledExportsManager";
 import EnrichmentQueuePage from "./EnrichmentQueue";
 
 function KnowledgeGraphView() {
@@ -320,4 +324,12 @@ function AnalyticsView() {
 
 function SettingsView() {
   return <SettingsPage />;
+}
+
+function ScheduledExportsView() {
+  return (
+    <div className="container py-8">
+      <ScheduledExportsManager />
+    </div>
+  );
 }

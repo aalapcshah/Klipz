@@ -1824,6 +1824,117 @@ For each suggestion, provide:
       }),
   }),
 
+  // ============= SCHEDULED EXPORTS ROUTER =============
+  scheduledExports: router({
+    // Create a new scheduled export
+    create: protectedProcedure
+      .input(
+        z.object({
+          name: z.string(),
+          exportType: z.enum(["video", "files", "metadata"]),
+          format: z.enum(["mp4", "csv", "json", "zip"]),
+          schedule: z.enum(["daily", "weekly", "monthly"]),
+          scheduleTime: z.string(), // HH:MM format
+          dayOfWeek: z.number().optional(),
+          dayOfMonth: z.number().optional(),
+          timezone: z.string().default("UTC"),
+          collectionId: z.number().optional(),
+          filters: z.string().optional(),
+          includeMetadata: z.boolean().default(true),
+          emailNotification: z.boolean().default(true),
+          notificationEmail: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const id = await db.createScheduledExport({
+          ...input,
+          userId: ctx.user.id,
+          isActive: true,
+          nextRunAt: calculateNextRun(input.schedule, input.scheduleTime, input.dayOfWeek, input.dayOfMonth, input.timezone),
+        });
+        return { id };
+      }),
+
+    // List all scheduled exports for current user
+    list: protectedProcedure.query(async ({ ctx }) => {
+      return await db.getScheduledExportsByUser(ctx.user.id);
+    }),
+
+    // Get a specific scheduled export
+    get: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input, ctx }) => {
+        const scheduledExport = await db.getScheduledExportById(input.id);
+        if (!scheduledExport || scheduledExport.userId !== ctx.user.id) {
+          throw new Error("Scheduled export not found");
+        }
+        return scheduledExport;
+      }),
+
+    // Update a scheduled export
+    update: protectedProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          name: z.string().optional(),
+          schedule: z.enum(["daily", "weekly", "monthly"]).optional(),
+          scheduleTime: z.string().optional(),
+          dayOfWeek: z.number().optional(),
+          dayOfMonth: z.number().optional(),
+          isActive: z.boolean().optional(),
+          emailNotification: z.boolean().optional(),
+          notificationEmail: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const { id, ...updates } = input;
+        const scheduledExport = await db.getScheduledExportById(id);
+        if (!scheduledExport || scheduledExport.userId !== ctx.user.id) {
+          throw new Error("Scheduled export not found");
+        }
+        
+        // Recalculate next run if schedule changed
+        if (updates.schedule || updates.scheduleTime || updates.dayOfWeek || updates.dayOfMonth) {
+          (updates as any).nextRunAt = calculateNextRun(
+            updates.schedule || scheduledExport.schedule,
+            updates.scheduleTime || scheduledExport.scheduleTime,
+            updates.dayOfWeek ?? scheduledExport.dayOfWeek,
+            updates.dayOfMonth ?? scheduledExport.dayOfMonth,
+            scheduledExport.timezone
+          );
+        }
+        
+        await db.updateScheduledExport(id, updates);
+        return { success: true };
+      }),
+
+    // Delete a scheduled export
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const scheduledExport = await db.getScheduledExportById(input.id);
+        if (!scheduledExport || scheduledExport.userId !== ctx.user.id) {
+          throw new Error("Scheduled export not found");
+        }
+        await db.deleteScheduledExport(input.id);
+        return { success: true };
+      }),
+
+    // Get export history
+    history: protectedProcedure
+      .input(z.object({ scheduledExportId: z.number().optional(), limit: z.number().default(50) }))
+      .query(async ({ input, ctx }) => {
+        if (input.scheduledExportId) {
+          const scheduledExport = await db.getScheduledExportById(input.scheduledExportId);
+          if (!scheduledExport || scheduledExport.userId !== ctx.user.id) {
+            throw new Error("Scheduled export not found");
+          }
+          return await db.getExportHistoryByScheduledExport(input.scheduledExportId, input.limit);
+        }
+        return await db.getExportHistoryByUser(ctx.user.id, input.limit);
+      }),
+  }),
+
   // ============= DUPLICATE DETECTION ROUTER =============
   duplicateDetection: router({
     // Check for duplicates before upload
@@ -1927,6 +2038,57 @@ For each suggestion, provide:
 export type AppRouter = typeof appRouter;
 
 // ============= HELPER FUNCTIONS =============
+
+function calculateNextRun(
+  schedule: "daily" | "weekly" | "monthly",
+  scheduleTime: string,
+  dayOfWeek?: number | null,
+  dayOfMonth?: number | null,
+  timezone: string = "UTC"
+): Date {
+  const now = new Date();
+  const [hours, minutes] = scheduleTime.split(":").map(Number);
+  
+  let nextRun = new Date(now);
+  nextRun.setHours(hours, minutes, 0, 0);
+  
+  // If the time has already passed today, start from tomorrow
+  if (nextRun <= now) {
+    nextRun.setDate(nextRun.getDate() + 1);
+  }
+  
+  switch (schedule) {
+    case "daily":
+      // Already set to next occurrence
+      break;
+      
+    case "weekly":
+      if (dayOfWeek !== null && dayOfWeek !== undefined) {
+        // Find next occurrence of the specified day of week
+        const currentDay = nextRun.getDay();
+        const daysUntilTarget = (dayOfWeek - currentDay + 7) % 7;
+        if (daysUntilTarget === 0 && nextRun <= now) {
+          nextRun.setDate(nextRun.getDate() + 7);
+        } else {
+          nextRun.setDate(nextRun.getDate() + daysUntilTarget);
+        }
+      }
+      break;
+      
+    case "monthly":
+      if (dayOfMonth !== null && dayOfMonth !== undefined) {
+        nextRun.setDate(dayOfMonth);
+        // If the day has passed this month, move to next month
+        if (nextRun <= now) {
+          nextRun.setMonth(nextRun.getMonth() + 1);
+          nextRun.setDate(dayOfMonth);
+        }
+      }
+      break;
+  }
+  
+  return nextRun;
+}
 
 function extractKeywords(text: string): string[] {
   // Simple keyword extraction (in production, use NLP library)

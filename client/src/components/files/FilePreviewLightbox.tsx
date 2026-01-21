@@ -13,9 +13,11 @@ import {
   Pause,
   Maximize,
   Minimize,
-  Columns2
+  Columns2,
+  Pencil
 } from "lucide-react";
 import { toast } from "sonner";
+import { AnnotationCanvas } from "./AnnotationCanvas";
 
 interface FilePreviewLightboxProps {
   files: any[];
@@ -38,6 +40,7 @@ export function FilePreviewLightbox({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [comparisonMode, setComparisonMode] = useState(false);
   const [comparisonIndex, setComparisonIndex] = useState(currentIndex + 1);
+  const [annotationMode, setAnnotationMode] = useState(false);
   const slideshowIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -125,6 +128,10 @@ export function FilePreviewLightbox({
       } else if (e.key === "c" || e.key === "C") {
         if (files.length > 1) {
           setComparisonMode((c) => !c);
+        }
+      } else if (e.key === "a" || e.key === "A") {
+        if (currentFile.mimeType?.startsWith("image/")) {
+          setAnnotationMode((a) => !a);
         }
       }
     };
@@ -218,6 +225,19 @@ export function FilePreviewLightbox({
               {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
             </Button>
 
+            {/* Annotation Mode */}
+            {currentFile.mimeType?.startsWith("image/") && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`text-white hover:bg-white/20 ${annotationMode ? 'bg-white/20' : ''}`}
+                onClick={() => setAnnotationMode(!annotationMode)}
+                title="Toggle annotation mode (A)"
+              >
+                <Pencil className="h-5 w-5" />
+              </Button>
+            )}
+
             {/* Comparison Mode */}
             {files.length > 1 && (
               <Button
@@ -302,8 +322,20 @@ export function FilePreviewLightbox({
         </div>
 
         {/* Image Container */}
-        <div className="relative w-full h-[95vh] flex items-center justify-center overflow-hidden">
-          {comparisonMode && comparisonFile ? (
+        <div className="relative w-full h-[95vh] flex items-center justify-center overflow-hidden p-4">
+          {annotationMode && currentFile.mimeType?.startsWith("image/") ? (
+            <div className="w-full h-full overflow-auto">
+              <AnnotationCanvas
+                imageUrl={currentFile.url}
+                imageWidth={1200}
+                imageHeight={800}
+                onSave={(dataUrl) => {
+                  // Could save to database here
+                  console.log("Annotation saved:", dataUrl);
+                }}
+              />
+            </div>
+          ) : comparisonMode && comparisonFile ? (
             <div className="flex w-full h-full gap-2">
               <div className="flex-1 flex items-center justify-center border-r border-white/20">
                 {renderImage(currentFile)}

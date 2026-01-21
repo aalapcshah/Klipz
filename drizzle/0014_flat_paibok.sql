@@ -1,0 +1,41 @@
+CREATE TABLE `export_history` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`scheduledExportId` int,
+	`userId` int NOT NULL,
+	`exportType` enum('video','files','metadata') NOT NULL,
+	`format` enum('mp4','csv','json','zip') NOT NULL,
+	`status` enum('pending','processing','completed','failed') NOT NULL DEFAULT 'pending',
+	`fileUrl` text,
+	`fileSize` int,
+	`itemCount` int,
+	`errorMessage` text,
+	`startedAt` timestamp NOT NULL DEFAULT (now()),
+	`completedAt` timestamp,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `export_history_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
+CREATE TABLE `scheduled_exports` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`userId` int NOT NULL,
+	`name` varchar(255) NOT NULL,
+	`exportType` enum('video','files','metadata') NOT NULL,
+	`format` enum('mp4','csv','json','zip') NOT NULL,
+	`schedule` enum('daily','weekly','monthly') NOT NULL,
+	`scheduleTime` varchar(10) NOT NULL,
+	`dayOfWeek` int,
+	`dayOfMonth` int,
+	`timezone` varchar(50) NOT NULL DEFAULT 'UTC',
+	`collectionId` int,
+	`filters` text,
+	`includeMetadata` boolean NOT NULL DEFAULT true,
+	`emailNotification` boolean NOT NULL DEFAULT true,
+	`notificationEmail` varchar(320),
+	`isActive` boolean NOT NULL DEFAULT true,
+	`lastRunAt` timestamp,
+	`lastRunStatus` enum('success','failed','pending'),
+	`nextRunAt` timestamp,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `scheduled_exports_id` PRIMARY KEY(`id`)
+);

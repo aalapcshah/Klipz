@@ -31,6 +31,10 @@ import {
   InsertMetadataHistory,
   externalKnowledgeGraphs,
   InsertExternalKnowledgeGraph,
+  scheduledExports,
+  InsertScheduledExport,
+  exportHistory,
+  InsertExportHistory,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -1127,4 +1131,112 @@ export async function findExactDuplicate(userId: number, hash: string) {
     .limit(1);
 
   return results[0] || null;
+}
+
+
+// ============= SCHEDULED EXPORTS =============
+
+export async function createScheduledExport(data: InsertScheduledExport) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(scheduledExports).values(data);
+  return Number((result as any).insertId);
+}
+
+export async function getScheduledExportsByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(scheduledExports)
+    .where(eq(scheduledExports.userId, userId))
+    .orderBy(desc(scheduledExports.createdAt));
+}
+
+export async function getScheduledExportById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const results = await db
+    .select()
+    .from(scheduledExports)
+    .where(eq(scheduledExports.id, id))
+    .limit(1);
+
+  return results[0] || null;
+}
+
+export async function updateScheduledExport(id: number, data: Partial<InsertScheduledExport>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .update(scheduledExports)
+    .set(data)
+    .where(eq(scheduledExports.id, id));
+}
+
+export async function deleteScheduledExport(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .delete(scheduledExports)
+    .where(eq(scheduledExports.id, id));
+}
+
+export async function getActiveScheduledExports() {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(scheduledExports)
+    .where(eq(scheduledExports.isActive, true));
+}
+
+// ============= EXPORT HISTORY =============
+
+export async function createExportHistory(data: InsertExportHistory) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(exportHistory).values(data);
+  return Number((result as any).insertId);
+}
+
+export async function getExportHistoryByUser(userId: number, limit: number = 50) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(exportHistory)
+    .where(eq(exportHistory.userId, userId))
+    .orderBy(desc(exportHistory.createdAt))
+    .limit(limit);
+}
+
+export async function updateExportHistory(id: number, data: Partial<InsertExportHistory>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .update(exportHistory)
+    .set(data)
+    .where(eq(exportHistory.id, id));
+}
+
+export async function getExportHistoryByScheduledExport(scheduledExportId: number, limit: number = 10) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(exportHistory)
+    .where(eq(exportHistory.scheduledExportId, scheduledExportId))
+    .orderBy(desc(exportHistory.createdAt))
+    .limit(limit);
 }
