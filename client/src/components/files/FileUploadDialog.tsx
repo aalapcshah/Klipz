@@ -724,6 +724,13 @@ export function FileUploadDialog({
         } catch (error) {
           clearInterval(progressInterval);
           updateFileMetadata(i, { uploadStatus: 'error', uploadProgress: 0 });
+          
+          // Detailed error logging
+          console.error('[FileUpload] Upload failed for file:', fileData.file.name);
+          console.error('[FileUpload] Error type:', error instanceof Error ? error.constructor.name : typeof error);
+          console.error('[FileUpload] Error message:', error instanceof Error ? error.message : String(error));
+          console.error('[FileUpload] Full error object:', error);
+          
           throw error;
         }
       }
@@ -735,8 +742,26 @@ export function FileUploadDialog({
         onUploadComplete?.();
       }
     } catch (error) {
-      console.error("Upload error:", error);
-      toast.error("Failed to upload files");
+      console.error('[FileUpload] Final catch - Upload process failed');
+      console.error('[FileUpload] Error type:', error instanceof Error ? error.constructor.name : typeof error);
+      console.error('[FileUpload] Error message:', error instanceof Error ? error.message : String(error));
+      console.error('[FileUpload] Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+      
+      // User-friendly error message
+      let errorMessage = 'Failed to upload files';
+      if (error instanceof Error) {
+        if (error.message.includes('size')) {
+          errorMessage = error.message;
+        } else if (error.message.includes('network') || error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+        } else if (error.message.includes('storage') || error.message.includes('S3')) {
+          errorMessage = 'Storage service error. Please try again later.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setUploading(false);
     }

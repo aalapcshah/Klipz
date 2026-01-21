@@ -885,3 +885,37 @@
 - [x] Show annotation markers on video scrubber (already exists)
 - [x] Click marker to see referenced file/metadata (already exists)
 - [x] Export video with annotation timestamps (already exists)
+
+## Phase 71: File Upload Debugging
+- [x] Add detailed console logging to upload flow
+- [x] Log S3 storage API requests and responses
+- [x] Add file size validation with clear error messages
+- [x] Log network errors with retry attempts
+- [x] Add upload progress indicators (already exists)
+- [ ] Test upload with various file types and sizes (requires user testing)
+
+## Phase 72: Knowledge Graph Source Descriptions
+- [x] Add detailed descriptions for Wikidata
+- [x] Add detailed descriptions for DBpedia
+- [x] Add detailed descriptions for Schema.org
+- [x] Show example use cases for each source
+- [x] Add links to documentation
+
+## Phase 73: AI-Powered Video Auto-Annotation
+- [ ] Create auto-annotation backend procedure
+- [ ] Analyze video transcript for keywords
+- [ ] Match keywords to file metadata/tags
+- [ ] Calculate confidence scores for matches
+- [ ] Add "Auto-Annotate" button to video editor
+- [ ] Show suggested annotations with confidence scores
+- [ ] Allow user to accept/reject suggestions
+
+## Phase 74: Bulk Enrichment Queue
+- [ ] Create enrichment queue database table
+- [ ] Add bulk enrichment backend procedure
+- [ ] Implement queue processing with concurrency limits
+- [ ] Add progress tracking for each file
+- [ ] Add retry logic for failed enrichments
+- [ ] Create enrichment queue UI component
+- [ ] Show real-time progress updates
+- [ ] Add pause/resume/cancel controls

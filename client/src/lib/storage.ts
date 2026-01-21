@@ -40,8 +40,14 @@ export async function uploadFileToStorage(
     console.log('[Upload] Upload successful!', result);
     return result;
   } catch (error) {
-    console.error("[Upload] Error:", error);
+    console.error('[Upload] Storage upload error occurred');
+    console.error('[Upload] Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('[Upload] Error message:', error instanceof Error ? error.message : String(error));
+    console.error('[Upload] Full error:', error);
+    console.error('[Upload] File details - Name:', filename, 'Size:', file.size, 'Type:', file.type);
+    
     if (error instanceof Error) {
+      // Preserve original error message for better debugging
       throw new Error(`Upload failed: ${error.message}`);
     }
     throw new Error('Upload failed: Unknown error');

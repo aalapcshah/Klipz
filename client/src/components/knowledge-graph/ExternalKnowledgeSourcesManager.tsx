@@ -101,19 +101,25 @@ export function ExternalKnowledgeSourcesManager() {
       name: "Wikidata",
       type: "wikidata" as const,
       endpoint: "https://query.wikidata.org/sparql",
-      description: "Structured knowledge base with millions of entities",
+      description: "Collaborative knowledge base with 100M+ items covering people, places, concepts, and events. Ideal for linking files to real-world entities with rich metadata.",
+      useCase: "Link historical documents to specific dates/events, connect photos to geographic locations, associate files with notable people or organizations",
+      docsUrl: "https://www.wikidata.org/wiki/Wikidata:Introduction",
     },
     {
       name: "DBpedia",
       type: "dbpedia" as const,
       endpoint: "https://dbpedia.org/sparql",
-      description: "Structured information from Wikipedia",
+      description: "Extracts structured information from Wikipedia, providing 6M+ entities with descriptions, categories, and relationships. Best for general knowledge enrichment.",
+      useCase: "Enrich files with Wikipedia context, connect documents to topics with detailed descriptions, leverage category hierarchies for organization",
+      docsUrl: "https://www.dbpedia.org/about/",
     },
     {
       name: "Schema.org",
       type: "schema_org" as const,
       endpoint: "",
-      description: "Structured data vocabulary for the web",
+      description: "Standardized vocabulary for structured data on the web, covering products, events, organizations, and creative works. Essential for web-compatible metadata.",
+      useCase: "Tag products with standard properties, mark events with datetime/location, structure business documents with organization schema",
+      docsUrl: "https://schema.org/docs/about.html",
     },
   ];
 
@@ -154,11 +160,26 @@ export function ExternalKnowledgeSourcesManager() {
                   setShowAddDialog(true);
                 }}>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-base">
                       {getSourceIcon(preset.type)}
                       {preset.name}
                     </CardTitle>
-                    <CardDescription>{preset.description}</CardDescription>
+                    <CardDescription className="space-y-2">
+                      <p className="text-sm">{preset.description}</p>
+                      <div className="pt-2 border-t border-border/50">
+                        <p className="text-xs font-semibold text-foreground mb-1">Use Cases:</p>
+                        <p className="text-xs">{preset.useCase}</p>
+                      </div>
+                      <a 
+                        href={preset.docsUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline inline-flex items-center gap-1 pt-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Learn more →
+                      </a>
+                    </CardDescription>
                   </CardHeader>
                 </Card>
               ))}
