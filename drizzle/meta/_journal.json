@@ -127,6 +127,20 @@
       "when": 1769049989955,
       "tag": "0017_warm_omega_red",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1769051229243,
+      "tag": "0018_curved_callisto",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1769051500962,
+      "tag": "0019_damp_psylocke",
+      "breakpoints": true
     }
   ]
 }

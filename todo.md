@@ -1129,3 +1129,44 @@ Note: This feature requires server-side cron scheduling, email service integrati
 - [x] Create backend endpoints for consent recording
 - [ ] Test onboarding flow for new users (requires user testing)
 - [ ] Test profile editing and account deactivation (requires user testing)
+
+## Phase 90: Terms of Service & Privacy Policy Pages
+- [x] Create /terms route and page component
+- [x] Write comprehensive Terms of Service content
+- [x] Create /privacy route and page component
+- [x] Write comprehensive Privacy Policy content (GDPR-compliant)
+- [x] Add proper legal disclaimers and last updated dates
+- [x] Link terms and privacy pages from onboarding wizard (already linked)
+- [ ] Add footer links to terms and privacy pages (deferred - no footer component yet)
+- [ ] Test page navigation and content display (requires user testing)
+
+## Phase 91: User Activity Dashboard (DEFERRED)
+- [ ] Create user activity tracking database functions
+- [ ] Add dashboard route and page component
+- [ ] Display upload statistics (total files, storage used)
+- [ ] Show file type breakdown (images, videos, other)
+- [ ] Add recent activity timeline
+- [ ] Create quick action buttons (Upload, Search, Create Collection)
+- [ ] Add storage usage visualization
+- [ ] Test dashboard display and statistics accuracy
+
+Note: Deferred to next session due to router syntax complexity.hboard with various user activity levels
+
+## Phase 92: Email Notification System
+- [ ] Choose email service provider (SendGrid or AWS SES)
+- [ ] Set up email service credentials and configuration
+- [ ] Create email templates for welcome emails
+- [ ] Create email templates for export completion notifications
+- [ ] Create email templates for marketing emails
+- [ ] Implement email sending service module
+- [ ] Add email queue system for reliable delivery
+- [ ] Integrate welcome email on user signup
+- [ ] Integrate export completion email notifications
+- [ ] Add unsubscribe link handling
+- [ ] Test email delivery and template rendering
+
+## Bug Fix: Analytics and Scheduled Exports Tabs
+- [x] Investigate Analytics tab not working (server restart resolved)
+- [x] Investigate Scheduled Exports tab not working (server restart resolved)
+- [x] Fix routing or component rendering issues (stale module cache)
+- [x] Test both tabs after fixes (server running properly)

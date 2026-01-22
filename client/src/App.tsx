@@ -6,6 +6,8 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Dashboard from "./pages/Dashboard";
 import { OnboardingWizard } from "./components/OnboardingWizard";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
 import { trpc } from "./lib/trpc";
 import { useState, useEffect } from "react";
 // SearchWithSaved is now rendered inside Dashboard
@@ -18,6 +20,8 @@ function Router() {
       <Route path="/videos" component={Dashboard} />
       <Route path="/collections" component={Dashboard} />
       <Route path="/knowledge-graph" component={Dashboard} />
+      <Route path="/terms" component={Terms} />
+      <Route path="/privacy" component={Privacy} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
