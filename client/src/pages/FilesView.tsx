@@ -7,9 +7,12 @@ import { FileDetailDialog } from "@/components/files/FileDetailDialog";
 import { BulkOperationsToolbar } from "@/components/files/BulkOperationsToolbar";
 import { AdvancedFiltersPanel, type AdvancedFilters } from "@/components/files/AdvancedFiltersPanel";
 import { trpc } from "@/lib/trpc";
+import { StorageCleanupWizard } from "@/components/StorageCleanupWizard";
+import { Trash2 } from "lucide-react";
 
 export default function FilesView() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [showCleanupWizard, setShowCleanupWizard] = useState(false);
   const [selectedFileId, setSelectedFileId] = useState<number | null>(null);
   const [selectedFileIds, setSelectedFileIds] = useState<number[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(() => {
@@ -64,10 +67,16 @@ export default function FilesView() {
                 Manage and enrich your media files with AI
               </p>
             </div>
-            <Button onClick={() => setUploadDialogOpen(true)}>
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Files
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowCleanupWizard(true)}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clean Up Storage
+              </Button>
+              <Button onClick={() => setUploadDialogOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Files
+              </Button>
+            </div>
           </div>
 
           <FileGridEnhanced 
@@ -96,6 +105,14 @@ export default function FilesView() {
           selectedFileIds={selectedFileIds}
           onClearSelection={() => setSelectedFileIds([])}
           onOperationComplete={() => {
+            utils.files.list.invalidate();
+          }}
+        />
+
+        <StorageCleanupWizard
+          open={showCleanupWizard}
+          onOpenChange={setShowCleanupWizard}
+          onComplete={() => {
             utils.files.list.invalidate();
           }}
         />

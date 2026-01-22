@@ -120,7 +120,7 @@ export function PermissionsDialog({ open, onOpenChange, onComplete }: Permission
               disabled={isRequesting}
               className="w-full sm:w-auto"
             >
-              {isRequesting ? "Requesting..." : "Grant Permissions"}
+              {isRequesting ? "Requesting All Permissions..." : "Grant All Permissions"}
             </Button>
           )}
           <Button

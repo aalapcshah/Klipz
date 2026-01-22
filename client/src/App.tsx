@@ -12,6 +12,7 @@ import Privacy from "./pages/Privacy";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import FAQ from "./pages/FAQ";
+import Upgrade from "./pages/Upgrade";
 import ActivityDashboard from "./pages/ActivityDashboard";
 import { trpc } from "./lib/trpc";
 import { useState, useEffect } from "react";
@@ -27,9 +28,9 @@ function Router() {
       <Route path="/knowledge-graph" component={Dashboard} />
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
-          <Route path="/about" component={About} />
-          <Route path="/contact" component={Contact} />
-          <Route path="/faq" component={FAQ} />
+      <Route path="/faq" component={FAQ} />
+      <Route path="/contact" component={Contact} />
+      <Route path="/upgrade" component={Upgrade} />
       <Route path="/activity" component={ActivityDashboard} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

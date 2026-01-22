@@ -74,6 +74,11 @@ export function StorageAlert({ totalStorage, storageLimit }: StorageAlertProps) 
                   Manage Files
                 </Button>
               </Link>
+              <Link href="/upgrade">
+                <Button size="sm" variant="default">
+                  Upgrade Storage
+                </Button>
+              </Link>
               <Button 
                 size="sm" 
                 variant="outline"

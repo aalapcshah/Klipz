@@ -1323,3 +1323,48 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Add "Dismiss" button to hide alert temporarily
 - [x] Persist alert dismissal to avoid repeated notifications (localStorage by percentage tier)
 - [ ] Test storage alerts at different usage levels (requires user testing with real data)
+
+## Phase 108: Batch Permission Requests
+- [x] Add "Grant All Permissions" button to PermissionsDialog (already implemented)
+- [x] Request camera, microphone, and location simultaneously (requestAllPermissions function)
+- [x] Show combined progress indicator for all permissions ("Requesting All Permissions..." state)
+- [x] Display individual permission results after batch request (checkmarks/X icons)
+- [x] Handle partial success (some granted, some denied) (toast shows count of granted)
+- [ ] Add batch permission button to first-time upload flow (deferred - already in onboarding)
+
+## Phase 109: Verbal Video Annotations & Voice Notes
+- [x] Add microphone permission check to video viewer (VoiceRecorder component)
+- [x] Create voice recording UI component for video viewer (VoiceRecorder.tsx)
+- [x] Add audio playback controls for verbal annotations (play/pause/delete)
+- [x] Implement recording with pause/resume functionality
+- [x] Add duration timer and max duration limit
+- [ ] Integrate VoiceRecorder into video viewer for timestamped annotations
+- [ ] Display verbal annotation indicators on video timeline
+- [ ] Add voice note recording to file metadata panel
+- [ ] Save audio annotations with video metadata in database
+- [ ] Store voice notes in S3 and reference in database
+
+## Phase 110: Storage Upgrade Flow
+- [x] Create Upgrade page with pricing tiers (Free/Pro/Enterprise)
+- [x] Design pricing cards with feature comparisons
+- [x] Add storage limits for each tier (10GB/100GB/1TB)
+- [x] Create checkout flow placeholder (toast notification for now)
+- [x] Add "Upgrade Storage" button in storage alerts
+- [x] Add /upgrade route to App.tsx
+- [x] Add FAQ section to upgrade page
+- [ ] Add "Upgrade" link in Settings sidebar (deferred)
+- [ ] Show current plan and usage in Settings (deferred)
+- [ ] Integrate real payment processing with Stripe (requires webdev_add_feature)
+
+## Phase 111: Intelligent Storage Cleanup Wizard
+- [x] Create StorageCleanupWizard component with multi-step flow (scan/select/confirm/complete)
+- [x] Scan for duplicate files (mock data - backend integration needed)
+- [x] Identify low-quality files (quality score < 50)
+- [x] Find unused files (not accessed in 90+ days)
+- [x] Calculate potential storage savings (shows total files and storage)
+- [x] Allow users to preview and select files to delete (checkbox selection)
+- [x] Implement bulk delete with confirmation (warning step before deletion)
+- [x] Show cleanup summary and storage freed (completion screen)
+- [x] Add "Clean Up Storage" button in files page
+- [ ] Connect to backend API for real file scanning and deletion
+- [ ] Add "Clean Up Storage" button in settings (deferred)
