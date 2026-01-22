@@ -1053,3 +1053,35 @@ Note: This feature requires server-side cron scheduling, email service integrati
 - [x] Add confirmation dialogs for destructive operations
 - [x] Handle errors gracefully with try-catch
 - [ ] Test bulk operations with large file sets (requires user testing)
+
+## Phase 86: Advanced Filters Panel
+- [x] Create collapsible filters sidebar component
+- [x] Add date range picker (from/to dates)
+- [x] Add file size slider with min/max range
+- [x] Add enrichment status checkboxes (Not Enriched, Enriched, Failed)
+- [x] Add quality score filter (High, Medium, Low)
+- [x] Integrate filters with file list query
+- [x] Add "Clear All Filters" button
+- [x] Persist filter state in localStorage
+- [x] Add filter count badge showing active filters
+- [x] Make sidebar collapsible with toggle button
+
+## Phase 87: Bulk Export (ZIP Download)
+- [x] Add "Export as ZIP" button to BulkOperationsToolbar
+- [x] Implement bulk file download and ZIP creation
+- [x] Add progress tracking for ZIP creation
+- [x] Handle large file sets efficiently (sequential download with progress)
+- [x] Add success/error notifications
+- [ ] Test with multiple file types and sizes (requires user testing)
+
+## Phase 87b: Cloud Export (Future - Requires OAuth Setup)
+- [ ] Set up Google Drive OAuth 2.0 credentials
+- [ ] Set up Dropbox OAuth 2.0 credentials
+- [ ] Implement OAuth flow for Google Drive authentication
+- [ ] Implement OAuth flow for Dropbox authentication
+- [ ] Create file upload logic for Google Drive
+- [ ] Create file upload logic for Dropbox
+- [ ] Add "Export to Google Drive" button
+- [ ] Add "Export to Dropbox" button
+- [ ] Add progress tracking for cloud uploads
+- [ ] Handle authentication errors gracefully

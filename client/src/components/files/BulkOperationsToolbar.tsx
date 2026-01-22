@@ -7,6 +7,7 @@ import {
   X,
   Download,
   Loader2,
+  Archive,
 } from "lucide-react";
 import {
   Dialog,
@@ -50,6 +51,7 @@ export function BulkOperationsToolbar({
   const deleteFilesMutation = trpc.bulkOperations.deleteFiles.useMutation();
   const addTagsMutation = trpc.bulkOperations.addTags.useMutation();
   const addToCollectionMutation = trpc.bulkOperations.addToCollection.useMutation();
+  const { data: allFiles } = trpc.files.list.useQuery();
 
   const { data: tags } = trpc.tags.list.useQuery();
   const { data: collections } = trpc.collections.list.useQuery();
@@ -116,6 +118,70 @@ export function BulkOperationsToolbar({
       setSelectedTagIds([]);
     } catch (error) {
       toast.error("Failed to add tags");
+      console.error(error);
+    } finally {
+      setIsProcessing(false);
+      setProgress(0);
+    }
+  };
+
+  const handleBulkExportZip = async () => {
+    if (!allFiles) {
+      toast.error("File list not loaded");
+      return;
+    }
+
+    setIsProcessing(true);
+    setProgress(0);
+
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+
+      const selectedFiles = allFiles.filter((f: any) =>
+        selectedFileIds.includes(f.id)
+      );
+
+      toast.info(`Preparing ${selectedFiles.length} file(s) for export...`);
+
+      // Download and add files to ZIP
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        try {
+          const response = await fetch(file.url);
+          const blob = await response.blob();
+          zip.file(file.filename, blob);
+
+          // Update progress
+          const progressPercent = Math.round(((i + 1) / selectedFiles.length) * 90);
+          setProgress(progressPercent);
+        } catch (error) {
+          console.error(`Failed to download ${file.filename}:`, error);
+          toast.error(`Failed to download ${file.filename}`);
+        }
+      }
+
+      setProgress(95);
+      toast.info("Creating ZIP file...");
+
+      // Generate ZIP
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      setProgress(100);
+
+      // Download ZIP
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `metaclips-export-${Date.now()}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`Successfully exported ${selectedFiles.length} file(s) as ZIP`);
+      onClearSelection();
+    } catch (error) {
+      toast.error("Failed to create ZIP export");
       console.error(error);
     } finally {
       setIsProcessing(false);
@@ -191,6 +257,16 @@ export function BulkOperationsToolbar({
             >
               <FolderPlus className="w-4 h-4 mr-2" />
               Add to Collection
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkExportZip}
+              disabled={isProcessing}
+            >
+              <Archive className="w-4 h-4 mr-2" />
+              Export ZIP
             </Button>
 
             <Button

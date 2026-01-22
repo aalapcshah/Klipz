@@ -186,67 +186,7 @@ export default function Dashboard() {
 }
 
 // File management view
-import { FileUploadDialog } from "@/components/files/FileUploadDialog";
-import FileGridEnhanced from "@/components/files/FileGridEnhanced";
-import { FileDetailDialog } from "@/components/files/FileDetailDialog";
-import { BulkOperationsToolbar } from "@/components/files/BulkOperationsToolbar";
-
-function FilesView() {
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [selectedFileId, setSelectedFileId] = useState<number | null>(null);
-  const [selectedFileIds, setSelectedFileIds] = useState<number[]>([]);
-  const utils = trpc.useUtils();
-
-  const handleFileClick = (fileId: number) => {
-    setSelectedFileId(fileId);
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Files</h1>
-          <p className="text-muted-foreground">
-            Manage and enrich your media files with AI
-          </p>
-        </div>
-        <Button onClick={() => setUploadDialogOpen(true)}>
-          <Upload className="h-4 w-4 mr-2" />
-          Upload Files
-        </Button>
-      </div>
-
-        <FileGridEnhanced 
-          onFileClick={handleFileClick}
-          selectedFileIds={selectedFileIds}
-          onSelectionChange={setSelectedFileIds}
-        />
-
-      <FileUploadDialog
-        open={uploadDialogOpen}
-        onOpenChange={setUploadDialogOpen}
-        onUploadComplete={() => {
-          // Refresh file list immediately
-          utils.files.list.invalidate();
-        }}
-      />
-
-      <FileDetailDialog
-        fileId={selectedFileId}
-        open={selectedFileId !== null}
-        onOpenChange={(open) => !open && setSelectedFileId(null)}
-      />
-
-      <BulkOperationsToolbar
-        selectedFileIds={selectedFileIds}
-        onClearSelection={() => setSelectedFileIds([])}
-        onOperationComplete={() => {
-          utils.files.list.invalidate();
-        }}
-      />
-    </div>
-  );
-}
+import FilesView from "./FilesView";
 
 import SearchWithSaved from "./SearchWithSaved";
 

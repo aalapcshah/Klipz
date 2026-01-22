@@ -56,6 +56,14 @@ interface FileGridEnhancedProps {
   onFileClick?: (fileId: number) => void;
   selectedFileIds?: number[];
   onSelectionChange?: (fileIds: number[]) => void;
+  advancedFilters?: {
+    dateFrom: string;
+    dateTo: string;
+    fileSizeMin: number;
+    fileSizeMax: number;
+    enrichmentStatus: string[];
+    qualityScore: string[];
+  };
 }
 
 interface DeletedFile {
@@ -74,7 +82,8 @@ interface DeletedFile {
 export default function FileGridEnhanced({ 
   onFileClick,
   selectedFileIds = [],
-  onSelectionChange 
+  onSelectionChange,
+  advancedFilters 
 }: FileGridEnhancedProps) {
   // Use external selection state if provided, otherwise use internal state
   const isExternalSelection = onSelectionChange !== undefined;
@@ -253,6 +262,47 @@ export default function FileGridEnhanced({
       if (filterQualityScore === "low") return score < 50;
       return true;
     });
+  }
+
+  // Apply advanced filters
+  if (advancedFilters) {
+    // Date range filter
+    if (advancedFilters.dateFrom) {
+      const fromDate = new Date(advancedFilters.dateFrom);
+      files = files.filter((file: any) => new Date(file.createdAt) >= fromDate);
+    }
+    if (advancedFilters.dateTo) {
+      const toDate = new Date(advancedFilters.dateTo);
+      toDate.setHours(23, 59, 59, 999); // Include the entire day
+      files = files.filter((file: any) => new Date(file.createdAt) <= toDate);
+    }
+
+    // File size filter (convert MB to bytes)
+    const minBytes = advancedFilters.fileSizeMin * 1024 * 1024;
+    const maxBytes = advancedFilters.fileSizeMax * 1024 * 1024;
+    files = files.filter((file: any) => {
+      return file.fileSize >= minBytes && file.fileSize <= maxBytes;
+    });
+
+    // Enrichment status filter
+    if (advancedFilters.enrichmentStatus.length > 0) {
+      files = files.filter((file: any) => {
+        return advancedFilters.enrichmentStatus.includes(file.enrichmentStatus);
+      });
+    }
+
+    // Quality score filter (from advanced filters)
+    if (advancedFilters.qualityScore.length > 0) {
+      files = files.filter((file: any) => {
+        const score = file.qualityScore || 0;
+        return advancedFilters.qualityScore.some((range: string) => {
+          if (range === "high") return score >= 80;
+          if (range === "medium") return score >= 50 && score < 80;
+          if (range === "low") return score < 50;
+          return false;
+        });
+      });
+    }
   }
 
   // Apply sorting
