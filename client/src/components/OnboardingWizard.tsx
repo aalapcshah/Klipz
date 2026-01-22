@@ -14,6 +14,7 @@ import {
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { PermissionsDialog } from "@/components/PermissionsDialog";
 
 interface OnboardingWizardProps {
   open: boolean;
@@ -23,6 +24,7 @@ interface OnboardingWizardProps {
 export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPermissions, setShowPermissions] = useState(false);
 
   // Profile fields
   const [name, setName] = useState("");
@@ -102,12 +104,14 @@ export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
           <DialogTitle>
             {step === 1 && "Welcome to MetaClips!"}
             {step === 2 && "Terms & Consent"}
-            {step === 3 && "Tell us about yourself"}
+            {step === 3 && "Device Permissions"}
+            {step === 4 && "Tell us about yourself"}
           </DialogTitle>
           <DialogDescription>
             {step === 1 && "Let's get your profile set up"}
             {step === 2 && "Please review and accept our policies"}
-            {step === 3 && "Optional: Help us personalize your experience"}
+            {step === 3 && "Grant permissions for the best experience (optional)"}
+            {step === 4 && "Optional: Help us personalize your experience"}
           </DialogDescription>
         </DialogHeader>
 
@@ -209,8 +213,26 @@ export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
             </div>
           )}
 
-          {/* Step 3: Additional Info */}
+          {/* Step 3: Permissions */}
           {step === 3 && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                MetaClips works best with access to your device features. You can skip this step and grant permissions later from Settings.
+              </p>
+              <Button 
+                onClick={() => setShowPermissions(true)}
+                className="w-full"
+              >
+                Request Permissions
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                We'll ask for camera, location, and microphone access
+              </p>
+            </div>
+          )}
+
+          {/* Step 4: Additional Info */}
+          {step === 4 && (
             <div className="space-y-4">
               <div>
                 <Label htmlFor="company">Company</Label>
@@ -267,9 +289,9 @@ export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
             Back
           </Button>
 
-          {step < 3 ? (
+          {step < 4 ? (
             <Button onClick={handleNext} disabled={isSubmitting}>
-              Next
+              {step === 3 ? "Skip" : "Next"}
             </Button>
           ) : (
             <Button onClick={handleComplete} disabled={isSubmitting}>
@@ -281,7 +303,7 @@ export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
 
         {/* Progress Indicator */}
         <div className="flex justify-center gap-2 pt-4">
-          {[1, 2, 3].map((s) => (
+          {[1, 2, 3, 4].map((s) => (
             <div
               key={s}
               className={`h-2 w-12 rounded-full ${
@@ -291,6 +313,13 @@ export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
           ))}
         </div>
       </DialogContent>
+
+      {/* Permissions Dialog */}
+      <PermissionsDialog 
+        open={showPermissions} 
+        onOpenChange={setShowPermissions}
+        onComplete={() => setShowPermissions(false)}
+      />
     </Dialog>
   );
 }

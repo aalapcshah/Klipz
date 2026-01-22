@@ -17,7 +17,8 @@ import {
   X,
   Mail,
   ListChecks,
-  Calendar
+  Calendar,
+  Activity
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -61,6 +62,7 @@ export default function Dashboard() {
     { href: "/collections", label: "Collections", icon: FolderIcon },
     { href: "/enrichment-queue", label: "Enrichment Queue", icon: ListChecks },
     { href: "/knowledge-graph", label: "Knowledge Graph", icon: NetworkIcon },
+    { href: "/activity", label: "Activity", icon: Activity },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/scheduled-exports", label: "Scheduled Exports", icon: Calendar },
     { href: "/settings", label: "Settings", icon: SettingsIcon },

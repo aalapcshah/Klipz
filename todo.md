@@ -1266,3 +1266,16 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Add questions about exports and sharing
 - [x] Link FAQ from footer
 - [ ] Test FAQ page navigation (requires user testing)
+
+## Phase 101: Activity Dashboard Navigation Integration
+- [x] Add Activity Dashboard link to sidebar navigation in Dashboard.tsx
+- [x] Add appropriate icon for Activity Dashboard menu item (Activity icon from lucide-react)
+- [ ] Test navigation from sidebar to Activity Dashboard
+- [x] Ensure Activity Dashboard is accessible from all authenticated pages
+
+## Phase 102: Permissions Integration into Onboarding
+- [x] Add PermissionsDialog as optional step in OnboardingWizard
+- [x] Create permissions step between consent and optional details (Step 3)
+- [x] Allow users to skip permissions during onboarding (Skip button on step 3)
+- [ ] Add "Request Permissions" button in settings for later access
+- [ ] Test complete onboarding flow with permissions
