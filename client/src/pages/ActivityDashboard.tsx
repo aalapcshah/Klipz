@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Upload, Search, FolderPlus, Image, Video, File, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { trpc } from "@/lib/trpc";
+import { StorageAlert } from "@/components/StorageAlert";
 
 export default function ActivityDashboard() {
   const { data: stats, isLoading: statsLoading } = trpc.activity.getStats.useQuery();
@@ -42,6 +43,16 @@ export default function ActivityDashboard() {
 
         <h1 className="text-4xl font-bold mb-2">Activity Dashboard</h1>
         <p className="text-muted-foreground mb-8">Your personal statistics and recent activity</p>
+
+        {/* Storage Alert */}
+        {!statsLoading && stats && (
+          <div className="mb-6">
+            <StorageAlert 
+              totalStorage={stats.totalStorage} 
+              storageLimit={storageLimit}
+            />
+          </div>
+        )}
 
         {/* Quick Actions */}
         <div className="grid md:grid-cols-3 gap-4 mb-8">

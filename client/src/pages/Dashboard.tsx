@@ -23,11 +23,16 @@ import {
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Loader2 } from "lucide-react";
+import { StorageAlert } from "@/components/StorageAlert";
 
 export default function Dashboard() {
   const { user, loading, isAuthenticated, logout } = useAuth();
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { data: stats } = trpc.activity.getStats.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+  const storageLimit = 10 * 1024 * 1024 * 1024; // 10GB limit
 
   if (loading) {
     return (
@@ -172,6 +177,16 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="container py-8">
+        {/* Storage Alert */}
+        {stats && (
+          <div className="mb-6">
+            <StorageAlert 
+              totalStorage={stats.totalStorage} 
+              storageLimit={storageLimit}
+            />
+          </div>
+        )}
+        
         {/* This will be replaced by route-specific content */}
         {location === "/" && <FilesView />}
         {location === "/search" && <SearchView />}

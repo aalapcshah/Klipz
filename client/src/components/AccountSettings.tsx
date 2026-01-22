@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,8 +24,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Loader2, AlertTriangle, Camera, Mic, MapPin, Smartphone } from "lucide-react";
+import { Loader2, AlertTriangle, Camera, Mic, MapPin, Smartphone, CheckCircle2, XCircle, HelpCircle } from "lucide-react";
 import { PermissionsDialog } from "@/components/PermissionsDialog";
+import { getAllPermissionStatuses, type PermissionStatus, type PermissionType } from "@/lib/permissions";
 
 export function AccountSettings() {
   const { data: user } = trpc.auth.me.useQuery();
@@ -48,6 +49,50 @@ export function AccountSettings() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
   const [showPermissionsDialog, setShowPermissionsDialog] = useState(false);
+  const [permissionStatuses, setPermissionStatuses] = useState<Record<PermissionType, PermissionStatus> | null>(null);
+
+  // Load permission statuses on mount
+  useEffect(() => {
+    loadPermissionStatuses();
+  }, []);
+
+  const loadPermissionStatuses = async () => {
+    const statuses = await getAllPermissionStatuses();
+    setPermissionStatuses(statuses);
+  };
+
+  const getStatusBadge = (status: PermissionStatus) => {
+    switch (status.state) {
+      case 'granted':
+        return (
+          <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+            <CheckCircle2 className="h-3 w-3" />
+            Granted
+          </span>
+        );
+      case 'denied':
+        return (
+          <span className="inline-flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
+            <XCircle className="h-3 w-3" />
+            Denied
+          </span>
+        );
+      case 'prompt':
+        return (
+          <span className="inline-flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-400">
+            <HelpCircle className="h-3 w-3" />
+            Not requested
+          </span>
+        );
+      case 'unsupported':
+        return (
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <XCircle className="h-3 w-3" />
+            Unsupported
+          </span>
+        );
+    }
+  };
 
   const updateProfileMutation = trpc.auth.updateProfile.useMutation();
   const deactivateAccountMutation = trpc.auth.deactivateAccount.useMutation();
@@ -265,17 +310,26 @@ export function AccountSettings() {
           </p>
           
           <div className="space-y-3">
-            <div className="flex items-center gap-3 text-sm">
-              <Camera className="h-4 w-4 text-muted-foreground" />
-              <span>Camera - Take photos and record videos</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 text-sm">
+                <Camera className="h-4 w-4 text-muted-foreground" />
+                <span>Camera - Take photos and record videos</span>
+              </div>
+              {permissionStatuses && getStatusBadge(permissionStatuses.camera)}
             </div>
-            <div className="flex items-center gap-3 text-sm">
-              <Mic className="h-4 w-4 text-muted-foreground" />
-              <span>Microphone - Record audio and voice notes</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 text-sm">
+                <Mic className="h-4 w-4 text-muted-foreground" />
+                <span>Microphone - Record audio and voice notes</span>
+              </div>
+              {permissionStatuses && getStatusBadge(permissionStatuses.microphone)}
             </div>
-            <div className="flex items-center gap-3 text-sm">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-              <span>Location - Add location metadata to files</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 text-sm">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <span>Location - Add location metadata to files</span>
+              </div>
+              {permissionStatuses && getStatusBadge(permissionStatuses.location)}
             </div>
           </div>
 
@@ -334,7 +388,11 @@ export function AccountSettings() {
       <PermissionsDialog 
         open={showPermissionsDialog}
         onOpenChange={setShowPermissionsDialog}
-        onComplete={() => setShowPermissionsDialog(false)}
+        onComplete={() => {
+          setShowPermissionsDialog(false);
+          // Reload permission statuses after dialog closes
+          setTimeout(() => loadPermissionStatuses(), 500);
+        }}
       />
     </div>
   );

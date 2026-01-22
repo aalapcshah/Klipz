@@ -1295,3 +1295,31 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Add tooltip to recent activity timeline
 - [x] Use Info icon or question mark icon for tooltips (Info icon from lucide-react)
 - [ ] Test tooltips on desktop and mobile
+
+## Phase 105: Permission Status Indicators
+- [x] Add permission status checking using browser Permissions API
+- [x] Create status badges (granted/denied/not requested) for each permission
+- [x] Show real-time status in Device Permissions card in Settings
+- [x] Add color coding (green for granted, red for denied, yellow for not requested)
+- [x] Update status after user grants/denies permissions (reloads after dialog closes)
+- [x] Handle browsers that don't support Permissions API (returns 'unsupported' state)
+
+## Phase 106: Video Annotation Tutorial
+- [x] Create VideoAnnotationTutorial component with step-by-step guide
+- [x] Add icons showing drawing tools (pen, shapes, text, eraser, etc.)
+- [x] Explain how to access video annotation feature
+- [x] Show how to use different drawing tools (pen, shapes, text)
+- [x] Add tutorial button to FAQ page ("Video Tutorial" button in header)
+- [x] Add keyboard shortcuts reference in tutorial
+- [ ] Add "Learn More" or "Tutorial" button in video viewer (deferred)
+- [ ] Make tutorial accessible from first-time video upload (deferred)
+
+## Phase 107: Storage Usage Alerts
+- [x] Create storage monitoring utility function (StorageAlert component)
+- [x] Add storage threshold checks (80% and 95%)
+- [x] Implement notification system for storage alerts (Alert component with conditional rendering)
+- [x] Show alert banner when approaching storage limit (in Dashboard and ActivityDashboard)
+- [x] Add "Manage Files" button in alert that links to files page
+- [x] Add "Dismiss" button to hide alert temporarily
+- [x] Persist alert dismissal to avoid repeated notifications (localStorage by percentage tier)
+- [ ] Test storage alerts at different usage levels (requires user testing with real data)

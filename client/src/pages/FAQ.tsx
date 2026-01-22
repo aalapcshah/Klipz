@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import React, { useState } from "react";
+import { ChevronDown, ChevronUp, Video } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { VideoAnnotationTutorial } from "@/components/VideoAnnotationTutorial";
 
 interface FAQItem {
   question: string;
@@ -94,10 +96,21 @@ function FAQAccordionItem({ item, isOpen, onToggle }: { item: FAQItem; isOpen: b
 
 export default function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   return (
     <div className="container max-w-4xl py-8">
       <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Frequently Asked Questions</h1>
+            <p className="text-muted-foreground mt-2">Find answers to common questions about MetaClips</p>
+          </div>
+          <Button onClick={() => setShowTutorial(true)} className="flex items-center gap-2">
+            <Video className="h-4 w-4" />
+            Video Tutorial
+          </Button>
+        </div>
         <div>
           <h1 className="text-3xl font-bold">Frequently Asked Questions</h1>
           <p className="text-muted-foreground mt-2">
@@ -129,6 +142,11 @@ export default function FAQ() {
           </a>
         </div>
       </div>
+
+      <VideoAnnotationTutorial 
+        open={showTutorial}
+        onOpenChange={setShowTutorial}
+      />
     </div>
   );
 }

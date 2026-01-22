@@ -9,6 +9,13 @@ export interface PermissionResult {
   error?: string;
 }
 
+export type PermissionState = 'granted' | 'denied' | 'prompt' | 'unsupported';
+
+export interface PermissionStatus {
+  state: PermissionState;
+  canRequest: boolean;
+}
+
 /**
  * Request camera permission for file uploads and video recording
  */
@@ -88,6 +95,53 @@ export async function checkPermission(type: PermissionType): Promise<boolean> {
     // Permission API not supported or permission not available
     return false;
   }
+}
+
+/**
+ * Get detailed permission status for a specific permission type
+ */
+export async function getPermissionStatus(type: PermissionType): Promise<PermissionStatus> {
+  try {
+    if (type === 'contacts') {
+      return { state: 'unsupported', canRequest: false };
+    }
+
+    if (type === 'camera' || type === 'microphone') {
+      const permissionName = type === 'camera' ? 'camera' : 'microphone';
+      const result = await navigator.permissions.query({ name: permissionName as PermissionName });
+      return {
+        state: result.state as PermissionState,
+        canRequest: result.state !== 'denied'
+      };
+    }
+    
+    if (type === 'location') {
+      const result = await navigator.permissions.query({ name: 'geolocation' });
+      return {
+        state: result.state as PermissionState,
+        canRequest: result.state !== 'denied'
+      };
+    }
+
+    return { state: 'unsupported', canRequest: false };
+  } catch (error) {
+    // Permission API not supported
+    return { state: 'unsupported', canRequest: true };
+  }
+}
+
+/**
+ * Get all permission statuses at once
+ */
+export async function getAllPermissionStatuses(): Promise<Record<PermissionType, PermissionStatus>> {
+  const [camera, microphone, location, contacts] = await Promise.all([
+    getPermissionStatus('camera'),
+    getPermissionStatus('microphone'),
+    getPermissionStatus('location'),
+    getPermissionStatus('contacts')
+  ]);
+
+  return { camera, microphone, location, contacts };
 }
 
 /**
