@@ -8,6 +8,7 @@ import {
   Download,
   Loader2,
   Archive,
+  Sparkles,
 } from "lucide-react";
 import {
   Dialog,
@@ -51,6 +52,7 @@ export function BulkOperationsToolbar({
   const deleteFilesMutation = trpc.bulkOperations.deleteFiles.useMutation();
   const addTagsMutation = trpc.bulkOperations.addTags.useMutation();
   const addToCollectionMutation = trpc.bulkOperations.addToCollection.useMutation();
+  const reEnrichMutation = trpc.bulkOperations.reEnrichFiles.useMutation();
   const { data: allFiles } = trpc.files.list.useQuery();
 
   const { data: tags } = trpc.tags.list.useQuery();
@@ -189,6 +191,37 @@ export function BulkOperationsToolbar({
     }
   };
 
+  const handleBulkReEnrich = async () => {
+    setIsProcessing(true);
+    setProgress(0);
+
+    try {
+      toast.info(`Starting re-enrichment for ${selectedFileIds.length} file(s)...`);
+
+      const progressInterval = setInterval(() => {
+        setProgress((prev) => Math.min(prev + 10, 90));
+      }, 200);
+
+      const result = await reEnrichMutation.mutateAsync({
+        fileIds: selectedFileIds,
+      });
+
+      clearInterval(progressInterval);
+      setProgress(100);
+
+      toast.success(`Re-enrichment queued for ${result.count} file(s)`);
+      await utils.files.list.invalidate();
+      onOperationComplete();
+      onClearSelection();
+    } catch (error) {
+      toast.error("Failed to queue re-enrichment");
+      console.error(error);
+    } finally {
+      setIsProcessing(false);
+      setProgress(0);
+    }
+  };
+
   const handleBulkAddToCollection = async () => {
     if (!selectedCollectionId) {
       toast.error("Please select a collection");
@@ -267,6 +300,16 @@ export function BulkOperationsToolbar({
             >
               <Archive className="w-4 h-4 mr-2" />
               Export ZIP
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkReEnrich}
+              disabled={isProcessing}
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Re-enrich
             </Button>
 
             <Button

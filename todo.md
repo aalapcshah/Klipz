@@ -1085,3 +1085,14 @@ Note: This feature requires server-side cron scheduling, email service integrati
 - [ ] Add "Export to Dropbox" button
 - [ ] Add progress tracking for cloud uploads
 - [ ] Handle authentication errors gracefully
+
+## Phase 88: Batch AI Re-enrichment
+- [x] Add batch re-enrichment API endpoint in routers.ts
+- [x] Implement re-enrichment logic for failed/outdated files
+- [x] Add "Re-enrich" button to BulkOperationsToolbar
+- [x] Add progress tracking for batch re-enrichment
+- [x] Handle enrichment errors gracefully
+- [x] Add success/error notifications with counts
+- [x] Update enrichment status to 'pending' in database
+- [ ] Test with multiple files of different types (requires user testing)
+- [ ] Verify enrichment status updates in database (requires user testing)

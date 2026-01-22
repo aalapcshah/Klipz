@@ -1453,3 +1453,46 @@ export async function bulkRemoveFilesFromCollection(fileIds: number[], collectio
   
   return { filesRemoved: fileIds.length };
 }
+
+// Batch re-enrichment operations
+export async function batchReEnrichFiles(fileIds: number[], userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  
+  // Update enrichment status to pending for selected files
+  const result = await db
+    .update(files)
+    .set({ 
+      enrichmentStatus: 'pending',
+      updatedAt: new Date()
+    })
+    .where(
+      and(
+        inArray(files.id, fileIds),
+        eq(files.userId, userId)
+      )
+    );
+  
+  return { count: fileIds.length };
+}
+
+export async function getFileEnrichmentStatus(fileIds: number[], userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  
+  const fileStatuses = await db
+    .select({
+      id: files.id,
+      enrichmentStatus: files.enrichmentStatus,
+      filename: files.filename
+    })
+    .from(files)
+    .where(
+      and(
+        inArray(files.id, fileIds),
+        eq(files.userId, userId)
+      )
+    );
+  
+  return fileStatuses;
+}

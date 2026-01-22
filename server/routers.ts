@@ -2032,6 +2032,21 @@ For each suggestion, provide:
         );
         return result;
       }),
+
+    // Batch re-enrich files
+    reEnrichFiles: protectedProcedure
+      .input(z.object({ fileIds: z.array(z.number()) }))
+      .mutation(async ({ input, ctx }) => {
+        const result = await db.batchReEnrichFiles(input.fileIds, ctx.user.id);
+        return { success: true, count: result.count };
+      }),
+
+    // Get enrichment status for files
+    getEnrichmentStatus: protectedProcedure
+      .input(z.object({ fileIds: z.array(z.number()) }))
+      .query(async ({ input, ctx }) => {
+        return db.getFileEnrichmentStatus(input.fileIds, ctx.user.id);
+      }),
   }),
 
   // ============= DUPLICATE DETECTION ROUTER =============
