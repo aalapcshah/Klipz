@@ -5,6 +5,9 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Dashboard from "./pages/Dashboard";
+import { OnboardingWizard } from "./components/OnboardingWizard";
+import { trpc } from "./lib/trpc";
+import { useState, useEffect } from "react";
 // SearchWithSaved is now rendered inside Dashboard
 
 function Router() {
@@ -27,6 +30,15 @@ function Router() {
 // - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
 
 function App() {
+  const { data: user } = trpc.auth.me.useQuery();
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    if (user && !user.profileCompleted) {
+      setShowOnboarding(true);
+    }
+  }, [user]);
+
   return (
     <ErrorBoundary>
       <ThemeProvider
@@ -36,6 +48,10 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <Router />
+          <OnboardingWizard
+            open={showOnboarding}
+            onComplete={() => setShowOnboarding(false)}
+          />
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

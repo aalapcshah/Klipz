@@ -319,6 +319,45 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+    
+    updateProfile: protectedProcedure
+      .input(
+        z.object({
+          name: z.string().optional(),
+          location: z.string().optional(),
+          age: z.number().optional(),
+          company: z.string().optional(),
+          jobTitle: z.string().optional(),
+          bio: z.string().optional(),
+          reasonForUse: z.string().optional(),
+          profileCompleted: z.boolean().optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        await db.updateUserProfile(ctx.user.id, input);
+        return { success: true };
+      }),
+    
+    recordConsents: protectedProcedure
+      .input(
+        z.object({
+          termsOfService: z.boolean(),
+          privacyPolicy: z.boolean(),
+          marketingEmails: z.boolean(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        await db.recordUserConsents(ctx.user.id, input);
+        return { success: true };
+      }),
+    
+    deactivateAccount: protectedProcedure
+      .mutation(async ({ ctx }) => {
+        await db.deactivateUserAccount(ctx.user.id);
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+        return { success: true };
+      }),
   }),
 
   // ============= STORAGE ROUTER =============

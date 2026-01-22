@@ -1496,3 +1496,121 @@ export async function getFileEnrichmentStatus(fileIds: number[], userId: number)
   
   return fileStatuses;
 }
+
+// User profile management
+export async function updateUserProfile(
+  userId: number,
+  updates: {
+    name?: string;
+    location?: string;
+    age?: number;
+    company?: string;
+    jobTitle?: string;
+    bio?: string;
+    reasonForUse?: string;
+    profileCompleted?: boolean;
+  }
+) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  
+  await db
+    .update(users)
+    .set({
+      ...updates,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, userId));
+}
+
+export async function recordUserConsents(
+  userId: number,
+  consents: {
+    termsOfService: boolean;
+    privacyPolicy: boolean;
+    marketingEmails: boolean;
+  }
+) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  
+  const { userConsents, emailPreferences } = await import("../drizzle/schema");
+  const { nanoid } = await import("nanoid");
+  
+  // Record individual consents
+  const consentRecords = [
+    { userId, consentType: "terms_of_service" as const, consented: consents.termsOfService },
+    { userId, consentType: "privacy_policy" as const, consented: consents.privacyPolicy },
+    { userId, consentType: "marketing_emails" as const, consented: consents.marketingEmails },
+  ];
+  
+  for (const consent of consentRecords) {
+    await db.insert(userConsents).values(consent);
+  }
+  
+  // Create or update email preferences
+  const unsubscribeToken = nanoid(32);
+  await db
+    .insert(emailPreferences)
+    .values({
+      userId,
+      marketingEmails: consents.marketingEmails,
+      unsubscribeToken,
+    })
+    .onDuplicateKeyUpdate({
+      set: {
+        marketingEmails: consents.marketingEmails,
+      },
+    });
+}
+
+export async function deactivateUserAccount(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  
+  await db
+    .update(users)
+    .set({
+      accountStatus: "deactivated",
+      deactivatedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, userId));
+}
+
+export async function getEmailPreferences(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  
+  const { emailPreferences } = await import("../drizzle/schema");
+  
+  const prefs = await db
+    .select()
+    .from(emailPreferences)
+    .where(eq(emailPreferences.userId, userId))
+    .limit(1);
+  
+  return prefs[0] || null;
+}
+
+export async function updateEmailPreferences(
+  userId: number,
+  updates: {
+    marketingEmails?: boolean;
+    productUpdates?: boolean;
+    securityAlerts?: boolean;
+  }
+) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  
+  const { emailPreferences } = await import("../drizzle/schema");
+  
+  await db
+    .update(emailPreferences)
+    .set({
+      ...updates,
+      updatedAt: new Date(),
+    })
+    .where(eq(emailPreferences.userId, userId));
+}

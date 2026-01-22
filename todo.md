@@ -1096,3 +1096,36 @@ Note: This feature requires server-side cron scheduling, email service integrati
 - [x] Update enrichment status to 'pending' in database
 - [ ] Test with multiple files of different types (requires user testing)
 - [ ] Verify enrichment status updates in database (requires user testing)
+
+## Phase 89: Enhanced User Onboarding & Profile Management
+- [ ] Extend users table schema with profile fields (location, age, bio, reason for use, company, job title)
+- [ ] Add user_consents table for GDPR compliance (marketing emails, terms of service, privacy policy)
+- [ ] Add email_preferences table for subscription management
+- [ ] Create profile completion detection logic
+- [ ] Build onboarding wizard component (multi-step form)
+- [ ] Add profile intake fields (name, location, age, reason for use, etc.)
+- [ ] Add consent checkboxes (terms, privacy, marketing opt-in)
+- [ ] Create profile settings page for editing
+- [ ] Add account deactivation functionality (soft delete)
+- [ ] Create email preferences management UI
+- [ ] Add unsubscribe mechanism for marketing emails
+- [ ] Show onboarding wizard on first login
+- [ ] Test complete onboarding flow
+- [ ] Verify consent tracking in database
+
+## Phase 89: Enhanced User Onboarding & Profile Management
+- [x] Extend users table with profile fields (location, age, company, jobTitle, bio, reasonForUse)
+- [x] Add profileCompleted flag to users table
+- [x] Add accountStatus enum (active, deactivated, suspended)
+- [x] Create userConsents table for GDPR compliance
+- [x] Create emailPreferences table for subscription management
+- [x] Create OnboardingWizard component with multi-step form
+- [x] Add consent checkboxes (Terms, Privacy, Marketing)
+- [x] Integrate onboarding wizard in App.tsx (show on first login)
+- [x] Create AccountSettings component for profile editing
+- [x] Add account deactivation functionality
+- [x] Add email preferences management UI
+- [x] Create backend endpoints for profile updates
+- [x] Create backend endpoints for consent recording
+- [ ] Test onboarding flow for new users (requires user testing)
+- [ ] Test profile editing and account deactivation (requires user testing)

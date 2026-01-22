@@ -12,6 +12,19 @@ export const users = mysqlTable("users", {
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   
+  // Extended profile fields
+  location: varchar("location", { length: 255 }),
+  age: int("age"),
+  bio: text("bio"),
+  reasonForUse: text("reasonForUse"),
+  company: varchar("company", { length: 255 }),
+  jobTitle: varchar("jobTitle", { length: 255 }),
+  profileCompleted: boolean("profileCompleted").default(false).notNull(),
+  
+  // Account status
+  accountStatus: mysqlEnum("accountStatus", ["active", "deactivated", "suspended"]).default("active").notNull(),
+  deactivatedAt: timestamp("deactivatedAt"),
+  
   // Subscription and premium features
   subscriptionTier: mysqlEnum("subscriptionTier", ["free", "premium", "enterprise"]).default("free").notNull(),
   knowledgeGraphUsageCount: int("knowledgeGraphUsageCount").default(0).notNull(),
@@ -555,3 +568,35 @@ export const enrichmentQueue = mysqlTable("enrichment_queue", {
 
 export type EnrichmentQueue = typeof enrichmentQueue.$inferSelect;
 export type InsertEnrichmentQueue = typeof enrichmentQueue.$inferInsert;
+
+/**
+ * User consents table - GDPR compliance
+ */
+export const userConsents = mysqlTable("userConsents", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  consentType: mysqlEnum("consentType", ["terms_of_service", "privacy_policy", "marketing_emails", "data_processing"]).notNull(),
+  consented: boolean("consented").notNull(),
+  consentedAt: timestamp("consentedAt").defaultNow().notNull(),
+  ipAddress: varchar("ipAddress", { length: 45 }), // IPv6 support
+  userAgent: text("userAgent"),
+});
+
+export type UserConsent = typeof userConsents.$inferSelect;
+export type InsertUserConsent = typeof userConsents.$inferInsert;
+
+/**
+ * Email preferences table - subscription management
+ */
+export const emailPreferences = mysqlTable("emailPreferences", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  marketingEmails: boolean("marketingEmails").default(false).notNull(),
+  productUpdates: boolean("productUpdates").default(true).notNull(),
+  securityAlerts: boolean("securityAlerts").default(true).notNull(),
+  unsubscribeToken: varchar("unsubscribeToken", { length: 64 }).unique(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type EmailPreference = typeof emailPreferences.$inferSelect;
+export type InsertEmailPreference = typeof emailPreferences.$inferInsert;

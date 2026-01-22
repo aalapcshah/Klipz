@@ -22,6 +22,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2, Edit2, CheckCircle2, XCircle, Network } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AccountSettings } from "@/components/AccountSettings";
 
 type KnowledgeGraphType = "dbpedia" | "wikidata" | "schema_org" | "custom";
 
@@ -37,6 +39,7 @@ interface KnowledgeGraphForm {
 }
 
 export default function Settings() {
+  const [activeTab, setActiveTab] = useState("account");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [testingId, setTestingId] = useState<number | null>(null);
@@ -173,18 +176,36 @@ export default function Settings() {
 
   return (
     <div className="container mx-auto py-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Settings</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage external knowledge graph connections for enhanced AI enrichment
-          </p>
-        </div>
-        <Button onClick={handleAdd} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Add Connection
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold">Settings</h1>
+        <p className="text-muted-foreground mt-2">
+          Manage your account and application settings
+        </p>
       </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="account">Account</TabsTrigger>
+          <TabsTrigger value="knowledge-graphs">Knowledge Graphs</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="account" className="space-y-6 mt-6">
+          <AccountSettings />
+        </TabsContent>
+
+        <TabsContent value="knowledge-graphs" className="space-y-6 mt-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">External Knowledge Graphs</h2>
+              <p className="text-muted-foreground mt-2">
+                Manage external knowledge graph connections for enhanced AI enrichment
+              </p>
+            </div>
+            <Button onClick={handleAdd} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add Connection
+            </Button>
+          </div>
 
       {/* Premium Feature Badge */}
       <Card className="border-primary/50 bg-primary/5">
@@ -423,6 +444,8 @@ export default function Settings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
