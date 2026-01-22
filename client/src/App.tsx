@@ -11,6 +11,7 @@ import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
+import ActivityDashboard from "./pages/ActivityDashboard";
 import { trpc } from "./lib/trpc";
 import { useState, useEffect } from "react";
 // SearchWithSaved is now rendered inside Dashboard
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/privacy" component={Privacy} />
       <Route path="/about" component={About} />
       <Route path="/contact" component={Contact} />
+      <Route path="/activity" component={ActivityDashboard} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

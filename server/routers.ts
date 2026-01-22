@@ -2186,6 +2186,43 @@ For each suggestion, provide:
           }));
       }),
   }),
+
+  activity: router({
+    getStats: protectedProcedure.query(async ({ ctx }) => {
+      const userId = ctx.user.id;
+      const files = await db.getFilesByUser(userId);
+      
+      const totalFiles = files.length;
+      const totalStorage = files.reduce((sum, f) => sum + (f.fileSize || 0), 0);
+      
+      const fileTypes = files.reduce((acc, f) => {
+        const type = f.mimeType?.split('/')[0] || 'other';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      return {
+        totalFiles,
+        totalStorage,
+        fileTypes,
+      };
+    }),
+    
+    getRecentActivity: protectedProcedure
+      .input(z.object({ limit: z.number().optional().default(10) }))
+      .query(async ({ ctx, input }) => {
+        const files = await db.getFilesByUser(ctx.user.id);
+        return files
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, input.limit)
+          .map(f => ({
+            id: f.id,
+            type: 'upload' as const,
+            filename: f.filename,
+            createdAt: f.createdAt,
+          }));
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

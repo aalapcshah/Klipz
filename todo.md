@@ -1206,3 +1206,36 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [ ] Add unsubscribe token generation and validation
 - [ ] Document how to add SendGrid/AWS SES credentials
 - [ ] Test email templates rendering (without sending)
+
+## Phase 96: User Activity Dashboard (Final Implementation)
+- [x] Create getUserStats endpoint in server/routers.ts
+- [x] Add getRecentActivity endpoint for activity timeline
+- [x] Create ActivityDashboard page component
+- [x] Display total files, storage used, file type breakdown
+- [x] Show recent activity timeline (uploads, edits, exports)
+- [x] Add quick action buttons (Upload, Search, Create Collection)
+- [x] Add storage usage visualization (progress bar)
+- [x] Link dashboard from main navigation (/activity route)
+- [ ] Test dashboard display and statistics accuracy (requires user testing)
+
+## Phase 97: Email Notification System Infrastructure
+- [ ] Create email service wrapper in server/_core/email.ts
+- [ ] Add email templates (welcome, export complete, marketing)
+- [ ] Create sendEmail function with SendGrid/AWS SES support
+- [ ] Add email queue table to database schema
+- [ ] Create email sending endpoints in routers
+- [ ] Add email preferences UI in Account Settings
+- [ ] Document how to add API credentials when ready
+- [ ] Test email template rendering (without actual sending)
+
+## Phase 98: Admin Panel with Role-Based Access Control
+- [ ] Create adminProcedure middleware in routers.ts
+- [ ] Add admin router with user management endpoints
+- [ ] Create AdminPanel page component
+- [ ] Add user list with search and filtering
+- [ ] Add user role management (promote/demote admin)
+- [ ] Add account status management (activate/deactivate/suspend)
+- [ ] Display system analytics (total users, files, storage)
+- [ ] Add content moderation tools
+- [ ] Protect admin routes with role check
+- [ ] Test admin panel access control
