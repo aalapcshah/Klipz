@@ -24,7 +24,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle, Camera, Mic, MapPin, Smartphone } from "lucide-react";
+import { PermissionsDialog } from "@/components/PermissionsDialog";
 
 export function AccountSettings() {
   const { data: user } = trpc.auth.me.useQuery();
@@ -46,6 +47,7 @@ export function AccountSettings() {
 
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
+  const [showPermissionsDialog, setShowPermissionsDialog] = useState(false);
 
   const updateProfileMutation = trpc.auth.updateProfile.useMutation();
   const deactivateAccountMutation = trpc.auth.deactivateAccount.useMutation();
@@ -246,6 +248,50 @@ export function AccountSettings() {
         </CardContent>
       </Card>
 
+      {/* Device Permissions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Smartphone className="h-5 w-5" />
+            Device Permissions
+          </CardTitle>
+          <CardDescription>
+            Manage device permissions for camera, microphone, and location access
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            MetaClips works best with access to your device features. Grant permissions to enable features like photo uploads, voice recording, and location tagging.
+          </p>
+          
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 text-sm">
+              <Camera className="h-4 w-4 text-muted-foreground" />
+              <span>Camera - Take photos and record videos</span>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <Mic className="h-4 w-4 text-muted-foreground" />
+              <span>Microphone - Record audio and voice notes</span>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <span>Location - Add location metadata to files</span>
+            </div>
+          </div>
+
+          <Button 
+            onClick={() => setShowPermissionsDialog(true)}
+            className="w-full sm:w-auto"
+          >
+            Request Permissions
+          </Button>
+          
+          <p className="text-xs text-muted-foreground">
+            Note: If you previously denied permissions, you may need to enable them in your browser settings.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Danger Zone */}
       <Card className="border-destructive">
         <CardHeader>
@@ -283,6 +329,13 @@ export function AccountSettings() {
           </AlertDialog>
         </CardContent>
       </Card>
+
+      {/* Permissions Dialog */}
+      <PermissionsDialog 
+        open={showPermissionsDialog}
+        onOpenChange={setShowPermissionsDialog}
+        onComplete={() => setShowPermissionsDialog(false)}
+      />
     </div>
   );
 }

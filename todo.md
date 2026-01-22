@@ -1279,3 +1279,19 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Allow users to skip permissions during onboarding (Skip button on step 3)
 - [ ] Add "Request Permissions" button in settings for later access
 - [ ] Test complete onboarding flow with permissions
+
+## Phase 103: Permissions in Settings Page
+- [x] Add "Device Permissions" section to Account Settings page
+- [x] Create "Request Permissions" button in settings
+- [ ] Show current permission status (granted/denied/not requested) - deferred, requires browser API polling
+- [x] Allow users to re-request permissions if previously denied (button always available)
+- [x] Add explanatory text about why permissions are needed
+- [ ] Test permissions request from Settings page
+
+## Phase 104: Activity Dashboard Tooltips
+- [x] Add tooltip to total files statistic
+- [x] Add tooltip to storage usage with explanation of limit
+- [x] Add tooltip to file type breakdown chart (included in File Statistics tooltip)
+- [x] Add tooltip to recent activity timeline
+- [x] Use Info icon or question mark icon for tooltips (Info icon from lucide-react)
+- [ ] Test tooltips on desktop and mobile

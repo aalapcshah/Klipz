@@ -2,7 +2,8 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Upload, Search, FolderPlus, Image, Video, File } from "lucide-react";
+import { ArrowLeft, Upload, Search, FolderPlus, Image, Video, File, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { trpc } from "@/lib/trpc";
 
 export default function ActivityDashboard() {
@@ -85,7 +86,19 @@ export default function ActivityDashboard() {
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           <Card>
             <CardHeader>
-              <CardTitle>Storage Usage</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Storage Usage
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Your total storage usage across all uploaded files. The free tier includes 10GB of storage.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </CardTitle>
               <CardDescription>Your current storage consumption</CardDescription>
             </CardHeader>
             <CardContent>
@@ -106,7 +119,19 @@ export default function ActivityDashboard() {
 
           <Card>
             <CardHeader>
-              <CardTitle>File Statistics</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                File Statistics
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Total number of files in your library, broken down by type (images, videos, and other file formats).</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </CardTitle>
               <CardDescription>Total files in your library</CardDescription>
             </CardHeader>
             <CardContent>
@@ -147,7 +172,19 @@ export default function ActivityDashboard() {
         {/* Recent Activity */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              Recent Activity
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p>Your most recent file uploads and activity. Shows the last 10 actions in chronological order.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </CardTitle>
             <CardDescription>Your latest uploads and actions</CardDescription>
           </CardHeader>
           <CardContent>
