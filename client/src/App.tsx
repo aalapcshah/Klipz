@@ -6,8 +6,11 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Dashboard from "./pages/Dashboard";
 import { OnboardingWizard } from "./components/OnboardingWizard";
+import { Footer } from "./components/Footer";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
+import About from "./pages/About";
+import Contact from "./pages/Contact";
 import { trpc } from "./lib/trpc";
 import { useState, useEffect } from "react";
 // SearchWithSaved is now rendered inside Dashboard
@@ -22,6 +25,8 @@ function Router() {
       <Route path="/knowledge-graph" component={Dashboard} />
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
+      <Route path="/about" component={About} />
+      <Route path="/contact" component={Contact} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
@@ -50,12 +55,17 @@ function App() {
         switchable
       >
         <TooltipProvider>
-          <Toaster />
-          <Router />
-          <OnboardingWizard
-            open={showOnboarding}
-            onComplete={() => setShowOnboarding(false)}
-          />
+          <div className="flex flex-col min-h-screen">
+            <Toaster />
+            <div className="flex-1">
+              <Router />
+            </div>
+            <Footer />
+            <OnboardingWizard
+              open={showOnboarding}
+              onComplete={() => setShowOnboarding(false)}
+            />
+          </div>
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

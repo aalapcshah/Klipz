@@ -1170,3 +1170,39 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Investigate Scheduled Exports tab not working (server restart resolved)
 - [x] Fix routing or component rendering issues (stale module cache)
 - [x] Test both tabs after fixes (server running properly)
+
+## Phase 93: Site-wide Footer Component
+- [x] Create Footer component with navigation links
+- [x] Add links to Terms of Service and Privacy Policy
+- [x] Add About and Contact pages
+- [x] Add social media icon links (Twitter, GitHub, LinkedIn)
+- [x] Add copyright notice with current year
+- [x] Integrate footer into App.tsx layout
+- [x] Style footer to match site theme
+- [ ] Test footer on all pages (requires user testing)
+
+## Phase 94: User Activity Dashboard (Retry)
+- [ ] Add activity router to server/routers.ts
+- [ ] Create getUserStats endpoint for file/storage statistics
+- [ ] Create getRecentActivity endpoint for activity timeline
+- [ ] Build ActivityDashboard page component
+- [ ] Display total files, storage used, file type breakdown
+- [ ] Add recent activity timeline with icons
+- [ ] Create quick action buttons (Upload, Search, Collections)
+- [ ] Add storage usage visualization
+- [ ] Add dashboard link to navigation
+- [ ] Test dashboard display and statistics
+
+## Phase 95: Email Notification Infrastructure
+- [ ] Create email templates directory structure
+- [ ] Design welcome email HTML template
+- [ ] Design export completion email template
+- [ ] Design marketing email template with unsubscribe link
+- [ ] Create email service wrapper module
+- [ ] Add email configuration to environment (placeholder)
+- [ ] Implement sendWelcomeEmail function
+- [ ] Implement sendExportCompleteEmail function
+- [ ] Implement sendMarketingEmail function
+- [ ] Add unsubscribe token generation and validation
+- [ ] Document how to add SendGrid/AWS SES credentials
+- [ ] Test email templates rendering (without sending)
