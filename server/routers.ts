@@ -2190,12 +2190,12 @@ For each suggestion, provide:
   activity: router({
     getStats: protectedProcedure.query(async ({ ctx }) => {
       const userId = ctx.user.id;
-      const files = await db.getFilesByUser(userId);
+      const files = await db.getFilesByUserId(userId);
       
       const totalFiles = files.length;
-      const totalStorage = files.reduce((sum, f) => sum + (f.fileSize || 0), 0);
+      const totalStorage = files.reduce((sum: number, f: any) => sum + (f.fileSize || 0), 0);
       
-      const fileTypes = files.reduce((acc, f) => {
+      const fileTypes = files.reduce((acc: Record<string, number>, f: any) => {
         const type = f.mimeType?.split('/')[0] || 'other';
         acc[type] = (acc[type] || 0) + 1;
         return acc;
@@ -2211,11 +2211,11 @@ For each suggestion, provide:
     getRecentActivity: protectedProcedure
       .input(z.object({ limit: z.number().optional().default(10) }))
       .query(async ({ ctx, input }) => {
-        const files = await db.getFilesByUser(ctx.user.id);
+        const files = await db.getFilesByUserId(ctx.user.id);
         return files
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
           .slice(0, input.limit)
-          .map(f => ({
+          .map((f: any) => ({
             id: f.id,
             type: 'upload' as const,
             filename: f.filename,

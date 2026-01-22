@@ -392,17 +392,17 @@ export function FilePreviewLightbox({
           </div>
         )}
 
-        {/* Bottom Metadata */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
-          <div className="text-white/80 text-sm space-y-1">
+        {/* Bottom Metadata - Horizontal Layout */}
+        <div className="absolute bottom-0 left-0 right-0 p-2 md:p-4 bg-gradient-to-t from-black/90 to-transparent">
+          <div className="text-white/90 space-y-1">
             {currentFile.description && (
-              <p className="line-clamp-2">{currentFile.description}</p>
+              <p className="line-clamp-1 text-xs md:text-sm truncate">{currentFile.description}</p>
             )}
-            <div className="flex items-center gap-4 text-xs">
-              <span>{currentFile.mimeType}</span>
-              <span>{(currentFile.fileSize / 1024 / 1024).toFixed(2)} MB</span>
+            <div className="flex flex-wrap items-center gap-2 md:gap-4 text-[10px] md:text-xs">
+              <span className="truncate max-w-[120px] md:max-w-none">{currentFile.mimeType}</span>
+              <span className="whitespace-nowrap">{(currentFile.fileSize / 1024 / 1024).toFixed(2)} MB</span>
               {currentFile.tags && currentFile.tags.length > 0 && (
-                <span>
+                <span className="truncate flex-1">
                   Tags: {currentFile.tags.map((t: any) => t.name).join(", ")}
                 </span>
               )}

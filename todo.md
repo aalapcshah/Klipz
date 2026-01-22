@@ -1239,3 +1239,30 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [ ] Add content moderation tools
 - [ ] Protect admin routes with role check
 - [ ] Test admin panel access control
+
+## Bug Fix: File Details Popup Layout
+- [x] Fix file details popup running off screen in portrait mode
+- [x] Change popup layout from vertical to horizontal with flex-wrap
+- [x] Reduce font sizes for better fit (text-[10px] on mobile, text-xs on desktop)
+- [x] Make popup responsive for mobile devices (responsive padding and truncation)
+- [ ] Test on various screen sizes (requires user testing)
+
+## Phase 99: Smartphone Permissions
+- [x] Add camera permission request for file uploads
+- [x] Add video recording permission request (microphone)
+- [x] Add location permission request for metadata
+- [x] Add contacts permission request (noted as not supported)
+- [x] Implement permission request UI/dialogs (PermissionsDialog component)
+- [x] Handle permission denial gracefully (shows error messages)
+- [ ] Test on iOS and Android devices (requires user testing)
+- [ ] Integrate PermissionsDialog into onboarding or first-time upload flow
+
+## Phase 100: FAQ Page
+- [x] Create FAQ page component at /faq route
+- [x] Add common questions about file uploads
+- [x] Document video annotation feature (how to draw on videos)
+- [x] Add questions about collections and tags
+- [x] Add questions about AI enrichment
+- [x] Add questions about exports and sharing
+- [x] Link FAQ from footer
+- [ ] Test FAQ page navigation (requires user testing)
