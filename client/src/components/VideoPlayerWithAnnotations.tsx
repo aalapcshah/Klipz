@@ -221,30 +221,37 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             {annotations.map((annotation) => (
               <div
                 key={annotation.id}
-                className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors"
+                className="p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors space-y-2"
               >
-                <button
-                  onClick={() => jumpToAnnotation(annotation.videoTimestamp)}
-                  className="flex items-center gap-3 flex-1 text-left"
-                >
-                  <Badge variant="secondary">{formatTime(annotation.videoTimestamp)}</Badge>
-                  <span className="text-sm text-muted-foreground">
-                    {annotation.duration}s recording
-                  </span>
-                  <audio
-                    src={annotation.audioUrl}
-                    controls
-                    className="h-8 max-w-xs"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => handleDeleteAnnotation(annotation.id)}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => jumpToAnnotation(annotation.videoTimestamp)}
+                    className="flex items-center gap-3 flex-1 text-left"
+                  >
+                    <Badge variant="secondary">{formatTime(annotation.videoTimestamp)}</Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {annotation.duration}s recording
+                    </span>
+                    <audio
+                      src={annotation.audioUrl}
+                      controls
+                      className="h-8 max-w-xs"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleDeleteAnnotation(annotation.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+                {annotation.transcript && (
+                  <div className="pl-2 border-l-2 border-primary/30">
+                    <p className="text-sm text-foreground">{annotation.transcript}</p>
+                  </div>
+                )}
               </div>
             ))}
           </div>

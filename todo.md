@@ -1425,3 +1425,30 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Update StorageCleanupWizard to use real backend APIs
 - [x] Add file access tracking (update lastAccessedAt on view)
 - [x] Write and run vitest tests for storage cleanup
+
+## Phase 115: Voice Note Transcription
+- [x] Add transcription field to voice_annotations table (already exists)
+- [x] Update saveAnnotation API to transcribe audio using transcribeAudio helper
+- [x] Display transcription text in VideoPlayerWithAnnotations
+- [x] Handle transcription errors gracefully (continues without transcript on error)
+- [x] Show both audio player and transcription text for each annotation
+- [x] Write and run vitest tests for transcription
+
+## Phase 116: AI Quality Score Calculation
+- [x] Create quality score calculation API using LLM vision
+- [x] Calculate scores based on resolution, clarity, composition
+- [x] Add calculateScore procedure for single files
+- [x] Add calculateAllScores procedure for batch processing (up to 50 files)
+- [x] Write and run vitest tests for quality score
+- [ ] Add quality score calculation to file enrichment process (deferred)
+- [ ] Add quality score badge to file cards (deferred)
+- [ ] Add quality filter to file search/browse (deferred)
+
+## Phase 117: Duplicate File Preview in Cleanup Wizard
+- [x] Update cleanup wizard UI to show file previews
+- [x] Show image thumbnails for visual comparison (first 3 duplicates)
+- [x] Display file type for non-image files
+- [x] Write and run vitest tests for duplicate preview
+- [ ] Add side-by-side comparison for duplicate groups (deferred - current preview sufficient)
+- [ ] Allow users to select which duplicate to keep (deferred - auto-deletes duplicates)
+- [ ] Add metadata comparison (size, date, quality score) (deferred)

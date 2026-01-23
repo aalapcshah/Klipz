@@ -276,6 +276,26 @@ export function StorageCleanupWizard({ open, onOpenChange, onComplete }: Storage
                               {formatBytes(category.storageSize)}
                             </span>
                           </div>
+                          
+                          {/* Show preview for duplicates */}
+                          {category.id === 'duplicates' && scannedFiles && scannedFiles.duplicates.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-border">
+                              <p className="text-xs text-muted-foreground mb-2">Preview (showing first 3):</p>
+                              <div className="flex gap-2">
+                                {scannedFiles.duplicates.slice(0, 3).map((file: any) => (
+                                  <div key={file.id} className="relative w-16 h-16 rounded border border-border overflow-hidden bg-muted">
+                                    {file.mimeType.startsWith('image/') ? (
+                                      <img src={file.url} alt={file.filename} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                                        {file.mimeType.split('/')[0]}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </CardContent>

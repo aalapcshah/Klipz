@@ -4,6 +4,7 @@ import { getDb } from "../db";
 import { voiceAnnotations, files } from "../../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import { storagePut } from "../storage";
+import { transcribeAudio } from "../_core/voiceTranscription";
 
 export const voiceAnnotationsRouter = router({
   /**
@@ -44,6 +45,24 @@ export const voiceAnnotationsRouter = router({
       // Upload to S3
       const { url: audioUrl } = await storagePut(audioKey, audioBuffer, "audio/webm");
 
+      // Transcribe audio in background (don't block response)
+      let transcript: string | null = null;
+      try {
+        const transcription = await transcribeAudio({
+          audioUrl,
+          language: "en",
+        });
+        // Check if transcription was successful
+        if ("text" in transcription) {
+          transcript = transcription.text;
+        } else {
+          console.error("Transcription error:", transcription.error);
+        }
+      } catch (error) {
+        console.error("Transcription failed:", error);
+        // Continue without transcription
+      }
+
       // Save to database
       const [annotation] = await db
         .insert(voiceAnnotations)
@@ -54,6 +73,7 @@ export const voiceAnnotationsRouter = router({
           audioKey,
           duration: input.duration,
           videoTimestamp: input.videoTimestamp,
+          transcript,
         })
         .$returningId();
 
@@ -62,6 +82,7 @@ export const voiceAnnotationsRouter = router({
         audioUrl,
         videoTimestamp: input.videoTimestamp,
         duration: input.duration,
+        transcript,
       };
     }),
 
