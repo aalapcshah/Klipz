@@ -1673,3 +1673,22 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Filters panel now full-screen overlay on mobile
 - [x] Show Filters button positioned fixed at top-left on mobile
 - [ ] Test layout on mobile viewport
+
+## Phase 139: Fix Critical Mobile Rendering Issues
+- [ ] Debug why mobile pages show completely black screens
+- [ ] Check for JavaScript errors breaking mobile rendering
+- [ ] Fix CSS issues causing content to be hidden on mobile
+- [ ] Verify responsive layout classes are working
+- [ ] Test drawing functionality on mobile after fixes
+- [ ] Test microphone functionality on mobile after fixes
+- [ ] Ensure all pages load correctly on mobile viewport
+
+## Phase 140: Fix Drawing and Add Combined Annotation Icon
+- [x] Debug why drawing still not working (canvas element was never rendered in JSX)
+- [x] Add canvas element to JSX with mouse event handlers
+- [x] Set canvas display to block when appended to video container
+- [x] Replace separate mic button with combined mic/pen icon on video cards
+- [x] Add tooltip showing "Voice & Drawing Annotations" on hover
+- [x] Combined icon shows mic with small pen overlay in bottom-right
+- [ ] Test drawing with different tools (pen, shapes, text)
+- [ ] Test combined icon opens annotation dialog correctly

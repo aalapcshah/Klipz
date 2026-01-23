@@ -93,6 +93,7 @@ export function VideoDrawingCanvas({
       canvas.width = rect.width;
       canvas.height = rect.height;
       // Position canvas over video
+      canvas.style.display = 'block';
       canvas.style.position = 'absolute';
       canvas.style.top = '0';
       canvas.style.left = '0';
@@ -584,7 +585,15 @@ export function VideoDrawingCanvas({
             </div>
           )}
 
-          {/* Canvas is rendered as portal over video */}
+          {/* Hidden canvas element that gets appended to video container */}
+          <canvas
+            ref={canvasRef}
+            style={{ display: 'none' }}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          />
 
           <div className="text-xs text-muted-foreground space-y-1">
             <p>• Click and drag to draw on the video</p>

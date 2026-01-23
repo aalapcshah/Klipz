@@ -11,6 +11,7 @@ import {
   Download,
   Cloud,
   Mic,
+  PenLine,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -182,9 +183,13 @@ export function VideoList() {
                   variant="outline"
                   size="sm"
                   onClick={() => setAnnotatingVideo({ id: video.id, fileId: video.fileId!, url: video.url, title: video.title || video.filename })}
-                  title="Add voice/visual annotations"
+                  title="Voice & Drawing Annotations"
+                  className="relative"
                 >
-                  <Mic className="h-3 w-3" />
+                  <div className="relative">
+                    <Mic className="h-3 w-3" />
+                    <PenLine className="h-2 w-2 absolute -bottom-0.5 -right-0.5 text-primary" />
+                  </div>
                 </Button>
               )}
               <Button
