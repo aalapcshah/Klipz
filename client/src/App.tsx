@@ -13,10 +13,13 @@ import About from "./pages/About";
 import Contact from "./pages/Contact";
 import FAQ from "./pages/FAQ";
 import Upgrade from "./pages/Upgrade";
+import { PrivacyPolicy } from "./pages/PrivacyPolicy";
+import { TermsOfService } from "./pages/TermsOfService";
 import { PaymentSuccess } from "./pages/PaymentSuccess";
 import ActivityDashboard from "./pages/ActivityDashboard";
 import { trpc } from "./lib/trpc";
 import { useState, useEffect } from "react";
+import { CookieConsent } from "./components/CookieConsent";
 // SearchWithSaved is now rendered inside Dashboard
 
 function Router() {
@@ -32,6 +35,8 @@ function Router() {
       <Route path="/faq" component={FAQ} />
       <Route path="/contact" component={Contact} />
       <Route path="/upgrade" component={Upgrade} />
+      <Route path="/privacy-policy" component={PrivacyPolicy} />
+      <Route path="/terms-of-service" component={TermsOfService} />
       <Route path="/payment/success" component={PaymentSuccess} />
       <Route path="/activity" component={ActivityDashboard} />
       <Route path="/404" component={NotFound} />
@@ -72,6 +77,7 @@ function App() {
               open={showOnboarding}
               onComplete={() => setShowOnboarding(false)}
             />
+            <CookieConsent />
           </div>
         </TooltipProvider>
       </ThemeProvider>

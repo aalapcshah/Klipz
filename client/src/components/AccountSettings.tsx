@@ -27,6 +27,8 @@ import { toast } from "sonner";
 import { Loader2, AlertTriangle, Camera, Mic, MapPin, Smartphone, CheckCircle2, XCircle, HelpCircle } from "lucide-react";
 import { PermissionsDialog } from "@/components/PermissionsDialog";
 import { getAllPermissionStatuses, type PermissionStatus, type PermissionType } from "@/lib/permissions";
+import { DataExport } from "./DataExport";
+import { AccountDeletion } from "./AccountDeletion";
 
 export function AccountSettings() {
   const { data: user } = trpc.auth.me.useQuery();
@@ -383,6 +385,12 @@ export function AccountSettings() {
           </AlertDialog>
         </CardContent>
       </Card>
+
+      {/* Data Export (GDPR) */}
+      <DataExport />
+
+      {/* Account Deletion (GDPR) */}
+      <AccountDeletion />
 
       {/* Permissions Dialog */}
       <PermissionsDialog 

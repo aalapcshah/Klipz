@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,7 @@ export function FileDetailDialog({
   const [tagSuggestions, setTagSuggestions] = useState<any[]>([]);
   const deletedFileRef = useRef<DeletedFile | null>(null);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMobile = useIsMobile();
 
   const { data: file, isLoading, refetch } = trpc.files.get.useQuery(
     { id: fileId! },
@@ -222,7 +224,7 @@ export function FileDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className={`max-w-5xl max-h-[90vh] overflow-hidden flex flex-col ${isMobile ? 'w-full h-full max-w-full max-h-full rounded-none' : ''}`}>
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
