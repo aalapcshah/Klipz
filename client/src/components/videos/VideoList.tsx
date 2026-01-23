@@ -12,6 +12,7 @@ import {
   Cloud,
   Mic,
   PenLine,
+  MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -182,26 +183,16 @@ export function VideoList() {
                   Play
                 </a>
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEditingVideoId(video.id)}
-                title="Edit video details"
-              >
-                <Edit3 className="h-3 w-3" />
-              </Button>
               {video.fileId && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setAnnotatingVideo({ id: video.id, fileId: video.fileId!, url: video.url, title: video.title || video.filename })}
-                  title="Voice & Drawing Annotations"
-                  className="relative"
+                  title="Annotate (Voice, Drawing, Text)"
+                  className="flex-1"
                 >
-                  <div className="relative">
-                    <Mic className="h-3 w-3" />
-                    <PenLine className="h-2 w-2 absolute -bottom-0.5 -right-0.5 text-primary" />
-                  </div>
+                  <MessageSquare className="h-3 w-3 mr-1" />
+                  Annotate
                 </Button>
               )}
               <Button

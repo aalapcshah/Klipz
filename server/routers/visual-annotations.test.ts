@@ -34,6 +34,7 @@ describe("visualAnnotationsRouter", () => {
         fileId: 10,
         imageDataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
         videoTimestamp: 42,
+        duration: 10,
         description: "Test drawing",
       });
 
@@ -55,6 +56,7 @@ describe("visualAnnotationsRouter", () => {
           fileId: 10,
           imageDataUrl: "data:image/png;base64,test",
           videoTimestamp: 42,
+          duration: 5,
         })
       ).rejects.toThrow("Database not available");
     });

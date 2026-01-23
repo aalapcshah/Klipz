@@ -135,14 +135,15 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleSaveVisualAnnotation = async (imageDataUrl: string, timestamp: number) => {
+  const handleSaveVisualAnnotation = async (imageDataUrl: string, timestamp: number, duration: number) => {
     try {
       await saveVisualAnnotation.mutateAsync({
         fileId,
         imageDataUrl,
         videoTimestamp: Math.floor(timestamp),
+        duration,
       });
-      toast.success("Drawing annotation saved!");
+      toast.success(`Drawing saved (${duration}s duration)`);
       refetchVisualAnnotations();
     } catch (error) {
       toast.error("Failed to save drawing annotation");

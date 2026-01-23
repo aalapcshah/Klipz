@@ -132,6 +132,9 @@ export const visualAnnotations = mysqlTable("visual_annotations", {
   // Timestamp in video
   videoTimestamp: int("videoTimestamp").notNull(), // Timestamp in video (seconds)
   
+  // Duration the annotation should appear (seconds)
+  duration: int("duration").default(5).notNull(), // How long annotation is visible
+  
   // Optional description
   description: text("description"),
   

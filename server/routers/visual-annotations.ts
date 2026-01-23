@@ -16,11 +16,12 @@ export const visualAnnotationsRouter = router({
         fileId: z.number(),
         imageDataUrl: z.string(), // Base64 data URL of the canvas drawing
         videoTimestamp: z.number(), // Timestamp in seconds
+        duration: z.number().default(5), // Duration in seconds
         description: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { fileId, imageDataUrl, videoTimestamp, description } = input;
+      const { fileId, imageDataUrl, videoTimestamp, duration, description } = input;
 
       // Convert data URL to buffer
       const base64Data = imageDataUrl.replace(/^data:image\/\w+;base64,/, "");
@@ -39,6 +40,7 @@ export const visualAnnotationsRouter = router({
         imageUrl,
         imageKey,
         videoTimestamp,
+        duration,
         description,
       });
 

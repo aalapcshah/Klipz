@@ -1,0 +1,1 @@
+ALTER TABLE `visual_annotations` ADD `duration` int DEFAULT 5 NOT NULL;

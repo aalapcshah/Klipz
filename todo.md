@@ -1707,3 +1707,16 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Integrate timeline into VideoPlayerWithAnnotations with toggle button
 - [ ] Test annotation previews on video cards
 - [ ] Test timeline view with mixed annotations
+
+## Phase 142: Consolidate Annotation Interface
+- [x] Remove separate Edit button from video cards
+- [x] Remove separate mic/pen annotation button from video cards
+- [x] Add single "Annotate" button that opens full annotation interface
+- [x] Ensure Annotate button opens VideoPlayerWithAnnotations dialog
+- [x] Add confirm/check button to drawing interface ("Confirm & Save")
+- [x] Add duration slider to set how long drawing appears on screen (1-30s)
+- [x] Update visual annotation schema to include duration field
+- [x] Save duration with visual annotations
+- [x] Update visual-annotations router to accept duration parameter
+- [ ] Display annotations for their specified duration during playback
+- [ ] Test consolidated button and duration controls

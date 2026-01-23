@@ -37,7 +37,7 @@ interface DrawingElement {
 interface VideoDrawingCanvasProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   currentTime: number;
-  onSaveAnnotation: (imageDataUrl: string, timestamp: number) => Promise<void>;
+  onSaveAnnotation: (imageDataUrl: string, timestamp: number, duration: number) => Promise<void>;
   onDrawingModeChange?: (isDrawing: boolean) => void;
 }
 
@@ -59,6 +59,7 @@ export function VideoDrawingCanvas({
   const [showCanvas, setShowCanvas] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [textPosition, setTextPosition] = useState<Point | null>(null);
+  const [duration, setDuration] = useState(5); // Duration in seconds
 
   useEffect(() => {
     if (!canvasRef.current || !videoRef.current) return;
@@ -394,8 +395,8 @@ export function VideoDrawingCanvas({
     
     try {
       const imageDataUrl = canvas.toDataURL("image/png");
-      await onSaveAnnotation(imageDataUrl, currentTime);
-      toast.success("Drawing annotation saved!");
+      await onSaveAnnotation(imageDataUrl, currentTime, duration);
+      toast.success(`Drawing saved (${duration}s duration)`);
       handleClear();
       setShowCanvas(false);
     } catch (error) {
@@ -550,11 +551,28 @@ export function VideoDrawingCanvas({
               </div>
             </div>
 
+            {/* Duration Slider */}
+            <div className="space-y-2">
+              <span className="text-sm font-medium">Display Duration: {duration}s</span>
+              <input
+                type="range"
+                min="1"
+                max="30"
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>1s</span>
+                <span>30s</span>
+              </div>
+            </div>
+
             {/* Save Button */}
             <div className="flex gap-2">
               <Button onClick={handleSave} className="flex-1" disabled={elements.length === 0}>
                 <Save className="h-4 w-4 mr-2" />
-                Save Drawing at {Math.floor(currentTime)}s
+                Confirm & Save
               </Button>
             </div>
           </div>
