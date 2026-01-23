@@ -1452,3 +1452,26 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [ ] Add side-by-side comparison for duplicate groups (deferred - current preview sufficient)
 - [ ] Allow users to select which duplicate to keep (deferred - auto-deletes duplicates)
 - [ ] Add metadata comparison (size, date, quality score) (deferred)
+
+## Phase 118: Automated Quality Improvement Workflow
+- [x] Create quality improvement router with enhancement suggestions
+- [x] Add API to detect low-quality files (score < 40)
+- [x] Implement AI-powered enhancement suggestions (upscaling, denoising, color correction)
+- [x] Create QualityImprovementPanel component to display suggestions
+- [x] Add "Improve Quality" action to file detail dialog (automatically shows for images with score < 70)
+- [x] Integrate image generation API for enhancement processing
+- [x] Show before/after preview for enhancements
+- [x] Write and run vitest tests for quality improvement
+- [ ] Track enhancement history in database (deferred)
+
+## Phase 119: Voice Command Search
+- [x] Create VoiceSearchBar component with microphone button
+- [x] Implement voice recording (simulated transcription for demo)
+- [x] Add semantic search API using LLM for query understanding
+- [x] Parse natural language queries (dates, locations, objects, actions)
+- [x] Display voice query results with relevance scoring
+- [x] Handle complex queries ("beach photos from last summer")
+- [x] Write and run vitest tests for semantic search
+- [ ] Integrate real transcription API (currently simulated)
+- [ ] Add voice search history and suggestions (deferred)
+- [ ] Integrate with existing file search/filter system UI (deferred)

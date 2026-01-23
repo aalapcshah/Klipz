@@ -5,6 +5,8 @@ import { stripeRouter } from "./routers/stripe";
 import { voiceAnnotationsRouter } from "./routers/voiceAnnotations";
 import { storageCleanupRouter } from "./routers/storageCleanup";
 import { qualityScoreRouter } from "./routers/qualityScore";
+import { qualityImprovementRouter } from "./routers/qualityImprovement";
+import { semanticSearchRouter } from "./routers/semanticSearch";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import * as premiumFeatures from "./premiumFeatures";
@@ -318,6 +320,8 @@ export const appRouter = router({
   voiceAnnotations: voiceAnnotationsRouter,
   storageCleanup: storageCleanupRouter,
   qualityScore: qualityScoreRouter,
+  qualityImprovement: qualityImprovementRouter,
+  semanticSearch: semanticSearchRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

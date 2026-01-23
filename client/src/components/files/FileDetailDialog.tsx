@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { FileVersionHistory } from "./FileVersionHistory";
 import { VideoPlayerWithAnnotations } from "../VideoPlayerWithAnnotations";
+import { QualityImprovementPanel } from "../QualityImprovementPanel";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
@@ -249,6 +250,11 @@ export function FileDetailDialog({
               
               {file.mimeType.startsWith("video/") && (
                 <VideoPlayerWithAnnotations fileId={file.id} videoUrl={file.url} />
+              )}
+
+              {/* Quality Improvement Panel */}
+              {file.mimeType.startsWith("image/") && (
+                <QualityImprovementPanel fileId={file.id} currentScore={file.qualityScore} />
               )}
 
               {/* File Metadata */}
