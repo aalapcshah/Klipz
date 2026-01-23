@@ -1617,3 +1617,12 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Fix file detail dialog landscape layout (increased max-width to max-w-7xl)
 - [x] Reduce font sizes for file names and video titles
 - [ ] Test all fixes on laptop/desktop view
+
+## Phase 133: Fix Microphone Button and Video Export
+- [x] Debug why microphone button not showing in Video Library
+- [x] Check if videos.create is properly creating fileId entries (working correctly)
+- [x] Create migration script to backfill fileId for existing videos
+- [x] Run migration successfully (3 videos migrated)
+- [x] Install FFmpeg on server for video export functionality
+- [ ] Test microphone button now appears for all videos
+- [ ] Test video export with annotations after FFmpeg install
