@@ -1610,3 +1610,10 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Add Mic button to Video Library cards for annotation access
 - [ ] Test annotation features in Video Library with real recorded videos
 - [ ] Ensure annotations persist and display correctly
+
+## Phase 132: UI Fixes and Polish
+- [x] Fix Search page to show "No results found" instead of spinner (already working)
+- [x] Add missing microphone button in Video Library
+- [x] Fix file detail dialog landscape layout (increased max-width to max-w-7xl)
+- [x] Reduce font sizes for file names and video titles
+- [ ] Test all fixes on laptop/desktop view

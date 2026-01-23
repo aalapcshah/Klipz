@@ -116,7 +116,7 @@ export function VideoList() {
 
             {/* Video Info */}
             <div className="space-y-2">
-              <h3 className="font-medium truncate">
+              <h3 className="text-sm font-medium truncate">
                 {video.title || video.filename}
               </h3>
               
@@ -173,9 +173,20 @@ export function VideoList() {
                 variant="outline"
                 size="sm"
                 onClick={() => setEditingVideoId(video.id)}
+                title="Edit video details"
               >
                 <Edit3 className="h-3 w-3" />
               </Button>
+              {video.fileId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAnnotatingVideo({ id: video.id, fileId: video.fileId!, url: video.url, title: video.title || video.filename })}
+                  title="Add voice/visual annotations"
+                >
+                  <Mic className="h-3 w-3" />
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

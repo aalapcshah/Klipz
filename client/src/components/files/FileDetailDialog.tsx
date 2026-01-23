@@ -224,7 +224,7 @@ export function FileDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`max-w-5xl max-h-[90vh] overflow-hidden flex flex-col ${isMobile ? 'w-full h-full max-w-full max-h-full rounded-none' : ''}`}>
+      <DialogContent className={`max-w-7xl max-h-[90vh] overflow-hidden flex flex-col ${isMobile ? 'w-full h-full max-w-full max-h-full rounded-none' : ''}`}>
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -232,7 +232,7 @@ export function FileDetailDialog({
         ) : file ? (
           <>
             <DialogHeader className="flex-shrink-0">
-              <DialogTitle className="text-lg break-words pr-8">{file.title || file.filename}</DialogTitle>
+              <DialogTitle className="text-base font-semibold break-words pr-8">{file.title || file.filename}</DialogTitle>
               <DialogDescription className="text-sm">
                 {file.mimeType} • {(file.fileSize / 1024 / 1024).toFixed(2)} MB
               </DialogDescription>

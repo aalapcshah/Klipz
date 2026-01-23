@@ -1400,7 +1400,7 @@ export default function FileGridEnhanced({
                           {getFileIcon(file.mimeType)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold truncate">
+                          <h3 className="text-sm font-medium truncate">
                             {file.filename}
                           </h3>
                           {file.description && (
