@@ -13,6 +13,7 @@ import About from "./pages/About";
 import Contact from "./pages/Contact";
 import FAQ from "./pages/FAQ";
 import Upgrade from "./pages/Upgrade";
+import { PaymentSuccess } from "./pages/PaymentSuccess";
 import ActivityDashboard from "./pages/ActivityDashboard";
 import { trpc } from "./lib/trpc";
 import { useState, useEffect } from "react";
@@ -31,6 +32,7 @@ function Router() {
       <Route path="/faq" component={FAQ} />
       <Route path="/contact" component={Contact} />
       <Route path="/upgrade" component={Upgrade} />
+      <Route path="/payment/success" component={PaymentSuccess} />
       <Route path="/activity" component={ActivityDashboard} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

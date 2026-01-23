@@ -1368,3 +1368,37 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Add "Clean Up Storage" button in files page
 - [ ] Connect to backend API for real file scanning and deletion
 - [ ] Add "Clean Up Storage" button in settings (deferred)
+
+## Phase 112: Stripe Payment Integration
+- [x] Run webdev_add_feature with feature="stripe" (completed - keys auto-configured)
+- [x] Configure Stripe API keys in environment (auto-configured: STRIPE_SECRET_KEY, VITE_STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET)
+- [x] Define subscription products and prices in products.ts
+- [x] Update Upgrade page to create Stripe checkout sessions
+- [x] Create payment success/cancel callback pages (PaymentSuccess.tsx)
+- [x] Add webhook handler at /api/stripe/webhook for payment events
+- [x] Update database schema to store stripe_customer_id and stripe_subscription_id
+- [x] Update user plan based on subscription webhooks
+- [ ] Create Stripe products in Dashboard and update price IDs in products.ts
+- [ ] Test payment flow end-to-end with test card 4242 4242 4242 4242
+
+## Phase 113: Voice Recorder in Video Viewer
+- [ ] Find or create video viewer component
+- [ ] Integrate VoiceRecorder component into video viewer
+- [ ] Add timestamp tracking for voice annotations
+- [ ] Create database schema for voice annotations
+- [ ] Create tRPC procedures for saving/loading voice annotations
+- [ ] Display voice annotation markers on video timeline
+- [ ] Add playback controls for voice annotations
+- [ ] Store audio files in S3
+- [ ] Test voice annotation workflow
+
+## Phase 114: Storage Cleanup Backend APIs
+- [ ] Create database query to find duplicate files (by hash)
+- [ ] Create database query to find low-quality files (score < 50)
+- [ ] Create database query to find unused files (last accessed > 90 days)
+- [ ] Add tRPC procedure for scanning files
+- [ ] Add tRPC procedure for bulk file deletion
+- [ ] Update file access timestamps on view/download
+- [ ] Calculate storage savings accurately
+- [ ] Add transaction support for bulk operations
+- [ ] Test cleanup APIs with real data

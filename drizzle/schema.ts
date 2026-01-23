@@ -31,6 +31,10 @@ export const users = mysqlTable("users", {
   knowledgeGraphUsageLimit: int("knowledgeGraphUsageLimit").default(10).notNull(), // Free tier: 10 queries/month
   subscriptionExpiresAt: timestamp("subscriptionExpiresAt"),
   
+  // Stripe integration
+  stripeCustomerId: varchar("stripeCustomerId", { length: 255 }),
+  stripeSubscriptionId: varchar("stripeSubscriptionId", { length: 255 }),
+  
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),

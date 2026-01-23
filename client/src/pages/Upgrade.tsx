@@ -1,13 +1,33 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Zap, Crown, Building2 } from "lucide-react";
+import { Check, Zap, Crown, Building2, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
+import { useState } from "react";
 
 export default function Upgrade() {
-  const handleUpgrade = (tier: string) => {
-    toast.info(`Upgrade to ${tier} - Payment integration coming soon!`);
+  const [loading, setLoading] = useState<string | null>(null);
+  const createCheckout = trpc.stripe.createCheckoutSession.useMutation();
+
+  const handleUpgrade = async (tierId: string) => {
+    if (tierId === "free") return;
+    
+    setLoading(tierId);
+    try {
+      const result = await createCheckout.mutateAsync({ tierId: tierId as "pro" | "enterprise" });
+      
+      if (result.checkoutUrl) {
+        toast.info("Redirecting to checkout...");
+        window.open(result.checkoutUrl, "_blank");
+      }
+    } catch (error) {
+      console.error("Checkout error:", error);
+      toast.error("Failed to create checkout session. Please try again.");
+    } finally {
+      setLoading(null);
+    }
   };
 
   const tiers = [
@@ -126,10 +146,17 @@ export default function Upgrade() {
                 <Button
                   className="w-full"
                   variant={tier.variant}
-                  disabled={tier.current}
-                  onClick={() => handleUpgrade(tier.name)}
+                  disabled={tier.current || loading === tier.name.toLowerCase()}
+                  onClick={() => handleUpgrade(tier.name.toLowerCase())}
                 >
-                  {tier.cta}
+                  {loading === tier.name.toLowerCase() ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    tier.cta
+                  )}
                 </Button>
               </CardFooter>
             </Card>
