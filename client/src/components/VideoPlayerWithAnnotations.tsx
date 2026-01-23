@@ -148,7 +148,8 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
+    const decisecs = Math.floor((seconds % 1) * 10);
+    return `${mins}:${secs.toString().padStart(2, "0")}.${decisecs}`;
   };
 
   const handleSaveVisualAnnotation = async (imageDataUrl: string, timestamp: number, duration: number) => {
@@ -183,7 +184,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           <video
             ref={videoRef}
             src={videoUrl}
-            className="w-full max-h-[500px] object-contain"
+            className="w-full max-h-[360px] object-contain"
             onClick={isDrawingMode ? undefined : togglePlay}
             style={{ pointerEvents: isDrawingMode ? 'none' : 'auto' }}
           />
@@ -237,6 +238,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               type="range"
               min="0"
               max={duration || 0}
+              step="0.1"
               value={currentTime}
               onChange={handleSeek}
               className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
@@ -342,7 +344,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                     onClick={() => jumpToAnnotation(annotation.videoTimestamp)}
                     className="flex items-center gap-3 flex-1 text-left"
                   >
-                    <Badge variant="secondary">{formatTime(annotation.videoTimestamp)}</Badge>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant="secondary">{formatTime(annotation.videoTimestamp)}</Badge>
+                      <span className="text-xs text-muted-foreground">Duration: {annotation.duration || 5}s</span>
+                    </div>
                     <img
                       src={annotation.imageUrl}
                       alt="Drawing annotation"

@@ -1788,3 +1788,12 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Move duration slider closer to drawing tool buttons
 - [x] Reduce padding in drawing tools card
 - [x] Test layout on desktop viewport
+
+## Phase 149: Video Annotation UX Improvements
+- [x] Add duration display to Drawing Annotations list (show timestamp + duration)
+- [x] Increase time precision to 0.1 seconds in formatTime function
+- [x] Update time display throughout video player to show 0.1s precision
+- [x] Update timeline scrubber to support 0.1s granularity
+- [x] Reduce video player height for compact layout
+- [x] Ensure annotation tools visible without scrolling
+- [x] Test all changes with existing annotations
