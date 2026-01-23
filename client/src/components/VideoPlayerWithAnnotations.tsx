@@ -21,6 +21,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [duration, setDuration] = useState(0);
   const [showRecorder, setShowRecorder] = useState(false);
   const [recordingTimestamp, setRecordingTimestamp] = useState(0);
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
 
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.voiceAnnotations.getAnnotations.useQuery({ fileId });
   const { data: visualAnnotations = [], refetch: refetchVisualAnnotations } = trpc.visualAnnotations.getAnnotations.useQuery({ fileId });
@@ -164,7 +165,8 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             ref={videoRef}
             src={videoUrl}
             className="w-full max-h-[500px] object-contain"
-            onClick={togglePlay}
+            onClick={isDrawingMode ? undefined : togglePlay}
+            style={{ pointerEvents: isDrawingMode ? 'none' : 'auto' }}
           />
           
           {/* Voice annotation markers on timeline */}
@@ -236,6 +238,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         videoRef={videoRef}
         currentTime={currentTime}
         onSaveAnnotation={handleSaveVisualAnnotation}
+        onDrawingModeChange={setIsDrawingMode}
       />
 
       {/* Voice Recorder */}

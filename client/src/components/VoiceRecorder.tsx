@@ -33,12 +33,13 @@ export function VoiceRecorder({ onSave, onCancel, maxDuration = 300 }: VoiceReco
 
   const startRecording = async () => {
     try {
-      const permission = await requestMicrophonePermission();
-      if (!permission.granted) {
-        toast.error("Microphone permission denied");
+      // Check if mediaDevices is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast.error("Microphone not supported in this browser");
         return;
       }
 
+      // Request microphone access directly
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
@@ -72,9 +73,17 @@ export function VoiceRecorder({ onSave, onCancel, maxDuration = 300 }: VoiceReco
           return newDuration;
         });
       }, 1000);
-    } catch (error) {
-      toast.error("Failed to start recording");
-      console.error(error);
+    } catch (error: any) {
+      console.error("Microphone error:", error);
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        toast.error("Microphone permission denied. Please allow microphone access in your browser settings.");
+      } else if (error.name === 'NotFoundError') {
+        toast.error("No microphone found. Please connect a microphone and try again.");
+      } else if (error.name === 'NotReadableError') {
+        toast.error("Microphone is already in use by another application.");
+      } else {
+        toast.error(`Failed to start recording: ${error.message || 'Unknown error'}`);
+      }
     }
   };
 

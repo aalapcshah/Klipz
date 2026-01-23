@@ -38,12 +38,14 @@ interface VideoDrawingCanvasProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   currentTime: number;
   onSaveAnnotation: (imageDataUrl: string, timestamp: number) => Promise<void>;
+  onDrawingModeChange?: (isDrawing: boolean) => void;
 }
 
 export function VideoDrawingCanvas({
   videoRef,
   currentTime,
   onSaveAnnotation,
+  onDrawingModeChange,
 }: VideoDrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -399,10 +401,12 @@ export function VideoDrawingCanvas({
       toast.error("Failed to save annotation");
     }
   };
-
   const toggleCanvas = () => {
-    setShowCanvas(!showCanvas);
-    if (!showCanvas) {
+    const newShowCanvas = !showCanvas;
+    setShowCanvas(newShowCanvas);
+    onDrawingModeChange?.(newShowCanvas);
+    
+    if (newShowCanvas) {
       // Pause video when starting to draw
       if (videoRef.current && !videoRef.current.paused) {
         videoRef.current.pause();

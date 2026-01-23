@@ -1655,3 +1655,14 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [ ] Test voice recording on mobile device
 - [ ] Test drawing with touch on mobile device
 - [ ] Test all features on actual mobile device
+
+## Phase 137: Fix Drawing and Microphone Issues
+- [x] Fix canvas z-index to be above video player controls
+- [x] Prevent video play/pause when clicking on canvas (disabled onClick when drawing)
+- [x] Add pointer-events: none to video element when drawing mode active
+- [x] Add isDrawingMode state to track when canvas is active
+- [x] Call onDrawingModeChange callback when canvas toggles
+- [x] Improve microphone permission error handling with specific messages
+- [x] Remove redundant permission check (use getUserMedia directly)
+- [ ] Test drawing works without triggering video controls
+- [ ] Test voice recording works with clear error messages
