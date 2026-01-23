@@ -1779,3 +1779,12 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Update timeline when search query changes
 - [x] Add legend showing annotation counts
 - [ ] Test timeline navigation and search functionality
+
+## Phase 148: Fix Desktop Layout Issues
+- [x] Move Show Filters button from left column to top toolbar
+- [x] Position Show Filters next to grid/list view buttons
+- [x] Fix Files page content shift on desktop
+- [x] Reduce vertical spacing between video and drawing tools
+- [x] Move duration slider closer to drawing tool buttons
+- [x] Reduce padding in drawing tools card
+- [x] Test layout on desktop viewport

@@ -451,9 +451,26 @@ export function VideoDrawingCanvas({
       </Button>
 
       {showCanvas && (
-        <Card className="p-4 space-y-3">
+        <Card className="p-3 space-y-2">
+          {/* Duration Slider - Moved to top */}
+          <div className="space-y-1">
+            <span className="text-sm font-medium">Display Duration: {duration}s</span>
+            <input
+              type="range"
+              min="1"
+              max="30"
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>1s</span>
+              <span>30s</span>
+            </div>
+          </div>
+
           {/* Drawing Tools */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               <Button
                 size="default"
@@ -527,7 +544,7 @@ export function VideoDrawingCanvas({
             </div>
 
             {/* Color Picker */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               <span className="text-sm font-medium">Color:</span>
               <div className="flex items-center gap-2 flex-wrap">
                 {colors.map((c) => (
@@ -544,7 +561,7 @@ export function VideoDrawingCanvas({
             </div>
 
             {/* Stroke Width */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               <span className="text-sm font-medium">Stroke Width:</span>
               <div className="flex items-center gap-2">
                 {strokeWidths.map((width) => (
@@ -557,23 +574,6 @@ export function VideoDrawingCanvas({
                     {width}px
                   </Button>
                 ))}
-              </div>
-            </div>
-
-            {/* Duration Slider */}
-            <div className="space-y-2">
-              <span className="text-sm font-medium">Display Duration: {duration}s</span>
-              <input
-                type="range"
-                min="1"
-                max="30"
-                value={duration}
-                onChange={(e) => setDuration(Number(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>1s</span>
-                <span>30s</span>
               </div>
             </div>
 

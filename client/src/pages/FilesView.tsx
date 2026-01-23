@@ -62,14 +62,12 @@ export default function FilesView() {
   return (
     <div className="flex h-full">
       {/* Advanced Filters Sidebar - Hidden on mobile by default */}
-      <div className="flex-shrink-0 md:block">
-        <AdvancedFiltersPanel
-          filters={advancedFilters}
-          onFiltersChange={setAdvancedFilters}
-          isOpen={filtersOpen}
-          onToggle={() => setFiltersOpen(!filtersOpen)}
-        />
-      </div>
+      <AdvancedFiltersPanel
+        filters={advancedFilters}
+        onFiltersChange={setAdvancedFilters}
+        isOpen={filtersOpen}
+        onToggle={() => setFiltersOpen(!filtersOpen)}
+      />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -102,6 +100,14 @@ export default function FilesView() {
                     <List className="h-4 w-4" />
                   </Button>
                 </div>
+                {/* Show Filters Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFiltersOpen(!filtersOpen)}
+                >
+                  {filtersOpen ? 'Hide Filters' : 'Show Filters'}
+                </Button>
                 <Button variant="outline" onClick={() => setShowCleanupWizard(true)}>
                   <Trash2 className="h-4 w-4 mr-2" />
                   Clean Up Storage

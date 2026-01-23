@@ -99,35 +99,7 @@ export function AdvancedFiltersPanel({
 
   return (
     <>
-      {/* Toggle Button - Fixed position on mobile to not affect layout */}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onToggle}
-        className="relative md:relative md:m-0 fixed left-4 top-20 z-50 md:z-auto"
-      >
-        {isOpen ? (
-          <>
-            <ChevronLeft className="w-4 h-4 mr-2" />
-            Hide Filters
-          </>
-        ) : (
-          <>
-            <ChevronRight className="w-4 h-4 mr-2" />
-            Show Filters
-          </>
-        )}
-        {!isOpen && activeFilterCount > 0 && (
-          <Badge
-            variant="default"
-            className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center"
-          >
-            {activeFilterCount}
-          </Badge>
-        )}
-      </Button>
-
-      {/* Filters Panel - Full screen overlay on mobile */}
+      {/* Filters Panel - Full screen overlay on mobile, sidebar on desktop */}
       {isOpen && (
         <div className="fixed md:relative inset-0 md:inset-auto md:w-80 w-full md:border-r border-border bg-card p-6 space-y-6 overflow-y-auto z-40">
           <div className="flex items-center justify-between">
