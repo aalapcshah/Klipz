@@ -19,7 +19,9 @@ export default function FilesView() {
   const [selectedFileIds, setSelectedFileIds] = useState<number[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(() => {
     const saved = localStorage.getItem('advancedFiltersOpen');
-    return saved ? JSON.parse(saved) : false;
+    // On mobile, default to closed; on desktop, use saved preference
+    const isMobile = window.innerWidth < 768;
+    return isMobile ? false : (saved ? JSON.parse(saved) : false);
   });
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>(() => {
     const saved = localStorage.getItem('advancedFilters');
@@ -59,8 +61,8 @@ export default function FilesView() {
 
   return (
     <div className="flex h-full">
-      {/* Advanced Filters Sidebar */}
-      <div className="flex-shrink-0">
+      {/* Advanced Filters Sidebar - Hidden on mobile by default */}
+      <div className="flex-shrink-0 md:block">
         <AdvancedFiltersPanel
           filters={advancedFilters}
           onFiltersChange={setAdvancedFilters}

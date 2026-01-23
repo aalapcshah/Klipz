@@ -99,12 +99,12 @@ export function AdvancedFiltersPanel({
 
   return (
     <>
-      {/* Toggle Button */}
+      {/* Toggle Button - Fixed position on mobile to not affect layout */}
       <Button
         variant="outline"
         size="sm"
         onClick={onToggle}
-        className="relative"
+        className="relative md:relative md:m-0 fixed left-4 top-20 z-50 md:z-auto"
       >
         {isOpen ? (
           <>
@@ -127,9 +127,9 @@ export function AdvancedFiltersPanel({
         )}
       </Button>
 
-      {/* Filters Panel */}
+      {/* Filters Panel - Full screen overlay on mobile */}
       {isOpen && (
-        <div className="w-80 border-r border-border bg-card p-6 space-y-6 overflow-y-auto">
+        <div className="fixed md:relative inset-0 md:inset-auto md:w-80 w-full md:border-r border-border bg-card p-6 space-y-6 overflow-y-auto z-40">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Advanced Filters</h3>
             {activeFilterCount > 0 && (

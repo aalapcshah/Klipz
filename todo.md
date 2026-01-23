@@ -1666,3 +1666,10 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Remove redundant permission check (use getUserMedia directly)
 - [ ] Test drawing works without triggering video controls
 - [ ] Test voice recording works with clear error messages
+
+## Phase 138: Fix Mobile Files Page Layout
+- [x] Fix Show Filters button taking entire left column on mobile (fixed position)
+- [x] Make filters collapsible or hidden by default on mobile
+- [x] Filters panel now full-screen overlay on mobile
+- [x] Show Filters button positioned fixed at top-left on mobile
+- [ ] Test layout on mobile viewport
