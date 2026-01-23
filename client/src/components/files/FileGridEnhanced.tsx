@@ -1332,7 +1332,7 @@ export default function FileGridEnhanced({
               return (
                       <Card
                         key={file.id}
-                        className={`group p-4 hover:border-primary/50 transition-colors cursor-pointer relative ${
+                        className={`group p-4 md:p-4 sm:p-6 hover:border-primary/50 transition-colors cursor-pointer relative ${
                           draggedFileId === file.id ? "opacity-50" : ""
                         }`}
                         draggable
@@ -1344,7 +1344,7 @@ export default function FileGridEnhanced({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground transition-opacity"
+                    className="absolute top-2 right-2 h-8 w-8 md:h-6 md:w-6 md:opacity-0 md:group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground transition-opacity"
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedFiles(new Set([file.id]));

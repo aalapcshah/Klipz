@@ -214,17 +214,18 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           </div>
 
           {/* Controls */}
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={togglePlay}>
-              {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button size="default" className="md:h-9 md:px-3" variant="outline" onClick={togglePlay}>
+              {isPlaying ? <Pause className="h-5 w-5 md:h-4 md:w-4" /> : <Play className="h-5 w-5 md:h-4 md:w-4" />}
             </Button>
-            <Button size="sm" variant="outline" onClick={toggleMute}>
-              {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            <Button size="default" className="md:h-9 md:px-3" variant="outline" onClick={toggleMute}>
+              {isMuted ? <VolumeX className="h-5 w-5 md:h-4 md:w-4" /> : <Volume2 className="h-5 w-5 md:h-4 md:w-4" />}
             </Button>
             <div className="flex-1" />
-            <Button size="sm" variant="default" onClick={startAnnotation} disabled={showRecorder}>
-              <Mic className="h-4 w-4 mr-2" />
-              Add Voice Note
+            <Button size="default" className="md:h-9 md:px-3" variant="default" onClick={startAnnotation} disabled={showRecorder}>
+              <Mic className="h-5 w-5 md:h-4 md:w-4 mr-2" />
+              <span className="hidden sm:inline">Add Voice Note</span>
+              <span className="sm:hidden">Voice</span>
             </Button>
           </div>
         </div>

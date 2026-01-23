@@ -1635,3 +1635,23 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [ ] Test drawing works when video is paused
 - [ ] Test voice annotation recording works
 - [ ] Verify annotation dialog shows video player with tools
+
+## Phase 135: Fix Voice Recording Functionality
+- [ ] Check if "Add Voice Note" button exists in VideoPlayerWithAnnotations
+- [ ] Verify VoiceRecorder component requests microphone permissions
+- [ ] Test microphone access in browser
+- [ ] Debug voice recording not triggering
+- [ ] Ensure voice recorder shows recording UI
+- [ ] Test voice annotation saves with transcription
+
+## Phase 136: Mobile Experience Optimization
+- [x] Debug why voice recorder card not appearing (conditional rendering working)
+- [x] Add touch event handlers to VideoDrawingCanvas (touchstart, touchmove, touchend)
+- [x] Optimize Files page grid for mobile (already has grid-cols-1)
+- [x] Make file cards mobile-friendly with larger padding and touch targets
+- [x] Ensure dialogs are full-screen on mobile (max-w-[95vw] already set)
+- [x] Make buttons larger on mobile (h-10 default, md:h-9 on desktop)
+- [x] Add touch-action: none to canvas for better drawing
+- [ ] Test voice recording on mobile device
+- [ ] Test drawing with touch on mobile device
+- [ ] Test all features on actual mobile device

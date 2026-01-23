@@ -72,6 +72,18 @@ export function VideoDrawingCanvas({
       videoContainer.appendChild(canvas);
     }
     
+    // Add touch event listeners
+    const touchStart = (e: TouchEvent) => handleTouchStart(e as any);
+    const touchMove = (e: TouchEvent) => handleTouchMove(e as any);
+    const touchEnd = () => handleTouchEnd();
+    
+    if (showCanvas) {
+      canvas.addEventListener('touchstart', touchStart, { passive: false });
+      canvas.addEventListener('touchmove', touchMove, { passive: false });
+      canvas.addEventListener('touchend', touchEnd);
+      canvas.addEventListener('touchcancel', touchEnd);
+    }
+    
     // Match canvas size to video display size
     const resizeCanvas = () => {
       const rect = video.getBoundingClientRect();
@@ -87,6 +99,7 @@ export function VideoDrawingCanvas({
       canvas.style.zIndex = '10';
       canvas.style.pointerEvents = showCanvas ? 'auto' : 'none';
       canvas.style.cursor = 'crosshair';
+      canvas.style.touchAction = 'none';
       redrawCanvas();
     };
     
@@ -95,6 +108,10 @@ export function VideoDrawingCanvas({
     
     return () => {
       window.removeEventListener("resize", resizeCanvas);
+      canvas.removeEventListener('touchstart', touchStart);
+      canvas.removeEventListener('touchmove', touchMove);
+      canvas.removeEventListener('touchend', touchEnd);
+      canvas.removeEventListener('touchcancel', touchEnd);
       if (videoContainer.contains(canvas)) {
         videoContainer.removeChild(canvas);
       }
@@ -192,6 +209,18 @@ export function VideoDrawingCanvas({
     };
   };
 
+  const getTouchPos = (e: React.TouchEvent<HTMLCanvasElement>): Point => {
+    const canvas = canvasRef.current;
+    if (!canvas || e.touches.length === 0) return { x: 0, y: 0 };
+    
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    return {
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+    };
+  };
+
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (selectedTool === "text") {
       const pos = getMousePos(e);
@@ -201,6 +230,28 @@ export function VideoDrawingCanvas({
     
     setIsDrawing(true);
     const pos = getMousePos(e);
+    
+    const newElement: DrawingElement = {
+      id: Date.now().toString(),
+      type: selectedTool,
+      points: [pos],
+      color,
+      strokeWidth,
+    };
+    
+    setCurrentElement(newElement);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (selectedTool === "text") {
+      const pos = getTouchPos(e);
+      setTextPosition(pos);
+      return;
+    }
+    
+    setIsDrawing(true);
+    const pos = getTouchPos(e);
     
     const newElement: DrawingElement = {
       id: Date.now().toString(),
@@ -231,6 +282,41 @@ export function VideoDrawingCanvas({
     }
     
     redrawCanvas();
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (!isDrawing || !currentElement) return;
+    
+    const pos = getTouchPos(e);
+    
+    if (selectedTool === "pen") {
+      setCurrentElement({
+        ...currentElement,
+        points: [...currentElement.points, pos],
+      });
+    } else {
+      setCurrentElement({
+        ...currentElement,
+        points: [currentElement.points[0], pos],
+      });
+    }
+    
+    redrawCanvas();
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDrawing || !currentElement) return;
+    
+    setElements([...elements, currentElement]);
+    setCurrentElement(null);
+    setIsDrawing(false);
+    
+    // Add to history
+    const newHistory = history.slice(0, historyStep + 1);
+    newHistory.push([...elements, currentElement]);
+    setHistory(newHistory);
+    setHistoryStep(newHistory.length - 1);
   };
 
   const handleMouseUp = () => {
@@ -340,12 +426,12 @@ export function VideoDrawingCanvas({
   return (
     <div className="space-y-3">
       <Button
-        size="sm"
+        size="default"
+        className="md:h-9 md:text-sm"
         variant={showCanvas ? "default" : "outline"}
         onClick={toggleCanvas}
-        className="w-full"
       >
-        <Pencil className="h-4 w-4 mr-2" />
+        <Pencil className="h-5 w-5 md:h-4 md:w-4 mr-2" />
         {showCanvas ? "Hide Drawing Tools" : "Draw on Video"}
       </Button>
 
@@ -355,39 +441,44 @@ export function VideoDrawingCanvas({
           <div className="space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
               <Button
-                size="sm"
+                size="default"
+                className="md:h-9 md:w-9 md:p-0"
                 variant={selectedTool === "pen" ? "default" : "outline"}
                 onClick={() => setSelectedTool("pen")}
               >
-                <Pencil className="h-4 w-4" />
+                <Pencil className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
               <Button
-                size="sm"
+                size="default"
+                className="md:h-9 md:w-9 md:p-0"
                 variant={selectedTool === "rectangle" ? "default" : "outline"}
                 onClick={() => setSelectedTool("rectangle")}
               >
-                <Square className="h-4 w-4" />
+                <Square className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
               <Button
-                size="sm"
+                size="default"
+                className="md:h-9 md:w-9 md:p-0"
                 variant={selectedTool === "circle" ? "default" : "outline"}
                 onClick={() => setSelectedTool("circle")}
               >
-                <Circle className="h-4 w-4" />
+                <Circle className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
               <Button
-                size="sm"
+                size="default"
+                className="md:h-9 md:w-9 md:p-0"
                 variant={selectedTool === "arrow" ? "default" : "outline"}
                 onClick={() => setSelectedTool("arrow")}
               >
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
               <Button
-                size="sm"
+                size="default"
+                className="md:h-9 md:w-9 md:p-0"
                 variant={selectedTool === "text" ? "default" : "outline"}
                 onClick={() => setSelectedTool("text")}
               >
-                <Type className="h-4 w-4" />
+                <Type className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
               <Button
                 size="sm"
