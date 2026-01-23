@@ -3,6 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { stripeRouter } from "./routers/stripe";
 import { voiceAnnotationsRouter } from "./routers/voiceAnnotations";
+import { visualAnnotationsRouter } from "./routers/visual-annotations";
 import { storageCleanupRouter } from "./routers/storageCleanup";
 import { qualityScoreRouter } from "./routers/qualityScore";
 import { qualityImprovementRouter } from "./routers/qualityImprovement";
@@ -319,6 +320,7 @@ export const appRouter = router({
   system: systemRouter,
   stripe: stripeRouter,
   voiceAnnotations: voiceAnnotationsRouter,
+  visualAnnotations: visualAnnotationsRouter,
   storageCleanup: storageCleanupRouter,
   qualityScore: qualityScoreRouter,
   qualityImprovement: qualityImprovementRouter,

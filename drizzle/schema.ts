@@ -118,6 +118,30 @@ export type VoiceAnnotation = typeof voiceAnnotations.$inferSelect;
 export type InsertVoiceAnnotation = typeof voiceAnnotations.$inferInsert;
 
 /**
+ * Visual annotations table - drawings and overlays on videos
+ */
+export const visualAnnotations = mysqlTable("visual_annotations", {
+  id: int("id").autoincrement().primaryKey(),
+  fileId: int("fileId").notNull(), // Foreign key to files table
+  userId: int("userId").notNull(),
+  
+  // Drawing image info
+  imageUrl: text("imageUrl").notNull(), // S3 URL for drawing overlay image
+  imageKey: varchar("imageKey", { length: 512 }).notNull(), // S3 key
+  
+  // Timestamp in video
+  videoTimestamp: int("videoTimestamp").notNull(), // Timestamp in video (seconds)
+  
+  // Optional description
+  description: text("description"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type VisualAnnotation = typeof visualAnnotations.$inferSelect;
+export type InsertVisualAnnotation = typeof visualAnnotations.$inferInsert;
+
+/**
  * Tags table - hierarchical tagging system
  */
 export const tags = mysqlTable("tags", {

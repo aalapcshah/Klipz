@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare } from "lucide-react";
 import { VoiceRecorder } from "./VoiceRecorder";
+import { VideoDrawingCanvas } from "./VideoDrawingCanvas";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -22,8 +23,11 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [recordingTimestamp, setRecordingTimestamp] = useState(0);
 
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.voiceAnnotations.getAnnotations.useQuery({ fileId });
+  const { data: visualAnnotations = [], refetch: refetchVisualAnnotations } = trpc.visualAnnotations.getAnnotations.useQuery({ fileId });
   const saveAnnotation = trpc.voiceAnnotations.saveAnnotation.useMutation();
+  const saveVisualAnnotation = trpc.visualAnnotations.saveAnnotation.useMutation();
   const deleteAnnotation = trpc.voiceAnnotations.deleteAnnotation.useMutation();
+  const deleteVisualAnnotation = trpc.visualAnnotations.deleteAnnotation.useMutation();
 
   useEffect(() => {
     const video = videoRef.current;
@@ -128,6 +132,30 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const handleSaveVisualAnnotation = async (imageDataUrl: string, timestamp: number) => {
+    try {
+      await saveVisualAnnotation.mutateAsync({
+        fileId,
+        imageDataUrl,
+        videoTimestamp: Math.floor(timestamp),
+      });
+      toast.success("Drawing annotation saved!");
+      refetchVisualAnnotations();
+    } catch (error) {
+      toast.error("Failed to save drawing annotation");
+    }
+  };
+
+  const handleDeleteVisualAnnotation = async (annotationId: number) => {
+    try {
+      await deleteVisualAnnotation.mutateAsync({ annotationId });
+      toast.success("Drawing annotation deleted");
+      refetchVisualAnnotations();
+    } catch (error) {
+      toast.error("Failed to delete drawing annotation");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Card className="overflow-hidden">
@@ -139,7 +167,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             onClick={togglePlay}
           />
           
-          {/* Annotation markers on timeline */}
+          {/* Voice annotation markers on timeline */}
           {annotations.length > 0 && duration > 0 && (
             <div className="absolute bottom-16 left-0 right-0 h-1 bg-transparent pointer-events-none">
               {annotations.map((annotation) => (
@@ -148,6 +176,20 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                   className="absolute top-0 w-1 h-3 bg-yellow-500 rounded-full"
                   style={{ left: `${(annotation.videoTimestamp / duration) * 100}%` }}
                   title={`Annotation at ${formatTime(annotation.videoTimestamp)}`}
+                />
+              ))}
+            </div>
+          )}
+          
+          {/* Visual annotation markers on timeline */}
+          {visualAnnotations.length > 0 && duration > 0 && (
+            <div className="absolute bottom-16 left-0 right-0 h-1 bg-transparent pointer-events-none">
+              {visualAnnotations.map((annotation) => (
+                <div
+                  key={annotation.id}
+                  className="absolute top-0 w-1 h-3 bg-blue-500 rounded-full"
+                  style={{ left: `${(annotation.videoTimestamp / duration) * 100}%` }}
+                  title={`Drawing at ${formatTime(annotation.videoTimestamp)}`}
                 />
               ))}
             </div>
@@ -188,6 +230,13 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         </div>
       </Card>
 
+      {/* Drawing Canvas */}
+      <VideoDrawingCanvas
+        videoRef={videoRef}
+        currentTime={currentTime}
+        onSaveAnnotation={handleSaveVisualAnnotation}
+      />
+
       {/* Voice Recorder */}
       {showRecorder && (
         <Card className="p-4">
@@ -210,7 +259,46 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         </Card>
       )}
 
-      {/* Annotations List */}
+      {/* Visual Annotations List */}
+      {visualAnnotations.length > 0 && (
+        <Card className="p-4">
+          <h3 className="font-semibold mb-3 flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Drawing Annotations ({visualAnnotations.length})
+          </h3>
+          <div className="space-y-2">
+            {visualAnnotations.map((annotation) => (
+              <div
+                key={annotation.id}
+                className="p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => jumpToAnnotation(annotation.videoTimestamp)}
+                    className="flex items-center gap-3 flex-1 text-left"
+                  >
+                    <Badge variant="secondary">{formatTime(annotation.videoTimestamp)}</Badge>
+                    <img
+                      src={annotation.imageUrl}
+                      alt="Drawing annotation"
+                      className="h-16 w-24 object-contain bg-black/10 rounded"
+                    />
+                  </button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleDeleteVisualAnnotation(annotation.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Voice Annotations List */}
       {annotations.length > 0 && (
         <Card className="p-4">
           <h3 className="font-semibold mb-3 flex items-center gap-2">

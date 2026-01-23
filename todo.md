@@ -1562,7 +1562,21 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [ ] Audit third-party dependencies for vulnerabilities (run pnpm audit)
 - [x] Add security headers (CSP, X-Frame-Options, etc.)
 
-## Phase 128: Performance & Testing
+## Phase 128: Visual Video Annotation System
+- [x] Design canvas-based drawing system with video overlay
+- [x] Implement drawing tools (pen, shapes, text, arrows)
+- [x] Add color picker and stroke width controls
+- [x] Implement eraser tool (clear button)
+- [x] Add undo/redo functionality for drawings
+- [x] Save drawings as image overlays linked to video timestamps
+- [x] Display saved visual annotations when video reaches timestamp
+- [x] Add database schema for visual annotations (drawings)
+- [x] Create tRPC procedures for saving/loading visual annotations
+- [x] Add ability to edit/delete visual annotations
+- [ ] Test drawing on mobile touch screens
+- [ ] Add tutorial/help for drawing tools
+
+## Phase 129: Performance & Testing
 - [ ] Run lighthouse audit and fix performance issues
 - [ ] Optimize bundle size and code splitting
 - [ ] Test all features on Chrome, Firefox, Safari
@@ -1574,7 +1588,7 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [ ] Test storage cleanup wizard with real data
 - [ ] Verify all payment flows work correctly
 
-## Phase 129: Production Deployment Checklist
+## Phase 130: Production Deployment Checklist
 - [ ] Set up production environment variables
 - [ ] Configure production database backups
 - [ ] Set up monitoring and alerting
