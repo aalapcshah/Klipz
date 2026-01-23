@@ -6,6 +6,7 @@ import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine } fr
 import { VoiceRecorder } from "./VoiceRecorder";
 import { VideoDrawingCanvas } from "./VideoDrawingCanvas";
 import { AnnotationTimeline } from "./AnnotationTimeline";
+import { HorizontalAnnotationTimeline } from "./HorizontalAnnotationTimeline";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -410,8 +411,24 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         </Card>
       )}
 
-      {/* Annotation Timeline */}
+      {/* Horizontal Annotation Timeline */}
       {showTimeline && (
+        <HorizontalAnnotationTimeline
+          voiceAnnotations={annotations}
+          visualAnnotations={visualAnnotations}
+          videoDuration={duration}
+          currentTime={currentTime}
+          onJumpToTime={(timestamp) => {
+            if (videoRef.current) {
+              videoRef.current.currentTime = timestamp;
+              videoRef.current.play();
+            }
+          }}
+        />
+      )}
+
+      {/* Detailed Annotation Timeline (Old) - Keep for reference */}
+      {false && showTimeline && (
         <AnnotationTimeline
           fileId={fileId}
           videoTitle={videoUrl.split('/').pop() || 'Video'}

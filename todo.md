@@ -1765,3 +1765,17 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [ ] Display all annotations on horizontal time bar
 - [ ] Add visual markers for voice notes and drawings on timeline
 - [ ] Test complete annotation workflow end-to-end
+
+## Phase 147: Horizontal Timeline Bar and Annotation Search
+- [x] Create HorizontalAnnotationTimeline component
+- [x] Display horizontal bar with video duration scale
+- [x] Add yellow markers for voice annotations at correct positions
+- [x] Add blue markers for visual annotations with duration bars
+- [x] Make markers clickable to jump to timestamp
+- [x] Show tooltip on hover with annotation preview (transcript/image)
+- [x] Add search input box above timeline
+- [x] Filter annotations by transcript keyword search
+- [x] Show filtered count when searching
+- [x] Update timeline when search query changes
+- [x] Add legend showing annotation counts
+- [ ] Test timeline navigation and search functionality
