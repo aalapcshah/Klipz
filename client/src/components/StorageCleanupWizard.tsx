@@ -20,6 +20,7 @@ import {
   HardDrive
 } from "lucide-react";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
 
 interface StorageCleanupWizardProps {
   open: boolean;
@@ -79,45 +80,55 @@ export function StorageCleanupWizard({ open, onOpenChange, onComplete }: Storage
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
   };
 
+  const scanMutation = trpc.storageCleanup.scanFiles.useQuery(undefined, { enabled: false });
+  const deleteMutation = trpc.storageCleanup.deleteFiles.useMutation();
+  const [scannedFiles, setScannedFiles] = useState<any>(null);
+
   const handleScan = async () => {
     setIsScanning(true);
     
-    // Simulate scanning process
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Mock data - in real implementation, this would come from the backend
-    setCategories([
-      {
-        id: 'duplicates',
-        icon: Copy,
-        title: 'Duplicate Files',
-        description: 'Files with identical content that can be safely removed',
-        fileCount: 12,
-        storageSize: 45 * 1024 * 1024, // 45 MB
-        selected: false
-      },
-      {
-        id: 'low_quality',
-        icon: TrendingDown,
-        title: 'Low Quality Files',
-        description: 'Files with quality score below 50',
-        fileCount: 8,
-        storageSize: 23 * 1024 * 1024, // 23 MB
-        selected: false
-      },
-      {
-        id: 'unused',
-        icon: Clock,
-        title: 'Unused Files',
-        description: 'Files not accessed in the last 90 days',
-        fileCount: 34,
-        storageSize: 156 * 1024 * 1024, // 156 MB
-        selected: false
+    try {
+      const result = await scanMutation.refetch();
+      if (result.data) {
+        setScannedFiles(result.data);
+        setCategories([
+          {
+            id: 'duplicates',
+            icon: Copy,
+            title: 'Duplicate Files',
+            description: 'Files with identical content that can be safely removed',
+            fileCount: result.data.summary.duplicateCount,
+            storageSize: result.data.duplicates.reduce((sum: number, f: any) => sum + f.fileSize, 0),
+            selected: false
+          },
+          {
+            id: 'low_quality',
+            icon: TrendingDown,
+            title: 'Low Quality Files',
+            description: 'Files with quality score below 50',
+            fileCount: result.data.summary.lowQualityCount,
+            storageSize: result.data.lowQuality.reduce((sum: number, f: any) => sum + f.fileSize, 0),
+            selected: false
+          },
+          {
+            id: 'unused',
+            icon: Clock,
+            title: 'Unused Files',
+            description: 'Files not accessed in the last 90 days',
+            fileCount: result.data.summary.unusedCount,
+            storageSize: result.data.unused.reduce((sum: number, f: any) => sum + f.fileSize, 0),
+            selected: false
+          }
+        ]);
+        
+        setStep('select');
       }
-    ]);
-    
-    setIsScanning(false);
-    setStep('select');
+    } catch (error) {
+      console.error('Scan error:', error);
+      toast.error('Failed to scan files');
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   const toggleCategory = (id: string) => {
@@ -143,12 +154,38 @@ export function StorageCleanupWizard({ open, onOpenChange, onComplete }: Storage
   const handleDelete = async () => {
     setIsDeleting(true);
     
-    // Simulate deletion process
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setIsDeleting(false);
-    setStep('complete');
-    toast.success(`Successfully freed ${formatBytes(totalStorageToFree)}`);
+    try {
+      if (!scannedFiles) {
+        throw new Error('No scan data available');
+      }
+
+      // Collect file IDs from selected categories
+      const fileIds: number[] = [];
+      selectedCategories.forEach(cat => {
+        if (cat.id === 'duplicates') {
+          fileIds.push(...scannedFiles.duplicates.map((f: any) => f.id));
+        } else if (cat.id === 'low_quality') {
+          fileIds.push(...scannedFiles.lowQuality.map((f: any) => f.id));
+        } else if (cat.id === 'unused') {
+          fileIds.push(...scannedFiles.unused.map((f: any) => f.id));
+        }
+      });
+
+      const result = await deleteMutation.mutateAsync({ fileIds });
+      
+      setStep('complete');
+      toast.success(`Successfully freed ${formatBytes(result.sizeFreed)}`);
+      
+      // Trigger file list refresh if onComplete callback exists
+      if (onComplete) {
+        onComplete();
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete files');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleClose = () => {

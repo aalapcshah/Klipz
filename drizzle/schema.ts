@@ -81,12 +81,41 @@ export const files = mysqlTable("files", {
   // Duplicate detection
   perceptualHash: varchar("perceptualHash", { length: 64 }), // Image hash for duplicate detection
   
+  // Access tracking for cleanup
+  lastAccessedAt: timestamp("lastAccessedAt").defaultNow().notNull(),
+  qualityScore: int("qualityScore").default(0), // 0-100 quality score
+  
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 export type File = typeof files.$inferSelect;
 export type InsertFile = typeof files.$inferInsert;
+
+/**
+ * Voice annotations table - timestamped voice notes for videos
+ */
+export const voiceAnnotations = mysqlTable("voice_annotations", {
+  id: int("id").autoincrement().primaryKey(),
+  fileId: int("fileId").notNull(), // Foreign key to files table
+  userId: int("userId").notNull(),
+  
+  // Voice recording info
+  audioUrl: text("audioUrl").notNull(), // S3 URL for voice annotation
+  audioKey: varchar("audioKey", { length: 512 }).notNull(), // S3 key
+  duration: int("duration").notNull(), // Duration in seconds
+  
+  // Timestamp in video
+  videoTimestamp: int("videoTimestamp").notNull(), // Timestamp in video (seconds)
+  
+  // Transcription (optional)
+  transcript: text("transcript"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type VoiceAnnotation = typeof voiceAnnotations.$inferSelect;
+export type InsertVoiceAnnotation = typeof voiceAnnotations.$inferInsert;
 
 /**
  * Tags table - hierarchical tagging system

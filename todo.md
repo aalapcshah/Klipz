@@ -1402,3 +1402,26 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [ ] Calculate storage savings accurately
 - [ ] Add transaction support for bulk operations
 - [ ] Test cleanup APIs with real data
+
+## Phase 113: Voice Recorder in Video Viewer Integration
+- [x] Find or create video viewer component (FileDetailDialog)
+- [x] Add database schema for voice_annotations table
+- [x] Create backend API to save voice annotations with timestamps
+- [x] Create backend API to retrieve annotations for a file
+- [x] Integrate VoiceRecorder component into video viewer (VideoPlayerWithAnnotations)
+- [x] Add timestamp tracking during recording
+- [x] Upload voice annotations to S3 via backend
+- [x] Display annotation markers on video timeline
+- [x] Add playback controls for annotations
+- [x] Write and run vitest tests for voice annotations
+
+## Phase 114: Storage Cleanup Backend APIs
+- [x] Create database queries to detect duplicate files by hash
+- [x] Create API to scan for duplicate files
+- [x] Create API to identify low-quality files (score < 50)
+- [x] Create API to find unused files (lastAccessedAt > 90 days)
+- [x] Create API to calculate total storage savings
+- [x] Create API to bulk delete selected files
+- [x] Update StorageCleanupWizard to use real backend APIs
+- [x] Add file access tracking (update lastAccessedAt on view)
+- [x] Write and run vitest tests for storage cleanup

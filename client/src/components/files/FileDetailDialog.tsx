@@ -23,6 +23,7 @@ import {
   GitCompare,
 } from "lucide-react";
 import { FileVersionHistory } from "./FileVersionHistory";
+import { VideoPlayerWithAnnotations } from "../VideoPlayerWithAnnotations";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
@@ -244,6 +245,10 @@ export function FileDetailDialog({
                     className="w-full h-auto max-h-96 object-contain bg-muted"
                   />
                 </div>
+              )}
+              
+              {file.mimeType.startsWith("video/") && (
+                <VideoPlayerWithAnnotations fileId={file.id} videoUrl={file.url} />
               )}
 
               {/* File Metadata */}
