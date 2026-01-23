@@ -1491,3 +1491,20 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Add sortable columns in list view (filename, size, date, quality score)
 - [x] Persist view preference in localStorage
 - [x] Ensure both views support all file operations (select, delete, download)
+
+## Phase 122: Navigation Menu Overflow Fix
+- [x] Redesign top navigation to prevent text overlap
+- [x] Group related menu items into dropdown submenus
+- [x] Reduce font size or add responsive breakpoints (text-sm, gap-2)
+- [x] Create "Tools" submenu (Enrichment Queue, Scheduled Exports)
+- [x] Create "Insights" submenu (Knowledge Graph, Analytics, Activity)
+- [x] Test navigation on mobile and desktop
+
+## Phase 123: File Detail Dialog Layout Fix
+- [x] Fix horizontal text overflow in dialog title (break-words, pr-8)
+- [x] Make dialog content scrollable vertically (flex-1 overflow-y-auto)
+- [x] Reduce font sizes for better fit (text-lg for title, text-sm for description)
+- [x] Move Quality Improvement Suggestions to bottom of dialog (before Version History)
+- [x] Ensure metadata sections don't overflow horizontally (grid layout with text-sm)
+- [x] Add max-width constraints to dialog content (max-w-5xl)
+- [x] Test dialog on various screen sizes

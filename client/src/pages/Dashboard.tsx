@@ -18,8 +18,16 @@ import {
   Mail,
   ListChecks,
   Calendar,
-  Activity
+  Activity,
+  ChevronDown,
+  Wrench
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Loader2 } from "lucide-react";
@@ -60,18 +68,25 @@ export default function Dashboard() {
     );
   }
 
-  const navItems = [
+  const mainNavItems = [
     { href: "/", label: "Files", icon: FileIcon },
     { href: "/search", label: "Search", icon: SearchIcon },
     { href: "/videos", label: "Videos", icon: VideoIcon },
     { href: "/collections", label: "Collections", icon: FolderIcon },
+  ];
+
+  const toolsMenuItems = [
     { href: "/enrichment-queue", label: "Enrichment Queue", icon: ListChecks },
+    { href: "/scheduled-exports", label: "Scheduled Exports", icon: Calendar },
+  ];
+
+  const insightsMenuItems = [
     { href: "/knowledge-graph", label: "Knowledge Graph", icon: NetworkIcon },
     { href: "/activity", label: "Activity", icon: Activity },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
-    { href: "/scheduled-exports", label: "Scheduled Exports", icon: Calendar },
-    { href: "/settings", label: "Settings", icon: SettingsIcon },
   ];
+
+  const allNavItems = [...mainNavItems, ...toolsMenuItems, ...insightsMenuItems, { href: "/settings", label: "Settings", icon: SettingsIcon }];
 
   return (
     <div className="min-h-screen bg-background">
@@ -84,16 +99,16 @@ export default function Dashboard() {
               MetaClips
             </Link>
             
-            {/* Desktop Navigation - horizontal scroll on medium screens */}
-            <nav className="hidden md:flex items-center gap-1 lg:gap-2 overflow-x-auto scrollbar-hide max-w-[calc(100vw-400px)] lg:max-w-none">
-              {navItems.map((item) => {
+            {/* Desktop Navigation with dropdown menus */}
+            <nav className="hidden md:flex items-center gap-2">
+              {mainNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location === item.href;
                 return (
                   <Link 
                     key={item.href} 
                     href={item.href}
-                    className={`flex items-center gap-1.5 px-3 lg:px-4 py-2 rounded-md transition-colors text-sm whitespace-nowrap ${
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors text-sm whitespace-nowrap ${
                       isActive
                         ? "bg-primary text-primary-foreground"
                         : "hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -104,6 +119,75 @@ export default function Dashboard() {
                   </Link>
                 );
               })}
+              
+              {/* Tools Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant={toolsMenuItems.some(item => location === item.href) ? "default" : "ghost"}
+                    size="sm"
+                    className="flex items-center gap-1.5 text-sm"
+                  >
+                    <Wrench className="h-4 w-4" />
+                    <span className="hidden lg:inline">Tools</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {toolsMenuItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem key={item.href} asChild>
+                        <Link href={item.href} className="flex items-center gap-2 cursor-pointer">
+                          <Icon className="h-4 w-4" />
+                          {item.label}
+                        </Link>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Insights Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant={insightsMenuItems.some(item => location === item.href) ? "default" : "ghost"}
+                    size="sm"
+                    className="flex items-center gap-1.5 text-sm"
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    <span className="hidden lg:inline">Insights</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {insightsMenuItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem key={item.href} asChild>
+                        <Link href={item.href} className="flex items-center gap-2 cursor-pointer">
+                          <Icon className="h-4 w-4" />
+                          {item.label}
+                        </Link>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Settings */}
+              <Link 
+                href="/settings"
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors text-sm whitespace-nowrap ${
+                  location === "/settings"
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <SettingsIcon className="h-4 w-4 shrink-0" />
+                <span className="hidden lg:inline">Settings</span>
+              </Link>
             </nav>
             
             {/* Mobile Menu Button */}
@@ -144,7 +228,7 @@ export default function Dashboard() {
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-border bg-card">
           <nav className="container py-4 flex flex-col gap-2">
-            {navItems.map((item) => {
+            {allNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.href;
               return (

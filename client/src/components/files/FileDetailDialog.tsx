@@ -222,19 +222,21 @@ export function FileDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : file ? (
           <>
-            <DialogHeader>
-              <DialogTitle>{file.title || file.filename}</DialogTitle>
-              <DialogDescription>
+            <DialogHeader className="flex-shrink-0">
+              <DialogTitle className="text-lg break-words pr-8">{file.title || file.filename}</DialogTitle>
+              <DialogDescription className="text-sm">
                 {file.mimeType} • {(file.fileSize / 1024 / 1024).toFixed(2)} MB
               </DialogDescription>
             </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2">
 
             <div className="space-y-6">
               {/* File Preview */}
@@ -250,11 +252,6 @@ export function FileDetailDialog({
               
               {file.mimeType.startsWith("video/") && (
                 <VideoPlayerWithAnnotations fileId={file.id} videoUrl={file.url} />
-              )}
-
-              {/* Quality Improvement Panel */}
-              {file.mimeType.startsWith("image/") && (
-                <QualityImprovementPanel fileId={file.id} currentScore={file.qualityScore} />
               )}
 
               {/* File Metadata */}
@@ -704,6 +701,13 @@ export function FileDetailDialog({
                 </div>
                 <Button onClick={() => onOpenChange(false)}>Close</Button>
               </div>
+
+              {/* Quality Improvement Panel - Moved to bottom */}
+              {file.mimeType.startsWith("image/") && (
+                <div className="mt-6">
+                  <QualityImprovementPanel fileId={file.id} currentScore={file.qualityScore} />
+                </div>
+              )}
               
               {/* Version History Section */}
               <div className="mt-8 border-t pt-6">
@@ -714,6 +718,7 @@ export function FileDetailDialog({
                   }}
                 />
               </div>
+            </div>
             </div>
           </>
         ) : (
