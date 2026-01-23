@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { Upload } from "lucide-react";
+import { Upload, LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FileUploadDialog } from "@/components/files/FileUploadDialog";
 import FileGridEnhanced from "@/components/files/FileGridEnhanced";
+import { FileListView } from "@/components/files/FileListView";
+import { VoiceSearchBar } from "@/components/VoiceSearchBar";
 import { FileDetailDialog } from "@/components/files/FileDetailDialog";
 import { BulkOperationsToolbar } from "@/components/files/BulkOperationsToolbar";
 import { AdvancedFiltersPanel, type AdvancedFilters } from "@/components/files/AdvancedFiltersPanel";
@@ -30,7 +32,13 @@ export default function FilesView() {
       qualityScore: [],
     };
   });
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    const saved = localStorage.getItem('filesViewMode');
+    return (saved as 'grid' | 'list') || 'grid';
+  });
   const utils = trpc.useUtils();
+  const { data: filesData } = trpc.files.list.useQuery();
+  const [searchResults, setSearchResults] = useState<any[] | null>(null);
 
   // Persist filters to localStorage
   useEffect(() => {
@@ -40,6 +48,10 @@ export default function FilesView() {
   useEffect(() => {
     localStorage.setItem('advancedFiltersOpen', JSON.stringify(filtersOpen));
   }, [filtersOpen]);
+
+  useEffect(() => {
+    localStorage.setItem('filesViewMode', viewMode);
+  }, [viewMode]);
 
   const handleFileClick = (fileId: number) => {
     setSelectedFileId(fileId);
@@ -60,31 +72,82 @@ export default function FilesView() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="p-6 space-y-6 overflow-y-auto">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Files</h1>
-              <p className="text-muted-foreground">
-                Manage and enrich your media files with AI
-              </p>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold">Files</h1>
+                <p className="text-muted-foreground">
+                  Manage and enrich your media files with AI
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {/* View Toggle */}
+                <div className="flex border rounded-md">
+                  <Button
+                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                    className="rounded-r-none"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'list' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                    className="rounded-l-none"
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Button variant="outline" onClick={() => setShowCleanupWizard(true)}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clean Up Storage
+                </Button>
+                <Button onClick={() => setUploadDialogOpen(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Files
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowCleanupWizard(true)}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                Clean Up Storage
-              </Button>
-              <Button onClick={() => setUploadDialogOpen(true)}>
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Files
-              </Button>
-            </div>
+            
+            {/* Voice Search Bar */}
+            <VoiceSearchBar
+              onSearch={(results) => setSearchResults(results)}
+              placeholder="Search files with voice or text..."
+            />
+            
+            {searchResults && (
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <span className="text-sm">
+                  Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSearchResults(null)}
+                >
+                  Clear Search
+                </Button>
+              </div>
+            )}
           </div>
 
-          <FileGridEnhanced 
-            onFileClick={handleFileClick}
-            selectedFileIds={selectedFileIds}
-            onSelectionChange={setSelectedFileIds}
-            advancedFilters={advancedFilters}
-          />
+          {viewMode === 'grid' ? (
+            <FileGridEnhanced 
+              onFileClick={handleFileClick}
+              selectedFileIds={selectedFileIds}
+              onSelectionChange={setSelectedFileIds}
+              advancedFilters={advancedFilters}
+            />
+          ) : (
+            <FileListView
+              files={searchResults || filesData || []}
+              onFileClick={handleFileClick}
+              selectedFileIds={selectedFileIds}
+              onSelectionChange={setSelectedFileIds}
+            />
+          )}
         </div>
 
         <FileUploadDialog

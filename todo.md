@@ -1475,3 +1475,19 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [ ] Integrate real transcription API (currently simulated)
 - [ ] Add voice search history and suggestions (deferred)
 - [ ] Integrate with existing file search/filter system UI (deferred)
+
+## Phase 120: Voice Search Integration in Files Page
+- [x] Add VoiceSearchBar component to Files page header
+- [x] Connect voice search results to Files view display
+- [x] Update file filtering logic to show voice search results (list view)
+- [x] Add "Clear Search" button to reset to all files
+- [x] Show search query and result count in UI
+- [x] Test voice search end-to-end in Files page
+
+## Phase 121: List/Grid View Toggle for Files
+- [x] Add view toggle buttons (grid/list icons) to Files page header
+- [x] Create FileListView component for table-style display
+- [x] Show file details in list view (name, type, size, date, quality score)
+- [x] Add sortable columns in list view (filename, size, date, quality score)
+- [x] Persist view preference in localStorage
+- [x] Ensure both views support all file operations (select, delete, download)
