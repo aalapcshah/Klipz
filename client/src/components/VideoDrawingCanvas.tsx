@@ -63,19 +63,42 @@ export function VideoDrawingCanvas({
     
     const canvas = canvasRef.current;
     const video = videoRef.current;
+    const videoContainer = video.parentElement;
+    
+    if (!videoContainer) return;
+    
+    // Append canvas to video container
+    if (showCanvas && !videoContainer.contains(canvas)) {
+      videoContainer.appendChild(canvas);
+    }
     
     // Match canvas size to video display size
     const resizeCanvas = () => {
       const rect = video.getBoundingClientRect();
+      const containerRect = videoContainer.getBoundingClientRect();
       canvas.width = rect.width;
       canvas.height = rect.height;
+      // Position canvas over video
+      canvas.style.position = 'absolute';
+      canvas.style.top = '0';
+      canvas.style.left = '0';
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
+      canvas.style.zIndex = '10';
+      canvas.style.pointerEvents = showCanvas ? 'auto' : 'none';
+      canvas.style.cursor = 'crosshair';
       redrawCanvas();
     };
     
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
     
-    return () => window.removeEventListener("resize", resizeCanvas);
+    return () => {
+      window.removeEventListener("resize", resizeCanvas);
+      if (videoContainer.contains(canvas)) {
+        videoContainer.removeChild(canvas);
+      }
+    };
   }, [showCanvas]);
 
   const redrawCanvas = () => {
@@ -466,20 +489,7 @@ export function VideoDrawingCanvas({
             </div>
           )}
 
-          {/* Canvas Overlay */}
-          <div className="relative">
-            <canvas
-              ref={canvasRef}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              className="absolute top-0 left-0 cursor-crosshair border-2 border-primary rounded"
-              style={{
-                pointerEvents: showCanvas ? "auto" : "none",
-              }}
-            />
-          </div>
+          {/* Canvas is rendered as portal over video */}
 
           <div className="text-xs text-muted-foreground space-y-1">
             <p>• Click and drag to draw on the video</p>

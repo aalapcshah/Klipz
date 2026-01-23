@@ -231,7 +231,7 @@ export function VideoList() {
         open={editingVideoId !== null}
         onOpenChange={(open) => !open && setEditingVideoId(null)}
       >
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Video & Annotations</DialogTitle>
           </DialogHeader>
@@ -254,7 +254,7 @@ export function VideoList() {
       {/* Annotation Dialog */}
       {annotatingVideo && (
         <Dialog open={true} onOpenChange={() => setAnnotatingVideo(null)}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[95vw] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{annotatingVideo.title}</DialogTitle>
             </DialogHeader>

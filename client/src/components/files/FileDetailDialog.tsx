@@ -224,7 +224,7 @@ export function FileDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`max-w-7xl max-h-[90vh] overflow-hidden flex flex-col ${isMobile ? 'w-full h-full max-w-full max-h-full rounded-none' : ''}`}>
+      <DialogContent className={`max-w-[95vw] max-h-[90vh] overflow-hidden flex flex-col ${isMobile ? 'w-full h-full max-w-full max-h-full rounded-none' : ''}`}>
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />

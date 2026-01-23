@@ -159,7 +159,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   return (
     <div className="space-y-4">
       <Card className="overflow-hidden">
-        <div className="relative bg-black">
+        <div className="relative bg-black" id="video-container">
           <video
             ref={videoRef}
             src={videoUrl}
@@ -230,7 +230,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         </div>
       </Card>
 
-      {/* Drawing Canvas */}
+      {/* Drawing Canvas Controls */}
       <VideoDrawingCanvas
         videoRef={videoRef}
         currentTime={currentTime}

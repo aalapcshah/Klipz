@@ -1626,3 +1626,12 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Install FFmpeg on server for video export functionality
 - [ ] Test microphone button now appears for all videos
 - [ ] Test video export with annotations after FFmpeg install
+
+## Phase 134: Fix Annotation Dialog and Drawing Functionality
+- [x] Fix microphone button to open correct annotation dialog (opens VideoPlayerWithAnnotations)
+- [x] Debug why drawing canvas not working on paused video (canvas wasn't overlaying video)
+- [x] Enable drawing functionality on video player (canvas now appends to video container)
+- [x] Increase all dialog widths significantly to max-w-[95vw]
+- [ ] Test drawing works when video is paused
+- [ ] Test voice annotation recording works
+- [ ] Verify annotation dialog shows video player with tools
