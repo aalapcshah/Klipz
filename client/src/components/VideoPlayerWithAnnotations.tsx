@@ -24,6 +24,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [recordingTimestamp, setRecordingTimestamp] = useState(0);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
+  const [visibleAnnotationIds, setVisibleAnnotationIds] = useState<number[]>([]);
 
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.voiceAnnotations.getAnnotations.useQuery({ fileId });
   const { data: visualAnnotations = [], refetch: refetchVisualAnnotations } = trpc.visualAnnotations.getAnnotations.useQuery({ fileId });
@@ -36,7 +37,20 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
     const video = videoRef.current;
     if (!video) return;
 
-    const handleTimeUpdate = () => setCurrentTime(video.currentTime);
+    const handleTimeUpdate = () => {
+      const time = video.currentTime;
+      setCurrentTime(time);
+      
+      // Calculate which visual annotations should be visible
+      const visible = visualAnnotations
+        .filter(ann => {
+          const startTime = ann.videoTimestamp;
+          const endTime = startTime + (ann.duration || 5);
+          return time >= startTime && time < endTime;
+        })
+        .map(ann => ann.id);
+      setVisibleAnnotationIds(visible);
+    };
     const handleLoadedMetadata = () => setDuration(video.duration);
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
@@ -171,6 +185,19 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             onClick={isDrawingMode ? undefined : togglePlay}
             style={{ pointerEvents: isDrawingMode ? 'none' : 'auto' }}
           />
+          
+          {/* Visible annotation overlays */}
+          {visualAnnotations
+            .filter(ann => visibleAnnotationIds.includes(ann.id))
+            .map(ann => (
+              <img
+                key={ann.id}
+                src={ann.imageUrl}
+                alt="Annotation"
+                className="absolute top-0 left-0 w-full h-full object-contain pointer-events-none"
+                style={{ zIndex: 10 }}
+              />
+            ))}
           
           {/* Voice annotation markers on timeline */}
           {annotations.length > 0 && duration > 0 && (
@@ -361,10 +388,35 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       {showTimeline && (
         <AnnotationTimeline
           fileId={fileId}
+          videoTitle={videoUrl.split('/').pop() || 'Video'}
           onJumpToTimestamp={(timestamp) => {
             if (videoRef.current) {
               videoRef.current.currentTime = timestamp;
               videoRef.current.play();
+            }
+          }}
+          onEditAnnotation={(annotation) => {
+            // Jump to timestamp and enable drawing mode for editing
+            if (videoRef.current) {
+              videoRef.current.currentTime = annotation.videoTimestamp;
+              videoRef.current.pause();
+            }
+            // TODO: Load existing drawing for editing
+            toast.info("Edit mode: Draw your changes and save");
+          }}
+          onDeleteAnnotation={async (id, type) => {
+            try {
+              if (type === 'voice') {
+                await deleteAnnotation.mutateAsync({ annotationId: id });
+                refetchAnnotations();
+                toast.success("Voice annotation deleted");
+              } else {
+                await deleteVisualAnnotation.mutateAsync({ annotationId: id });
+                refetchVisualAnnotations();
+                toast.success("Drawing annotation deleted");
+              }
+            } catch (error) {
+              toast.error(`Failed to delete ${type} annotation`);
             }
           }}
         />

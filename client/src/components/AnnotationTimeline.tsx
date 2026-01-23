@@ -1,15 +1,18 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Mic, PenLine, Play } from "lucide-react";
+import { Mic, PenLine, Play, Edit, Trash2, Download } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
 interface AnnotationTimelineProps {
   fileId: number;
+  videoTitle?: string;
   onJumpToTimestamp?: (timestamp: number) => void;
+  onEditAnnotation?: (annotation: any) => void;
+  onDeleteAnnotation?: (id: number, type: 'voice' | 'visual') => void;
 }
 
-export function AnnotationTimeline({ fileId, onJumpToTimestamp }: AnnotationTimelineProps) {
+export function AnnotationTimeline({ fileId, videoTitle = "Video", onJumpToTimestamp, onEditAnnotation, onDeleteAnnotation }: AnnotationTimelineProps) {
   const { data: voiceAnnotations = [] } = trpc.voiceAnnotations.getByFileId.useQuery({ fileId });
   const { data: visualAnnotations = [] } = trpc.visualAnnotations.getByFileId.useQuery({ fileId });
 
@@ -37,9 +40,37 @@ export function AnnotationTimeline({ fileId, onJumpToTimestamp }: AnnotationTime
     );
   }
 
+  const handleExportPDF = async () => {
+    const { exportAnnotationsPDF } = await import("@/lib/exportAnnotationsPDF");
+    const { toast } = await import("sonner");
+    
+    try {
+      await exportAnnotationsPDF({
+        videoTitle,
+        voiceAnnotations: voiceAnnotations,
+        visualAnnotations: visualAnnotations,
+      });
+      toast.success("PDF exported successfully");
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export PDF");
+    }
+  };
+
   return (
-    <div className="space-y-3">
-      <h3 className="text-lg font-semibold">Annotation Timeline</h3>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Annotation Timeline</h3>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExportPDF}
+          disabled={allAnnotations.length === 0}
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Export PDF
+        </Button>
+      </div>
       <div className="space-y-2">
         {allAnnotations.map((annotation, index) => (
           <Card
@@ -96,19 +127,48 @@ export function AnnotationTimeline({ fileId, onJumpToTimestamp }: AnnotationTime
                 )}
               </div>
 
-              {/* Jump Button */}
-              {onJumpToTimestamp && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onJumpToTimestamp(annotation.videoTimestamp);
-                  }}
-                >
-                  <Play className="h-4 w-4" />
-                </Button>
-              )}
+              {/* Action Buttons */}
+              <div className="flex gap-1">
+                {onJumpToTimestamp && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onJumpToTimestamp(annotation.videoTimestamp);
+                    }}
+                    title="Jump to timestamp"
+                  >
+                    <Play className="h-4 w-4" />
+                  </Button>
+                )}
+                {annotation.type === 'visual' && onEditAnnotation && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditAnnotation(annotation);
+                    }}
+                    title="Edit annotation"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                )}
+                {onDeleteAnnotation && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteAnnotation(annotation.id, annotation.type);
+                    }}
+                    title="Delete annotation"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                )}
+              </div>
             </div>
           </Card>
         ))}

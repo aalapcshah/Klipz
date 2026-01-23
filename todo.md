@@ -1720,3 +1720,32 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Update visual-annotations router to accept duration parameter
 - [ ] Display annotations for their specified duration during playback
 - [ ] Test consolidated button and duration controls
+
+## Phase 143: Annotation Playback with Duration
+- [x] Add video timeupdate listener to check current time
+- [x] Calculate which visual annotations should be visible based on timestamp + duration
+- [x] Display annotation images as overlays during their duration window
+- [x] Hide annotations when video time exceeds timestamp + duration
+- [x] Track visibleAnnotationIds state for efficient rendering
+- [ ] Test playback with multiple overlapping annotations
+
+## Phase 144: Annotation Editing
+- [x] Add edit button to annotation timeline items
+- [x] Add delete button to annotation timeline items
+- [x] Wire up onEditAnnotation callback to jump to timestamp
+- [x] Wire up onDeleteAnnotation callback with mutation
+- [x] Add confirmation toast for edit mode
+- [ ] Implement full redraw mode to modify existing drawings
+- [ ] Allow editing duration slider for existing annotations
+- [ ] Test editing workflow end-to-end
+
+## Phase 145: PDF Annotation Export
+- [x] Install jsPDF library
+- [x] Create exportAnnotationsPDF utility function
+- [x] Add export button in annotation timeline
+- [x] Generate PDF with video title and metadata
+- [x] Add voice annotations with timestamps and transcripts
+- [x] Add visual annotation screenshots with timestamps and durations
+- [x] Format PDF with proper sections and styling
+- [x] Handle image loading for PDF thumbnails
+- [ ] Test PDF export with mixed annotations
