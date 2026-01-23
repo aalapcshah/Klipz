@@ -1797,3 +1797,22 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Reduce video player height for compact layout
 - [x] Ensure annotation tools visible without scrolling
 - [x] Test all changes with existing annotations
+
+## Phase 150: Fix Mobile Navigation UX Issues
+- [x] Make header sticky with fixed positioning
+- [x] Add proper z-index to header for layering
+- [x] Improve mobile header layout to prevent element cramming
+- [x] Fix dropdown menu positioning to be always visible on scroll
+- [x] Ensure dropdown menu uses fixed or portal positioning
+- [x] Add backdrop overlay for mobile menu
+- [x] Test mobile navigation at different scroll positions
+- [x] Verify header stays visible when scrolling
+
+## Phase 151: Annotation Preview on Hover
+- [x] Add tooltip component to timeline markers
+- [x] Show drawing preview image on hover
+- [x] Display timestamp and duration in tooltip
+- [x] Implement for both voice and drawing annotations
+- [x] Make markers clickable to jump to timestamp
+- [x] Test hover interaction on desktop and mobile
+- [x] Ensure tooltips don't overflow viewport

@@ -92,11 +92,11 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background">
       {/* Top Navigation */}
       <header className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="container flex items-center justify-between h-16">
-          <div className="flex items-center gap-4 md:gap-8">
-            <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-              <Sparkles className="h-6 w-6 text-primary" />
-              MetaClips
+        <div className="container flex items-center justify-between h-16 px-4">
+          <div className="flex items-center gap-2 md:gap-8">
+            <Link href="/" className="flex items-center gap-1.5 font-bold text-lg md:text-xl">
+              <Sparkles className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+              <span className="hidden sm:inline">MetaClips</span>
             </Link>
             
             {/* Desktop Navigation with dropdown menus */}
@@ -193,11 +193,12 @@ export default function Dashboard() {
             {/* Mobile Menu Button */}
             <Button
               variant="ghost"
-              size="icon"
-              className="md:hidden"
+              size="sm"
+              className="md:hidden flex items-center gap-1.5"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              <span className="text-sm">Menu</span>
             </Button>
           </div>
 
@@ -226,8 +227,15 @@ export default function Dashboard() {
 
       {/* Mobile Navigation Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-border bg-card">
-          <nav className="container py-4 flex flex-col gap-2">
+        <>
+          {/* Backdrop */}
+          <div 
+            className="md:hidden fixed inset-0 bg-black/50 z-30" 
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          {/* Menu Panel */}
+          <div className="md:hidden fixed top-16 left-0 right-0 bottom-0 bg-card z-40 overflow-y-auto border-t border-border">
+            <nav className="container py-4 flex flex-col gap-2">
             {allNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.href;
@@ -257,6 +265,7 @@ export default function Dashboard() {
             </a>
           </nav>
         </div>
+        </>
       )}
 
       {/* Main Content */}
