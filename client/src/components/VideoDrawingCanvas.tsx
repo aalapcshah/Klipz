@@ -39,6 +39,7 @@ interface VideoDrawingCanvasProps {
   currentTime: number;
   onSaveAnnotation: (imageDataUrl: string, timestamp: number, duration: number) => Promise<void>;
   onDrawingModeChange?: (isDrawing: boolean) => void;
+  onToggleRequest?: boolean; // External toggle trigger
 }
 
 export function VideoDrawingCanvas({
@@ -46,6 +47,7 @@ export function VideoDrawingCanvas({
   currentTime,
   onSaveAnnotation,
   onDrawingModeChange,
+  onToggleRequest,
 }: VideoDrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -60,6 +62,13 @@ export function VideoDrawingCanvas({
   const [textInput, setTextInput] = useState("");
   const [textPosition, setTextPosition] = useState<Point | null>(null);
   const [duration, setDuration] = useState(5); // Duration in seconds
+
+  // Handle external toggle request
+  useEffect(() => {
+    if (onToggleRequest !== undefined) {
+      toggleCanvas();
+    }
+  }, [onToggleRequest]);
 
   useEffect(() => {
     if (!canvasRef.current || !videoRef.current) return;

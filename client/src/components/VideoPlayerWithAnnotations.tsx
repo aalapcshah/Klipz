@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine } from "lucide-react";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { VideoDrawingCanvas } from "./VideoDrawingCanvas";
 import { AnnotationTimeline } from "./AnnotationTimeline";
@@ -25,6 +25,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [visibleAnnotationIds, setVisibleAnnotationIds] = useState<number[]>([]);
+  const [drawToggleRequest, setDrawToggleRequest] = useState<boolean>();
 
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.voiceAnnotations.getAnnotations.useQuery({ fileId });
   const { data: visualAnnotations = [], refetch: refetchVisualAnnotations } = trpc.visualAnnotations.getAnnotations.useQuery({ fileId });
@@ -66,7 +67,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       video.removeEventListener("play", handlePlay);
       video.removeEventListener("pause", handlePause);
     };
-  }, []);
+  }, [visualAnnotations]);
 
   const togglePlay = () => {
     if (videoRef.current) {
@@ -254,14 +255,38 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               {isMuted ? <VolumeX className="h-5 w-5 md:h-4 md:w-4" /> : <Volume2 className="h-5 w-5 md:h-4 md:w-4" />}
             </Button>
             <div className="flex-1" />
-            <Button size="default" className="md:h-9 md:px-3" variant="default" onClick={startAnnotation} disabled={showRecorder}>
+            {/* Annotation Tools - Green Buttons */}
+            <Button 
+              size="default" 
+              className="md:h-9 md:px-3 bg-green-600 hover:bg-green-700 text-white" 
+              onClick={startAnnotation} 
+              disabled={showRecorder}
+            >
               <Mic className="h-5 w-5 md:h-4 md:w-4 mr-2" />
-              <span className="hidden sm:inline">Add Voice Note</span>
+              <span className="hidden sm:inline">Voice Note</span>
               <span className="sm:hidden">Voice</span>
             </Button>
-            <Button size="default" className="md:h-9 md:px-3" variant="outline" onClick={() => setShowTimeline(!showTimeline)}>
-              <MessageSquare className="h-5 w-5 md:h-4 md:w-4 mr-2" />
-              <span className="hidden sm:inline">Timeline</span>
+            <Button 
+              size="default" 
+              className="md:h-9 md:px-3 bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => setDrawToggleRequest(!drawToggleRequest)}
+            >
+              <PenLine className="h-5 w-5 md:h-4 md:w-4 mr-2" />
+              <span className="hidden sm:inline">Draw / Text</span>
+              <span className="sm:hidden">Draw</span>
+            </Button>
+          </div>
+          
+          {/* Timeline Toggle */}
+          <div className="flex items-center gap-2">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => setShowTimeline(!showTimeline)}
+              className="w-full"
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              {showTimeline ? 'Hide' : 'Show'} Timeline
             </Button>
           </div>
         </div>
@@ -273,6 +298,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         currentTime={currentTime}
         onSaveAnnotation={handleSaveVisualAnnotation}
         onDrawingModeChange={setIsDrawingMode}
+        onToggleRequest={drawToggleRequest}
       />
 
       {/* Voice Recorder */}

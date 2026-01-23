@@ -1749,3 +1749,19 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Format PDF with proper sections and styling
 - [x] Handle image loading for PDF thumbnails
 - [ ] Test PDF export with mixed annotations
+
+## Phase 146: Fix Drawing Save and Reorganize UI
+- [ ] Debug why drawings aren't saving to database
+- [ ] Check if canvas.toDataURL() is generating valid image data
+- [ ] Verify handleSaveVisualAnnotation is being called correctly
+- [ ] Check if S3 upload is working for drawing images
+- [ ] Test save functionality with console logging
+- [x] Move "Draw on Video" and "Add Voice Note" to same row
+- [x] Style both buttons as green primary buttons
+- [x] Wire up Draw button to toggle drawing canvas
+- [x] Separate Timeline toggle as full-width button below controls
+- [x] Fix useEffect dependency to include visualAnnotations
+- [ ] Create horizontal timeline bar component (currently using vertical timeline)
+- [ ] Display all annotations on horizontal time bar
+- [ ] Add visual markers for voice notes and drawings on timeline
+- [ ] Test complete annotation workflow end-to-end
