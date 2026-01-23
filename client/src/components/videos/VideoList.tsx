@@ -139,6 +139,18 @@ export function VideoList() {
                     {video.exportStatus}
                   </Badge>
                 )}
+                {video.voiceAnnotationCount > 0 && (
+                  <Badge variant="outline" className="text-xs flex items-center gap-1">
+                    <Mic className="h-3 w-3" />
+                    {video.voiceAnnotationCount}
+                  </Badge>
+                )}
+                {video.visualAnnotationCount > 0 && (
+                  <Badge variant="outline" className="text-xs flex items-center gap-1">
+                    <PenLine className="h-3 w-3" />
+                    {video.visualAnnotationCount}
+                  </Badge>
+                )}
               </div>
 
               {video.description && (

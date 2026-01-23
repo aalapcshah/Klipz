@@ -75,6 +75,31 @@ export const visualAnnotationsRouter = router({
     }),
 
   /**
+   * Get all visual annotations for a file (alias for getAnnotations)
+   */
+  getByFileId: protectedProcedure
+    .input(
+      z.object({
+        fileId: z.number(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      const annotations = await db
+        .select()
+        .from(visualAnnotations)
+        .where(
+          and(
+            eq(visualAnnotations.fileId, input.fileId),
+            eq(visualAnnotations.userId, ctx.user.id)
+          )
+        );
+
+      return annotations;
+    }),
+
+  /**
    * Delete a visual annotation
    */
   deleteAnnotation: protectedProcedure

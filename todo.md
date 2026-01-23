@@ -1692,3 +1692,18 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Combined icon shows mic with small pen overlay in bottom-right
 - [ ] Test drawing with different tools (pen, shapes, text)
 - [ ] Test combined icon opens annotation dialog correctly
+
+## Phase 141: Annotation Preview and Timeline
+- [x] Query annotation counts for each video (voice notes + drawings)
+- [x] Add badge showing annotation counts on video cards
+- [x] Display mic icon badge for voice notes count
+- [x] Display pen icon badge for drawings count
+- [x] Create AnnotationTimeline component
+- [x] Fetch all annotations for a video sorted by timestamp
+- [x] Display voice notes with transcripts in timeline
+- [x] Display drawing thumbnails in timeline
+- [x] Add click-to-jump functionality to specific timestamps
+- [x] Add getByFileId procedures to voice and visual annotation routers
+- [x] Integrate timeline into VideoPlayerWithAnnotations with toggle button
+- [ ] Test annotation previews on video cards
+- [ ] Test timeline view with mixed annotations

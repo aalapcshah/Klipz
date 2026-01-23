@@ -117,6 +117,35 @@ export const voiceAnnotationsRouter = router({
     }),
 
   /**
+   * Get all voice annotations for a file (alias for getAnnotations)
+   */
+  getByFileId: protectedProcedure
+    .input(z.object({ fileId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Verify file belongs to user
+      const [file] = await db
+        .select()
+        .from(files)
+        .where(and(eq(files.id, input.fileId), eq(files.userId, ctx.user.id)))
+        .limit(1);
+
+      if (!file) {
+        throw new Error("File not found or access denied");
+      }
+
+      // Get all annotations for this file
+      const annotations = await db
+        .select()
+        .from(voiceAnnotations)
+        .where(eq(voiceAnnotations.fileId, input.fileId));
+
+      return annotations;
+    }),
+
+  /**
    * Delete a voice annotation
    */
   deleteAnnotation: protectedProcedure

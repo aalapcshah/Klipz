@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare } from "lucide-react";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { VideoDrawingCanvas } from "./VideoDrawingCanvas";
+import { AnnotationTimeline } from "./AnnotationTimeline";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -22,6 +23,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [showRecorder, setShowRecorder] = useState(false);
   const [recordingTimestamp, setRecordingTimestamp] = useState(0);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false);
 
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.voiceAnnotations.getAnnotations.useQuery({ fileId });
   const { data: visualAnnotations = [], refetch: refetchVisualAnnotations } = trpc.visualAnnotations.getAnnotations.useQuery({ fileId });
@@ -229,6 +231,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               <span className="hidden sm:inline">Add Voice Note</span>
               <span className="sm:hidden">Voice</span>
             </Button>
+            <Button size="default" className="md:h-9 md:px-3" variant="outline" onClick={() => setShowTimeline(!showTimeline)}>
+              <MessageSquare className="h-5 w-5 md:h-4 md:w-4 mr-2" />
+              <span className="hidden sm:inline">Timeline</span>
+            </Button>
           </div>
         </div>
       </Card>
@@ -348,6 +354,19 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             ))}
           </div>
         </Card>
+      )}
+
+      {/* Annotation Timeline */}
+      {showTimeline && (
+        <AnnotationTimeline
+          fileId={fileId}
+          onJumpToTimestamp={(timestamp) => {
+            if (videoRef.current) {
+              videoRef.current.currentTime = timestamp;
+              videoRef.current.play();
+            }
+          }}
+        />
       )}
     </div>
   );

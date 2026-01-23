@@ -37,6 +37,8 @@ import {
   InsertExportHistory,
   imageAnnotations,
   InsertImageAnnotation,
+  voiceAnnotations,
+  visualAnnotations,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -450,11 +452,38 @@ export async function getVideosByUserId(userId: number) {
   const db = await getDb();
   if (!db) return [];
 
-  return await db
+  const videoList = await db
     .select()
     .from(videos)
     .where(eq(videos.userId, userId))
     .orderBy(desc(videos.createdAt));
+
+  // Get annotation counts for each video
+  const videosWithCounts = await Promise.all(
+    videoList.map(async (video) => {
+      if (!video.fileId) {
+        return { ...video, voiceAnnotationCount: 0, visualAnnotationCount: 0 };
+      }
+
+      const voiceNotes = await db
+        .select()
+        .from(voiceAnnotations)
+        .where(eq(voiceAnnotations.fileId, video.fileId));
+
+      const drawings = await db
+        .select()
+        .from(visualAnnotations)
+        .where(eq(visualAnnotations.fileId, video.fileId));
+
+      return {
+        ...video,
+        voiceAnnotationCount: voiceNotes.length,
+        visualAnnotationCount: drawings.length,
+      };
+    })
+  );
+
+  return videosWithCounts;
 }
 
 export async function getVideoById(videoId: number) {
