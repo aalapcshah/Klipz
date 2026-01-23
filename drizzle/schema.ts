@@ -175,6 +175,9 @@ export const videos = mysqlTable("videos", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   
+  // Link to files table for unified annotation support
+  fileId: int("fileId"), // Optional: links to files table for annotations
+  
   // Video file info
   fileKey: varchar("fileKey", { length: 512 }).notNull(),
   url: text("url").notNull(),

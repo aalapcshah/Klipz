@@ -1262,13 +1262,28 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input, ctx }) => {
+        // First create a files entry for annotation support
+        const fileId = await db.createFile({
+          userId: ctx.user.id,
+          fileKey: input.fileKey,
+          url: input.url,
+          filename: input.filename,
+          mimeType: "video/webm",
+          fileSize: 0, // Size not tracked for recorded videos
+          title: input.title || input.filename,
+          description: input.description,
+          enrichmentStatus: "completed", // Skip AI enrichment for recorded videos
+        });
+        
+        // Then create the video entry linked to the file
         const videoId = await db.createVideo({
           ...input,
           userId: ctx.user.id,
+          fileId, // Link to files table
           exportStatus: "draft",
         });
         
-        return { id: videoId };
+        return { id: videoId, fileId };
       }),
 
     // Update video

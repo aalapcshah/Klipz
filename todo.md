@@ -1599,3 +1599,14 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [ ] Create rollback plan
 - [ ] Document deployment process
 - [ ] Prepare launch announcement
+
+## Phase 131: Video Library Annotations
+- [x] Investigate Video Library page structure
+- [x] Add VideoPlayerWithAnnotations to recorded videos
+- [x] Enable voice annotations for recorded videos
+- [x] Enable visual annotations (drawing) for recorded videos
+- [x] Link videos table to files table via fileId
+- [x] Update videos.create to automatically create files entry
+- [x] Add Mic button to Video Library cards for annotation access
+- [ ] Test annotation features in Video Library with real recorded videos
+- [ ] Ensure annotations persist and display correctly

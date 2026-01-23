@@ -10,11 +10,13 @@ import {
   Edit3,
   Download,
   Cloud,
+  Mic,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 import { AnnotationEditor } from "./AnnotationEditor";
 import { CloudExportDialog } from "./CloudExportDialog";
+import { VideoPlayerWithAnnotations } from "../VideoPlayerWithAnnotations";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +28,7 @@ export function VideoList() {
   const [editingVideoId, setEditingVideoId] = useState<number | null>(null);
   const [exportingVideoId, setExportingVideoId] = useState<number | null>(null);
   const [cloudExportVideo, setCloudExportVideo] = useState<{ id: number; title: string } | null>(null);
+  const [annotatingVideo, setAnnotatingVideo] = useState<{ id: number; fileId: number; url: string; title: string } | null>(null);
   
   const { data: videos, isLoading, refetch } = trpc.videos.list.useQuery();
   const deleteMutation = trpc.videos.delete.useMutation();
@@ -235,6 +238,21 @@ export function VideoList() {
           videoId={cloudExportVideo.id}
           videoTitle={cloudExportVideo.title}
         />
+      )}
+      
+      {/* Annotation Dialog */}
+      {annotatingVideo && (
+        <Dialog open={true} onOpenChange={() => setAnnotatingVideo(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{annotatingVideo.title}</DialogTitle>
+            </DialogHeader>
+            <VideoPlayerWithAnnotations
+              fileId={annotatingVideo.fileId}
+              videoUrl={annotatingVideo.url}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </>
   );
