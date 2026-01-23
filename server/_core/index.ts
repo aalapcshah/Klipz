@@ -7,6 +7,8 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { securityHeaders } from "./securityHeaders";
+import { apiRateLimit } from "./rateLimit";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -31,6 +33,12 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
   
+  // Add security headers to all responses
+  app.use(securityHeaders);
+  
+  // Trust proxy for rate limiting (required for accurate IP detection)
+  app.set('trust proxy', 1);
+  
   // Stripe webhook MUST be registered BEFORE express.json() to preserve raw body
   app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req, res) => {
     const { handleStripeWebhook } = await import("../webhooks/stripe");
@@ -42,9 +50,10 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
-  // tRPC API
+  // tRPC API with rate limiting
   app.use(
     "/api/trpc",
+    apiRateLimit,
     createExpressMiddleware({
       router: appRouter,
       createContext,
