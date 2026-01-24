@@ -921,3 +921,38 @@ export const fileActivityLogsRelations = relations(fileActivityLogs, ({ one }) =
     references: [files.id],
   }),
 }));
+
+// ============= ACTIVITY NOTIFICATION PREFERENCES TABLE =============
+export const activityNotificationPreferences = mysqlTable("activity_notification_preferences", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("userId").notNull().unique(),
+  
+  // Notification toggles for each activity type
+  enableUploadNotifications: boolean("enableUploadNotifications").default(true).notNull(),
+  enableViewNotifications: boolean("enableViewNotifications").default(false).notNull(),
+  enableEditNotifications: boolean("enableEditNotifications").default(true).notNull(),
+  enableTagNotifications: boolean("enableTagNotifications").default(true).notNull(),
+  enableShareNotifications: boolean("enableShareNotifications").default(true).notNull(),
+  enableDeleteNotifications: boolean("enableDeleteNotifications").default(true).notNull(),
+  enableEnrichNotifications: boolean("enableEnrichNotifications").default(true).notNull(),
+  enableExportNotifications: boolean("enableExportNotifications").default(true).notNull(),
+  
+  // Quiet hours (24-hour format HH:MM)
+  quietHoursStart: varchar("quietHoursStart", { length: 5 }), // e.g., "22:00"
+  quietHoursEnd: varchar("quietHoursEnd", { length: 5 }), // e.g., "08:00"
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  userIndex: uniqueIndex("activity_notif_user_idx").on(table.userId),
+}));
+
+export type ActivityNotificationPreference = typeof activityNotificationPreferences.$inferSelect;
+export type InsertActivityNotificationPreference = typeof activityNotificationPreferences.$inferInsert;
+
+export const activityNotificationPreferencesRelations = relations(activityNotificationPreferences, ({ one }) => ({
+  user: one(users, {
+    fields: [activityNotificationPreferences.userId],
+    references: [users.id],
+  }),
+}));

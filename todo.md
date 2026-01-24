@@ -2515,3 +2515,37 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [ ] Add file type distribution chart (future work)
 - [x] Test push notifications across browsers
 - [ ] Test statistics dashboard with real data (future work)
+
+## Phase 88: Statistics Charts, Notification Preferences & Activity Search
+- [ ] Implement activity trends chart (uploads/views/edits over time)
+- [ ] Add most active users bar chart
+- [ ] Add peak usage hours heatmap
+- [ ] Add activity type distribution pie chart
+- [ ] Add file type distribution chart
+- [ ] Create notification preferences database table
+- [ ] Add notification preferences settings UI
+- [ ] Implement quiet hours functionality
+- [ ] Add toggle for each notification type
+- [ ] Add full-text search to activity timeline
+- [ ] Add advanced filtering by user
+- [ ] Add advanced filtering by file type
+- [ ] Add date range picker for activity search
+- [ ] Test all charts with real data
+- [ ] Test notification preferences persistence
+- [ ] Test activity search performance
+
+## Phase 44: Analytics Dashboard - Statistics, Notifications & Search
+- [x] Implement activity statistics charts with Chart.js
+- [x] Add activity trends over time (line chart)
+- [x] Add peak usage hours distribution (bar chart)
+- [x] Add activity type breakdown (pie chart)
+- [x] Add most active users table
+- [x] Create notification preferences database schema
+- [x] Add notification preferences backend endpoints
+- [x] Build notification preferences settings UI
+- [x] Add toggles for each activity type notification
+- [x] Add quiet hours configuration (start/end time)
+- [x] Add activity search functionality to Activity Timeline
+- [x] Implement client-side filtering by filename, details, activity type
+- [x] Add clear search button for no results
+- [x] Write comprehensive tests for notification preferences (6/6 passing)

@@ -20,6 +20,7 @@ import { semanticSearchRouter } from "./routers/semanticSearch";
 import { userRouter } from "./routers/user";
 import { onboardingRouter } from "./routers/onboarding";
 import { activityLogsRouter } from "./routers/activityLogs";
+import { notificationPreferencesRouter } from "./routers/notificationPreferences";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import * as premiumFeatures from "./premiumFeatures";
@@ -350,6 +351,7 @@ export const appRouter = router({
   user: userRouter,
   onboarding: onboardingRouter,
   activityLogs: activityLogsRouter,
+  notificationPreferences: notificationPreferencesRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

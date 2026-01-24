@@ -1917,3 +1917,100 @@ export async function getActivityStats(userId: number) {
     activityByType,
   };
 }
+
+
+// ============= ACTIVITY NOTIFICATION PREFERENCES FUNCTIONS =============
+
+export async function getActivityNotificationPreferences(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not initialized");
+
+  const { activityNotificationPreferences } = await import("../drizzle/schema");
+
+  const [prefs] = await db
+    .select()
+    .from(activityNotificationPreferences)
+    .where(eq(activityNotificationPreferences.userId, userId))
+    .limit(1);
+
+  // Return defaults if no preferences exist
+  if (!prefs) {
+    return {
+      userId,
+      enableUploadNotifications: true,
+      enableViewNotifications: false,
+      enableEditNotifications: true,
+      enableTagNotifications: true,
+      enableShareNotifications: true,
+      enableDeleteNotifications: true,
+      enableEnrichNotifications: true,
+      enableExportNotifications: true,
+      quietHoursStart: null,
+      quietHoursEnd: null,
+    };
+  }
+
+  return prefs;
+}
+
+export async function upsertActivityNotificationPreferences(params: {
+  userId: number;
+  enableUploadNotifications?: boolean;
+  enableViewNotifications?: boolean;
+  enableEditNotifications?: boolean;
+  enableTagNotifications?: boolean;
+  enableShareNotifications?: boolean;
+  enableDeleteNotifications?: boolean;
+  enableEnrichNotifications?: boolean;
+  enableExportNotifications?: boolean;
+  quietHoursStart?: string | null;
+  quietHoursEnd?: string | null;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not initialized");
+
+  const { activityNotificationPreferences } = await import("../drizzle/schema");
+
+  // Check if preferences exist
+  const [existing] = await db
+    .select()
+    .from(activityNotificationPreferences)
+    .where(eq(activityNotificationPreferences.userId, params.userId))
+    .limit(1);
+
+  if (existing) {
+    // Update existing preferences
+    await db
+      .update(activityNotificationPreferences)
+      .set({
+        enableUploadNotifications: params.enableUploadNotifications ?? existing.enableUploadNotifications,
+        enableViewNotifications: params.enableViewNotifications ?? existing.enableViewNotifications,
+        enableEditNotifications: params.enableEditNotifications ?? existing.enableEditNotifications,
+        enableTagNotifications: params.enableTagNotifications ?? existing.enableTagNotifications,
+        enableShareNotifications: params.enableShareNotifications ?? existing.enableShareNotifications,
+        enableDeleteNotifications: params.enableDeleteNotifications ?? existing.enableDeleteNotifications,
+        enableEnrichNotifications: params.enableEnrichNotifications ?? existing.enableEnrichNotifications,
+        enableExportNotifications: params.enableExportNotifications ?? existing.enableExportNotifications,
+        quietHoursStart: params.quietHoursStart !== undefined ? params.quietHoursStart : existing.quietHoursStart,
+        quietHoursEnd: params.quietHoursEnd !== undefined ? params.quietHoursEnd : existing.quietHoursEnd,
+      })
+      .where(eq(activityNotificationPreferences.userId, params.userId));
+  } else {
+    // Insert new preferences
+    await db.insert(activityNotificationPreferences).values({
+      userId: params.userId,
+      enableUploadNotifications: params.enableUploadNotifications ?? true,
+      enableViewNotifications: params.enableViewNotifications ?? false,
+      enableEditNotifications: params.enableEditNotifications ?? true,
+      enableTagNotifications: params.enableTagNotifications ?? true,
+      enableShareNotifications: params.enableShareNotifications ?? true,
+      enableDeleteNotifications: params.enableDeleteNotifications ?? true,
+      enableEnrichNotifications: params.enableEnrichNotifications ?? true,
+      enableExportNotifications: params.enableExportNotifications ?? true,
+      quietHoursStart: params.quietHoursStart ?? null,
+      quietHoursEnd: params.quietHoursEnd ?? null,
+    });
+  }
+
+  return await getActivityNotificationPreferences(params.userId);
+}

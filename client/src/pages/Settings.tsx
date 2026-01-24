@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { Loader2, Plus, Trash2, Edit2, CheckCircle2, XCircle, Network } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AccountSettings } from "@/components/AccountSettings";
+import { NotificationPreferencesSettings } from "@/components/NotificationPreferencesSettings";
 
 type KnowledgeGraphType = "dbpedia" | "wikidata" | "schema_org" | "custom";
 
@@ -258,11 +259,16 @@ export default function Settings() {
         <TabsList>
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="knowledge-graphs">Knowledge Graphs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="account" className="space-y-6 mt-6">
           <AccountSettings />
+        </TabsContent>
+
+        <TabsContent value="notifications" className="space-y-6 mt-6">
+          <NotificationPreferencesSettings />
         </TabsContent>
 
         <TabsContent value="appearance" className="space-y-6 mt-6">

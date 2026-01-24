@@ -20,14 +20,16 @@ import {
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { LiveActivityFeed } from "@/components/LiveActivityFeed";
+import { ActivityStatistics } from "@/components/ActivityStatistics";
 
 export function Analytics() {
-  const { data: stats, isLoading } = trpc.analytics.getEnrichmentStats.useQuery();
-  const [activityType, setActivityType] = useState<string>("all");
-  const [dateRange, setDateRange] = useState<string>("7d");
+  const { data: stats, isLoading } = trpc.analytics.getEnrichmentStats.useQuery();  const [activityType, setActivityType] = useState<string>("all");
+  const [dateRange, setDateRange] = useState<string>("30d");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const utils = trpc.useUtils();
   
   const handleExport = async (format: "csv" | "json") => {
@@ -297,7 +299,21 @@ export function Analytics() {
 
           {/* Activity Filters */}
           <Card className="p-6">
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="space-y-4">
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search activities by file name or details..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              {/* Filter Row */}
+              <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
                 <label className="text-sm font-medium mb-2 block">Activity Type</label>
                 <Select value={activityType} onValueChange={setActivityType}>
@@ -352,6 +368,7 @@ export function Analytics() {
                 </Button>
               </div>
             </div>
+            </div>
           </Card>
 
           {/* Activity Stats Summary */}
@@ -378,7 +395,16 @@ export function Analytics() {
             </h2>
             <div className="space-y-3">
               {activityLogs && activityLogs.length > 0 ? (
-                activityLogs.map((log: any) => {
+                activityLogs
+                  .filter((log: any) => {
+                    if (!searchQuery) return true;
+                    const query = searchQuery.toLowerCase();
+                    const filename = log.file?.filename?.toLowerCase() || "";
+                    const details = log.details?.toLowerCase() || "";
+                    const activityType = log.activityType?.toLowerCase() || "";
+                    return filename.includes(query) || details.includes(query) || activityType.includes(query);
+                  })
+                  .map((log: any) => {
                   const Icon = activityIcons[log.activityType] || Activity;
                   return (
                     <div
@@ -409,7 +435,20 @@ export function Analytics() {
                 })
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  No activity found for the selected filters
+                  {searchQuery ? (
+                    <div>
+                      <p>No activities match your search "{searchQuery}"</p>
+                      <Button
+                        variant="link"
+                        onClick={() => setSearchQuery("")}
+                        className="mt-2"
+                      >
+                        Clear search
+                      </Button>
+                    </div>
+                  ) : (
+                    "No activity found for the selected filters"
+                  )}
                 </div>
               )}
             </div>
@@ -417,16 +456,7 @@ export function Analytics() {
         </TabsContent>
 
         <TabsContent value="statistics" className="space-y-6">
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Activity Statistics
-            </h2>
-            <p className="text-muted-foreground">
-              Detailed activity statistics and trends will be displayed here.
-              This feature is coming soon.
-            </p>
-          </Card>
+          <ActivityStatistics />
         </TabsContent>
       </Tabs>
     </div>

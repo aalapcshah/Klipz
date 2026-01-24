@@ -54,9 +54,14 @@ export const activityLogsRouter = router({
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
 
-    // Get activity trends (last 30 days)
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const activityTrends = await db
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Get daily activity (last 30 days) grouped by type
+    const dailyActivityRaw = await db
       .select({
         date: sql<string>`DATE(${fileActivityLogs.createdAt})`,
         activityType: fileActivityLogs.activityType,
@@ -72,38 +77,94 @@ export const activityLogsRouter = router({
       .groupBy(sql`DATE(${fileActivityLogs.createdAt})`, fileActivityLogs.activityType)
       .orderBy(sql`DATE(${fileActivityLogs.createdAt})`);
 
-    // Get peak usage hours
-    const peakHours = await db
+    // Transform to format expected by chart
+    const dailyActivity: any[] = [];
+    const dateMap = new Map<string, any>();
+    
+    dailyActivityRaw.forEach((row: any) => {
+      if (!dateMap.has(row.date)) {
+        dateMap.set(row.date, { date: row.date, uploads: 0, views: 0, edits: 0 });
+      }
+      const entry = dateMap.get(row.date)!;
+      if (row.activityType === 'upload') entry.uploads = row.count;
+      else if (row.activityType === 'view') entry.views = row.count;
+      else if (row.activityType === 'edit') entry.edits = row.count;
+    });
+    
+    dateMap.forEach(value => dailyActivity.push(value));
+
+    // Get peak hours (24-hour array)
+    const peakHoursRaw = await db
       .select({
         hour: sql<number>`HOUR(${fileActivityLogs.createdAt})`,
         count: sql<number>`COUNT(*)`,
       })
       .from(fileActivityLogs)
       .where(eq(fileActivityLogs.userId, ctx.user!.id))
-      .groupBy(sql`HOUR(${fileActivityLogs.createdAt})`)
-      .orderBy(sql`HOUR(${fileActivityLogs.createdAt})`);
+      .groupBy(sql`HOUR(${fileActivityLogs.createdAt})`);
+    
+    const hourlyActivity = Array(24).fill(0);
+    peakHoursRaw.forEach((row: any) => {
+      hourlyActivity[row.hour] = row.count;
+    });
 
-    // Get activity type distribution
-    const activityDistribution = await db
+    // Get activity types
+    const activityTypes = await db
       .select({
-        activityType: fileActivityLogs.activityType,
+        type: fileActivityLogs.activityType,
         count: sql<number>`COUNT(*)`,
       })
       .from(fileActivityLogs)
       .where(eq(fileActivityLogs.userId, ctx.user!.id))
       .groupBy(fileActivityLogs.activityType);
 
-    // Get total counts
-    const totalActivities = await db
+    // Get total activities
+    const totalResult = await db
       .select({ count: sql<number>`COUNT(*)` })
       .from(fileActivityLogs)
       .where(eq(fileActivityLogs.userId, ctx.user!.id));
+    
+    // Get today's activities
+    const todayResult = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(fileActivityLogs)
+      .where(
+        and(
+          eq(fileActivityLogs.userId, ctx.user!.id),
+          gte(fileActivityLogs.createdAt, today)
+        )
+      );
+    
+    // Get week's activities
+    const weekResult = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(fileActivityLogs)
+      .where(
+        and(
+          eq(fileActivityLogs.userId, ctx.user!.id),
+          gte(fileActivityLogs.createdAt, weekAgo)
+        )
+      );
+    
+    // Get month's activities
+    const monthResult = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(fileActivityLogs)
+      .where(
+        and(
+          eq(fileActivityLogs.userId, ctx.user!.id),
+          gte(fileActivityLogs.createdAt, monthAgo)
+        )
+      );
 
     return {
-      activityTrends,
-      peakHours,
-      activityDistribution,
-      totalActivities: totalActivities[0]?.count || 0,
+      dailyActivity,
+      hourlyActivity,
+      activityTypes,
+      totalActivities: totalResult[0]?.count || 0,
+      todayActivities: todayResult[0]?.count || 0,
+      weekActivities: weekResult[0]?.count || 0,
+      monthActivities: monthResult[0]?.count || 0
     };
   }),
 
