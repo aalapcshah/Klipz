@@ -7,6 +7,7 @@ import { VoiceRecorder } from "./VoiceRecorder";
 import { VideoDrawingCanvas } from "./VideoDrawingCanvas";
 import { AnnotationTimeline } from "./AnnotationTimeline";
 import { HorizontalAnnotationTimeline } from "./HorizontalAnnotationTimeline";
+import { AnnotationHistoryTimeline } from "./AnnotationHistoryTimeline";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -27,6 +28,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [showTimeline, setShowTimeline] = useState(false);
   const [visibleAnnotationIds, setVisibleAnnotationIds] = useState<number[]>([]);
   const [drawToggleRequest, setDrawToggleRequest] = useState<boolean>();
+  const [copiedAnnotation, setCopiedAnnotation] = useState<typeof visualAnnotations[0] | null>(null);
 
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.voiceAnnotations.getAnnotations.useQuery({ fileId });
   const { data: visualAnnotations = [], refetch: refetchVisualAnnotations } = trpc.visualAnnotations.getAnnotations.useQuery({ fileId });
@@ -116,6 +118,53 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPlaying]); // Include isPlaying to ensure togglePlay has latest state
+
+  // Copy/Paste functionality for annotations
+  useEffect(() => {
+    const handleCopyPaste = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input/textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      // Ctrl+C or Cmd+C - Copy last annotation
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        e.preventDefault();
+        if (visualAnnotations.length > 0) {
+          const lastAnnotation = visualAnnotations[visualAnnotations.length - 1];
+          setCopiedAnnotation(lastAnnotation);
+          toast.success('Annotation copied! Press Ctrl+V to paste at current time.');
+        } else {
+          toast.info('No annotations to copy');
+        }
+      }
+
+      // Ctrl+V or Cmd+V - Paste annotation at current timestamp
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        e.preventDefault();
+        if (copiedAnnotation) {
+          // Create a new annotation at the current timestamp
+          saveVisualAnnotation.mutateAsync({
+            fileId,
+            imageDataUrl: copiedAnnotation.imageUrl,
+            videoTimestamp: currentTime,
+            duration: copiedAnnotation.duration || 5,
+          }).then(() => {
+            toast.success(`Annotation pasted at ${formatTime(currentTime)}`);
+            refetchVisualAnnotations();
+          }).catch(() => {
+            toast.error('Failed to paste annotation');
+          });
+        } else {
+          toast.info('No annotation copied. Press Ctrl+C to copy an annotation first.');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleCopyPaste);
+    return () => window.removeEventListener('keydown', handleCopyPaste);
+  }, [visualAnnotations, copiedAnnotation, currentTime, fileId, saveVisualAnnotation, refetchVisualAnnotations]);
 
   const togglePlay = () => {
     if (videoRef.current) {
@@ -373,6 +422,8 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               <span><kbd className="px-1 py-0.5 bg-background rounded text-[10px]">←</kbd> / <kbd className="px-1 py-0.5 bg-background rounded text-[10px]">→</kbd> ±1s</span>
               <span><kbd className="px-1 py-0.5 bg-background rounded text-[10px]">J</kbd> Rewind 5s</span>
               <span><kbd className="px-1 py-0.5 bg-background rounded text-[10px]">L</kbd> Forward 5s</span>
+              <span><kbd className="px-1 py-0.5 bg-background rounded text-[10px]">Ctrl+C</kbd> Copy</span>
+              <span><kbd className="px-1 py-0.5 bg-background rounded text-[10px]">Ctrl+V</kbd> Paste</span>
             </div>
           </div>
         </div>
@@ -496,6 +547,13 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               </div>
             ))}
           </div>
+        </Card>
+      )}
+
+      {/* Annotation History Timeline */}
+      {(visualAnnotations.length > 0 || annotations.length > 0) && (
+        <Card className="p-4">
+          <AnnotationHistoryTimeline fileId={fileId} />
         </Card>
       )}
 

@@ -145,6 +145,33 @@ export type VisualAnnotation = typeof visualAnnotations.$inferSelect;
 export type InsertVisualAnnotation = typeof visualAnnotations.$inferInsert;
 
 /**
+ * Annotation history table - tracks all changes to annotations
+ */
+export const annotationHistory = mysqlTable("annotation_history", {
+  id: int("id").autoincrement().primaryKey(),
+  annotationId: int("annotationId").notNull(), // ID of the annotation that was changed
+  annotationType: mysqlEnum("annotationType", ["voice", "visual"]).notNull(),
+  userId: int("userId").notNull(),
+  
+  // Change tracking
+  changeType: mysqlEnum("changeType", ["created", "edited", "deleted"]).notNull(),
+  
+  // Previous state (JSON snapshot before change)
+  previousState: json("previousState"), // Stores the full annotation object before change
+  
+  // New state (JSON snapshot after change)
+  newState: json("newState"), // Stores the full annotation object after change
+  
+  // Metadata
+  changeDescription: text("changeDescription"), // Optional description of what changed
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AnnotationHistory = typeof annotationHistory.$inferSelect;
+export type InsertAnnotationHistory = typeof annotationHistory.$inferInsert;
+
+/**
  * Tags table - hierarchical tagging system
  */
 export const tags = mysqlTable("tags", {

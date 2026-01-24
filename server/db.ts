@@ -39,6 +39,8 @@ import {
   InsertImageAnnotation,
   voiceAnnotations,
   visualAnnotations,
+  annotationHistory,
+  InsertAnnotationHistory,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 

@@ -1845,3 +1845,34 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Add preset selector to export dialog
 - [x] Implement preset-specific export logic
 - [x] Test all export presets
+
+## Phase 155: Annotation Copy/Paste
+- [x] Add clipboard state to store copied annotation
+- [x] Implement Ctrl+C to copy selected/last annotation
+- [x] Implement Ctrl+V to paste annotation at current timestamp
+- [x] Show toast notification on copy/paste actions
+- [x] Prevent shortcuts when typing in inputs
+- [x] Update keyboard shortcuts help display
+- [x] Test copy/paste across different timestamps
+- [x] Test copy/paste with different annotation types
+
+## Phase 156: Annotation History Tracking
+- [x] Design annotation history data structure
+- [x] Add database table for annotation history
+- [x] Track annotation creation events
+- [ ] Track annotation edit events
+- [x] Track annotation deletion events
+- [x] Store previous state for each change
+- [x] Add timestamps to all history entries
+- [x] Add getHistory procedure to fetch history
+
+## Phase 157: Annotation History Timeline UI
+- [x] Create history timeline component
+- [x] Display chronological list of changes
+- [x] Show change type (created, edited, deleted)
+- [x] Show timestamp for each change
+- [x] Add preview of annotation state
+- [x] Implement revert functionality placeholder
+- [x] Add filter by change type (all, created, deleted)
+- [x] Integrate into VideoPlayerWithAnnotations
+- [x] Test history timeline interface

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { visualAnnotations } from "../../drizzle/schema";
+import { visualAnnotations, annotationHistory } from "../../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
@@ -42,6 +42,27 @@ export const visualAnnotationsRouter = router({
         videoTimestamp,
         duration,
         description,
+      });
+
+      // Track creation in history
+      const annotationData = {
+        id: annotation.insertId,
+        fileId,
+        userId: ctx.user.id,
+        imageUrl,
+        imageKey,
+        videoTimestamp,
+        duration,
+        description,
+      };
+      await db.insert(annotationHistory).values({
+        annotationId: annotation.insertId,
+        annotationType: "visual",
+        userId: ctx.user.id,
+        changeType: "created",
+        previousState: null,
+        newState: annotationData,
+        changeDescription: "Annotation created",
       });
 
       return {
@@ -134,11 +155,64 @@ export const visualAnnotationsRouter = router({
         });
       }
 
+      // Track deletion in history before deleting
+      await db.insert(annotationHistory).values({
+        annotationId: input.annotationId,
+        annotationType: "visual",
+        userId: ctx.user.id,
+        changeType: "deleted",
+        previousState: annotation,
+        newState: null,
+        changeDescription: "Annotation deleted",
+      });
+
       // Delete from database
       await db
         .delete(visualAnnotations)
         .where(eq(visualAnnotations.id, input.annotationId));
 
       return { success: true };
+    }),
+
+  /**
+   * Get annotation history for a file
+   */
+  getHistory: protectedProcedure
+    .input(
+      z.object({
+        fileId: z.number(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      
+      // Get all visual annotations for this file
+      const annotations = await db
+        .select()
+        .from(visualAnnotations)
+        .where(
+          and(
+            eq(visualAnnotations.fileId, input.fileId),
+            eq(visualAnnotations.userId, ctx.user.id)
+          )
+        );
+      
+      const annotationIds = annotations.map(a => a.id);
+      
+      // Get history for these annotations
+      const history = await db
+        .select()
+        .from(annotationHistory)
+        .where(
+          and(
+            eq(annotationHistory.userId, ctx.user.id),
+            eq(annotationHistory.annotationType, "visual")
+          )
+        )
+        .orderBy(annotationHistory.createdAt);
+      
+      // Filter to only include history for annotations in this file
+      return history.filter(h => annotationIds.includes(h.annotationId));
     }),
 });
