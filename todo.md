@@ -2365,3 +2365,32 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [x] Test error handling and edge cases (error boundaries in place)
 - [x] Verify all TypeScript types are correct (no TS errors)
 - [x] Run all backend tests and ensure they pass (48/55 passing, 7 failures due to test isolation)
+
+
+## Phase 78: User Onboarding Tutorial
+- [x] Create onboarding tutorial database table to track user progress
+- [x] Design tutorial overlay component with step-by-step guidance (driver.js)
+- [x] Implement tutorial steps for file upload workflow
+- [x] Add tutorial for video annotation features (voice and drawing)
+- [x] Create tutorial for collaboration features (templates, comments, approvals)
+- [x] Add tutorial for keyboard shortcuts
+- [x] Implement tutorial progress tracking and skip functionality
+- [x] Add "Show Tutorial" option in settings for returning users (restartTutorial hook)
+- [x] Test onboarding flow with new user perspective
+
+## Phase 79: Performance Optimization - Lazy Loading
+- [ ] Implement virtual scrolling for visual annotations list
+- [ ] Implement virtual scrolling for voice annotations list
+- [ ] Add intersection observer for lazy loading annotation thumbnails
+- [ ] Optimize image loading with progressive loading
+- [ ] Add loading skeletons for better perceived performance
+- [ ] Test lazy loading with large annotation lists (100+ items)
+
+## Phase 80: Performance Optimization - Pagination
+- [ ] Add pagination to files list view
+- [ ] Implement cursor-based pagination for better performance
+- [ ] Add page size selector (25/50/100 items per page)
+- [ ] Optimize database queries with proper indexing
+- [ ] Add pagination to search results
+- [ ] Test pagination with large datasets (1000+ files)
+- [ ] Measure and document performance improvements

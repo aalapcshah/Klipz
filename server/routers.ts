@@ -18,6 +18,7 @@ import { qualityScoreRouter } from "./routers/qualityScore";
 import { qualityImprovementRouter } from "./routers/qualityImprovement";
 import { semanticSearchRouter } from "./routers/semanticSearch";
 import { userRouter } from "./routers/user";
+import { onboardingRouter } from "./routers/onboarding";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import * as premiumFeatures from "./premiumFeatures";
@@ -346,6 +347,7 @@ export const appRouter = router({
   qualityImprovement: qualityImprovementRouter,
   semanticSearch: semanticSearchRouter,
   user: userRouter,
+  onboarding: onboardingRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

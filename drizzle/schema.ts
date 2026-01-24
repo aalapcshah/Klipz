@@ -828,3 +828,42 @@ export const emailPreferences = mysqlTable("emailPreferences", {
 
 export type EmailPreference = typeof emailPreferences.$inferSelect;
 export type InsertEmailPreference = typeof emailPreferences.$inferInsert;
+
+
+/**
+ * User onboarding progress table - tracks tutorial completion
+ */
+export const userOnboarding = mysqlTable("user_onboarding", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  
+  // Tutorial completion tracking
+  tutorialCompleted: boolean("tutorialCompleted").default(false).notNull(),
+  tutorialSkipped: boolean("tutorialSkipped").default(false).notNull(),
+  
+  // Individual step completion
+  uploadFileCompleted: boolean("uploadFileCompleted").default(false).notNull(),
+  createAnnotationCompleted: boolean("createAnnotationCompleted").default(false).notNull(),
+  useTemplateCompleted: boolean("useTemplateCompleted").default(false).notNull(),
+  addCommentCompleted: boolean("addCommentCompleted").default(false).notNull(),
+  approveAnnotationCompleted: boolean("approveAnnotationCompleted").default(false).notNull(),
+  useKeyboardShortcutCompleted: boolean("useKeyboardShortcutCompleted").default(false).notNull(),
+  
+  // Timestamps
+  tutorialStartedAt: timestamp("tutorialStartedAt"),
+  tutorialCompletedAt: timestamp("tutorialCompletedAt"),
+  lastStepCompletedAt: timestamp("lastStepCompletedAt"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UserOnboarding = typeof userOnboarding.$inferSelect;
+export type InsertUserOnboarding = typeof userOnboarding.$inferInsert;
+
+export const userOnboardingRelations = relations(userOnboarding, ({ one }) => ({
+  user: one(users, {
+    fields: [userOnboarding.userId],
+    references: [users.id],
+  }),
+}));

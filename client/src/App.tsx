@@ -6,6 +6,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Dashboard from "./pages/Dashboard";
 import { OnboardingWizard } from "./components/OnboardingWizard";
+import { OnboardingTutorial } from "./components/OnboardingTutorial";
 import { Footer } from "./components/Footer";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
@@ -78,6 +79,7 @@ function App() {
               onComplete={() => setShowOnboarding(false)}
             />
             <CookieConsent />
+            <OnboardingTutorial />
           </div>
         </TooltipProvider>
       </ThemeProvider>

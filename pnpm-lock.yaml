@@ -145,6 +145,9 @@ importers:
       dotenv:
         specifier: ^17.2.2
         version: 17.2.3
+      driver.js:
+        specifier: ^1.4.0
+        version: 1.4.0
       drizzle-orm:
         specifier: ^0.44.5
         version: 0.44.6(mysql2@3.15.1)
@@ -3051,6 +3054,9 @@ packages:
   dotenv@17.2.3:
     resolution: {integrity: sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w==}
     engines: {node: '>=12'}
+
+  driver.js@1.4.0:
+    resolution: {integrity: sha512-Gm64jm6PmcU+si21sQhBrTAM1JvUrR0QhNmjkprNLxohOBzul9+pNHXgQaT9lW84gwg9GMLB3NZGuGolsz5uew==}
 
   drizzle-kit@0.31.5:
     resolution: {integrity: sha512-+CHgPFzuoTQTt7cOYCV6MOw2w8vqEn/ap1yv4bpZOWL03u7rlVRQhUY0WYT3rHsgVTXwYQDZaSUJSQrMBUKuWg==}
@@ -7752,6 +7758,8 @@ snapshots:
       '@types/trusted-types': 2.0.7
 
   dotenv@17.2.3: {}
+
+  driver.js@1.4.0: {}
 
   drizzle-kit@0.31.5:
     dependencies:

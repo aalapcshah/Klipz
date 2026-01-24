@@ -108,6 +108,7 @@ export default function Dashboard() {
                   <Link 
                     key={item.href} 
                     href={item.href}
+                    id={item.label === "Files" ? "files-nav" : item.label === "Collections" ? "collections-nav" : undefined}
                     className={`flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors text-sm whitespace-nowrap ${
                       isActive
                         ? "bg-primary text-primary-foreground"

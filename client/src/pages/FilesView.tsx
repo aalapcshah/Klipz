@@ -39,7 +39,7 @@ export default function FilesView() {
     return (saved as 'grid' | 'list') || 'grid';
   });
   const utils = trpc.useUtils();
-  const { data: filesData } = trpc.files.list.useQuery();
+  const { data: filesData } = trpc.files.list.useQuery(undefined);
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
 
   // Persist filters to localStorage
@@ -112,7 +112,7 @@ export default function FilesView() {
                   <Trash2 className="h-4 w-4 mr-2" />
                   Clean Up Storage
                 </Button>
-                <Button onClick={() => setUploadDialogOpen(true)}>
+                <Button id="upload-files-button" onClick={() => setUploadDialogOpen(true)}>
                   <Upload className="h-4 w-4 mr-2" />
                   Upload Files
                 </Button>
@@ -120,10 +120,12 @@ export default function FilesView() {
             </div>
             
             {/* Voice Search Bar */}
-            <VoiceSearchBar
-              onSearch={(results) => setSearchResults(results)}
-              placeholder="Search files with voice or text..."
-            />
+            <div id="search-bar">
+              <VoiceSearchBar
+                onSearch={(results) => setSearchResults(results)}
+                placeholder="Search files with voice or text..."
+              />
+            </div>
             
             {searchResults && (
               <div className="flex items-center justify-between p-3 bg-muted rounded-lg">

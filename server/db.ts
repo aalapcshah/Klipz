@@ -41,6 +41,7 @@ import {
   visualAnnotations,
   annotationHistory,
   InsertAnnotationHistory,
+  userOnboarding,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -50,7 +51,9 @@ let _pool: mysql.Pool | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      // Import all schema for query API
+      const schema = await import("../drizzle/schema");
+      _db = drizzle(process.env.DATABASE_URL, { schema, mode: 'default' });
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
