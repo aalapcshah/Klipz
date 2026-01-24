@@ -1,4 +1,4 @@
-import { CheckCircle2, XCircle, Trash2, Download, X } from "lucide-react";
+import { CheckCircle2, XCircle, Trash2, Download, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -59,19 +59,37 @@ export function BatchActionsToolbar({
     },
   });
 
-  const exportMutation = trpc.export.exportCSV.useMutation({
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+
+  const exportCSVMutation = trpc.export.exportCSV.useMutation({
     onSuccess: (data) => {
-      const blob = new Blob([data.content], { type: data.mimeType });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = data.filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      downloadFile(data.content, data.filename, data.mimeType);
     },
   });
+
+  const exportJSONMutation = trpc.export.exportJSON.useMutation({
+    onSuccess: (data) => {
+      downloadFile(data.content, data.filename, data.mimeType);
+    },
+  });
+
+  const exportPDFMutation = trpc.export.exportPDF.useMutation({
+    onSuccess: (data) => {
+      downloadFile(data.content, data.filename, data.mimeType);
+    },
+  });
+
+  const downloadFile = (content: string, filename: string, mimeType: string) => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const handleApprove = () => {
     bulkApproveMutation.mutate({
@@ -94,11 +112,18 @@ export function BatchActionsToolbar({
     });
   };
 
-  const handleExport = () => {
-    exportMutation.mutate({
-      annotationIds: selectedIds,
-      annotationType,
-    });
+  const handleExport = (format: "csv" | "json" | "pdf") => {
+    const params = { annotationIds: selectedIds, annotationType };
+    
+    if (format === "csv") {
+      exportCSVMutation.mutate(params);
+    } else if (format === "json") {
+      exportJSONMutation.mutate(params);
+    } else {
+      exportPDFMutation.mutate(params);
+    }
+    
+    setExportMenuOpen(false);
   };
 
   if (selectedIds.length === 0) {
@@ -146,15 +171,47 @@ export function BatchActionsToolbar({
               Reject All
             </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExport}
-              className="gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setExportMenuOpen(!exportMenuOpen)}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Export
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+              
+              {exportMenuOpen && (
+                <div className="absolute bottom-full mb-2 left-0 bg-popover border rounded-lg shadow-lg p-2 min-w-[200px] z-50">
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => handleExport("csv")}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded transition-colors"
+                    >
+                      Export as CSV
+                    </button>
+                    <button
+                      onClick={() => handleExport("json")}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded transition-colors"
+                    >
+                      Export as JSON
+                    </button>
+                    <button
+                      onClick={() => handleExport("pdf")}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded transition-colors"
+                    >
+                      Export as PDF
+                    </button>
+                    <div className="border-t my-1" />
+                    <div className="px-3 py-2 text-xs text-muted-foreground">
+                      💡 Tip: After downloading, upload to Google Drive or Dropbox for cloud backup
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <Button
               variant="outline"

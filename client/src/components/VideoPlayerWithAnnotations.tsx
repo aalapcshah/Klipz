@@ -384,6 +384,32 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         </Card>
       )}
       
+      {/* Batch Actions Toolbar - Visual Annotations */}
+      {selectedVisualIds.length > 0 && (
+        <BatchActionsToolbar
+          selectedIds={selectedVisualIds}
+          annotationType="visual"
+          onClearSelection={() => setSelectedVisualIds([])}
+          onActionComplete={() => {
+            refetchVisualAnnotations();
+            toast.success("Batch action completed");
+          }}
+        />
+      )}
+      
+      {/* Batch Actions Toolbar - Voice Annotations */}
+      {selectedVoiceIds.length > 0 && (
+        <BatchActionsToolbar
+          selectedIds={selectedVoiceIds}
+          annotationType="voice"
+          onClearSelection={() => setSelectedVoiceIds([])}
+          onActionComplete={() => {
+            refetchAnnotations();
+            toast.success("Batch action completed");
+          }}
+        />
+      )}
+      
       <Card className="overflow-hidden">
         <div className="relative bg-black" id="video-container">
           <video
