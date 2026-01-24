@@ -80,3 +80,31 @@ export function broadcastApprovalEvent(
     }
   });
 }
+
+export function broadcastActivityEvent(
+  activityType: "upload" | "view" | "edit" | "tag" | "share" | "delete" | "enrich" | "export",
+  fileId: number | undefined,
+  fileName: string | undefined,
+  details: string | undefined,
+  userId: number,
+  userName: string
+) {
+  if (!wssInstance) return;
+
+  const message = {
+    type: "activity_logged",
+    activityType,
+    fileId,
+    fileName,
+    details,
+    userId,
+    userName,
+    timestamp: new Date().toISOString(),
+  };
+
+  wssInstance.clients.forEach((client: WebSocket) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(message));
+    }
+  });
+}

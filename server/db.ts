@@ -1793,7 +1793,7 @@ export async function trackFileActivity(params: {
   const db = await getDb();
   if (!db) throw new Error("Database not initialized");
 
-  const { fileActivityLogs } = await import("../drizzle/schema");
+  const { fileActivityLogs, files, users } = await import("../drizzle/schema");
 
   await db.insert(fileActivityLogs).values({
     userId: params.userId,
@@ -1801,6 +1801,34 @@ export async function trackFileActivity(params: {
     activityType: params.activityType,
     details: params.details,
   });
+
+  // Broadcast activity event via WebSocket
+  try {
+    const { broadcastActivityEvent } = await import("./_core/websocketBroadcast");
+    
+    // Get file name if fileId is provided
+    let fileName: string | undefined;
+    if (params.fileId) {
+      const [file] = await db.select({ filename: files.filename }).from(files).where(eq(files.id, params.fileId)).limit(1);
+      fileName = file?.filename;
+    }
+    
+    // Get user name
+    const [user] = await db.select({ name: users.name }).from(users).where(eq(users.id, params.userId)).limit(1);
+    const userName = user?.name || "Unknown";
+    
+    broadcastActivityEvent(
+      params.activityType,
+      params.fileId,
+      fileName,
+      params.details,
+      params.userId,
+      userName
+    );
+  } catch (error) {
+    // Silently fail if broadcast fails
+    console.error("Failed to broadcast activity event:", error);
+  }
 
   return { success: true };
 }

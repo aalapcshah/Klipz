@@ -2483,3 +2483,18 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [ ] Add merge/keep/delete actions for duplicates (future work)
 - [x] Test activity tracking across all operations
 - [ ] Test duplicate detection with similar images (future work)
+
+
+## Phase 86: Activity Log Export & Real-time Feed
+- [x] Add export button to Analytics page
+- [x] Create export endpoint for activity logs (CSV format)
+- [x] Create export endpoint for activity logs (JSON format)
+- [x] Add date range selection for export (uses existing filters)
+- [x] Add activity type filter for export (uses existing filters)
+- [x] Implement WebSocket event broadcasting for activity logs
+- [x] Create real-time activity feed component
+- [x] Add live activity notifications in UI
+- [x] Test CSV export with large datasets
+- [x] Test JSON export with filters
+- [x] Test WebSocket real-time updates
+- [x] Test activity feed with multiple concurrent users

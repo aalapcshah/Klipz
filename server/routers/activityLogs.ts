@@ -44,4 +44,39 @@ export const activityLogsRouter = router({
   stats: protectedProcedure.query(async ({ ctx }) => {
     return await getActivityStats(ctx.user.id);
   }),
+
+  export: protectedProcedure
+    .input(
+      z.object({
+        format: z.enum(["csv", "json"]),
+        activityType: z.string().optional(),
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const logs = await getActivityLogs({
+        userId: ctx.user.id,
+        activityType: input.activityType,
+        startDate: input.startDate ? new Date(input.startDate) : undefined,
+        endDate: input.endDate ? new Date(input.endDate) : undefined,
+        limit: 10000, // Export limit
+      });
+
+      if (input.format === "csv") {
+        // Convert to CSV
+        const headers = ["Timestamp", "Activity Type", "File Name", "Details"];
+        const rows = logs.map((log: any) => [
+          new Date(log.createdAt).toISOString(),
+          log.activityType,
+          log.file?.filename || "N/A",
+          log.details || "",
+        ]);
+        const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(",")).join("\n");
+        return { data: csv, filename: `activity-logs-${Date.now()}.csv` };
+      } else {
+        // Return JSON
+        return { data: JSON.stringify(logs, null, 2), filename: `activity-logs-${Date.now()}.json` };
+      }
+    }),
 });

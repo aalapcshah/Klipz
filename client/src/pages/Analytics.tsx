@@ -20,11 +20,40 @@ import {
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
+import { toast } from "sonner";
+import { LiveActivityFeed } from "@/components/LiveActivityFeed";
 
 export function Analytics() {
   const { data: stats, isLoading } = trpc.analytics.getEnrichmentStats.useQuery();
   const [activityType, setActivityType] = useState<string>("all");
   const [dateRange, setDateRange] = useState<string>("7d");
+  const utils = trpc.useUtils();
+  
+  const handleExport = async (format: "csv" | "json") => {
+    try {
+      const result = await utils.client.activityLogs.export.query({
+        format,
+        activityType: activityType === "all" ? undefined : activityType,
+        startDate: dateRange !== "all" ? new Date(Date.now() - parseInt(dateRange) * 24 * 60 * 60 * 1000).toISOString() : undefined,
+      });
+      
+      // Create download link
+      const blob = new Blob([result.data], { type: format === "csv" ? "text/csv" : "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = result.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`Activity logs exported as ${format.toUpperCase()}`);
+    } catch (error) {
+      toast.error("Failed to export activity logs");
+    }
+  };
   
   const { data: activityLogs } = trpc.activityLogs.list.useQuery({
     limit: 50,
@@ -262,6 +291,9 @@ export function Analytics() {
         </TabsContent>
 
         <TabsContent value="activity" className="space-y-6">
+          {/* Live Activity Feed */}
+          <LiveActivityFeed />
+
           {/* Activity Filters */}
           <Card className="p-6">
             <div className="flex flex-col md:flex-row gap-4">
@@ -297,6 +329,26 @@ export function Analytics() {
                     <SelectItem value="all">All time</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="flex gap-2 items-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleExport("csv")}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleExport("json")}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export JSON
+                </Button>
               </div>
             </div>
           </Card>
