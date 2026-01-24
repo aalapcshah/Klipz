@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,8 +13,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
-import { Trash2, Save, Library } from "lucide-react";
+import { Trash2, Save, Library, Globe, Lock, Users, Copy, TrendingUp } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 interface AnnotationTemplatesLibraryProps {
   currentDrawingState?: {
@@ -39,9 +50,40 @@ export function AnnotationTemplatesLibrary({
   const [libraryDialogOpen, setLibraryDialogOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
+  const [selectedVisibility, setSelectedVisibility] = useState<"private" | "team" | "public">("private");
+  const [activeTab, setActiveTab] = useState<"my-templates" | "public-templates">("my-templates");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // WebSocket for real-time updates
+  const { isConnected } = useWebSocket({
+    onTemplateCreated: (message) => {
+      console.log("[Template] Created:", message);
+      utils.annotationTemplates.getTemplates.invalidate();
+      utils.annotationTemplates.getPublicTemplates.invalidate();
+      toast.success(`${message.userName} created a new template`);
+    },
+    onTemplateUpdated: (message) => {
+      console.log("[Template] Updated:", message);
+      utils.annotationTemplates.getTemplates.invalidate();
+      utils.annotationTemplates.getPublicTemplates.invalidate();
+    },
+    onTemplateDeleted: (message) => {
+      console.log("[Template] Deleted:", message);
+      utils.annotationTemplates.getTemplates.invalidate();
+      utils.annotationTemplates.getPublicTemplates.invalidate();
+      toast.info(`${message.userName} deleted a template`);
+    },
+  });
 
   const utils = trpc.useUtils();
-  const { data: templates, isLoading } = trpc.annotationTemplates.getTemplates.useQuery();
+  
+  // Get user's templates
+  const { data: myTemplates = [], isLoading: loadingMyTemplates } = 
+    trpc.annotationTemplates.getTemplates.useQuery({ includeShared: false });
+
+  // Get public templates
+  const { data: publicTemplates = [], isLoading: loadingPublicTemplates } = 
+    trpc.annotationTemplates.getPublicTemplates.useQuery({ limit: 50 });
 
   const saveTemplateMutation = trpc.annotationTemplates.saveTemplate.useMutation({
     onSuccess: () => {
@@ -49,7 +91,9 @@ export function AnnotationTemplatesLibrary({
       setSaveDialogOpen(false);
       setTemplateName("");
       setTemplateDescription("");
+      setSelectedVisibility("private");
       utils.annotationTemplates.getTemplates.invalidate();
+      utils.annotationTemplates.getPublicTemplates.invalidate();
     },
     onError: (error) => {
       toast.error(`Failed to save template: ${error.message}`);
@@ -65,6 +109,19 @@ export function AnnotationTemplatesLibrary({
       toast.error(`Failed to delete template: ${error.message}`);
     },
   });
+
+  const updateVisibilityMutation = trpc.annotationTemplates.updateVisibility.useMutation({
+    onSuccess: () => {
+      toast.success("Visibility updated");
+      utils.annotationTemplates.getTemplates.invalidate();
+      utils.annotationTemplates.getPublicTemplates.invalidate();
+    },
+    onError: (error) => {
+      toast.error(`Failed to update visibility: ${error.message}`);
+    },
+  });
+
+  const incrementUsageMutation = trpc.annotationTemplates.incrementUsage.useMutation();
 
   const handleSaveTemplate = () => {
     if (!currentDrawingState) {
@@ -84,7 +141,7 @@ export function AnnotationTemplatesLibrary({
     });
   };
 
-  const handleApplyTemplate = (template: any) => {
+  const handleApplyTemplate = (template: any, isPublic: boolean = false) => {
     const styleData = template.style as {
       tool: string;
       color: string;
@@ -95,6 +152,11 @@ export function AnnotationTemplatesLibrary({
     onApplyTemplate(styleData);
     setLibraryDialogOpen(false);
     toast.success(`Applied template: ${template.name}`);
+
+    // Increment usage count
+    if (isPublic) {
+      incrementUsageMutation.mutate({ templateId: template.id });
+    }
   };
 
   const handleDeleteTemplate = (templateId: number, templateName: string) => {
@@ -103,62 +165,197 @@ export function AnnotationTemplatesLibrary({
     }
   };
 
+  const handleVisibilityChange = (templateId: number, visibility: "private" | "team" | "public") => {
+    updateVisibilityMutation.mutate({ templateId, visibility });
+  };
+
+  const getVisibilityIcon = (visibility: string) => {
+    switch (visibility) {
+      case "public":
+        return <Globe className="h-3 w-3" />;
+      case "team":
+        return <Users className="h-3 w-3" />;
+      default:
+        return <Lock className="h-3 w-3" />;
+    }
+  };
+
+  const getVisibilityLabel = (visibility: string) => {
+    switch (visibility) {
+      case "public":
+        return "Public";
+      case "team":
+        return "Team";
+      default:
+        return "Private";
+    }
+  };
+
+  const filteredMyTemplates = myTemplates.filter((t) =>
+    t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (t.description && t.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredPublicTemplates = publicTemplates.filter((t) =>
+    t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (t.description && t.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const renderTemplateCard = (template: any, isOwn: boolean = false) => (
+    <div
+      key={template.id}
+      className="border rounded-lg p-4 hover:bg-accent/50 transition-colors"
+    >
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex-1">
+          <h4 className="font-medium text-sm">{template.name}</h4>
+          {template.description && (
+            <p className="text-xs text-muted-foreground mt-1">{template.description}</p>
+          )}
+        </div>
+        <div className="flex gap-1">
+          {isOwn && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => handleDeleteTemplate(template.id, template.name)}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 mb-3">
+        <div
+          className="w-8 h-8 rounded border-2"
+          style={{
+            backgroundColor: template.style.color,
+            borderColor: template.style.color,
+          }}
+        />
+        <div className="text-xs text-muted-foreground">
+          {template.style.tool} • {template.style.strokeWidth}px
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {isOwn && (
+            <Select
+              value={template.visibility || "private"}
+              onValueChange={(value: "private" | "team" | "public") =>
+                handleVisibilityChange(template.id, value)
+              }
+            >
+              <SelectTrigger className="h-7 w-24 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="private">
+                  <div className="flex items-center gap-2">
+                    <Lock className="h-3 w-3" />
+                    Private
+                  </div>
+                </SelectItem>
+                <SelectItem value="team">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-3 w-3" />
+                    Team
+                  </div>
+                </SelectItem>
+                <SelectItem value="public">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-3 w-3" />
+                    Public
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          {!isOwn && template.visibility && (
+            <Badge variant="secondary" className="text-xs">
+              {getVisibilityIcon(template.visibility)}
+              <span className="ml-1">{getVisibilityLabel(template.visibility)}</span>
+            </Badge>
+          )}
+          {template.usageCount > 0 && (
+            <Badge variant="outline" className="text-xs">
+              <TrendingUp className="h-3 w-3 mr-1" />
+              {template.usageCount}
+            </Badge>
+          )}
+        </div>
+        <Button
+          size="sm"
+          onClick={() => handleApplyTemplate(template, !isOwn)}
+          className="h-7"
+        >
+          Apply
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex gap-2">
-      {/* Save Current State as Template */}
+      {/* Save Template Button */}
       <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
         <DialogTrigger asChild>
           <Button
             variant="outline"
             size="sm"
             disabled={!currentDrawingState}
-            className="flex items-center gap-1"
+            title="Save current drawing as template"
           >
-            <Save className="h-3 w-3" />
-            Save as Template
+            <Save className="h-4 w-4 mr-2" />
+            Save Template
           </Button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Save Annotation Template</DialogTitle>
             <DialogDescription>
-              Save your current drawing settings as a reusable template
+              Save your current drawing style as a reusable template
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 py-4">
             <div>
-              <Label htmlFor="template-name">Template Name</Label>
+              <Label htmlFor="template-name">Template Name *</Label>
               <Input
                 id="template-name"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
-                placeholder="e.g., Red Highlight Box"
+                placeholder="e.g., Red Circle Highlight"
               />
             </div>
             <div>
-              <Label htmlFor="template-description">Description (Optional)</Label>
+              <Label htmlFor="template-description">Description</Label>
               <Textarea
                 id="template-description"
                 value={templateDescription}
                 onChange={(e) => setTemplateDescription(e.target.value)}
-                placeholder="Describe when to use this template..."
+                placeholder="Optional description..."
                 rows={3}
               />
             </div>
             {currentDrawingState && (
-              <div className="p-3 bg-gray-50 rounded border text-sm space-y-1">
-                <div className="font-medium">Current Settings:</div>
-                <div>Tool: {currentDrawingState.tool}</div>
-                <div className="flex items-center gap-2">
-                  Color:
+              <div className="p-3 bg-accent rounded-lg">
+                <p className="text-sm font-medium mb-2">Preview:</p>
+                <div className="flex items-center gap-3">
                   <div
-                    className="w-6 h-6 rounded border"
-                    style={{ backgroundColor: currentDrawingState.color }}
+                    className="w-12 h-12 rounded border-2"
+                    style={{
+                      backgroundColor: currentDrawingState.color,
+                      borderColor: currentDrawingState.color,
+                    }}
                   />
-                  {currentDrawingState.color}
+                  <div className="text-sm text-muted-foreground">
+                    <div>Tool: {currentDrawingState.tool}</div>
+                    <div>Stroke: {currentDrawingState.strokeWidth}px</div>
+                  </div>
                 </div>
-                <div>Stroke Width: {currentDrawingState.strokeWidth}px</div>
-                {currentDrawingState.text && <div>Text: {currentDrawingState.text}</div>}
               </div>
             )}
           </div>
@@ -173,92 +370,78 @@ export function AnnotationTemplatesLibrary({
         </DialogContent>
       </Dialog>
 
-      {/* Template Library */}
+      {/* Template Library Button */}
       <Dialog open={libraryDialogOpen} onOpenChange={setLibraryDialogOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="flex items-center gap-1">
-            <Library className="h-3 w-3" />
+          <Button variant="outline" size="sm">
+            <Library className="h-4 w-4 mr-2" />
             Template Library
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
-            <DialogTitle>Annotation Template Library</DialogTitle>
+            <DialogTitle>Annotation Templates</DialogTitle>
             <DialogDescription>
-              Click a template to apply it to your current drawing
+              Browse and apply saved annotation templates
             </DialogDescription>
           </DialogHeader>
-          {isLoading ? (
-            <div className="text-center py-8 text-gray-500">Loading templates...</div>
-          ) : templates && templates.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3">
-              {templates.map((template) => {
-                const style = template.style as {
-                  tool: string;
-                  color: string;
-                  strokeWidth: number;
-                  text?: string;
-                };
-                return (
-                  <div
-                    key={template.id}
-                    className="border rounded p-3 hover:bg-gray-50 cursor-pointer transition-colors group"
-                    onClick={() => handleApplyTemplate(template)}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="font-medium text-sm">{template.name}</div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteTemplate(template.id, template.name);
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3 text-red-500" />
-                      </Button>
+
+          <div className="space-y-4">
+            {/* Search */}
+            <Input
+              placeholder="Search templates..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+
+            {/* Tabs */}
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="my-templates">
+                  My Templates ({myTemplates.length})
+                </TabsTrigger>
+                <TabsTrigger value="public-templates">
+                  Public Templates ({publicTemplates.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="my-templates" className="mt-4">
+                <ScrollArea className="h-96">
+                  {loadingMyTemplates ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Loading templates...
                     </div>
-                    {template.description && (
-                      <div className="text-xs text-gray-600 mb-2">{template.description}</div>
-                    )}
-                    <div className="space-y-1 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500">Tool:</span>
-                        <span className="font-mono">{style.tool}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500">Color:</span>
-                        <div
-                          className="w-4 h-4 rounded border"
-                          style={{ backgroundColor: style.color }}
-                        />
-                        <span className="font-mono text-xs">{style.color}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500">Width:</span>
-                        <span className="font-mono">{style.strokeWidth}px</span>
-                      </div>
-                      {style.text && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-500">Text:</span>
-                          <span className="font-mono truncate">{style.text}</span>
-                        </div>
-                      )}
+                  ) : filteredMyTemplates.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {searchQuery ? "No templates found" : "No templates saved yet"}
                     </div>
-                    <div className="mt-2 text-xs text-gray-400">
-                      Used {template.usageCount} times
+                  ) : (
+                    <div className="grid gap-3">
+                      {filteredMyTemplates.map((template) => renderTemplateCard(template, true))}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              No templates saved yet. Create your first template by saving your current drawing
-              settings.
-            </div>
-          )}
+                  )}
+                </ScrollArea>
+              </TabsContent>
+
+              <TabsContent value="public-templates" className="mt-4">
+                <ScrollArea className="h-96">
+                  {loadingPublicTemplates ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Loading public templates...
+                    </div>
+                  ) : filteredPublicTemplates.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {searchQuery ? "No templates found" : "No public templates available"}
+                    </div>
+                  ) : (
+                    <div className="grid gap-3">
+                      {filteredPublicTemplates.map((template) => renderTemplateCard(template, false))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </TabsContent>
+            </Tabs>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

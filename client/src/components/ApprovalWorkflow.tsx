@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 interface ApprovalWorkflowProps {
   annotationId: number;
@@ -25,6 +26,36 @@ export function ApprovalWorkflow({ annotationId, annotationType }: ApprovalWorkf
   const [requestComment, setRequestComment] = useState("");
   const [approveComment, setApproveComment] = useState("");
   const [rejectComment, setRejectComment] = useState("");
+
+  // WebSocket for real-time approval updates
+  const { isConnected } = useWebSocket({
+    onApprovalRequested: (message) => {
+      if (message.annotationId === annotationId && message.annotationType === annotationType) {
+        console.log("[Approval] Requested:", message);
+        utils.annotationApprovals.getApprovalStatus.invalidate();
+      }
+    },
+    onApprovalApproved: (message) => {
+      if (message.annotationId === annotationId && message.annotationType === annotationType) {
+        console.log("[Approval] Approved:", message);
+        utils.annotationApprovals.getApprovalStatus.invalidate();
+        toast.success(`Annotation approved by ${message.userName}`);
+      }
+    },
+    onApprovalRejected: (message) => {
+      if (message.annotationId === annotationId && message.annotationType === annotationType) {
+        console.log("[Approval] Rejected:", message);
+        utils.annotationApprovals.getApprovalStatus.invalidate();
+        toast.error(`Annotation rejected by ${message.userName}`);
+      }
+    },
+    onApprovalCanceled: (message) => {
+      if (message.annotationId === annotationId && message.annotationType === annotationType) {
+        console.log("[Approval] Canceled:", message);
+        utils.annotationApprovals.getApprovalStatus.invalidate();
+      }
+    },
+  });
 
   const utils = trpc.useUtils();
   const { data: approval, isLoading } = trpc.annotationApprovals.getApprovalStatus.useQuery({

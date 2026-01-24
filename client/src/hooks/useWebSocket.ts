@@ -2,12 +2,26 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 
 interface UseWebSocketOptions {
-  fileId: number;
+  fileId?: number;
   onAnnotationCreated?: (data: any) => void;
   onAnnotationUpdated?: (data: any) => void;
   onAnnotationDeleted?: (data: any) => void;
   onUserJoined?: (data: { userId: number; userName: string }) => void;
   onUserLeft?: (data: { userId: number; userName: string }) => void;
+  // Template events
+  onTemplateCreated?: (data: any) => void;
+  onTemplateUpdated?: (data: any) => void;
+  onTemplateDeleted?: (data: any) => void;
+  // Comment events
+  onCommentCreated?: (data: any) => void;
+  onCommentUpdated?: (data: any) => void;
+  onCommentDeleted?: (data: any) => void;
+  onCommentReplied?: (data: any) => void;
+  // Approval events
+  onApprovalRequested?: (data: any) => void;
+  onApprovalApproved?: (data: any) => void;
+  onApprovalRejected?: (data: any) => void;
+  onApprovalCanceled?: (data: any) => void;
 }
 
 interface UserPresence {
@@ -16,7 +30,25 @@ interface UserPresence {
 }
 
 export function useWebSocket(options: UseWebSocketOptions) {
-  const { fileId, onAnnotationCreated, onAnnotationUpdated, onAnnotationDeleted, onUserJoined, onUserLeft } = options;
+  const {
+    fileId,
+    onAnnotationCreated,
+    onAnnotationUpdated,
+    onAnnotationDeleted,
+    onUserJoined,
+    onUserLeft,
+    onTemplateCreated,
+    onTemplateUpdated,
+    onTemplateDeleted,
+    onCommentCreated,
+    onCommentUpdated,
+    onCommentDeleted,
+    onCommentReplied,
+    onApprovalRequested,
+    onApprovalApproved,
+    onApprovalRejected,
+    onApprovalCanceled,
+  } = options;
   const { user } = useAuth();
   const wsRef = useRef<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -36,13 +68,15 @@ export function useWebSocket(options: UseWebSocketOptions) {
       console.log("[WebSocket] Connected");
       setIsConnected(true);
 
-      // Join the file room
-      ws.send(JSON.stringify({
-        type: "join_file",
-        fileId,
-        userId: user.id,
-        userName: user.name || "Anonymous",
-      }));
+      // Join the file room if fileId is provided
+      if (fileId) {
+        ws.send(JSON.stringify({
+          type: "join_file",
+          fileId,
+          userId: user.id,
+          userName: user.name || "Anonymous",
+        }));
+      }
     };
 
     ws.onmessage = (event) => {
@@ -76,6 +110,53 @@ export function useWebSocket(options: UseWebSocketOptions) {
             setActiveUsers(message.users);
             break;
 
+          // Template events
+          case "template_created":
+            onTemplateCreated?.(message);
+            break;
+
+          case "template_updated":
+            onTemplateUpdated?.(message);
+            break;
+
+          case "template_deleted":
+            onTemplateDeleted?.(message);
+            break;
+
+          // Comment events
+          case "comment_created":
+            onCommentCreated?.(message);
+            break;
+
+          case "comment_updated":
+            onCommentUpdated?.(message);
+            break;
+
+          case "comment_deleted":
+            onCommentDeleted?.(message);
+            break;
+
+          case "comment_replied":
+            onCommentReplied?.(message);
+            break;
+
+          // Approval events
+          case "approval_requested":
+            onApprovalRequested?.(message);
+            break;
+
+          case "approval_approved":
+            onApprovalApproved?.(message);
+            break;
+
+          case "approval_rejected":
+            onApprovalRejected?.(message);
+            break;
+
+          case "approval_canceled":
+            onApprovalCanceled?.(message);
+            break;
+
           default:
             console.log("[WebSocket] Unknown message type:", message.type);
         }
@@ -94,7 +175,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
     };
 
     return () => {
-      if (ws.readyState === WebSocket.OPEN) {
+      if (ws.readyState === WebSocket.OPEN && fileId) {
         ws.send(JSON.stringify({
           type: "leave_file",
           fileId,
@@ -102,7 +183,26 @@ export function useWebSocket(options: UseWebSocketOptions) {
       }
       ws.close();
     };
-  }, [fileId, user, onAnnotationCreated, onAnnotationUpdated, onAnnotationDeleted, onUserJoined, onUserLeft]);
+  }, [
+    fileId,
+    user,
+    onAnnotationCreated,
+    onAnnotationUpdated,
+    onAnnotationDeleted,
+    onUserJoined,
+    onUserLeft,
+    onTemplateCreated,
+    onTemplateUpdated,
+    onTemplateDeleted,
+    onCommentCreated,
+    onCommentUpdated,
+    onCommentDeleted,
+    onCommentReplied,
+    onApprovalRequested,
+    onApprovalApproved,
+    onApprovalRejected,
+    onApprovalCanceled,
+  ]);
 
   const broadcastAnnotation = (type: "annotation_created" | "annotation_updated" | "annotation_deleted", annotationType: "voice" | "visual", annotation: any) => {
     if (wsRef.current?.readyState === WebSocket.OPEN && user) {

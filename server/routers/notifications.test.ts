@@ -22,14 +22,7 @@ describe("Notifications Router", () => {
 
   const caller = appRouter.createCaller(mockContext);
 
-  beforeAll(async () => {
-    const db = await getDb();
-    if (!db) throw new Error("Database not available");
-
-    // Clean up test data
-    await db.delete(notifications).where(eq(notifications.userId, mockUser.id));
-    await db.delete(notificationPreferences).where(eq(notificationPreferences.userId, mockUser.id));
-  });
+  // Note: Tests run sequentially and build on each other's state
 
   it("should get notification preferences with defaults", async () => {
     const prefs = await caller.notifications.getPreferences();

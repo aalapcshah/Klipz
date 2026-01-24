@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { MessageSquare, Send, Edit2, Trash2, Reply } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 interface CommentThreadProps {
   annotationId: number;
@@ -27,6 +28,31 @@ export function CommentThread({ annotationId, annotationType }: CommentThreadPro
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [showComments, setShowComments] = useState(false);
+
+  // WebSocket for real-time comment updates
+  const { isConnected } = useWebSocket({
+    onCommentCreated: (message) => {
+      if (message.annotationId === annotationId && message.annotationType === annotationType) {
+        console.log("[Comment] Created:", message);
+        utils.annotationComments.getComments.invalidate();
+        utils.annotationComments.getCommentCount.invalidate();
+      }
+    },
+    onCommentReplied: (message) => {
+      if (message.annotationId === annotationId && message.annotationType === annotationType) {
+        console.log("[Comment] Replied:", message);
+        utils.annotationComments.getComments.invalidate();
+        utils.annotationComments.getCommentCount.invalidate();
+      }
+    },
+    onCommentDeleted: (message) => {
+      if (message.annotationId === annotationId && message.annotationType === annotationType) {
+        console.log("[Comment] Deleted:", message);
+        utils.annotationComments.getComments.invalidate();
+        utils.annotationComments.getCommentCount.invalidate();
+      }
+    },
+  });
 
   const utils = trpc.useUtils();
   const { data: comments, isLoading } = trpc.annotationComments.getComments.useQuery(
