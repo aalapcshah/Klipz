@@ -42,6 +42,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState("");
+  const [approvalStatusFilter, setApprovalStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [minTimestamp, setMinTimestamp] = useState<number | null>(null);
   const [maxTimestamp, setMaxTimestamp] = useState<number | null>(null);
   const [minDuration, setMinDuration] = useState<number | null>(null);
@@ -598,9 +599,33 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       {/* Drawing Annotations List */}
       {visualAnnotations.length > 0 && (
         <Card className="p-4">
-          <h3 className="font-semibold mb-3 flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            Drawing Annotations ({visualAnnotations.length})
+          <h3 className="font-semibold mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Drawing Annotations ({visualAnnotations.length})
+            </div>
+            <div className="flex items-center gap-2 text-sm font-normal">
+              {selectedVisualIds.length > 0 && (
+                <span className="text-muted-foreground">
+                  {selectedVisualIds.length} of {visualAnnotations.length} selected
+                </span>
+              )}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={visualAnnotations.length > 0 && selectedVisualIds.length === visualAnnotations.length}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedVisualIds(visualAnnotations.map(a => a.id).filter((id): id is number => id !== undefined));
+                    } else {
+                      setSelectedVisualIds([]);
+                    }
+                  }}
+                  className="w-4 h-4"
+                />
+                <span className="text-xs">Select All</span>
+              </label>
+            </div>
           </h3>
           
           {/* Search and Filter Bar */}
@@ -612,6 +637,19 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-3 py-2 border rounded-md text-sm"
             />
+            <div>
+              <label className="text-xs text-muted-foreground">Approval Status:</label>
+              <select
+                value={approvalStatusFilter}
+                onChange={(e) => setApprovalStatusFilter(e.target.value as any)}
+                className="w-full px-3 py-2 border rounded-md text-sm"
+              >
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
                 <label className="text-muted-foreground">Min Time (s):</label>
@@ -654,12 +692,13 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 />
               </div>
             </div>
-            {(searchQuery || minTimestamp !== null || maxTimestamp !== null || minDuration !== null || maxDuration !== null) && (
+            {(searchQuery || minTimestamp !== null || maxTimestamp !== null || minDuration !== null || maxDuration !== null || approvalStatusFilter !== "all") && (
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => {
                   setSearchQuery("");
+                  setApprovalStatusFilter("all");
                   setMinTimestamp(null);
                   setMaxTimestamp(null);
                   setMinDuration(null);
@@ -688,6 +727,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 if (searchQuery && annotation.description) {
                   if (!annotation.description.toLowerCase().includes(searchQuery.toLowerCase())) return false;
                 }
+                
+                // Note: Approval status filtering requires fetching approval data
+                // For now, showing all annotations when filter is applied
+                // TODO: Fetch approval statuses and filter accordingly
                 
                 return true;
               })
@@ -768,22 +811,129 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       {annotations.length > 0 && (
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
-              Voice Annotations ({annotations.length})
+            <h3 className="font-semibold flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Voice Annotations ({annotations.length})
+              </div>
+              <div className="flex items-center gap-2 text-sm font-normal">
+                {selectedVoiceIds.length > 0 && (
+                  <span className="text-muted-foreground">
+                    {selectedVoiceIds.length} of {annotations.length} selected
+                  </span>
+                )}
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={annotations.length > 0 && selectedVoiceIds.length === annotations.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedVoiceIds(annotations.map(a => a.id).filter((id): id is number => id !== undefined));
+                      } else {
+                        setSelectedVoiceIds([]);
+                      }
+                    }}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-xs">Select All</span>
+                </label>
+              </div>
             </h3>
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-muted-foreground">Speech Rate:</label>
+            
+            {/* Search and Filter Bar */}
+            <div className="mb-4 space-y-3">
               <input
-                type="range"
-                min="0.5"
-                max="2"
-                step="0.1"
-                value={speechRate}
-                onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
-                className="w-20 h-1"
+                type="text"
+                placeholder="Search voice annotations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md text-sm"
               />
-              <span className="text-xs text-muted-foreground w-8">{speechRate.toFixed(1)}x</span>
+              <div>
+                <label className="text-xs text-muted-foreground">Approval Status:</label>
+                <select
+                  value={approvalStatusFilter}
+                  onChange={(e) => setApprovalStatusFilter(e.target.value as any)}
+                  className="w-full px-3 py-2 border rounded-md text-sm"
+                >
+                  <option value="all">All</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <label className="text-muted-foreground">Min Time (s):</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={minTimestamp ?? ""}
+                    onChange={(e) => setMinTimestamp(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full px-2 py-1 border rounded text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-muted-foreground">Max Time (s):</label>
+                  <input
+                    type="number"
+                    placeholder="∞"
+                    value={maxTimestamp ?? ""}
+                    onChange={(e) => setMaxTimestamp(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full px-2 py-1 border rounded text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-muted-foreground">Min Duration (s):</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={minDuration ?? ""}
+                    onChange={(e) => setMinDuration(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full px-2 py-1 border rounded text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-muted-foreground">Max Duration (s):</label>
+                  <input
+                    type="number"
+                    placeholder="∞"
+                    value={maxDuration ?? ""}
+                    onChange={(e) => setMaxDuration(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full px-2 py-1 border rounded text-sm"
+                  />
+                </div>
+              </div>
+              {(searchQuery || minTimestamp !== null || maxTimestamp !== null || minDuration !== null || maxDuration !== null || approvalStatusFilter !== "all") && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setApprovalStatusFilter("all");
+                    setMinTimestamp(null);
+                    setMaxTimestamp(null);
+                    setMinDuration(null);
+                    setMaxDuration(null);
+                  }}
+                  className="w-full"
+                >
+                  Clear Filters
+                </Button>
+              )}
+              <div className="flex items-center gap-2 pt-2 border-t">
+                <label className="text-xs text-muted-foreground">Speech Rate:</label>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2"
+                  step="0.1"
+                  value={speechRate}
+                  onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
+                  className="w-20 h-1"
+                />
+                <span className="text-xs text-muted-foreground w-8">{speechRate.toFixed(1)}x</span>
+              </div>
             </div>
           </div>
           <div className="space-y-2">

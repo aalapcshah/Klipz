@@ -2289,3 +2289,19 @@ Note: Database schema is ready. Settings component and persistence logic can be 
 - [x] Test export with all formats (CSV/JSON/PDF)
 
 Note: Implemented simplified cloud export approach - users download files and manually upload to their preferred cloud storage (Google Drive, Dropbox, etc.). This avoids OAuth complexity while providing the same end result.
+
+
+## Phase 71: Select-All Checkboxes
+- [x] Add select-all checkbox to Visual Annotations section header
+- [x] Add select-all checkbox to Voice Annotations section header
+- [x] Wire select-all functionality to select/deselect all visible annotations
+- [x] Add visual indicator showing "X of Y selected"
+- [x] Test select-all with filtered results
+
+## Phase 72: Annotation Search and Filter
+- [x] Add search input for filtering annotations by transcript/description text
+- [x] Add filter dropdown for approval status (All/Pending/Approved/Rejected)
+- [x] Add date range filter for annotations (time/duration filters)
+- [x] Implement client-side filtering logic
+- [ ] Show filtered results count
+- [x] Test search and filter combinations
