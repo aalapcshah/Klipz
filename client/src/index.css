@@ -121,6 +121,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-size: 15px;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),

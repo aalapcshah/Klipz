@@ -1876,3 +1876,8 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Add filter by change type (all, created, deleted)
 - [x] Integrate into VideoPlayerWithAnnotations
 - [x] Test history timeline interface
+
+## Phase 158: Decrease Font Sizes
+- [x] Update base font size in index.css
+- [x] Verify font size changes across all pages
+- [x] Test readability and visual density
