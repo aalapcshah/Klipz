@@ -1,6 +1,8 @@
 import { trpc } from "@/lib/trpc";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState } from "react";
 import {
   BarChart3,
   TrendingUp,
@@ -9,10 +11,28 @@ import {
   FileText,
   Tag,
   Clock,
+  Activity,
+  Upload,
+  Eye,
+  Edit,
+  Share2,
+  Trash2,
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 export function Analytics() {
   const { data: stats, isLoading } = trpc.analytics.getEnrichmentStats.useQuery();
+  const [activityType, setActivityType] = useState<string>("all");
+  const [dateRange, setDateRange] = useState<string>("7d");
+  
+  const { data: activityLogs } = trpc.activityLogs.list.useQuery({
+    limit: 50,
+    activityType: activityType === "all" ? undefined : activityType,
+    startDate: dateRange !== "all" ? new Date(Date.now() - parseInt(dateRange) * 24 * 60 * 60 * 1000).toISOString() : undefined,
+  });
+  
+  const { data: activityStats } = trpc.activityLogs.stats.useQuery();
 
   if (isLoading) {
     return (
@@ -70,14 +90,33 @@ export function Analytics() {
     },
   ];
 
+  const activityIcons: Record<string, any> = {
+    upload: Upload,
+    view: Eye,
+    edit: Edit,
+    tag: Tag,
+    share: Share2,
+    delete: Trash2,
+    enrich: Zap,
+    export: FileText,
+  };
+
   return (
     <div className="container py-8 space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Enrichment Analytics</h1>
+        <h1 className="text-3xl font-bold">Analytics & Activity</h1>
         <p className="text-muted-foreground mt-2">
-          Track your file enrichment performance and knowledge graph usage
+          Track enrichment performance and file activity
         </p>
       </div>
+
+      <Tabs defaultValue="enrichment" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="enrichment">Enrichment Stats</TabsTrigger>
+          <TabsTrigger value="activity">Activity Timeline</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="enrichment" className="space-y-6">
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -220,6 +259,110 @@ export function Analytics() {
           </div>
         </Card>
       )}
+        </TabsContent>
+
+        <TabsContent value="activity" className="space-y-6">
+          {/* Activity Filters */}
+          <Card className="p-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <label className="text-sm font-medium mb-2 block">Activity Type</label>
+                <Select value={activityType} onValueChange={setActivityType}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Activities</SelectItem>
+                    <SelectItem value="upload">Uploads</SelectItem>
+                    <SelectItem value="view">Views</SelectItem>
+                    <SelectItem value="edit">Edits</SelectItem>
+                    <SelectItem value="tag">Tags</SelectItem>
+                    <SelectItem value="share">Shares</SelectItem>
+                    <SelectItem value="enrich">Enrichments</SelectItem>
+                    <SelectItem value="export">Exports</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1">
+                <label className="text-sm font-medium mb-2 block">Date Range</label>
+                <Select value={dateRange} onValueChange={setDateRange}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1d">Last 24 hours</SelectItem>
+                    <SelectItem value="7d">Last 7 days</SelectItem>
+                    <SelectItem value="30d">Last 30 days</SelectItem>
+                    <SelectItem value="90d">Last 90 days</SelectItem>
+                    <SelectItem value="all">All time</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </Card>
+
+          {/* Activity Stats Summary */}
+          {activityStats && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card className="p-4">
+                <div className="text-2xl font-bold">{activityStats.totalActivities}</div>
+                <div className="text-sm text-muted-foreground">Total Activities</div>
+              </Card>
+              {activityStats.activityByType.map((stat: any) => (
+                <Card key={stat.activityType} className="p-4">
+                  <div className="text-2xl font-bold">{stat.count}</div>
+                  <div className="text-sm text-muted-foreground capitalize">{stat.activityType}s</div>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Activity Timeline */}
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Activity Timeline
+            </h2>
+            <div className="space-y-3">
+              {activityLogs && activityLogs.length > 0 ? (
+                activityLogs.map((log: any) => {
+                  const Icon = activityIcons[log.activityType] || Activity;
+                  return (
+                    <div
+                      key={log.id}
+                      className="flex items-start gap-4 p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <Icon className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium capitalize">{log.activityType}</span>
+                          {log.file && (
+                            <span className="text-sm text-muted-foreground">
+                              • {log.file.filename}
+                            </span>
+                          )}
+                        </div>
+                        {log.details && (
+                          <p className="text-sm text-muted-foreground mt-1">{log.details}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(log.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No activity found for the selected filters
+                </div>
+              )}
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

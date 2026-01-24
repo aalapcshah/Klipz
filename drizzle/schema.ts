@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, float, boolean, json, uniqueIndex } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, float, boolean, json, uniqueIndex, index } from "drizzle-orm/mysql-core";
 import { relations } from "drizzle-orm";
 
 /**
@@ -888,6 +888,36 @@ export const recentlyViewedFilesRelations = relations(recentlyViewedFiles, ({ on
   }),
   file: one(files, {
     fields: [recentlyViewedFiles.fileId],
+    references: [files.id],
+  }),
+}));
+
+
+// ============= FILE ACTIVITY LOGS TABLE =============
+export const fileActivityLogs = mysqlTable("file_activity_logs", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("userId").notNull(),
+  fileId: int("fileId"),
+  activityType: mysqlEnum("activityType", ["upload", "view", "edit", "tag", "share", "delete", "enrich", "export"]).notNull(),
+  details: text("details"), // JSON string with additional details
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  userIndex: index("user_idx").on(table.userId),
+  fileIndex: index("file_idx").on(table.fileId),
+  activityTypeIndex: index("activity_type_idx").on(table.activityType),
+  createdAtIndex: index("created_at_idx").on(table.createdAt),
+}));
+
+export type FileActivityLog = typeof fileActivityLogs.$inferSelect;
+export type InsertFileActivityLog = typeof fileActivityLogs.$inferInsert;
+
+export const fileActivityLogsRelations = relations(fileActivityLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [fileActivityLogs.userId],
+    references: [users.id],
+  }),
+  file: one(files, {
+    fields: [fileActivityLogs.fileId],
     references: [files.id],
   }),
 }));

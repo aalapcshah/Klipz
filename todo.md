@@ -2463,3 +2463,23 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [x] Add "Recently Viewed" section to Dashboard
 - [x] Display last 10 viewed files with thumbnails and quick access
 - [x] Test recently viewed tracking and display
+
+
+## Phase 85: Administrative Analytics & Duplicate Detection
+- [x] Create Analytics navigation item in admin panel (already exists)
+- [x] Create file_activity_logs database table
+- [x] Add activity tracking for file uploads, views, edits, tags, shares
+- [x] Create activity log backend functions (track, query, filter)
+- [x] Build Analytics page with activity timeline
+- [x] Add date range filter for activity logs
+- [x] Add activity type filter (upload, view, edit, tag, share)
+- [x] Add user filter for activity logs (backend ready)
+- [ ] Install image-hash library for perceptual hashing (future work)
+- [ ] Create file_duplicates database table (future work)
+- [ ] Implement perceptual hash calculation on upload (future work)
+- [ ] Create duplicate detection algorithm (future work)
+- [ ] Add duplicate scanning backend endpoint (future work)
+- [ ] Build Duplicates page with grouped duplicate files (future work)
+- [ ] Add merge/keep/delete actions for duplicates (future work)
+- [x] Test activity tracking across all operations
+- [ ] Test duplicate detection with similar images (future work)

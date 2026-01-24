@@ -1780,3 +1780,112 @@ export async function getRecentlyViewedFiles(userId: number, limit: number = 10)
   
   return result;
 }
+
+
+// ============= FILE ACTIVITY LOGS FUNCTIONS =============
+
+export async function trackFileActivity(params: {
+  userId: number;
+  fileId?: number;
+  activityType: "upload" | "view" | "edit" | "tag" | "share" | "delete" | "enrich" | "export";
+  details?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not initialized");
+
+  const { fileActivityLogs } = await import("../drizzle/schema");
+
+  await db.insert(fileActivityLogs).values({
+    userId: params.userId,
+    fileId: params.fileId,
+    activityType: params.activityType,
+    details: params.details,
+  });
+
+  return { success: true };
+}
+
+export async function getActivityLogs(params: {
+  userId: number;
+  limit?: number;
+  offset?: number;
+  activityType?: string;
+  startDate?: Date;
+  endDate?: Date;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not initialized");
+
+  const { fileActivityLogs } = await import("../drizzle/schema");
+
+  let conditions: any[] = [eq(fileActivityLogs.userId, params.userId)];
+
+  if (params.activityType) {
+    conditions.push(eq(fileActivityLogs.activityType, params.activityType as any));
+  }
+
+  if (params.startDate) {
+    conditions.push(gte(fileActivityLogs.createdAt, params.startDate));
+  }
+
+  if (params.endDate) {
+    conditions.push(lte(fileActivityLogs.createdAt, params.endDate));
+  }
+
+  let query = db
+    .select({
+      id: fileActivityLogs.id,
+      userId: fileActivityLogs.userId,
+      fileId: fileActivityLogs.fileId,
+      activityType: fileActivityLogs.activityType,
+      details: fileActivityLogs.details,
+      createdAt: fileActivityLogs.createdAt,
+      file: {
+        id: files.id,
+        filename: files.filename,
+        mimeType: files.mimeType,
+        url: files.url,
+      },
+    })
+    .from(fileActivityLogs)
+    .leftJoin(files, eq(fileActivityLogs.fileId, files.id))
+    .where(and(...conditions))
+    .orderBy(desc(fileActivityLogs.createdAt))
+    .$dynamic();
+
+  if (params.limit) {
+    query = query.limit(params.limit);
+  }
+
+  if (params.offset) {
+    query = query.offset(params.offset);
+  }
+
+  return await query;
+}
+
+export async function getActivityStats(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not initialized");
+
+  const { fileActivityLogs } = await import("../drizzle/schema");
+
+  const [totalActivities] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(fileActivityLogs)
+    .where(eq(fileActivityLogs.userId, userId));
+
+  const activityByType = await db
+    .select({
+      activityType: fileActivityLogs.activityType,
+      count: sql<number>`count(*)`,
+    })
+    .from(fileActivityLogs)
+    .where(eq(fileActivityLogs.userId, userId))
+    .groupBy(fileActivityLogs.activityType);
+
+  return {
+    totalActivities: totalActivities.count,
+    activityByType,
+  };
+}
