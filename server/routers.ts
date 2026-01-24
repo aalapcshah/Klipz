@@ -10,6 +10,8 @@ import { annotationCommentsRouter } from "./routers/annotation-comments";
 import { annotationApprovalsRouter } from "./routers/annotation-approvals";
 import { annotationHistoryRouter } from "./routers/annotation-history";
 import { batchOperationsRouter } from "./routers/batch-operations";
+import { keyboardShortcutsRouter } from "./routers/keyboard-shortcuts";
+import { exportRouter } from "./routers/export";
 import { notificationsRouter } from "./routers/notifications";
 import { storageCleanupRouter } from "./routers/storageCleanup";
 import { qualityScoreRouter } from "./routers/qualityScore";
@@ -336,6 +338,8 @@ export const appRouter = router({
   annotationApprovals: annotationApprovalsRouter,
   annotationHistory: annotationHistoryRouter,
   batchOperations: batchOperationsRouter,
+  keyboardShortcuts: keyboardShortcutsRouter,
+  export: exportRouter,
   notifications: notificationsRouter,
   storageCleanup: storageCleanupRouter,
   qualityScore: qualityScoreRouter,

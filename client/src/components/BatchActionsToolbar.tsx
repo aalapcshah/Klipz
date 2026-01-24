@@ -59,10 +59,19 @@ export function BatchActionsToolbar({
     },
   });
 
-  const { refetch: exportAnnotations } = trpc.batchOperations.exportAnnotations.useQuery(
-    { annotationIds: selectedIds, annotationType },
-    { enabled: false }
-  );
+  const exportMutation = trpc.export.exportCSV.useMutation({
+    onSuccess: (data) => {
+      const blob = new Blob([data.content], { type: data.mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = data.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
+  });
 
   const handleApprove = () => {
     bulkApproveMutation.mutate({
@@ -85,21 +94,11 @@ export function BatchActionsToolbar({
     });
   };
 
-  const handleExport = async () => {
-    const result = await exportAnnotations();
-    if (result.data) {
-      const blob = new Blob([JSON.stringify(result.data, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `annotations-${annotationType}-${new Date().toISOString()}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
+  const handleExport = () => {
+    exportMutation.mutate({
+      annotationIds: selectedIds,
+      annotationType,
+    });
   };
 
   if (selectedIds.length === 0) {

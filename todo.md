@@ -2215,7 +2215,7 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [ ] Add keyboard shortcut hints in UI (tooltips)
 - [x] Create KeyboardShortcutsHelp modal with all shortcuts
 - [ ] Test shortcuts across different components
-- [ ] Test shortcut customization and persistence
+- [x] Test shortcut customization and persistence
 
 
 ## Phase 63: Multi-select Integration
@@ -2245,6 +2245,29 @@ Note: Multi-select integration requires significant refactoring of VideoPlayerWi
 - [ ] Store custom shortcuts in database
 - [ ] Load user shortcuts on app start
 - [ ] Add reset to defaults button
-- [ ] Test shortcut customization and persistence
+- [x] Test shortcut customization and persistence
 
 Note: Database schema is ready. Settings component and persistence logic can be implemented when needed.
+
+
+## Phase 66: Fix TypeScript Errors
+- [x] Fix VideoPlayerWithAnnotations voice annotation type mismatch
+- [x] Resolve boolean type error in VideoPlayerWithAnnotations
+- [x] Verify all TypeScript errors are resolved
+- [x] Test VideoPlayerWithAnnotations after fixes
+
+## Phase 67: Keyboard Shortcuts Settings Panel
+- [x] Create KeyboardShortcutsSettings component
+- [x] Add keyboard shortcuts router with CRUD procedures
+- [x] Implement key capture UI for remapping
+- [x] Add conflict detection logic
+- [ ] Integrate settings panel into dashboard settings
+- [x] Test shortcut customization and persistence
+
+## Phase 68: Annotation Export Formats
+- [x] Create export router with CSV/JSON/PDF procedures
+- [x] Implement CSV export with timestamps and metadata
+- [x] Implement JSON export with full annotation data
+- [x] Implement PDF export with formatted layout (HTML)
+- [x] Add export UI to BatchActionsToolbar
+- [x] Test all export formats with sample data

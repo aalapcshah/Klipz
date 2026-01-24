@@ -666,9 +666,9 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 return true;
               })
               .map((annotation) => {
-                const isSelected = annotation.id && (visualAnnotations.includes(annotation) ? selectedVisualIds : selectedVoiceIds).includes(annotation.id);
-                const setSelected = visualAnnotations.includes(annotation) ? setSelectedVisualIds : setSelectedVoiceIds;
-                const selectedIds = visualAnnotations.includes(annotation) ? selectedVisualIds : selectedVoiceIds;
+                const isSelected = !!annotation.id && selectedVisualIds.includes(annotation.id);
+                const setSelected = setSelectedVisualIds;
+                const selectedIds = selectedVisualIds;
                 return (
               <div
                 key={annotation.id}
@@ -780,9 +780,9 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 return true;
               })
               .map((annotation) => {
-                const isSelected = annotation.id && (visualAnnotations.includes(annotation) ? selectedVisualIds : selectedVoiceIds).includes(annotation.id);
-                const setSelected = visualAnnotations.includes(annotation) ? setSelectedVisualIds : setSelectedVoiceIds;
-                const selectedIds = visualAnnotations.includes(annotation) ? selectedVisualIds : selectedVoiceIds;
+                const isSelected = !!annotation.id && selectedVoiceIds.includes(annotation.id);
+                const setSelected = setSelectedVoiceIds;
+                const selectedIds = selectedVoiceIds;
                 return (
               <div
                 key={annotation.id}
