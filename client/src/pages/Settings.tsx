@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useFontSize } from "@/contexts/FontSizeContext";
 import {
   Select,
   SelectContent,
@@ -26,6 +27,67 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AccountSettings } from "@/components/AccountSettings";
 
 type KnowledgeGraphType = "dbpedia" | "wikidata" | "schema_org" | "custom";
+
+function FontSizePreference() {
+  const { fontSize, setFontSize } = useFontSize();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Font Size</CardTitle>
+        <CardDescription>
+          Adjust the base font size for better readability
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-3">
+          <Label>Choose your preferred font size</Label>
+          <div className="grid gap-3">
+            <button
+              onClick={() => setFontSize("compact")}
+              className={`p-4 border rounded-lg text-left transition-colors ${
+                fontSize === "compact"
+                  ? "border-primary bg-primary/10"
+                  : "border-border hover:border-primary/50"
+              }`}
+            >
+              <div className="font-semibold">Compact (14-15px)</div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Smaller text for more content on screen
+              </div>
+            </button>
+            <button
+              onClick={() => setFontSize("standard")}
+              className={`p-4 border rounded-lg text-left transition-colors ${
+                fontSize === "standard"
+                  ? "border-primary bg-primary/10"
+                  : "border-border hover:border-primary/50"
+              }`}
+            >
+              <div className="font-semibold">Standard (15-16px)</div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Default size for balanced readability
+              </div>
+            </button>
+            <button
+              onClick={() => setFontSize("large")}
+              className={`p-4 border rounded-lg text-left transition-colors ${
+                fontSize === "large"
+                  ? "border-primary bg-primary/10"
+                  : "border-border hover:border-primary/50"
+              }`}
+            >
+              <div className="font-semibold">Large (17-18px)</div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Larger text for improved accessibility
+              </div>
+            </button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 interface KnowledgeGraphForm {
   name: string;
@@ -186,11 +248,16 @@ export default function Settings() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="account">Account</TabsTrigger>
+          <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="knowledge-graphs">Knowledge Graphs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="account" className="space-y-6 mt-6">
           <AccountSettings />
+        </TabsContent>
+
+        <TabsContent value="appearance" className="space-y-6 mt-6">
+          <FontSizePreference />
         </TabsContent>
 
         <TabsContent value="knowledge-graphs" className="space-y-6 mt-6">

@@ -1881,3 +1881,23 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Update base font size in index.css
 - [x] Verify font size changes across all pages
 - [x] Test readability and visual density
+
+## Phase 159: Responsive Font Scaling
+- [x] Implement clamp() CSS function for fluid typography
+- [x] Set mobile base font size to 14px
+- [x] Set desktop base font size to 15px
+- [x] Test font scaling across different viewport sizes
+
+## Phase 160: Typography Scale Presets
+- [x] Define heading scale (h1-h6) in design system
+- [x] Define body text sizes (base, small, large)
+- [x] Define caption and label sizes
+- [x] Apply typography scale across components
+- [x] Ensure visual hierarchy is maintained
+
+## Phase 161: User Font Size Preference
+- [x] Create font size preference context
+- [x] Add settings toggle for Compact/Standard/Large
+- [x] Implement localStorage persistence
+- [x] Apply user preference to body font size
+- [x] Test preference changes across pages
