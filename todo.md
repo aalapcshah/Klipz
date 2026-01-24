@@ -2305,3 +2305,28 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [x] Implement client-side filtering logic
 - [ ] Show filtered results count
 - [x] Test search and filter combinations
+
+
+## Phase 73: Filtered Results Counter
+- [x] Add filtered results counter below search bar for visual annotations
+- [x] Add filtered results counter below search bar for voice annotations
+- [x] Display "Showing X of Y annotations" format
+- [x] Update counter dynamically when filters change
+- [x] Test counter with various filter combinations
+
+## Phase 74: Annotation Sorting
+- [x] Add sort dropdown to visual annotations section
+- [x] Add sort dropdown to voice annotations section
+- [x] Implement sort by timestamp (ascending/descending)
+- [x] Implement sort by duration (ascending/descending)
+- [x] Implement sort by date created (ascending/descending)
+- [ ] Implement sort by approval status
+- [x] Persist sort preference in state
+- [x] Test sorting with filtered results
+
+## Phase 75: Annotation Preview Thumbnails
+- [x] Add thumbnail preview to visual annotation cards (already implemented)
+- [x] Implement lazy loading for thumbnails
+- [x] Add fallback for missing thumbnails
+- [x] Optimize thumbnail size for performance
+- [x] Test thumbnails with various image formats

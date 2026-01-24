@@ -48,6 +48,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [minDuration, setMinDuration] = useState<number | null>(null);
   const [maxDuration, setMaxDuration] = useState<number | null>(null);
   
+  // Sorting state
+  const [visualSortBy, setVisualSortBy] = useState<"timestamp" | "duration" | "date">("timestamp");
+  const [voiceSortBy, setVoiceSortBy] = useState<"timestamp" | "duration" | "date">("timestamp");
+  
   // Multi-select state
   const [selectedVisualIds, setSelectedVisualIds] = useState<number[]>([]);
   const [selectedVoiceIds, setSelectedVoiceIds] = useState<number[]>([]);
@@ -650,6 +654,18 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 <option value="rejected">Rejected</option>
               </select>
             </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Sort By:</label>
+              <select
+                value={visualSortBy}
+                onChange={(e) => setVisualSortBy(e.target.value as any)}
+                className="w-full px-3 py-2 border rounded-md text-sm"
+              >
+                <option value="timestamp">Timestamp</option>
+                <option value="duration">Duration</option>
+                <option value="date">Date Created</option>
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
                 <label className="text-muted-foreground">Min Time (s):</label>
@@ -711,34 +727,51 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             )}
           </div>
           
-          <div className="space-y-2">
-            {visualAnnotations
-              .filter((annotation) => {
-                // Filter by timestamp range
-                if (minTimestamp !== null && annotation.videoTimestamp < minTimestamp) return false;
-                if (maxTimestamp !== null && annotation.videoTimestamp > maxTimestamp) return false;
-                
-                // Filter by duration range
-                const duration = annotation.duration || 5;
-                if (minDuration !== null && duration < minDuration) return false;
-                if (maxDuration !== null && duration > maxDuration) return false;
-                
-                // Filter by search query (description)
-                if (searchQuery && annotation.description) {
-                  if (!annotation.description.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-                }
-                
-                // Note: Approval status filtering requires fetching approval data
-                // For now, showing all annotations when filter is applied
-                // TODO: Fetch approval statuses and filter accordingly
-                
-                return true;
-              })
-              .map((annotation) => {
-                const isSelected = !!annotation.id && selectedVisualIds.includes(annotation.id);
-                const setSelected = setSelectedVisualIds;
-                const selectedIds = selectedVisualIds;
-                return (
+          {(() => {
+            const filteredVisualAnnotations = visualAnnotations.filter((annotation) => {
+              // Filter by timestamp range
+              if (minTimestamp !== null && annotation.videoTimestamp < minTimestamp) return false;
+              if (maxTimestamp !== null && annotation.videoTimestamp > maxTimestamp) return false;
+              
+              // Filter by duration range
+              const duration = annotation.duration || 5;
+              if (minDuration !== null && duration < minDuration) return false;
+              if (maxDuration !== null && duration > maxDuration) return false;
+              
+              // Filter by search query (description)
+              if (searchQuery && annotation.description) {
+                if (!annotation.description.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+              }
+              
+              // Note: Approval status filtering requires fetching approval data
+              // For now, showing all annotations when filter is applied
+              // TODO: Fetch approval statuses and filter accordingly
+              
+              return true;
+            });
+            
+            // Sort annotations
+            const sortedVisualAnnotations = [...filteredVisualAnnotations].sort((a, b) => {
+              if (visualSortBy === "timestamp") {
+                return a.videoTimestamp - b.videoTimestamp;
+              } else if (visualSortBy === "duration") {
+                return (a.duration || 5) - (b.duration || 5);
+              } else { // date
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+              }
+            });
+            
+            return (
+              <>
+                <div className="text-sm text-muted-foreground mb-2">
+                  Showing {filteredVisualAnnotations.length} of {visualAnnotations.length} annotations
+                </div>
+                <div className="space-y-2">
+                  {sortedVisualAnnotations.map((annotation) => {
+                    const isSelected = !!annotation.id && selectedVisualIds.includes(annotation.id);
+                    const setSelected = setSelectedVisualIds;
+                    const selectedIds = selectedVisualIds;
+                    return (
               <div
                 key={annotation.id}
                 className={`p-3 rounded-lg transition-colors space-y-2 ${
@@ -803,7 +836,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               </div>
             );
               })}
-          </div>
+                </div>
+              </>
+            );
+          })()}
         </Card>
       )}
 
@@ -860,6 +896,18 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                   <option value="pending">Pending</option>
                   <option value="approved">Approved</option>
                   <option value="rejected">Rejected</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Sort By:</label>
+                <select
+                  value={voiceSortBy}
+                  onChange={(e) => setVoiceSortBy(e.target.value as any)}
+                  className="w-full px-3 py-2 border rounded-md text-sm"
+                >
+                  <option value="timestamp">Timestamp</option>
+                  <option value="duration">Duration</option>
+                  <option value="date">Date Created</option>
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
@@ -936,26 +984,44 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               </div>
             </div>
           </div>
-          <div className="space-y-2">
-            {annotations
-              .filter((annotation) => {
-                // Filter by timestamp range
-                if (minTimestamp !== null && annotation.videoTimestamp < minTimestamp) return false;
-                if (maxTimestamp !== null && annotation.videoTimestamp > maxTimestamp) return false;
-                
-                // Filter by duration range
-                const duration = annotation.duration || 5;
-                if (minDuration !== null && duration < minDuration) return false;
-                if (maxDuration !== null && duration > maxDuration) return false;
-                
-                // Filter by search query (transcript)
-                if (searchQuery && annotation.transcript) {
-                  if (!annotation.transcript.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-                }
-                
-                return true;
-              })
-              .map((annotation) => {
+          
+          {(() => {
+            const filteredVoiceAnnotations = annotations.filter((annotation) => {
+              // Filter by timestamp range
+              if (minTimestamp !== null && annotation.videoTimestamp < minTimestamp) return false;
+              if (maxTimestamp !== null && annotation.videoTimestamp > maxTimestamp) return false;
+              
+              // Filter by duration range
+              const duration = annotation.duration || 5;
+              if (minDuration !== null && duration < minDuration) return false;
+              if (maxDuration !== null && duration > maxDuration) return false;
+              
+              // Filter by search query (transcript)
+              if (searchQuery && annotation.transcript) {
+                if (!annotation.transcript.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+              }
+              
+              return true;
+            });
+            
+            // Sort annotations
+            const sortedVoiceAnnotations = [...filteredVoiceAnnotations].sort((a, b) => {
+              if (voiceSortBy === "timestamp") {
+                return a.videoTimestamp - b.videoTimestamp;
+              } else if (voiceSortBy === "duration") {
+                return (a.duration || 5) - (b.duration || 5);
+              } else { // date
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+              }
+            });
+            
+            return (
+              <>
+                <div className="text-sm text-muted-foreground mb-2">
+                  Showing {filteredVoiceAnnotations.length} of {annotations.length} annotations
+                </div>
+                <div className="space-y-2">
+                  {sortedVoiceAnnotations.map((annotation) => {
                 const isSelected = !!annotation.id && selectedVoiceIds.includes(annotation.id);
                 const setSelected = setSelectedVoiceIds;
                 const selectedIds = selectedVoiceIds;
@@ -1044,7 +1110,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               </div>
             );
               })}
-          </div>
+                </div>
+              </>
+            );
+          })()}
         </Card>
       )}
 
