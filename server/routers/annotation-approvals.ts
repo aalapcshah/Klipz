@@ -4,6 +4,8 @@ import { getDb } from "../db";
 import { annotationApprovals } from "../../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
+import { broadcastApprovalEvent } from "../_core/websocketBroadcast";
+import { sendNotification } from "../_core/notifications";
 
 export const annotationApprovalsRouter = router({
   /**
@@ -48,9 +50,21 @@ export const annotationApprovalsRouter = router({
         comment: input.comment,
       });
 
+      const approvalId = approval.insertId;
+      
+      // Broadcast approval request
+      broadcastApprovalEvent(
+        "approval_requested",
+        input.annotationId,
+        input.annotationType,
+        { id: approvalId, ...input, userId: ctx.user.id, status: "pending" },
+        ctx.user.id,
+        ctx.user.name || "Unknown User"
+      );
+
       return {
         success: true,
-        approvalId: approval.insertId,
+        approvalId,
       };
     }),
 
@@ -88,6 +102,28 @@ export const annotationApprovalsRouter = router({
           comment: input.comment || approval.comment,
         })
         .where(eq(annotationApprovals.id, input.approvalId));
+      
+      // Broadcast approval
+      broadcastApprovalEvent(
+        "approval_approved",
+        approval.annotationId,
+        approval.annotationType as "voice" | "visual",
+        { id: input.approvalId, status: "approved", comment: input.comment },
+        ctx.user.id,
+        ctx.user.name || "Unknown User"
+      );
+      
+      // Send notification to annotation owner
+      await sendNotification({
+        userId: approval.userId,
+        type: "approval_approved",
+        title: "Annotation Approved",
+        content: `Your ${approval.annotationType} annotation has been approved${input.comment ? `: ${input.comment}` : "."}`,
+        annotationId: approval.annotationId,
+        annotationType: approval.annotationType as "voice" | "visual",
+        relatedUserId: ctx.user.id,
+        relatedUserName: ctx.user.name || "Unknown User",
+      });
 
       return { success: true };
     }),
@@ -126,6 +162,28 @@ export const annotationApprovalsRouter = router({
           comment: input.comment,
         })
         .where(eq(annotationApprovals.id, input.approvalId));
+      
+      // Broadcast rejection
+      broadcastApprovalEvent(
+        "approval_rejected",
+        approval.annotationId,
+        approval.annotationType as "voice" | "visual",
+        { id: input.approvalId, status: "rejected", comment: input.comment },
+        ctx.user.id,
+        ctx.user.name || "Unknown User"
+      );
+      
+      // Send notification to annotation owner
+      await sendNotification({
+        userId: approval.userId,
+        type: "approval_rejected",
+        title: "Annotation Rejected",
+        content: `Your ${approval.annotationType} annotation was rejected: ${input.comment}`,
+        annotationId: approval.annotationId,
+        annotationType: approval.annotationType as "voice" | "visual",
+        relatedUserId: ctx.user.id,
+        relatedUserName: ctx.user.name || "Unknown User",
+      });
 
       return { success: true };
     }),
@@ -225,6 +283,16 @@ export const annotationApprovalsRouter = router({
       }
 
       await db.delete(annotationApprovals).where(eq(annotationApprovals.id, input.approvalId));
+      
+      // Broadcast cancellation
+      broadcastApprovalEvent(
+        "approval_cancelled",
+        approval.annotationId,
+        approval.annotationType as "voice" | "visual",
+        { id: input.approvalId },
+        ctx.user.id,
+        ctx.user.name || "Unknown User"
+      );
 
       return { success: true };
     }),

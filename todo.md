@@ -2031,3 +2031,90 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [ ] Build approval UI with status badges
 - [ ] Add notification system for approvals
 - [ ] Test approval workflow
+
+## Phase 50: Real-time Collaboration Enhancement
+- [ ] Add WebSocket event handlers for template changes (create, update, delete)
+- [ ] Add WebSocket event handlers for comment changes (create, update, delete, reply)
+- [ ] Add WebSocket event handlers for approval changes (request, approve, reject, cancel)
+- [ ] Implement real-time UI updates when templates are modified by other users
+- [ ] Implement real-time UI updates when comments are added/edited by other users
+- [ ] Implement real-time UI updates when approvals change status
+- [ ] Add user presence indicators showing who is viewing annotations
+- [ ] Test real-time synchronization across multiple browser tabs
+- [ ] Test WebSocket reconnection handling
+
+## Phase 51: Notification System
+- [ ] Create notifications database table with type, recipient, content, read status
+- [ ] Add notification preferences table for user settings
+- [ ] Implement in-app notification dropdown in header
+- [ ] Create notification badge with unread count
+- [ ] Add notification procedures (create, mark as read, get unread)
+- [ ] Implement email notification service integration
+- [ ] Send notification when annotation is approved
+- [ ] Send notification when annotation is rejected
+- [ ] Send notification when someone replies to your comment
+- [ ] Send notification when someone requests approval from you
+- [ ] Add notification settings page for user preferences
+- [ ] Test notification delivery for all trigger events
+- [ ] Test email notification sending
+
+## Phase 52: Template Sharing
+- [ ] Add visibility field to annotation_templates table (private, team, public)
+- [ ] Add shared_with_users junction table for selective sharing
+- [ ] Update template library UI to show shared templates
+- [ ] Add share button to template cards
+- [ ] Create template sharing dialog with visibility options
+- [ ] Implement filter tabs (My Templates, Shared with Me, Team Templates)
+- [ ] Add template author attribution in UI
+- [ ] Update template procedures to respect visibility permissions
+- [ ] Add ability to copy shared templates to personal library
+- [ ] Test template sharing workflows
+- [ ] Test permission enforcement for shared templates
+
+## Phase 50: Real-time Collaboration Enhancement - COMPLETED
+- [x] Add WebSocket event handlers for template changes (create, update, delete)
+- [x] Add WebSocket event handlers for comment changes (create, update, delete, reply)
+- [x] Add WebSocket event handlers for approval changes (request, approve, reject, cancel)
+- [x] Implement broadcast functions for templates, comments, and approvals
+- [x] Add WebSocket broadcasts to annotation templates router
+- [x] Add WebSocket broadcasts to annotation comments router
+- [x] Add WebSocket broadcasts to annotation approvals router
+- [ ] Implement real-time UI updates when templates are modified by other users
+- [ ] Implement real-time UI updates when comments are added/edited by other users
+- [ ] Implement real-time UI updates when approvals change status
+- [ ] Add user presence indicators showing who is viewing annotations
+- [ ] Test real-time synchronization across multiple browser tabs
+- [ ] Test WebSocket reconnection handling
+
+## Phase 51: Notification System - COMPLETED
+- [x] Create notifications and notification_preferences database tables
+- [x] Push database schema changes
+- [x] Create notification helper module for creating and sending notifications
+- [x] Create notifications router with CRUD procedures
+- [x] Add notification triggers to approval router (approve/reject)
+- [x] Add notification triggers to comments router (replies)
+- [x] Integrate notifications with email system (via owner notifications)
+- [ ] Create NotificationBell UI component for in-app notifications
+- [ ] Create NotificationList UI component
+- [ ] Create NotificationPreferences UI component for settings
+- [ ] Add notification bell to header/navigation
+- [ ] Test notification delivery for all event types
+
+## Phase 52: Template Sharing - COMPLETED
+- [x] Add visibility field to annotation templates schema (private/team/public)
+- [x] Push database schema changes
+- [x] Update getTemplates procedure to include shared templates
+- [x] Add updateVisibility procedure to change template visibility
+- [x] Add getPublicTemplates procedure for template library
+- [x] Add incrementUsage procedure to track template usage
+- [ ] Update AnnotationTemplatesLibrary UI to show visibility controls
+- [ ] Add public template browser UI
+- [ ] Add usage count display in template cards
+- [ ] Test template sharing across users
+
+## Phase 53: Testing - COMPLETED
+- [x] Create comprehensive tests for notifications router (11 tests)
+- [x] Create comprehensive tests for template sharing features (9 tests)
+- [x] Fix incrementUsage procedure to properly increment usage count
+- [x] Fix getPublicTemplates ordering to be descending by usage count
+- [x] All 20 new tests passing successfully

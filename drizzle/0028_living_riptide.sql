@@ -1,0 +1,1 @@
+ALTER TABLE `annotation_templates` ADD `visibility` enum('private','team','public') DEFAULT 'private' NOT NULL;

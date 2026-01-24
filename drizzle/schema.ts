@@ -183,6 +183,9 @@ export const annotationTemplates = mysqlTable("annotation_templates", {
   // Usage tracking
   usageCount: int("usageCount").default(0).notNull(),
   
+  // Sharing settings
+  visibility: mysqlEnum("visibility", ["private", "team", "public"]).default("private").notNull(),
+  
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -234,6 +237,58 @@ export type InsertAnnotationApproval = typeof annotationApprovals.$inferInsert;
 
 export type AnnotationHistory = typeof annotationHistory.$inferSelect;
 export type InsertAnnotationHistory = typeof annotationHistory.$inferInsert;
+
+/**
+ * Notifications - In-app and email notifications for user actions
+ */
+export const notifications = mysqlTable("notifications", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(), // Recipient
+  
+  // Notification content
+  type: mysqlEnum("type", ["approval_approved", "approval_rejected", "comment_reply", "approval_requested"]).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  
+  // Related entities
+  annotationId: int("annotationId"),
+  annotationType: mysqlEnum("annotationType", ["voice", "visual"]),
+  relatedUserId: int("relatedUserId"), // User who triggered the notification
+  relatedUserName: varchar("relatedUserName", { length: 255 }),
+  
+  // Status
+  read: boolean("read").default(false).notNull(),
+  readAt: timestamp("readAt"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = typeof notifications.$inferInsert;
+
+/**
+ * Notification Preferences - User settings for notification delivery
+ */
+export const notificationPreferences = mysqlTable("notification_preferences", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  
+  // Email notifications
+  emailOnApproval: boolean("emailOnApproval").default(true).notNull(),
+  emailOnComment: boolean("emailOnComment").default(true).notNull(),
+  emailOnApprovalRequest: boolean("emailOnApprovalRequest").default(true).notNull(),
+  
+  // In-app notifications
+  inAppOnApproval: boolean("inAppOnApproval").default(true).notNull(),
+  inAppOnComment: boolean("inAppOnComment").default(true).notNull(),
+  inAppOnApprovalRequest: boolean("inAppOnApprovalRequest").default(true).notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type NotificationPreference = typeof notificationPreferences.$inferSelect;
+export type InsertNotificationPreference = typeof notificationPreferences.$inferInsert;
 
 /**
  * Tags table - hierarchical tagging system

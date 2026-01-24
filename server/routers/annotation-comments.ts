@@ -4,6 +4,8 @@ import { getDb } from "../db";
 import { annotationComments } from "../../drizzle/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
+import { broadcastCommentEvent } from "../_core/websocketBroadcast";
+import { sendNotification } from "../_core/notifications";
 
 export const annotationCommentsRouter = router({
   /**
@@ -30,9 +32,45 @@ export const annotationCommentsRouter = router({
         parentCommentId: input.parentCommentId,
       });
 
+      const commentId = comment.insertId;
+      
+      // Broadcast comment creation
+      const eventType = input.parentCommentId ? "comment_replied" : "comment_created";
+      broadcastCommentEvent(
+        eventType,
+        input.annotationId,
+        input.annotationType,
+        { id: commentId, ...input, userId: ctx.user.id },
+        ctx.user.id,
+        ctx.user.name || "Unknown User"
+      );
+      
+      // Send notification if it's a reply
+      if (input.parentCommentId) {
+        // Get parent comment to find the original commenter
+        const [parentComment] = await db
+          .select()
+          .from(annotationComments)
+          .where(eq(annotationComments.id, input.parentCommentId))
+          .limit(1);
+        
+        if (parentComment && parentComment.userId !== ctx.user.id) {
+          await sendNotification({
+            userId: parentComment.userId,
+            type: "comment_reply",
+            title: "New Reply to Your Comment",
+            content: `${ctx.user.name || "Someone"} replied to your comment: ${input.content.substring(0, 100)}${input.content.length > 100 ? "..." : ""}`,
+            annotationId: input.annotationId,
+            annotationType: input.annotationType,
+            relatedUserId: ctx.user.id,
+            relatedUserName: ctx.user.name || "Unknown User",
+          });
+        }
+      }
+
       return {
         success: true,
-        commentId: comment.insertId,
+        commentId,
       };
     }),
 
@@ -126,6 +164,16 @@ export const annotationCommentsRouter = router({
         .update(annotationComments)
         .set({ content: input.content })
         .where(eq(annotationComments.id, input.commentId));
+      
+      // Broadcast comment update
+      broadcastCommentEvent(
+        "comment_updated",
+        comment.annotationId,
+        comment.annotationType as "voice" | "visual",
+        { id: input.commentId, content: input.content },
+        ctx.user.id,
+        ctx.user.name || "Unknown User"
+      );
 
       return { success: true };
     }),
@@ -171,6 +219,16 @@ export const annotationCommentsRouter = router({
       await db
         .delete(annotationComments)
         .where(eq(annotationComments.parentCommentId, input.commentId));
+      
+      // Broadcast comment deletion
+      broadcastCommentEvent(
+        "comment_deleted",
+        comment.annotationId,
+        comment.annotationType as "voice" | "visual",
+        { id: input.commentId },
+        ctx.user.id,
+        ctx.user.name || "Unknown User"
+      );
 
       return { success: true };
     }),

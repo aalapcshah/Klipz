@@ -1,11 +1,37 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { Server } from "http";
+import { setWebSocketServer } from "./websocketBroadcast";
 
 interface AnnotationMessage {
   type: "annotation_created" | "annotation_updated" | "annotation_deleted";
   fileId: number;
   annotationType: "voice" | "visual";
   annotation: any;
+  userId: number;
+  userName: string;
+}
+
+interface TemplateMessage {
+  type: "template_created" | "template_updated" | "template_deleted";
+  template: any;
+  userId: number;
+  userName: string;
+}
+
+interface CommentMessage {
+  type: "comment_created" | "comment_updated" | "comment_deleted" | "comment_replied";
+  annotationId: number;
+  annotationType: "voice" | "visual";
+  comment: any;
+  userId: number;
+  userName: string;
+}
+
+interface ApprovalMessage {
+  type: "approval_requested" | "approval_approved" | "approval_rejected" | "approval_cancelled";
+  annotationId: number;
+  annotationType: "voice" | "visual";
+  approval: any;
   userId: number;
   userName: string;
 }
@@ -44,6 +70,26 @@ export function setupWebSocket(server: Server) {
             broadcastToFile(message.fileId, message, ws);
             break;
 
+          case "template_created":
+          case "template_updated":
+          case "template_deleted":
+            broadcastToAllUsers(message, ws);
+            break;
+
+          case "comment_created":
+          case "comment_updated":
+          case "comment_deleted":
+          case "comment_replied":
+            broadcastToAnnotation(message.annotationId, message, ws);
+            break;
+
+          case "approval_requested":
+          case "approval_approved":
+          case "approval_rejected":
+          case "approval_cancelled":
+            broadcastToAnnotation(message.annotationId, message, ws);
+            break;
+
           default:
             console.log("[WebSocket] Unknown message type:", message.type);
         }
@@ -66,6 +112,10 @@ export function setupWebSocket(server: Server) {
   });
 
   console.log("[WebSocket] Server initialized");
+  
+  // Set the WebSocket server instance for broadcasting
+  setWebSocketServer(wss);
+  
   return wss;
 }
 
@@ -137,6 +187,29 @@ function broadcastToFile(fileId: number, message: any, exclude?: WebSocket) {
   const messageStr = JSON.stringify(message);
 
   room.forEach((client) => {
+    if (client !== exclude && client.readyState === WebSocket.OPEN) {
+      client.send(messageStr);
+    }
+  });
+}
+
+function broadcastToAllUsers(message: any, exclude?: WebSocket) {
+  const messageStr = JSON.stringify(message);
+
+  // Broadcast to all connected users across all rooms
+  userPresence.forEach((presence, client) => {
+    if (client !== exclude && client.readyState === WebSocket.OPEN) {
+      client.send(messageStr);
+    }
+  });
+}
+
+function broadcastToAnnotation(annotationId: number, message: any, exclude?: WebSocket) {
+  const messageStr = JSON.stringify(message);
+
+  // Broadcast to all users who might be viewing this annotation
+  // Since annotations are tied to files, broadcast to all connected users
+  userPresence.forEach((presence, client) => {
     if (client !== exclude && client.readyState === WebSocket.OPEN) {
       client.send(messageStr);
     }

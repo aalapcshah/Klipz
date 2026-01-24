@@ -8,6 +8,7 @@ import { analyticsRouter } from "./routers/analytics";
 import { annotationTemplatesRouter } from "./routers/annotation-templates";
 import { annotationCommentsRouter } from "./routers/annotation-comments";
 import { annotationApprovalsRouter } from "./routers/annotation-approvals";
+import { notificationsRouter } from "./routers/notifications";
 import { storageCleanupRouter } from "./routers/storageCleanup";
 import { qualityScoreRouter } from "./routers/qualityScore";
 import { qualityImprovementRouter } from "./routers/qualityImprovement";
@@ -331,6 +332,7 @@ export const appRouter = router({
   annotationTemplates: annotationTemplatesRouter,
   annotationComments: annotationCommentsRouter,
   annotationApprovals: annotationApprovalsRouter,
+  notifications: notificationsRouter,
   storageCleanup: storageCleanupRouter,
   qualityScore: qualityScoreRouter,
   qualityImprovement: qualityImprovementRouter,
