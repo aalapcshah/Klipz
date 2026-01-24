@@ -12,8 +12,10 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { CommentThread } from "./CommentThread";
 import { ApprovalWorkflow } from "./ApprovalWorkflow";
+import { AnnotationHistoryViewer } from "./AnnotationHistoryViewer";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { UserPresenceIndicator } from "./UserPresenceIndicator";
+import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
 
 interface VideoPlayerWithAnnotationsProps {
   fileId: number;
@@ -372,6 +374,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               </span>
             </div>
             <UserPresenceIndicator activeUsers={activeUsers} maxDisplay={5} />
+            <KeyboardShortcutsHelp />
           </div>
         </Card>
       )}
@@ -697,6 +700,12 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                   annotationId={annotation.id}
                   annotationType="visual"
                 />
+                
+                {/* History Viewer */}
+                <AnnotationHistoryViewer
+                  annotationId={annotation.id}
+                  annotationType="visual"
+                />
               </div>
             ))}
           </div>
@@ -801,6 +810,12 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 
                 {/* Approval Workflow */}
                 <ApprovalWorkflow
+                  annotationId={annotation.id}
+                  annotationType="voice"
+                />
+                
+                {/* History Viewer */}
+                <AnnotationHistoryViewer
                   annotationId={annotation.id}
                   annotationType="voice"
                 />

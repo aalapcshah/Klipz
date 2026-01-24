@@ -2180,3 +2180,39 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Add error handling and rollback on failure
 - [ ] Show toast notifications for optimistic operation results
 - [ ] Test optimistic updates with network failures
+
+
+## Phase 60: Annotation History Viewer
+- [x] Review existing annotationHistory schema for completeness
+- [x] Create AnnotationHistoryViewer component with timeline display
+- [x] Add history router procedures (getHistory, revertToVersion)
+- [ ] Implement version comparison view (diff display)
+- [x] Add revert confirmation dialog with preview
+- [x] Show change author and timestamp for each version
+- [ ] Add filter by change type (edit, status, comment)
+- [x] Integrate history viewer into annotation cards
+- [x] Test history tracking and version revert
+
+## Phase 61: Batch Operations
+- [ ] Add multi-select state management to annotation lists
+- [x] Create BatchActionsToolbar component
+- [ ] Implement select all / deselect all functionality
+- [x] Add bulk approve procedure and UI
+- [x] Add bulk reject procedure and UI
+- [x] Add bulk delete procedure and UI
+- [x] Add bulk export functionality
+- [ ] Add bulk visibility change for templates
+- [x] Show selection count and clear selection button
+- [x] Test batch operations with large datasets
+
+## Phase 62: Keyboard Shortcuts
+- [x] Create useKeyboardShortcuts hook
+- [ ] Add KeyboardShortcutsProvider context
+- [ ] Create KeyboardShortcutsPanel settings component
+- [x] Implement default shortcuts (C, A, R, Space, etc.)
+- [ ] Add shortcut customization UI with conflict detection
+- [ ] Store user shortcuts in localStorage/database
+- [ ] Add keyboard shortcut hints in UI (tooltips)
+- [x] Create KeyboardShortcutsHelp modal with all shortcuts
+- [ ] Test shortcuts across different components
+- [ ] Test shortcut customization and persistence
