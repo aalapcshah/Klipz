@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { MessageSquare, Send, Edit2, Trash2, Reply } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { useHighlight } from "@/hooks/useHighlight";
 
 interface CommentThreadProps {
   annotationId: number;
@@ -29,6 +30,9 @@ export function CommentThread({ annotationId, annotationType }: CommentThreadPro
   const [editContent, setEditContent] = useState("");
   const [showComments, setShowComments] = useState(false);
 
+  // Highlight animation for new comments
+  const { isHighlighted, trigger: triggerHighlight } = useHighlight(2000);
+
   // WebSocket for real-time comment updates
   const { isConnected } = useWebSocket({
     onCommentCreated: (message) => {
@@ -36,6 +40,7 @@ export function CommentThread({ annotationId, annotationType }: CommentThreadPro
         console.log("[Comment] Created:", message);
         utils.annotationComments.getComments.invalidate();
         utils.annotationComments.getCommentCount.invalidate();
+        triggerHighlight();
       }
     },
     onCommentReplied: (message) => {
@@ -66,15 +71,58 @@ export function CommentThread({ annotationId, annotationType }: CommentThreadPro
   });
 
   const createCommentMutation = trpc.annotationComments.createComment.useMutation({
+    onMutate: async (newComment) => {
+      // Cancel outgoing refetches
+      await utils.annotationComments.getComments.cancel();
+      await utils.annotationComments.getCommentCount.cancel();
+
+      // Snapshot previous values
+      const previousComments = utils.annotationComments.getComments.getData({ annotationId, annotationType });
+      const previousCount = utils.annotationComments.getCommentCount.getData({ annotationId, annotationType });
+
+      // Optimistically update comments
+      const optimisticComment = {
+        id: Date.now(), // Temporary ID
+        content: newComment.content,
+        userId: 1, // Will be replaced with real user ID
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        replies: [],
+      };
+
+      utils.annotationComments.getComments.setData(
+        { annotationId, annotationType },
+        (old) => old ? [...old, optimisticComment] : [optimisticComment]
+      );
+
+      utils.annotationComments.getCommentCount.setData(
+        { annotationId, annotationType },
+        (old) => ({ count: (old?.count || 0) + 1 })
+      );
+
+      return { previousComments, previousCount };
+    },
     onSuccess: () => {
-      toast.success("Comment added");
       setNewComment("");
       setReplyingTo(null);
       setReplyContent("");
       utils.annotationComments.getComments.invalidate();
       utils.annotationComments.getCommentCount.invalidate();
     },
-    onError: (error) => {
+    onError: (error, newComment, context) => {
+      // Rollback on error
+      if (context?.previousComments) {
+        utils.annotationComments.getComments.setData(
+          { annotationId, annotationType },
+          context.previousComments
+        );
+      }
+      if (context?.previousCount) {
+        utils.annotationComments.getCommentCount.setData(
+          { annotationId, annotationType },
+          context.previousCount
+        );
+      }
       toast.error(`Failed to add comment: ${error.message}`);
     },
   });
@@ -253,7 +301,7 @@ export function CommentThread({ annotationId, annotationType }: CommentThreadPro
   };
 
   return (
-    <div className="border-t pt-2 mt-2">
+    <div className={`border-t pt-2 mt-2 transition-colors ${isHighlighted ? 'highlight-flash' : ''}`}>
       <Button
         variant="ghost"
         size="sm"

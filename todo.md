@@ -2152,3 +2152,31 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Test real-time updates across multiple browser tabs
 - [x] Test WebSocket reconnection handling
 - [ ] Add visual feedback for real-time updates (flash/highlight)
+
+
+## Phase 57: Visual Feedback Animations
+- [x] Create useHighlight hook for flash/highlight animations
+- [x] Add highlight animation to CommentThread when new comments arrive
+- [x] Add highlight animation to ApprovalWorkflow when status changes
+- [ ] Add highlight animation to AnnotationTemplatesLibrary when templates update
+- [x] Add highlight animation to NotificationBell when new notifications arrive
+- [x] Create CSS animations for smooth highlight effects
+- [ ] Test animations across different browsers
+
+## Phase 58: User Presence Indicators
+- [x] Extend WebSocket to track user presence per file/annotation
+- [x] Create UserPresenceIndicator component with avatar display
+- [x] Add presence tracking to video player component
+- [x] Show active users count and avatars in video player header
+- [ ] Add presence indicators to annotation cards
+- [ ] Implement join/leave animations for presence changes
+- [ ] Test presence tracking with multiple users
+
+## Phase 59: Optimistic UI Updates
+- [x] Add optimistic updates to comment posting with rollback
+- [x] Add optimistic updates to approval actions with rollback
+- [ ] Add optimistic updates to template operations with rollback
+- [x] Implement loading states for optimistic operations
+- [x] Add error handling and rollback on failure
+- [ ] Show toast notifications for optimistic operation results
+- [ ] Test optimistic updates with network failures

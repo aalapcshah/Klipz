@@ -224,4 +224,34 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Highlight animation for real-time updates */
+  @keyframes highlight-flash {
+    0% {
+      background-color: oklch(0.75 0.15 180 / 0.3);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+
+  .highlight-flash {
+    animation: highlight-flash 2s ease-out;
+  }
+
+  @keyframes pulse-ring {
+    0% {
+      box-shadow: 0 0 0 0 oklch(0.65 0.15 180 / 0.7);
+    }
+    70% {
+      box-shadow: 0 0 0 8px oklch(0.65 0.15 180 / 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 oklch(0.65 0.15 180 / 0);
+    }
+  }
+
+  .pulse-ring {
+    animation: pulse-ring 1.5s ease-out;
+  }
 }

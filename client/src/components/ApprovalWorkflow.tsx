@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { useHighlight } from "@/hooks/useHighlight";
 
 interface ApprovalWorkflowProps {
   annotationId: number;
@@ -27,6 +28,9 @@ export function ApprovalWorkflow({ annotationId, annotationType }: ApprovalWorkf
   const [approveComment, setApproveComment] = useState("");
   const [rejectComment, setRejectComment] = useState("");
 
+  // Highlight animation for status changes
+  const { isHighlighted, trigger: triggerHighlight } = useHighlight(2000);
+
   // WebSocket for real-time approval updates
   const { isConnected } = useWebSocket({
     onApprovalRequested: (message) => {
@@ -40,6 +44,7 @@ export function ApprovalWorkflow({ annotationId, annotationType }: ApprovalWorkf
         console.log("[Approval] Approved:", message);
         utils.annotationApprovals.getApprovalStatus.invalidate();
         toast.success(`Annotation approved by ${message.userName}`);
+        triggerHighlight();
       }
     },
     onApprovalRejected: (message) => {
@@ -47,6 +52,7 @@ export function ApprovalWorkflow({ annotationId, annotationType }: ApprovalWorkf
         console.log("[Approval] Rejected:", message);
         utils.annotationApprovals.getApprovalStatus.invalidate();
         toast.error(`Annotation rejected by ${message.userName}`);
+        triggerHighlight();
       }
     },
     onApprovalCanceled: (message) => {
@@ -76,25 +82,65 @@ export function ApprovalWorkflow({ annotationId, annotationType }: ApprovalWorkf
   });
 
   const approveMutation = trpc.annotationApprovals.approve.useMutation({
+    onMutate: async () => {
+      await utils.annotationApprovals.getApprovalStatus.cancel();
+      const previousApproval = utils.annotationApprovals.getApprovalStatus.getData({ annotationId, annotationType });
+
+      // Optimistically update to approved
+      if (previousApproval) {
+        utils.annotationApprovals.getApprovalStatus.setData(
+          { annotationId, annotationType },
+          { ...previousApproval, status: "approved" as const }
+        );
+      }
+
+      return { previousApproval };
+    },
     onSuccess: () => {
-      toast.success("Annotation approved");
       setApproveDialogOpen(false);
       setApproveComment("");
       utils.annotationApprovals.getApprovalStatus.invalidate();
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      // Rollback on error
+      if (context?.previousApproval) {
+        utils.annotationApprovals.getApprovalStatus.setData(
+          { annotationId, annotationType },
+          context.previousApproval
+        );
+      }
       toast.error(`Failed to approve: ${error.message}`);
     },
   });
 
   const rejectMutation = trpc.annotationApprovals.reject.useMutation({
+    onMutate: async () => {
+      await utils.annotationApprovals.getApprovalStatus.cancel();
+      const previousApproval = utils.annotationApprovals.getApprovalStatus.getData({ annotationId, annotationType });
+
+      // Optimistically update to rejected
+      if (previousApproval) {
+        utils.annotationApprovals.getApprovalStatus.setData(
+          { annotationId, annotationType },
+          { ...previousApproval, status: "rejected" as const }
+        );
+      }
+
+      return { previousApproval };
+    },
     onSuccess: () => {
-      toast.success("Annotation rejected");
       setRejectDialogOpen(false);
       setRejectComment("");
       utils.annotationApprovals.getApprovalStatus.invalidate();
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      // Rollback on error
+      if (context?.previousApproval) {
+        utils.annotationApprovals.getApprovalStatus.setData(
+          { annotationId, annotationType },
+          context.previousApproval
+        );
+      }
       toast.error(`Failed to reject: ${error.message}`);
     },
   });
@@ -181,7 +227,7 @@ export function ApprovalWorkflow({ annotationId, annotationType }: ApprovalWorkf
   }
 
   return (
-    <div className="border-t pt-2 mt-2">
+    <div className={`border-t pt-2 mt-2 transition-colors ${isHighlighted ? 'highlight-flash' : ''}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {approval ? (

@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { CommentThread } from "./CommentThread";
 import { ApprovalWorkflow } from "./ApprovalWorkflow";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { UserPresenceIndicator } from "./UserPresenceIndicator";
 
 interface VideoPlayerWithAnnotationsProps {
   fileId: number;
@@ -365,22 +366,12 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         <Card className="p-3">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+              <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
               <span className="text-sm font-medium">
                 {isConnected ? `${activeUsers.length + 1} viewing` : 'Connecting...'}
               </span>
             </div>
-            <div className="flex -space-x-2">
-              {activeUsers.map((user, index) => (
-                <div
-                  key={user.userId}
-                  className="h-8 w-8 rounded-full bg-primary/20 border-2 border-background flex items-center justify-center text-xs font-medium"
-                  title={user.userName}
-                >
-                  {user.userName.charAt(0).toUpperCase()}
-                </div>
-              ))}
-            </div>
+            <UserPresenceIndicator activeUsers={activeUsers} maxDisplay={5} />
           </div>
         </Card>
       )}

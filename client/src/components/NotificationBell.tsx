@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Bell } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { useHighlight } from "@/hooks/useHighlight";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,12 +15,24 @@ export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const utils = trpc.useUtils();
 
+  // Pulse animation for new notifications
+  const { isHighlighted: isPulsing, trigger: triggerPulse } = useHighlight(1500);
+
   // Get unread count
   const { data: unreadData } = trpc.notifications.getUnreadCount.useQuery(undefined, {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   const unreadCount = unreadData?.count || 0;
+
+  // Trigger pulse animation when unread count increases
+  const prevUnreadCountRef = useRef(0);
+  useEffect(() => {
+    if (unreadCount > prevUnreadCountRef.current && prevUnreadCountRef.current > 0) {
+      triggerPulse();
+    }
+    prevUnreadCountRef.current = unreadCount;
+  }, [unreadCount, triggerPulse]);
 
   // Mark all as read when dropdown opens
   const markAllAsRead = trpc.notifications.markAllAsRead.useMutation({
@@ -45,7 +58,7 @@ export function NotificationBell() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative"
+          className={cn("relative", isPulsing && "pulse-ring")}
           aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
         >
           <Bell className="h-5 w-5" />
