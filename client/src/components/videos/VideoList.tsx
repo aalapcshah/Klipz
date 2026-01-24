@@ -13,7 +13,16 @@ import {
   Mic,
   PenLine,
   MessageSquare,
+  ChevronDown,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { useState } from "react";
 import { AnnotationEditor } from "./AnnotationEditor";
@@ -48,11 +57,16 @@ export function VideoList() {
     }
   };
 
-  const handleExport = async (videoId: number) => {
+  const handleExport = async (videoId: number, preset: 'tutorial' | 'review' | 'clean' = 'review') => {
     setExportingVideoId(videoId);
     try {
-      toast.info("Starting video export with annotations...");
-      const result = await exportMutation.mutateAsync({ videoId });
+      const presetLabels = {
+        tutorial: 'Tutorial Mode (sequential with auto-pause)',
+        review: 'Review Mode (all annotations visible)',
+        clean: 'Clean Export (no annotations)',
+      };
+      toast.info(`Starting ${presetLabels[preset]} export...`);
+      const result = await exportMutation.mutateAsync({ videoId, preset });
       toast.success("Video exported successfully!");
       
       // Refresh video list to show updated export status
@@ -195,22 +209,50 @@ export function VideoList() {
                   Annotate
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleExport(video.id)}
-                disabled={
-                  exportingVideoId === video.id ||
-                  video.exportStatus === "processing"
-                }
-                title="Export video with annotation overlays"
-              >
-                {exportingVideoId === video.id ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Download className="h-3 w-3" />
-                )}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      exportingVideoId === video.id ||
+                      video.exportStatus === "processing"
+                    }
+                    title="Export video with presets"
+                  >
+                    {exportingVideoId === video.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <>
+                        <Download className="h-3 w-3 mr-1" />
+                        <ChevronDown className="h-2 w-2" />
+                      </>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Export Presets</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleExport(video.id, 'tutorial')}>
+                    <div className="flex flex-col">
+                      <span className="font-medium">Tutorial Mode</span>
+                      <span className="text-xs text-muted-foreground">Sequential with auto-pause</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport(video.id, 'review')}>
+                    <div className="flex flex-col">
+                      <span className="font-medium">Review Mode</span>
+                      <span className="text-xs text-muted-foreground">All annotations visible</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport(video.id, 'clean')}>
+                    <div className="flex flex-col">
+                      <span className="font-medium">Clean Export</span>
+                      <span className="text-xs text-muted-foreground">No annotations</span>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               {video.exportStatus === "completed" && video.exportedUrl && (
                 <Button
                   variant="outline"

@@ -412,6 +412,68 @@ export function VideoDrawingCanvas({
       toast.error("Failed to save annotation");
     }
   };
+  const insertTemplate = (templateType: 'highlight' | 'callout' | 'bubble') => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const size = 100;
+
+    let newElement: DrawingElement;
+
+    switch (templateType) {
+      case 'highlight':
+        // Semi-transparent highlight box
+        newElement = {
+          id: Date.now().toString(),
+          type: 'rectangle',
+          points: [
+            { x: centerX - size, y: centerY - size / 2 },
+            { x: centerX + size, y: centerY + size / 2 },
+          ],
+          color: color + '80', // Add transparency
+          strokeWidth: 2,
+        };
+        break;
+      case 'callout':
+        // Arrow pointing to a spot
+        newElement = {
+          id: Date.now().toString(),
+          type: 'arrow',
+          points: [
+            { x: centerX - size, y: centerY - size },
+            { x: centerX, y: centerY },
+          ],
+          color: color,
+          strokeWidth: 4,
+        };
+        break;
+      case 'bubble':
+        // Speech bubble (circle)
+        newElement = {
+          id: Date.now().toString(),
+          type: 'circle',
+          points: [
+            { x: centerX - size / 2, y: centerY - size / 2 },
+            { x: centerX + size / 2, y: centerY + size / 2 },
+          ],
+          color: color,
+          strokeWidth: 3,
+        };
+        break;
+    }
+
+    const newElements = [...elements, newElement];
+    setElements(newElements);
+    const newHistory = history.slice(0, historyStep + 1);
+    newHistory.push(newElements);
+    setHistory(newHistory);
+    setHistoryStep(newHistory.length - 1);
+    redrawCanvas();
+    toast.success(`${templateType.charAt(0).toUpperCase() + templateType.slice(1)} template added`);
+  };
+
   const toggleCanvas = () => {
     const newShowCanvas = !showCanvas;
     setShowCanvas(newShowCanvas);
@@ -541,6 +603,40 @@ export function VideoDrawingCanvas({
               <Button size="sm" variant="outline" onClick={handleClear}>
                 <Trash2 className="h-4 w-4" />
               </Button>
+            </div>
+
+            {/* Annotation Templates */}
+            <div className="space-y-1">
+              <span className="text-sm font-medium">Quick Templates:</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => insertTemplate('highlight')}
+                  className="text-xs"
+                >
+                  <Square className="h-3 w-3 mr-1" />
+                  Highlight
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => insertTemplate('callout')}
+                  className="text-xs"
+                >
+                  <ArrowRight className="h-3 w-3 mr-1" />
+                  Callout
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => insertTemplate('bubble')}
+                  className="text-xs"
+                >
+                  <Circle className="h-3 w-3 mr-1" />
+                  Bubble
+                </Button>
+              </div>
             </div>
 
             {/* Color Picker */}

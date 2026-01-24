@@ -1816,3 +1816,32 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Make markers clickable to jump to timestamp
 - [x] Test hover interaction on desktop and mobile
 - [x] Ensure tooltips don't overflow viewport
+
+## Phase 152: Keyboard Shortcuts for Video Navigation
+- [x] Implement arrow keys (←/→) for frame-by-frame scrubbing (1 second jumps)
+- [x] Implement space bar for play/pause toggle
+- [x] Implement J key for rewind (5 seconds back)
+- [x] Implement K key for play/pause (same as space)
+- [x] Implement L key for fast-forward (5 seconds ahead)
+- [x] Add keyboard shortcut help tooltip or overlay
+- [x] Prevent shortcuts from triggering when typing in inputs
+- [x] Test all keyboard shortcuts
+
+## Phase 153: Annotation Templates
+- [x] Design template system architecture
+- [x] Create highlight box template (rectangular outline)
+- [x] Create arrow template (pointing arrow)
+- [x] Create callout bubble template (speech bubble shape)
+- [x] Add template selector UI in drawing tools
+- [x] Implement template insertion on canvas
+- [x] Allow template customization (color, size)
+- [x] Test template functionality
+
+## Phase 154: Export Presets
+- [x] Design export preset system
+- [x] Create "Tutorial Mode" preset (sequential annotations with auto-pause)
+- [x] Create "Review Mode" preset (all annotations visible)
+- [x] Create "Clean Export" preset (video only, no annotations)
+- [x] Add preset selector to export dialog
+- [x] Implement preset-specific export logic
+- [x] Test all export presets

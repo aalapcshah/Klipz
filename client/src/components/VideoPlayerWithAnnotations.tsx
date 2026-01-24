@@ -70,6 +70,53 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
     };
   }, [visualAnnotations]);
 
+  // Keyboard shortcuts for video navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input/textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      const video = videoRef.current;
+      if (!video) return;
+
+      switch (e.key) {
+        case ' ': // Space bar - play/pause
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'k': // K key - play/pause (video editor standard)
+        case 'K':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'ArrowLeft': // Left arrow - rewind 1 second
+          e.preventDefault();
+          video.currentTime = Math.max(0, video.currentTime - 1);
+          break;
+        case 'ArrowRight': // Right arrow - forward 1 second
+          e.preventDefault();
+          video.currentTime = Math.min(video.duration, video.currentTime + 1);
+          break;
+        case 'j': // J key - rewind 5 seconds
+        case 'J':
+          e.preventDefault();
+          video.currentTime = Math.max(0, video.currentTime - 5);
+          break;
+        case 'l': // L key - forward 5 seconds
+        case 'L':
+          e.preventDefault();
+          video.currentTime = Math.min(video.duration, video.currentTime + 5);
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPlaying]); // Include isPlaying to ensure togglePlay has latest state
+
   const togglePlay = () => {
     if (videoRef.current) {
       if (isPlaying) {
@@ -316,6 +363,17 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               <MessageSquare className="h-4 w-4 mr-2" />
               {showTimeline ? 'Hide' : 'Show'} Timeline
             </Button>
+          </div>
+
+          {/* Keyboard Shortcuts Help */}
+          <div className="text-xs text-muted-foreground bg-muted/30 rounded p-2">
+            <div className="font-medium mb-1">Keyboard Shortcuts:</div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+              <span><kbd className="px-1 py-0.5 bg-background rounded text-[10px]">Space</kbd> / <kbd className="px-1 py-0.5 bg-background rounded text-[10px]">K</kbd> Play/Pause</span>
+              <span><kbd className="px-1 py-0.5 bg-background rounded text-[10px]">←</kbd> / <kbd className="px-1 py-0.5 bg-background rounded text-[10px]">→</kbd> ±1s</span>
+              <span><kbd className="px-1 py-0.5 bg-background rounded text-[10px]">J</kbd> Rewind 5s</span>
+              <span><kbd className="px-1 py-0.5 bg-background rounded text-[10px]">L</kbd> Forward 5s</span>
+            </div>
           </div>
         </div>
       </Card>

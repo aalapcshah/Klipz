@@ -1475,6 +1475,7 @@ For each suggestion, provide:
       .input(
         z.object({
           videoId: z.number(),
+          preset: z.enum(['tutorial', 'review', 'clean']).optional().default('review'),
         })
       )
       .mutation(async ({ input, ctx }) => {
