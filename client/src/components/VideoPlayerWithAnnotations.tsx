@@ -511,18 +511,18 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           </div>
 
           {/* Controls */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button size="default" className="md:h-9 md:px-3" variant="outline" onClick={togglePlay}>
+          <div className="flex items-center gap-2 flex-wrap video-controls">
+            <Button size="default" className="h-11 px-4 md:h-9 md:px-3" variant="outline" onClick={togglePlay}>
               {isPlaying ? <Pause className="h-5 w-5 md:h-4 md:w-4" /> : <Play className="h-5 w-5 md:h-4 md:w-4" />}
             </Button>
-            <Button size="default" className="md:h-9 md:px-3" variant="outline" onClick={toggleMute}>
+            <Button size="default" className="h-11 px-4 md:h-9 md:px-3" variant="outline" onClick={toggleMute}>
               {isMuted ? <VolumeX className="h-5 w-5 md:h-4 md:w-4" /> : <Volume2 className="h-5 w-5 md:h-4 md:w-4" />}
             </Button>
             <div className="flex-1" />
             {/* Annotation Tools - Green Buttons */}
             <Button 
               size="default" 
-              className="md:h-9 md:px-3 bg-green-600 hover:bg-green-700 text-white" 
+              className="h-11 px-4 md:h-9 md:px-3 bg-green-600 hover:bg-green-700 text-white" 
               onClick={startAnnotation} 
               disabled={showRecorder}
             >
@@ -532,7 +532,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             </Button>
             <Button 
               size="default" 
-              className="md:h-9 md:px-3 bg-green-600 hover:bg-green-700 text-white"
+              className="h-11 px-4 md:h-9 md:px-3 bg-green-600 hover:bg-green-700 text-white"
               onClick={() => setDrawToggleRequest(!drawToggleRequest)}
             >
               <PenLine className="h-5 w-5 md:h-4 md:w-4 mr-2" />
@@ -639,14 +639,14 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               placeholder="Search annotations..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md text-sm"
+              className="w-full px-3 py-2 border rounded-md text-base md:text-sm"
             />
             <div>
               <label className="text-xs text-muted-foreground">Approval Status:</label>
               <select
                 value={approvalStatusFilter}
                 onChange={(e) => setApprovalStatusFilter(e.target.value as any)}
-                className="w-full px-3 py-2 border rounded-md text-sm"
+                className="w-full px-3 py-2 border rounded-md text-base md:text-sm"
               >
                 <option value="all">All</option>
                 <option value="pending">Pending</option>
@@ -659,7 +659,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               <select
                 value={visualSortBy}
                 onChange={(e) => setVisualSortBy(e.target.value as any)}
-                className="w-full px-3 py-2 border rounded-md text-sm"
+                className="w-full px-3 py-2 border rounded-md text-base md:text-sm"
               >
                 <option value="timestamp">Timestamp</option>
                 <option value="duration">Duration</option>
@@ -903,7 +903,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 <select
                   value={voiceSortBy}
                   onChange={(e) => setVoiceSortBy(e.target.value as any)}
-                  className="w-full px-3 py-2 border rounded-md text-sm"
+                  className="w-full px-3 py-2 border rounded-md text-base md:text-sm"
                 >
                   <option value="timestamp">Timestamp</option>
                   <option value="duration">Duration</option>

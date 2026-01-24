@@ -132,10 +132,10 @@ export function BatchActionsToolbar({
 
   return (
     <>
-      <Card className="fixed bottom-6 left-1/2 -translate-x-1/2 p-4 shadow-lg z-50 bg-background border-2">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{selectedIds.length} selected</span>
+      <Card className="fixed bottom-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:right-auto p-3 md:p-4 shadow-lg z-50 bg-background border-2 batch-actions-toolbar">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-4">
+          <div className="flex items-center justify-between md:justify-start gap-2">
+            <span className="font-medium text-sm md:text-base">{selectedIds.length} selected</span>
             <Button
               variant="ghost"
               size="sm"
@@ -146,18 +146,19 @@ export function BatchActionsToolbar({
             </Button>
           </div>
 
-          <div className="h-8 w-px bg-border" />
+          <div className="hidden md:block h-8 w-px bg-border" />
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={handleApprove}
               disabled={bulkApproveMutation.isPending}
-              className="gap-2"
+              className="gap-1 md:gap-2 flex-1 md:flex-none h-11 md:h-9"
             >
               <CheckCircle2 className="h-4 w-4 text-green-500" />
-              Approve All
+              <span className="hidden sm:inline">Approve All</span>
+              <span className="sm:hidden">Approve</span>
             </Button>
 
             <Button
@@ -165,10 +166,11 @@ export function BatchActionsToolbar({
               size="sm"
               onClick={handleReject}
               disabled={bulkRejectMutation.isPending}
-              className="gap-2"
+              className="gap-1 md:gap-2 flex-1 md:flex-none h-11 md:h-9"
             >
               <XCircle className="h-4 w-4 text-red-500" />
-              Reject All
+              <span className="hidden sm:inline">Reject All</span>
+              <span className="sm:hidden">Reject</span>
             </Button>
 
             <div className="relative">
@@ -176,7 +178,7 @@ export function BatchActionsToolbar({
                 variant="outline"
                 size="sm"
                 onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                className="gap-2"
+                className="gap-1 md:gap-2 flex-1 md:flex-none h-11 md:h-9"
               >
                 <Download className="h-4 w-4" />
                 Export
