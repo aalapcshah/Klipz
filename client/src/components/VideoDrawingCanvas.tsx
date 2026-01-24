@@ -17,6 +17,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { AnnotationTemplatesLibrary } from "./AnnotationTemplatesLibrary";
 
 type DrawingTool = "pen" | "rectangle" | "circle" | "arrow" | "text" | "eraser";
 
@@ -609,6 +610,21 @@ export function VideoDrawingCanvas({
             <div className="space-y-1">
               <span className="text-sm font-medium">Quick Templates:</span>
               <div className="flex items-center gap-2 flex-wrap">
+                <AnnotationTemplatesLibrary
+                  currentDrawingState={{
+                    tool: selectedTool === "eraser" ? "pen" : selectedTool,
+                    color,
+                    strokeWidth,
+                    text: textInput || undefined,
+                  }}
+                  onApplyTemplate={(templateData) => {
+                    setSelectedTool(templateData.tool as DrawingTool);
+                    setColor(templateData.color);
+                    setStrokeWidth(templateData.strokeWidth);
+                    if (templateData.text) setTextInput(templateData.text);
+                  }}
+                />
+                <Separator orientation="vertical" className="h-6" />
                 <Button
                   size="sm"
                   variant="outline"

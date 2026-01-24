@@ -5,6 +5,9 @@ import { stripeRouter } from "./routers/stripe";
 import { voiceAnnotationsRouter } from "./routers/voiceAnnotations";
 import { visualAnnotationsRouter } from "./routers/visual-annotations";
 import { analyticsRouter } from "./routers/analytics";
+import { annotationTemplatesRouter } from "./routers/annotation-templates";
+import { annotationCommentsRouter } from "./routers/annotation-comments";
+import { annotationApprovalsRouter } from "./routers/annotation-approvals";
 import { storageCleanupRouter } from "./routers/storageCleanup";
 import { qualityScoreRouter } from "./routers/qualityScore";
 import { qualityImprovementRouter } from "./routers/qualityImprovement";
@@ -325,6 +328,9 @@ export const appRouter = router({
   voiceAnnotations: voiceAnnotationsRouter,
   visualAnnotations: visualAnnotationsRouter,
   annotationAnalytics: analyticsRouter,
+  annotationTemplates: annotationTemplatesRouter,
+  annotationComments: annotationCommentsRouter,
+  annotationApprovals: annotationApprovalsRouter,
   storageCleanup: storageCleanupRouter,
   qualityScore: qualityScoreRouter,
   qualityImprovement: qualityImprovementRouter,

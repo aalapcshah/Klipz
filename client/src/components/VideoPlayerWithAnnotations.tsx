@@ -10,6 +10,8 @@ import { HorizontalAnnotationTimeline } from "./HorizontalAnnotationTimeline";
 import { AnnotationHistoryTimeline } from "./AnnotationHistoryTimeline";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { CommentThread } from "./CommentThread";
+import { ApprovalWorkflow } from "./ApprovalWorkflow";
 import { useWebSocket } from "@/hooks/useWebSocket";
 
 interface VideoPlayerWithAnnotationsProps {
@@ -692,6 +694,18 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
+                
+                {/* Comment Thread */}
+                <CommentThread
+                  annotationId={annotation.id}
+                  annotationType="visual"
+                />
+                
+                {/* Approval Workflow */}
+                <ApprovalWorkflow
+                  annotationId={annotation.id}
+                  annotationType="visual"
+                />
               </div>
             ))}
           </div>
@@ -787,6 +801,18 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                     </div>
                   </div>
                 )}
+                
+                {/* Comment Thread */}
+                <CommentThread
+                  annotationId={annotation.id}
+                  annotationType="voice"
+                />
+                
+                {/* Approval Workflow */}
+                <ApprovalWorkflow
+                  annotationId={annotation.id}
+                  annotationType="voice"
+                />
               </div>
             ))}
           </div>
