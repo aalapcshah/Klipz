@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation, useSearch } from "wouter";
 import { Upload, LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -39,11 +40,28 @@ export default function FilesView() {
     const saved = localStorage.getItem('filesViewMode');
     return (saved as 'grid' | 'list') || 'grid';
   });
-  const [page, setPage] = useState(1);
+  const searchParams = useSearch();
+  const [, setLocation] = useLocation();
+  
+  // Initialize from URL params or localStorage
+  const [page, setPage] = useState(() => {
+    const urlPage = new URLSearchParams(searchParams).get('page');
+    return urlPage ? parseInt(urlPage) : 1;
+  });
   const [pageSize, setPageSize] = useState(() => {
+    const urlPageSize = new URLSearchParams(searchParams).get('pageSize');
+    if (urlPageSize) return parseInt(urlPageSize);
     const saved = localStorage.getItem('filesPageSize');
     return saved ? parseInt(saved) : 50;
   });
+  
+  // Update URL when page or pageSize changes
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', page.toString());
+    params.set('pageSize', pageSize.toString());
+    setLocation(`?${params.toString()}`, { replace: true });
+  }, [page, pageSize]);
   const utils = trpc.useUtils();
   const { data: filesData } = trpc.files.list.useQuery({ page, pageSize });
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
@@ -153,6 +171,31 @@ export default function FilesView() {
               </div>
             )}
           </div>
+
+          {/* Selection Controls */}
+          {filesData?.files && filesData.files.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const currentPageIds = filesData.files.map(f => f.id);
+                  setSelectedFileIds(currentPageIds);
+                }}
+              >
+                Select All on This Page ({filesData.files.length})
+              </Button>
+              {selectedFileIds.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedFileIds([])}
+                >
+                  Clear Selection
+                </Button>
+              )}
+            </div>
+          )}
 
           {viewMode === 'grid' ? (
             <FileGridEnhanced 

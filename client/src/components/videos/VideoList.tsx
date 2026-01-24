@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
+import { useLocation, useSearch } from "wouter";
 import { AnnotationEditor } from "./AnnotationEditor";
 import { CloudExportDialog } from "./CloudExportDialog";
 import { VideoPlayerWithAnnotations } from "../VideoPlayerWithAnnotations";
@@ -43,11 +44,28 @@ export function VideoList() {
   const [annotatingVideo, setAnnotatingVideo] = useState<{ id: number; fileId: number; url: string; title: string } | null>(null);
   const [selectedVideoIds, setSelectedVideoIds] = useState<number[]>([]);
   
-  const [page, setPage] = useState(1);
+  const searchParams = useSearch();
+  const [, setLocation] = useLocation();
+  
+  // Initialize from URL params or localStorage
+  const [page, setPage] = useState(() => {
+    const urlPage = new URLSearchParams(searchParams).get('page');
+    return urlPage ? parseInt(urlPage) : 1;
+  });
   const [pageSize, setPageSize] = useState(() => {
+    const urlPageSize = new URLSearchParams(searchParams).get('pageSize');
+    if (urlPageSize) return parseInt(urlPageSize);
     const saved = localStorage.getItem('videosPageSize');
     return saved ? parseInt(saved) : 50;
   });
+  
+  // Update URL when page or pageSize changes
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', page.toString());
+    params.set('pageSize', pageSize.toString());
+    setLocation(`?${params.toString()}`, { replace: true });
+  }, [page, pageSize]);
   
   useEffect(() => {
     localStorage.setItem('videosPageSize', pageSize.toString());

@@ -2437,3 +2437,16 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [x] Add quick jump to page input field in Videos pagination
 - [x] Test bulk operations across multiple pages
 - [x] Test quick page jump functionality
+
+
+## Phase 83: Enhanced Bulk Selection & URL Persistence
+- [x] Add "Select All on This Page" button to file grid
+- [x] Update "Select All X files" to clearly indicate it selects across all pages
+- [x] Add visual distinction between page-level and global selection
+- [x] Implement URL query parameter for page number
+- [x] Implement URL query parameter for page size
+- [x] Update FilesView to read/write pagination state from/to URL
+- [x] Update VideoList to read/write pagination state from/to URL
+- [x] Ensure URL updates when user changes page or page size
+- [x] Test URL bookmarking and sharing functionality
+- [x] Test browser back/forward navigation with URL state

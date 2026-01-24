@@ -280,9 +280,9 @@ export function BulkOperationsToolbar({
                 variant="link"
                 size="sm"
                 onClick={() => onSelectAll(allFileIds)}
-                className="h-auto p-0 text-xs"
+                className="h-auto p-0 text-xs text-primary hover:underline"
               >
-                Select all {totalCount} files
+                Select all {totalCount} files across all pages
               </Button>
             )}
           </div>
