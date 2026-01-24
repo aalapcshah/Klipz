@@ -475,15 +475,35 @@ export async function createVideo(video: InsertVideo) {
   return result[0].insertId;
 }
 
-export async function getVideosByUserId(userId: number) {
+export async function getVideosCountByUserId(userId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(videos)
+    .where(eq(videos.userId, userId));
+
+  return result[0]?.count || 0;
+}
+
+export async function getVideosByUserId(userId: number, limit?: number, offset?: number) {
   const db = await getDb();
   if (!db) return [];
 
-  const videoList = await db
+  const baseQuery = db
     .select()
     .from(videos)
     .where(eq(videos.userId, userId))
     .orderBy(desc(videos.createdAt));
+  
+  const videoList = limit !== undefined && offset !== undefined
+    ? await baseQuery.limit(limit).offset(offset)
+    : limit !== undefined
+    ? await baseQuery.limit(limit)
+    : offset !== undefined
+    ? await baseQuery.offset(offset)
+    : await baseQuery;
 
   // Get annotation counts for each video
   const videosWithCounts = await Promise.all(

@@ -148,3 +148,111 @@ describe("Onboarding Tutorial", () => {
     expect(progress.tutorialCompleted).toBe(false);
   });
 });
+
+describe("Videos Pagination", () => {
+  let caller: ReturnType<typeof appRouter.createCaller>;
+  let testUserId: number;
+
+  beforeAll(async () => {
+    // Create test user
+    await db.upsertUser({
+      openId: "test-videos-pagination-user",
+      name: "Videos Pagination Test User",
+      email: "videos-pagination@test.com",
+      avatarUrl: null,
+    });
+
+    const user = await db.getUserByOpenId("test-videos-pagination-user");
+    if (!user) throw new Error("Failed to create test user");
+    testUserId = user.id;
+
+    const ctx: TrpcContext = {
+      user: {
+        id: testUserId,
+        openId: "test-videos-pagination-user",
+        name: "Videos Pagination Test User",
+        email: "videos-pagination@test.com",
+        role: "user",
+        loginMethod: "manus",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastSignedIn: new Date(),
+      },
+      req: { protocol: "https", headers: {} } as TrpcContext["req"],
+      res: {} as TrpcContext["res"],
+    };
+    caller = appRouter.createCaller(ctx);
+  });
+
+  it("should return paginated videos with correct structure", async () => {
+    const result = await caller.videos.list({ page: 1, pageSize: 10 });
+
+    expect(result).toHaveProperty("videos");
+    expect(result).toHaveProperty("pagination");
+    expect(Array.isArray(result.videos)).toBe(true);
+    expect(result.pagination).toHaveProperty("page");
+    expect(result.pagination).toHaveProperty("pageSize");
+    expect(result.pagination).toHaveProperty("totalCount");
+    expect(result.pagination).toHaveProperty("totalPages");
+  });
+
+  it("should default to page 1 and pageSize 50 when not specified", async () => {
+    const result = await caller.videos.list();
+
+    expect(result.pagination.page).toBe(1);
+    expect(result.pagination.pageSize).toBe(50);
+  });
+});
+
+describe("Bulk Selection Across Pages", () => {
+  let caller: ReturnType<typeof appRouter.createCaller>;
+  let testUserId: number;
+
+  beforeAll(async () => {
+    // Create test user
+    await db.upsertUser({
+      openId: "test-bulk-selection-user",
+      name: "Bulk Selection Test User",
+      email: "bulk-selection@test.com",
+      avatarUrl: null,
+    });
+
+    const user = await db.getUserByOpenId("test-bulk-selection-user");
+    if (!user) throw new Error("Failed to create test user");
+    testUserId = user.id;
+
+    const ctx: TrpcContext = {
+      user: {
+        id: testUserId,
+        openId: "test-bulk-selection-user",
+        name: "Bulk Selection Test User",
+        email: "bulk-selection@test.com",
+        role: "user",
+        loginMethod: "manus",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastSignedIn: new Date(),
+      },
+      req: { protocol: "https", headers: {} } as TrpcContext["req"],
+      res: {} as TrpcContext["res"],
+    };
+    caller = appRouter.createCaller(ctx);
+  });
+
+  it("should return all file IDs for bulk selection", async () => {
+    const allIds = await caller.files.getAllIds();
+
+    expect(Array.isArray(allIds)).toBe(true);
+    // Each ID should be a number
+    allIds.forEach(id => {
+      expect(typeof id).toBe("number");
+    });
+  });
+
+  it("should return all file IDs matching collection filter", async () => {
+    // This test assumes collections exist; if not, it will just return empty array
+    const allIds = await caller.files.getAllIds({ collectionId: 1 });
+
+    expect(Array.isArray(allIds)).toBe(true);
+  });
+});

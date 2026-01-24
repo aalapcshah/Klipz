@@ -508,8 +508,7 @@ export const appRouter = router({
           return { ...file, enrichmentStatus, tags, qualityScore };
         })
       );
-      
-      return {
+           return {
         files: filesWithTags,
         pagination: {
           page,
@@ -519,8 +518,20 @@ export const appRouter = router({
         },
       };
     }),
-
-    // Get single file with full details
+    
+    // Get all file IDs matching current filters (for bulk selection across pages)
+    getAllIds: protectedProcedure
+      .input(z.object({ 
+        collectionId: z.number().optional(),
+      }).optional())
+      .query(async ({ ctx, input }) => {
+        const files = input?.collectionId
+          ? await db.getFilesByCollection(ctx.user.id, input.collectionId)
+          : await db.getFilesByUserId(ctx.user.id);
+        
+        return files.map(f => f.id);
+      }),
+    
     get: protectedProcedure
       .input(z.object({ id: z.number() }))
       .query(async ({ input, ctx }) => {
@@ -1274,9 +1285,32 @@ export const appRouter = router({
   // ============= VIDEOS ROUTER =============
   videos: router({
     // List all videos
-    list: protectedProcedure.query(async ({ ctx }) => {
-      return await db.getVideosByUserId(ctx.user.id);
-    }),
+    list: protectedProcedure
+      .input(z.object({ 
+        page: z.number().default(1),
+        pageSize: z.number().default(50),
+      }).optional())
+      .query(async ({ ctx, input }) => {
+        const page = input?.page || 1;
+        const pageSize = input?.pageSize || 50;
+        const offset = (page - 1) * pageSize;
+        
+        // Get total count
+        const totalCount = await db.getVideosCountByUserId(ctx.user.id);
+        
+        // Get paginated videos
+        const videos = await db.getVideosByUserId(ctx.user.id, pageSize, offset);
+        
+        return {
+          videos,
+          pagination: {
+            page,
+            pageSize,
+            totalCount,
+            totalPages: Math.ceil(totalCount / pageSize),
+          },
+        };
+      }),
 
     // Get video with annotations
     get: protectedProcedure

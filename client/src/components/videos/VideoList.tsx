@@ -2,6 +2,7 @@ import { trpc } from "@/lib/trpc";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   VideoIcon,
   Loader2,
@@ -24,7 +25,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AnnotationEditor } from "./AnnotationEditor";
 import { CloudExportDialog } from "./CloudExportDialog";
 import { VideoPlayerWithAnnotations } from "../VideoPlayerWithAnnotations";
@@ -42,7 +43,18 @@ export function VideoList() {
   const [annotatingVideo, setAnnotatingVideo] = useState<{ id: number; fileId: number; url: string; title: string } | null>(null);
   const [selectedVideoIds, setSelectedVideoIds] = useState<number[]>([]);
   
-  const { data: videos, isLoading, refetch } = trpc.videos.list.useQuery();
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(() => {
+    const saved = localStorage.getItem('videosPageSize');
+    return saved ? parseInt(saved) : 50;
+  });
+  
+  useEffect(() => {
+    localStorage.setItem('videosPageSize', pageSize.toString());
+  }, [pageSize]);
+  
+  const { data: videosData, isLoading, refetch } = trpc.videos.list.useQuery({ page, pageSize });
+  const videos = videosData?.videos || [];
   const deleteMutation = trpc.videos.delete.useMutation();
   const exportMutation = trpc.videoExport.export.useMutation();
   const batchExportMutation = trpc.videoExport.batchExport.useMutation();
@@ -380,6 +392,71 @@ export function VideoList() {
           </Card>
         ))}
       </div>
+
+      {/* Pagination Controls */}
+      {videosData?.pagination && (
+        <div className="flex items-center justify-between mt-6 pt-4 border-t">
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">
+              Showing {Math.min((videosData.pagination.page - 1) * videosData.pagination.pageSize + 1, videosData.pagination.totalCount)} - {Math.min(videosData.pagination.page * videosData.pagination.pageSize, videosData.pagination.totalCount)} of {videosData.pagination.totalCount} videos
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Items per page:</span>
+              <Select
+                value={pageSize.toString()}
+                onValueChange={(value) => {
+                  setPageSize(parseInt(value));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Page</span>
+              <input
+                type="number"
+                min="1"
+                max={videosData.pagination.totalPages}
+                value={page}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value);
+                  if (value >= 1 && value <= videosData.pagination.totalPages) {
+                    setPage(value);
+                  }
+                }}
+                className="w-16 px-2 py-1 text-sm border rounded text-center"
+              />
+              <span className="text-sm text-muted-foreground">of {videosData.pagination.totalPages}</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => Math.min(videosData.pagination.totalPages, p + 1))}
+              disabled={page === videosData.pagination.totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Annotation Editor Dialog */}
       <Dialog

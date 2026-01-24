@@ -2409,3 +2409,31 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [x] Persist pagination preferences in localStorage
 - [x] Test pagination with large datasets
 - [x] Ensure search and filters work with pagination
+
+
+## Phase 82: Videos Pagination & Enhanced Bulk Operations
+- [ ] Add pagination backend for videos.list query
+- [ ] Add getVideosCountByUserId function to db.ts
+- [ ] Update Videos page to use paginated API
+- [ ] Add pagination UI controls to Videos page
+- [ ] Implement "Select All Pages" functionality for bulk operations
+- [ ] Add API endpoint to get all file IDs matching current filters
+- [ ] Update BulkOperationsToolbar to support cross-page selection
+- [ ] Add page number input field to pagination controls
+- [ ] Add validation for page number input (1 to totalPages)
+- [ ] Test pagination with large video datasets
+- [ ] Test bulk operations across multiple pages
+- [ ] Write tests for new functionality
+
+
+## Phase 82: Videos Pagination & Bulk Selection Enhancements
+- [x] Add pagination backend to videos.list query
+- [x] Update VideoList component to use pagination
+- [x] Add pagination UI controls to VideoList
+- [x] Add getAllIds endpoint for bulk selection across pages
+- [x] Update BulkOperationsToolbar to support "Select All Pages"
+- [x] Add "Select All X files" button when not all files are selected
+- [x] Add quick jump to page input field in Files pagination
+- [x] Add quick jump to page input field in Videos pagination
+- [x] Test bulk operations across multiple pages
+- [x] Test quick page jump functionality

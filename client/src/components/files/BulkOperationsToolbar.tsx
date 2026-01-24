@@ -33,12 +33,16 @@ interface BulkOperationsToolbarProps {
   selectedFileIds: number[];
   onClearSelection: () => void;
   onOperationComplete: () => void;
+  onSelectAll?: (ids: number[]) => void;
+  totalCount?: number;
 }
 
 export function BulkOperationsToolbar({
   selectedFileIds,
   onClearSelection,
   onOperationComplete,
+  onSelectAll,
+  totalCount,
 }: BulkOperationsToolbarProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showTagDialog, setShowTagDialog] = useState(false);
@@ -55,6 +59,7 @@ export function BulkOperationsToolbar({
   const reEnrichMutation = trpc.bulkOperations.reEnrichFiles.useMutation();
   const { data: allFilesData } = trpc.files.list.useQuery({ page: 1, pageSize: 1000 }); // Get more files for bulk operations
   const allFiles = allFilesData?.files || [];
+  const { data: allFileIds } = trpc.files.getAllIds.useQuery();
 
   const { data: tags } = trpc.tags.list.useQuery();
   const { data: collections } = trpc.collections.list.useQuery();
@@ -266,8 +271,20 @@ export function BulkOperationsToolbar({
     <>
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
         <div className="bg-card border border-border rounded-lg shadow-lg p-4 flex items-center gap-4">
-          <div className="text-sm font-medium">
-            {selectedFileIds.length} file(s) selected
+          <div className="flex items-center gap-2">
+            <div className="text-sm font-medium">
+              {selectedFileIds.length} file(s) selected
+            </div>
+            {onSelectAll && allFileIds && totalCount && selectedFileIds.length < totalCount && (
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => onSelectAll(allFileIds)}
+                className="h-auto p-0 text-xs"
+              >
+                Select all {totalCount} files
+              </Button>
+            )}
           </div>
 
           <div className="h-6 w-px bg-border" />

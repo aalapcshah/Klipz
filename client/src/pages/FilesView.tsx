@@ -198,25 +198,39 @@ export default function FilesView() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  Previous
-                </Button>
-                <span className="text-sm text-muted-foreground">
-                  Page {filesData.pagination.page} of {filesData.pagination.totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(p => Math.min(filesData.pagination.totalPages, p + 1))}
-                  disabled={page === filesData.pagination.totalPages}
-                >
-                  Next
-                </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                Previous
+              </Button>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Page</span>
+                <input
+                  type="number"
+                  min="1"
+                  max={filesData.pagination.totalPages}
+                  value={page}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value);
+                    if (value >= 1 && value <= filesData.pagination.totalPages) {
+                      setPage(value);
+                    }
+                  }}
+                  className="w-16 px-2 py-1 text-sm border rounded text-center"
+                />
+                <span className="text-sm text-muted-foreground">of {filesData.pagination.totalPages}</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.min(filesData.pagination.totalPages, p + 1))}
+                disabled={page === filesData.pagination.totalPages}
+              >
+                Next
+              </Button>
               </div>
             </div>
           )}
@@ -242,6 +256,8 @@ export default function FilesView() {
           onOperationComplete={() => {
             utils.files.list.invalidate();
           }}
+          onSelectAll={(ids) => setSelectedFileIds(ids)}
+          totalCount={filesData?.pagination.totalCount}
         />
 
         <StorageCleanupWizard
