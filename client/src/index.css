@@ -121,8 +121,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* Fluid typography: 14px on mobile (375px) to 15px on desktop (1440px) */
-    font-size: clamp(14px, 0.875rem + 0.09375vw, 15px);
+    font-size: 14px;
   }
   /* Typography Scale Presets */
   h1 {

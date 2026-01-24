@@ -32,6 +32,13 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [speakingAnnotationId, setSpeakingAnnotationId] = useState<number | null>(null);
   const [speechRate, setSpeechRate] = useState(1.0);
   const speechSynthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
+  
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [minTimestamp, setMinTimestamp] = useState<number | null>(null);
+  const [maxTimestamp, setMaxTimestamp] = useState<number | null>(null);
+  const [minDuration, setMinDuration] = useState<number | null>(null);
+  const [maxDuration, setMaxDuration] = useState<number | null>(null);
 
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.voiceAnnotations.getAnnotations.useQuery({ fileId });
   const { data: visualAnnotations = [], refetch: refetchVisualAnnotations } = trpc.visualAnnotations.getAnnotations.useQuery({ fileId });
@@ -502,15 +509,103 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         </Card>
       )}
 
-      {/* Visual Annotations List */}
+      {/* Drawing Annotations List */}
       {visualAnnotations.length > 0 && (
         <Card className="p-4">
           <h3 className="font-semibold mb-3 flex items-center gap-2">
             <MessageSquare className="h-5 w-5" />
             Drawing Annotations ({visualAnnotations.length})
           </h3>
+          
+          {/* Search and Filter Bar */}
+          <div className="mb-4 space-y-3">
+            <input
+              type="text"
+              placeholder="Search annotations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-3 py-2 border rounded-md text-sm"
+            />
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <label className="text-muted-foreground">Min Time (s):</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={minTimestamp ?? ""}
+                  onChange={(e) => setMinTimestamp(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full px-2 py-1 border rounded text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-muted-foreground">Max Time (s):</label>
+                <input
+                  type="number"
+                  placeholder="∞"
+                  value={maxTimestamp ?? ""}
+                  onChange={(e) => setMaxTimestamp(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full px-2 py-1 border rounded text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-muted-foreground">Min Duration (s):</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={minDuration ?? ""}
+                  onChange={(e) => setMinDuration(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full px-2 py-1 border rounded text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-muted-foreground">Max Duration (s):</label>
+                <input
+                  type="number"
+                  placeholder="∞"
+                  value={maxDuration ?? ""}
+                  onChange={(e) => setMaxDuration(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full px-2 py-1 border rounded text-sm"
+                />
+              </div>
+            </div>
+            {(searchQuery || minTimestamp !== null || maxTimestamp !== null || minDuration !== null || maxDuration !== null) && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setSearchQuery("");
+                  setMinTimestamp(null);
+                  setMaxTimestamp(null);
+                  setMinDuration(null);
+                  setMaxDuration(null);
+                }}
+                className="w-full"
+              >
+                Clear Filters
+              </Button>
+            )}
+          </div>
+          
           <div className="space-y-2">
-            {visualAnnotations.map((annotation) => (
+            {visualAnnotations
+              .filter((annotation) => {
+                // Filter by timestamp range
+                if (minTimestamp !== null && annotation.videoTimestamp < minTimestamp) return false;
+                if (maxTimestamp !== null && annotation.videoTimestamp > maxTimestamp) return false;
+                
+                // Filter by duration range
+                const duration = annotation.duration || 5;
+                if (minDuration !== null && duration < minDuration) return false;
+                if (maxDuration !== null && duration > maxDuration) return false;
+                
+                // Filter by search query (description)
+                if (searchQuery && annotation.description) {
+                  if (!annotation.description.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+                }
+                
+                return true;
+              })
+              .map((annotation) => (
               <div
                 key={annotation.id}
                 className="p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors space-y-2"
@@ -567,7 +662,25 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             </div>
           </div>
           <div className="space-y-2">
-            {annotations.map((annotation) => (
+            {annotations
+              .filter((annotation) => {
+                // Filter by timestamp range
+                if (minTimestamp !== null && annotation.videoTimestamp < minTimestamp) return false;
+                if (maxTimestamp !== null && annotation.videoTimestamp > maxTimestamp) return false;
+                
+                // Filter by duration range
+                const duration = annotation.duration || 5;
+                if (minDuration !== null && duration < minDuration) return false;
+                if (maxDuration !== null && duration > maxDuration) return false;
+                
+                // Filter by search query (transcript)
+                if (searchQuery && annotation.transcript) {
+                  if (!annotation.transcript.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+                }
+                
+                return true;
+              })
+              .map((annotation) => (
               <div
                 key={annotation.id}
                 className="p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors space-y-2"

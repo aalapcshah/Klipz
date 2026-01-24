@@ -9,6 +9,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { securityHeaders } from "./securityHeaders";
 import { apiRateLimit } from "./rateLimit";
+import { setupWebSocket } from "./websocket";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -72,6 +73,9 @@ async function startServer() {
   if (port !== preferredPort) {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
+
+  // Setup WebSocket server
+  setupWebSocket(server);
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);

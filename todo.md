@@ -1917,4 +1917,30 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Implement JSON export format
 - [x] Add export all annotations button
 - [x] Add batch export procedure to server
-- [ ] Test batch export with multiple videos
+- [x] Test batch export with multiple videos
+
+## Phase 164: Reduce Font Size to 14px
+- [x] Update base font size in index.css from 15px to 14px
+- [x] Update fluid typography clamp() values
+- [x] Test readability across all pages
+
+## Phase 165: Annotation Search and Filtering
+- [x] Add search bar above Drawing Annotations list
+- [x] Implement timestamp range filter
+- [x] Implement duration filter
+- [x] Implement transcript text search
+- [x] Add filter UI controls
+- [x] Apply filters to both visual and voice annotations
+- [x] Test search and filtering functionality
+
+## Phase 166: Real-time Collaboration with WebSocket
+- [x] Set up WebSocket server in Express
+- [x] Create WebSocket connection manager
+- [x] Implement annotation broadcast on create/update/delete
+- [x] Implement room-based messaging (file rooms)
+- [x] Add user presence tracking (join/leave)
+- [x] Create useWebSocket hook for client integration
+- [ ] Integrate WebSocket into VideoPlayerWithAnnotations
+- [ ] Add user avatar display to annotations
+- [ ] Add user presence indicators
+- [ ] Test real-time collaboration with multiple users
