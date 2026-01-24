@@ -45,6 +45,68 @@ export const activityLogsRouter = router({
     return await getActivityStats(ctx.user.id);
   }),
 
+  statistics: protectedProcedure.query(async ({ ctx }) => {
+    const { getDb } = await import("../db");
+    const { fileActivityLogs } = await import("../../drizzle/schema");
+    const { sql, eq, gte, and } = await import("drizzle-orm");
+    const { TRPCError } = await import("@trpc/server");
+
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+    // Get activity trends (last 30 days)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const activityTrends = await db
+      .select({
+        date: sql<string>`DATE(${fileActivityLogs.createdAt})`,
+        activityType: fileActivityLogs.activityType,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(fileActivityLogs)
+      .where(
+        and(
+          eq(fileActivityLogs.userId, ctx.user!.id),
+          gte(fileActivityLogs.createdAt, thirtyDaysAgo)
+        )
+      )
+      .groupBy(sql`DATE(${fileActivityLogs.createdAt})`, fileActivityLogs.activityType)
+      .orderBy(sql`DATE(${fileActivityLogs.createdAt})`);
+
+    // Get peak usage hours
+    const peakHours = await db
+      .select({
+        hour: sql<number>`HOUR(${fileActivityLogs.createdAt})`,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(fileActivityLogs)
+      .where(eq(fileActivityLogs.userId, ctx.user!.id))
+      .groupBy(sql`HOUR(${fileActivityLogs.createdAt})`)
+      .orderBy(sql`HOUR(${fileActivityLogs.createdAt})`);
+
+    // Get activity type distribution
+    const activityDistribution = await db
+      .select({
+        activityType: fileActivityLogs.activityType,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(fileActivityLogs)
+      .where(eq(fileActivityLogs.userId, ctx.user!.id))
+      .groupBy(fileActivityLogs.activityType);
+
+    // Get total counts
+    const totalActivities = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(fileActivityLogs)
+      .where(eq(fileActivityLogs.userId, ctx.user!.id));
+
+    return {
+      activityTrends,
+      peakHours,
+      activityDistribution,
+      totalActivities: totalActivities[0]?.count || 0,
+    };
+  }),
+
   export: protectedProcedure
     .input(
       z.object({

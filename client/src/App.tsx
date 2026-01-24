@@ -7,6 +7,8 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Dashboard from "./pages/Dashboard";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { OnboardingTutorial } from "./components/OnboardingTutorial";
+import { NotificationPrompt } from "./components/NotificationPrompt";
+import { NotificationListener } from "./components/NotificationListener";
 import { Footer } from "./components/Footer";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
@@ -80,6 +82,8 @@ function App() {
             />
             <CookieConsent />
             <OnboardingTutorial />
+            <NotificationPrompt />
+            <NotificationListener />
           </div>
         </TooltipProvider>
       </ThemeProvider>

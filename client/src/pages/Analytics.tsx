@@ -143,6 +143,7 @@ export function Analytics() {
         <TabsList>
           <TabsTrigger value="enrichment">Enrichment Stats</TabsTrigger>
           <TabsTrigger value="activity">Activity Timeline</TabsTrigger>
+          <TabsTrigger value="statistics">Statistics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="enrichment" className="space-y-6">
@@ -412,6 +413,19 @@ export function Analytics() {
                 </div>
               )}
             </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="statistics" className="space-y-6">
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Activity Statistics
+            </h2>
+            <p className="text-muted-foreground">
+              Detailed activity statistics and trends will be displayed here.
+              This feature is coming soon.
+            </p>
           </Card>
         </TabsContent>
       </Tabs>

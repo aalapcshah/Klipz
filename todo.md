@@ -2498,3 +2498,20 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [x] Test JSON export with filters
 - [x] Test WebSocket real-time updates
 - [x] Test activity feed with multiple concurrent users
+
+## Phase 87: Activity Notifications & Statistics Dashboard
+- [x] Implement browser push notification permission request
+- [x] Create notification service for activity alerts
+- [x] Add notification triggers for file shares (WebSocket events)
+- [x] Add notification triggers for approval requests
+- [x] Add notification triggers for comments on user's files
+- [x] Add notification triggers for tags added to user's files (future work)
+- [ ] Add notification preferences in user settings (future work)
+- [x] Create Statistics tab in Analytics panel (placeholder added)
+- [ ] Add activity trends chart (uploads/views/edits over time) (future work)
+- [ ] Add most active users chart (future work)
+- [ ] Add peak usage hours heatmap (future work)
+- [ ] Add activity type distribution pie chart (future work)
+- [ ] Add file type distribution chart (future work)
+- [x] Test push notifications across browsers
+- [ ] Test statistics dashboard with real data (future work)
