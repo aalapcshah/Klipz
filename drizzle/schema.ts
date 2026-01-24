@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, float, boolean, json } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, float, boolean, json, uniqueIndex } from "drizzle-orm/mysql-core";
 import { relations } from "drizzle-orm";
 
 /**
@@ -865,5 +865,29 @@ export const userOnboardingRelations = relations(userOnboarding, ({ one }) => ({
   user: one(users, {
     fields: [userOnboarding.userId],
     references: [users.id],
+  }),
+}));
+
+// ============= RECENTLY VIEWED FILES TABLE =============
+export const recentlyViewedFiles = mysqlTable("recently_viewed_files", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("userId").notNull(),
+  fileId: int("fileId").notNull(),
+  viewedAt: timestamp("viewedAt").defaultNow().notNull(),
+}, (table) => ({
+  userFileIndex: uniqueIndex("user_file_idx").on(table.userId, table.fileId),
+}));
+
+export type RecentlyViewedFile = typeof recentlyViewedFiles.$inferSelect;
+export type InsertRecentlyViewedFile = typeof recentlyViewedFiles.$inferInsert;
+
+export const recentlyViewedFilesRelations = relations(recentlyViewedFiles, ({ one }) => ({
+  user: one(users, {
+    fields: [recentlyViewedFiles.userId],
+    references: [users.id],
+  }),
+  file: one(files, {
+    fields: [recentlyViewedFiles.fileId],
+    references: [files.id],
   }),
 }));

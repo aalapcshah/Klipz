@@ -46,8 +46,10 @@ export function BulkOperationsToolbar({
 }: BulkOperationsToolbarProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showTagDialog, setShowTagDialog] = useState(false);
+  const [showRemoveTagDialog, setShowRemoveTagDialog] = useState(false);
   const [showCollectionDialog, setShowCollectionDialog] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [removeTagIds, setRemoveTagIds] = useState<number[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [progress, setProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -55,6 +57,7 @@ export function BulkOperationsToolbar({
   const utils = trpc.useUtils();
   const deleteFilesMutation = trpc.bulkOperations.deleteFiles.useMutation();
   const addTagsMutation = trpc.bulkOperations.addTags.useMutation();
+  const removeTagsMutation = trpc.bulkOperations.removeTags.useMutation();
   const addToCollectionMutation = trpc.bulkOperations.addToCollection.useMutation();
   const reEnrichMutation = trpc.bulkOperations.reEnrichFiles.useMutation();
   const { data: allFilesData } = trpc.files.list.useQuery({ page: 1, pageSize: 1000 }); // Get more files for bulk operations
@@ -126,6 +129,44 @@ export function BulkOperationsToolbar({
       setSelectedTagIds([]);
     } catch (error) {
       toast.error("Failed to add tags");
+      console.error(error);
+    } finally {
+      setIsProcessing(false);
+      setProgress(0);
+    }
+  };
+
+  const handleBulkRemoveTags = async () => {
+    if (removeTagIds.length === 0) {
+      toast.error("Please select at least one tag to remove");
+      return;
+    }
+
+    setIsProcessing(true);
+    setProgress(0);
+
+    try {
+      const progressInterval = setInterval(() => {
+        setProgress((prev) => Math.min(prev + 10, 90));
+      }, 100);
+
+      const result = await removeTagsMutation.mutateAsync({
+        fileIds: selectedFileIds,
+        tagIds: removeTagIds,
+      });
+
+      clearInterval(progressInterval);
+      setProgress(100);
+
+      toast.success(
+        `Removed ${result.tagsRemoved} tag(s) from ${result.filesUntagged} file(s)`
+      );
+      await utils.files.list.invalidate();
+      onOperationComplete();
+      setShowRemoveTagDialog(false);
+      setRemoveTagIds([]);
+    } catch (error) {
+      toast.error("Failed to remove tags");
       console.error(error);
     } finally {
       setIsProcessing(false);
@@ -303,6 +344,16 @@ export function BulkOperationsToolbar({
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setShowRemoveTagDialog(true)}
+              disabled={isProcessing}
+            >
+              <X className="w-4 h-4 mr-2" />
+              Remove Tags
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setShowCollectionDialog(true)}
               disabled={isProcessing}
             >
@@ -465,6 +516,81 @@ export function BulkOperationsToolbar({
                 </>
               ) : (
                 "Add Tags"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Tags Dialog */}
+      <Dialog open={showRemoveTagDialog} onOpenChange={setShowRemoveTagDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Tags from Files</DialogTitle>
+            <DialogDescription>
+              Select tags to remove from {selectedFileIds.length} file(s)
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select Tags to Remove</label>
+              <div className="flex flex-wrap gap-2">
+                {tags?.map((tag) => (
+                  <button
+                    key={tag.id}
+                    onClick={() => {
+                      setRemoveTagIds((prev) =>
+                        prev.includes(tag.id)
+                          ? prev.filter((id) => id !== tag.id)
+                          : [...prev, tag.id]
+                      );
+                    }}
+                    className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                      removeTagIds.includes(tag.id)
+                        ? "bg-destructive text-destructive-foreground"
+                        : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                    }`}
+                  >
+                    {tag.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {isProcessing && (
+              <div className="space-y-2">
+                <Progress value={progress} />
+                <p className="text-sm text-muted-foreground text-center">
+                  Removing tags... {progress}%
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRemoveTagDialog(false);
+                setRemoveTagIds([]);
+              }}
+              disabled={isProcessing}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleBulkRemoveTags} 
+              disabled={isProcessing}
+              variant="destructive"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                "Remove Tags"
               )}
             </Button>
           </DialogFooter>

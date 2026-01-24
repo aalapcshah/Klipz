@@ -42,6 +42,7 @@ import {
   annotationHistory,
   InsertAnnotationHistory,
   userOnboarding,
+  recentlyViewedFiles,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -1464,6 +1465,40 @@ export async function bulkAddTagsToFiles(fileIds: number[], tagIds: number[], us
   return { filesTagged: validFileIds.length, tagsApplied: tagIds.length };
 }
 
+export async function bulkRemoveTagsFromFiles(fileIds: number[], tagIds: number[], userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  
+  // Verify files belong to user
+  const userFiles = await db
+    .select({ id: files.id })
+    .from(files)
+    .where(
+      and(
+        inArray(files.id, fileIds),
+        eq(files.userId, userId)
+      )
+    );
+  
+  const validFileIds = userFiles.map(f => f.id);
+  
+  if (validFileIds.length === 0) {
+    return { filesUntagged: 0, tagsRemoved: 0 };
+  }
+  
+  // Remove file-tag associations
+  const result = await db
+    .delete(fileTags)
+    .where(
+      and(
+        inArray(fileTags.fileId, validFileIds),
+        inArray(fileTags.tagId, tagIds)
+      )
+    );
+  
+  return { filesUntagged: validFileIds.length, tagsRemoved: tagIds.length };
+}
+
 export async function bulkAddFilesToCollection(fileIds: number[], collectionId: number, userId: number) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');
@@ -1709,4 +1744,39 @@ export async function updateEmailPreferences(
       updatedAt: new Date(),
     })
     .where(eq(emailPreferences.userId, userId));
+}
+
+
+// ============= RECENTLY VIEWED FILES =============
+export async function trackFileView(fileId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  
+  // Upsert: update viewedAt if exists, insert if not
+  await db
+    .insert(recentlyViewedFiles)
+    .values({ fileId, userId, viewedAt: new Date() })
+    .onDuplicateKeyUpdate({
+      set: { viewedAt: new Date() }
+    });
+  
+  return { success: true };
+}
+
+export async function getRecentlyViewedFiles(userId: number, limit: number = 10) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  
+  const result = await db
+    .select({
+      file: files,
+      viewedAt: recentlyViewedFiles.viewedAt,
+    })
+    .from(recentlyViewedFiles)
+    .innerJoin(files, eq(recentlyViewedFiles.fileId, files.id))
+    .where(eq(recentlyViewedFiles.userId, userId))
+    .orderBy(desc(recentlyViewedFiles.viewedAt))
+    .limit(limit);
+  
+  return result;
 }

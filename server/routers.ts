@@ -2225,6 +2225,24 @@ For each suggestion, provide:
       }),
   }),
 
+  // ============= RECENTLY VIEWED FILES ROUTER =============
+  recentlyViewed: router({
+    // Track file view
+    trackView: protectedProcedure
+      .input(z.object({ fileId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        return await db.trackFileView(input.fileId, ctx.user.id);
+      }),
+
+    // Get recently viewed files
+    list: protectedProcedure
+      .input(z.object({ limit: z.number().optional() }).optional())
+      .query(async ({ input, ctx }) => {
+        const limit = input?.limit || 10;
+        return await db.getRecentlyViewedFiles(ctx.user.id, limit);
+      }),
+  }),
+
   // ============= BULK OPERATIONS ROUTER =============
   bulkOperations: router({
     // Bulk delete files
@@ -2245,6 +2263,23 @@ For each suggestion, provide:
       )
       .mutation(async ({ input, ctx }) => {
         const result = await db.bulkAddTagsToFiles(
+          input.fileIds,
+          input.tagIds,
+          ctx.user.id
+        );
+        return result;
+      }),
+
+    // Bulk remove tags from files
+    removeTags: protectedProcedure
+      .input(
+        z.object({
+          fileIds: z.array(z.number()),
+          tagIds: z.array(z.number()),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const result = await db.bulkRemoveTagsFromFiles(
           input.fileIds,
           input.tagIds,
           ctx.user.id

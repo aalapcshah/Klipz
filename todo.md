@@ -2450,3 +2450,16 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [x] Ensure URL updates when user changes page or page size
 - [x] Test URL bookmarking and sharing functionality
 - [x] Test browser back/forward navigation with URL state
+
+
+## Phase 84: Bulk Tag Removal & Recently Viewed Files
+- [x] Add "Remove Tags" button to BulkOperationsToolbar
+- [x] Create tag removal dialog with tag selection
+- [x] Implement bulk tag removal mutation in backend
+- [x] Test bulk tag removal with multiple files
+- [x] Create recently_viewed_files database table
+- [x] Add file view tracking in backend when file is opened
+- [x] Create recently viewed files query endpoint
+- [x] Add "Recently Viewed" section to Dashboard
+- [x] Display last 10 viewed files with thumbnails and quick access
+- [x] Test recently viewed tracking and display

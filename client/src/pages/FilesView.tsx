@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
-import { Upload, LayoutGrid, List } from "lucide-react";
+import { Upload, LayoutGrid, List, FileIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileUploadDialog } from "@/components/files/FileUploadDialog";
@@ -64,6 +64,7 @@ export default function FilesView() {
   }, [page, pageSize]);
   const utils = trpc.useUtils();
   const { data: filesData } = trpc.files.list.useQuery({ page, pageSize });
+  const { data: recentlyViewed } = trpc.recentlyViewed.list.useQuery({ limit: 10 });
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
   
   // Persist page size preference
@@ -84,8 +85,12 @@ export default function FilesView() {
     localStorage.setItem('filesViewMode', viewMode);
   }, [viewMode]);
 
+  const trackViewMutation = trpc.recentlyViewed.trackView.useMutation();
+
   const handleFileClick = (fileId: number) => {
     setSelectedFileId(fileId);
+    // Track file view in background
+    trackViewMutation.mutate({ fileId });
   };
 
   return (
@@ -171,6 +176,42 @@ export default function FilesView() {
               </div>
             )}
           </div>
+
+          {/* Recently Viewed Files */}
+          {recentlyViewed && recentlyViewed.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-lg font-semibold">Recently Viewed</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {recentlyViewed.map(({ file, viewedAt }) => (
+                  <div
+                    key={file.id}
+                    className="group cursor-pointer rounded-lg border border-border hover:border-primary transition-colors"
+                    onClick={() => handleFileClick(file.id)}
+                  >
+                    <div className="aspect-video bg-muted rounded-t-lg overflow-hidden">
+                      {file.url && (file.mimeType?.startsWith('image/') || file.mimeType?.startsWith('video/')) ? (
+                        <img
+                          src={file.url}
+                          alt={file.filename}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <FileIcon className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-2">
+                      <p className="text-sm font-medium truncate">{file.filename}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(viewedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Selection Controls */}
           {filesData?.files && filesData.files.length > 0 && (
