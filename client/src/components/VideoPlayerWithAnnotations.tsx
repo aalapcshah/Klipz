@@ -29,6 +29,9 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [visibleAnnotationIds, setVisibleAnnotationIds] = useState<number[]>([]);
   const [drawToggleRequest, setDrawToggleRequest] = useState<boolean>();
   const [copiedAnnotation, setCopiedAnnotation] = useState<typeof visualAnnotations[0] | null>(null);
+  const [speakingAnnotationId, setSpeakingAnnotationId] = useState<number | null>(null);
+  const [speechRate, setSpeechRate] = useState(1.0);
+  const speechSynthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.voiceAnnotations.getAnnotations.useQuery({ fileId });
   const { data: visualAnnotations = [], refetch: refetchVisualAnnotations } = trpc.visualAnnotations.getAnnotations.useQuery({ fileId });
@@ -240,6 +243,45 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       videoRef.current.play();
     }
   };
+
+  const handleSpeak = (annotationId: number, text: string) => {
+    // Stop any ongoing speech
+    if (speechSynthesisRef.current) {
+      window.speechSynthesis.cancel();
+    }
+
+    if (speakingAnnotationId === annotationId) {
+      // If already speaking this annotation, stop it
+      setSpeakingAnnotationId(null);
+      return;
+    }
+
+    // Create new speech synthesis utterance
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = speechRate;
+    utterance.onend = () => {
+      setSpeakingAnnotationId(null);
+      speechSynthesisRef.current = null;
+    };
+    utterance.onerror = () => {
+      setSpeakingAnnotationId(null);
+      speechSynthesisRef.current = null;
+      toast.error("Text-to-speech failed");
+    };
+
+    speechSynthesisRef.current = utterance;
+    setSpeakingAnnotationId(annotationId);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Cleanup speech synthesis on unmount
+  useEffect(() => {
+    return () => {
+      if (speechSynthesisRef.current) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -505,10 +547,25 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       {/* Voice Annotations List */}
       {annotations.length > 0 && (
         <Card className="p-4">
-          <h3 className="font-semibold mb-3 flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            Voice Annotations ({annotations.length})
-          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Voice Annotations ({annotations.length})
+            </h3>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground">Speech Rate:</label>
+              <input
+                type="range"
+                min="0.5"
+                max="2"
+                step="0.1"
+                value={speechRate}
+                onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
+                className="w-20 h-1"
+              />
+              <span className="text-xs text-muted-foreground w-8">{speechRate.toFixed(1)}x</span>
+            </div>
+          </div>
           <div className="space-y-2">
             {annotations.map((annotation) => (
               <div
@@ -540,8 +597,22 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                   </Button>
                 </div>
                 {annotation.transcript && (
-                  <div className="pl-2 border-l-2 border-primary/30">
-                    <p className="text-sm text-foreground">{annotation.transcript}</p>
+                  <div className="pl-2 border-l-2 border-primary/30 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm text-foreground flex-1">{annotation.transcript}</p>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleSpeak(annotation.id, annotation.transcript!)}
+                        className="shrink-0"
+                      >
+                        {speakingAnnotationId === annotation.id ? (
+                          <VolumeX className="h-4 w-4" />
+                        ) : (
+                          <Volume2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>

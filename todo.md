@@ -1901,3 +1901,20 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Implement localStorage persistence
 - [x] Apply user preference to body font size
 - [x] Test preference changes across pages
+
+## Phase 162: Text-to-Speech for Annotations
+- [x] Implement Web Speech API integration
+- [x] Add play button to voice annotation items
+- [x] Add pause/resume controls (toggle button)
+- [x] Add speech rate adjustment slider
+- [x] Handle browser compatibility
+- [x] Test text-to-speech functionality
+
+## Phase 163: Annotation Batch Export
+- [x] Create batch export UI in Videos page
+- [x] Add video selection checkboxes
+- [x] Implement CSV export format
+- [x] Implement JSON export format
+- [x] Add export all annotations button
+- [x] Add batch export procedure to server
+- [ ] Test batch export with multiple videos

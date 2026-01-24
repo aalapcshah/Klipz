@@ -19,6 +19,8 @@ import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
 import { nanoid } from "nanoid";
 import { exportVideoWithAnnotations } from "./videoExport";
+import { voiceAnnotations, visualAnnotations, files } from "../drizzle/schema";
+import { eq, and } from "drizzle-orm";
 
 export const appRouter = router({
   metadataTemplates: router({
@@ -1509,6 +1511,110 @@ For each suggestion, provide:
         return {
           url: result.url,
         };
+      }),
+
+    // Batch export annotations from multiple videos
+    batchExport: protectedProcedure
+      .input(
+        z.object({
+          videoIds: z.array(z.number()),
+          format: z.enum(['csv', 'json']),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const allAnnotations: any[] = [];
+        const dbInstance = await db.getDb();
+        if (!dbInstance) throw new Error("Database not available");
+
+        // Fetch annotations for all selected videos
+        for (const videoId of input.videoIds) {
+          const video = await db.getVideoById(videoId);
+          if (!video || video.userId !== ctx.user.id) continue;
+
+          // Query voice annotations using raw SQL to avoid type issues
+          const voiceAnnsResult: any = await dbInstance.execute(
+            `SELECT * FROM voice_annotations WHERE fileId = ${video.fileId} ORDER BY videoTimestamp`
+          );
+          const voiceAnns = voiceAnnsResult[0] || [];
+
+          // Query visual annotations using raw SQL
+          const visualAnnsResult: any = await dbInstance.execute(
+            `SELECT * FROM visual_annotations WHERE fileId = ${video.fileId} ORDER BY videoTimestamp`
+          );
+          const visualAnns = visualAnnsResult[0] || [];
+
+          allAnnotations.push({
+            videoId: video.id,
+            videoTitle: video.title || video.filename,
+            voiceAnnotations: voiceAnns.map((ann: any) => ({
+              id: ann.id,
+              timestamp: ann.videoTimestamp,
+              duration: ann.duration,
+              transcript: ann.transcript,
+              audioUrl: ann.audioUrl,
+            })),
+            visualAnnotations: visualAnns.map((ann: any) => ({
+              id: ann.id,
+              timestamp: ann.videoTimestamp,
+              duration: ann.duration,
+              imageUrl: ann.imageUrl,
+            })),
+          });
+        }
+
+        let content: string;
+        let mimeType: string;
+        let filename: string;
+
+        if (input.format === 'csv') {
+          // Generate CSV format
+          const rows = [
+            ['Video ID', 'Video Title', 'Type', 'Annotation ID', 'Timestamp', 'Duration', 'Transcript/Image URL']
+          ];
+
+          for (const video of allAnnotations) {
+            for (const ann of video.voiceAnnotations) {
+              rows.push([
+                video.videoId.toString(),
+                video.videoTitle,
+                'Voice',
+                ann.id.toString(),
+                ann.timestamp.toString(),
+                ann.duration.toString(),
+                ann.transcript || '',
+              ]);
+            }
+            for (const ann of video.visualAnnotations) {
+              rows.push([
+                video.videoId.toString(),
+                video.videoTitle,
+                'Drawing',
+                ann.id.toString(),
+                ann.timestamp.toString(),
+                ann.duration.toString(),
+                ann.imageUrl || '',
+              ]);
+            }
+          }
+
+          content = rows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+          mimeType = 'text/csv';
+          filename = `annotations-export-${Date.now()}.csv`;
+        } else {
+          // Generate JSON format
+          content = JSON.stringify(allAnnotations, null, 2);
+          mimeType = 'application/json';
+          filename = `annotations-export-${Date.now()}.json`;
+        }
+
+        // Upload to storage
+        const { url } = await storagePut(
+          `exports/${ctx.user.id}/${filename}`,
+          Buffer.from(content, 'utf-8'),
+          mimeType
+        );
+
+        return { url, filename };
       }),
   }),
 

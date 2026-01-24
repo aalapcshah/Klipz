@@ -40,10 +40,55 @@ export function VideoList() {
   const [exportingVideoId, setExportingVideoId] = useState<number | null>(null);
   const [cloudExportVideo, setCloudExportVideo] = useState<{ id: number; title: string } | null>(null);
   const [annotatingVideo, setAnnotatingVideo] = useState<{ id: number; fileId: number; url: string; title: string } | null>(null);
+  const [selectedVideoIds, setSelectedVideoIds] = useState<number[]>([]);
   
   const { data: videos, isLoading, refetch } = trpc.videos.list.useQuery();
   const deleteMutation = trpc.videos.delete.useMutation();
   const exportMutation = trpc.videoExport.export.useMutation();
+  const batchExportMutation = trpc.videoExport.batchExport.useMutation();
+
+  const handleToggleSelection = (videoId: number) => {
+    setSelectedVideoIds(prev => 
+      prev.includes(videoId) 
+        ? prev.filter(id => id !== videoId)
+        : [...prev, videoId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedVideoIds.length === videos?.length) {
+      setSelectedVideoIds([]);
+    } else {
+      setSelectedVideoIds(videos?.map(v => v.id) || []);
+    }
+  };
+
+  const handleBatchExport = async (format: 'csv' | 'json') => {
+    if (selectedVideoIds.length === 0) {
+      toast.error("Please select at least one video");
+      return;
+    }
+
+    try {
+      const result = await batchExportMutation.mutateAsync({
+        videoIds: selectedVideoIds,
+        format,
+      });
+
+      // Trigger download
+      const link = document.createElement('a');
+      link.href = result.url;
+      link.download = result.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success(`Exported ${selectedVideoIds.length} video(s) as ${format.toUpperCase()}`);
+      setSelectedVideoIds([]);
+    } catch (error) {
+      toast.error("Failed to export annotations");
+    }
+  };
 
   const handleDelete = async (videoId: number) => {
     if (!confirm("Are you sure you want to delete this video?")) return;
@@ -111,9 +156,69 @@ export function VideoList() {
 
   return (
     <>
+      {/* Batch Export Controls */}
+      {videos && videos.length > 0 && (
+        <div className="mb-4 flex items-center justify-between gap-4 p-4 bg-muted/30 rounded-lg">
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={selectedVideoIds.length === videos.length}
+              onChange={handleSelectAll}
+              className="h-4 w-4"
+            />
+            <span className="text-sm text-muted-foreground">
+              {selectedVideoIds.length === 0 
+                ? "Select videos to export annotations"
+                : `${selectedVideoIds.length} video(s) selected`}
+            </span>
+          </div>
+          {selectedVideoIds.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleBatchExport('csv')}
+                disabled={batchExportMutation.isPending}
+              >
+                {batchExportMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Export CSV
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleBatchExport('json')}
+                disabled={batchExportMutation.isPending}
+              >
+                {batchExportMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Export JSON
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {videos.map((video) => (
-          <Card key={video.id} className="p-4 space-y-3 group">
+          <Card key={video.id} className="relative p-4 space-y-3 group">
+            {/* Selection Checkbox */}
+            <div className="absolute top-2 left-2 z-10">
+              <input
+                type="checkbox"
+                checked={selectedVideoIds.includes(video.id)}
+                onChange={() => handleToggleSelection(video.id)}
+                className="h-5 w-5 cursor-pointer"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+
             {/* Video Thumbnail/Player */}
             <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
               <video
