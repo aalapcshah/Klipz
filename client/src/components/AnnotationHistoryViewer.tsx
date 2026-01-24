@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
+import { HistoryDiffViewer } from "./HistoryDiffViewer";
+import { GitCompare } from "lucide-react";
 
 interface AnnotationHistoryViewerProps {
   annotationId: number;
@@ -27,6 +29,7 @@ export function AnnotationHistoryViewer({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
   const [revertDialogOpen, setRevertDialogOpen] = useState(false);
+  const [compareVersions, setCompareVersions] = useState<[number, number] | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -151,18 +154,31 @@ export function AnnotationHistoryViewer({
                       )}
 
                       {index > 0 && (record.previousState as any) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-3"
-                          onClick={() => {
-                            setSelectedHistoryId(record.id);
-                            setRevertDialogOpen(true);
-                          }}
-                        >
-                          <RotateCcw className="h-4 w-4 mr-2" />
-                          Revert to this version
-                        </Button>
+                        <div className="flex gap-2 mt-3">
+                          {index < history.length - 1 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setCompareVersions([history[index + 1].id, record.id]);
+                              }}
+                            >
+                              <GitCompare className="h-4 w-4 mr-2" />
+                              Compare with previous
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedHistoryId(record.id);
+                              setRevertDialogOpen(true);
+                            }}
+                          >
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Revert to this version
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -170,6 +186,35 @@ export function AnnotationHistoryViewer({
               ))}
             </div>
           )}
+          
+          {/* Diff Viewer */}
+          {compareVersions && (() => {
+            const oldRecord = history.find(h => h.id === compareVersions[0]);
+            const newRecord = history.find(h => h.id === compareVersions[1]);
+            if (oldRecord && newRecord && oldRecord.previousState && newRecord.previousState) {
+              return (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold">Version Comparison</h4>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setCompareVersions(null)}
+                    >
+                      Close
+                    </Button>
+                  </div>
+                  <HistoryDiffViewer
+                    oldVersion={oldRecord.previousState as Record<string, any>}
+                    newVersion={newRecord.previousState as Record<string, any>}
+                    oldTimestamp={new Date(oldRecord.createdAt as any)}
+                    newTimestamp={new Date(newRecord.createdAt as any)}
+                  />
+                </div>
+              );
+            }
+            return null;
+          })()}
         </DialogContent>
       </Dialog>
 

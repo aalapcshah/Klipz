@@ -16,6 +16,7 @@ import { AnnotationHistoryViewer } from "./AnnotationHistoryViewer";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { UserPresenceIndicator } from "./UserPresenceIndicator";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
+import { BatchActionsToolbar } from "./BatchActionsToolbar";
 
 interface VideoPlayerWithAnnotationsProps {
   fileId: number;
@@ -45,6 +46,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [maxTimestamp, setMaxTimestamp] = useState<number | null>(null);
   const [minDuration, setMinDuration] = useState<number | null>(null);
   const [maxDuration, setMaxDuration] = useState<number | null>(null);
+  
+  // Multi-select state
+  const [selectedVisualIds, setSelectedVisualIds] = useState<number[]>([]);
+  const [selectedVoiceIds, setSelectedVoiceIds] = useState<number[]>([]);
 
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.voiceAnnotations.getAnnotations.useQuery({ fileId });
   
@@ -660,12 +665,31 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 
                 return true;
               })
-              .map((annotation) => (
+              .map((annotation) => {
+                const isSelected = annotation.id && (visualAnnotations.includes(annotation) ? selectedVisualIds : selectedVoiceIds).includes(annotation.id);
+                const setSelected = visualAnnotations.includes(annotation) ? setSelectedVisualIds : setSelectedVoiceIds;
+                const selectedIds = visualAnnotations.includes(annotation) ? selectedVisualIds : selectedVoiceIds;
+                return (
               <div
                 key={annotation.id}
-                className="p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors space-y-2"
+                className={`p-3 rounded-lg transition-colors space-y-2 ${
+                  isSelected ? 'bg-primary/10 border-2 border-primary' : 'bg-muted/50 hover:bg-muted'
+                }`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelected([...selectedIds, annotation.id]);
+                      } else {
+                        setSelected(selectedIds.filter(id => id !== annotation.id));
+                      }
+                    }}
+                    className="h-4 w-4 cursor-pointer"
+                  />
+                  <div className="flex items-center justify-between flex-1">
                   <button
                     onClick={() => jumpToAnnotation(annotation.videoTimestamp)}
                     className="flex items-center gap-3 flex-1 text-left"
@@ -706,8 +730,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                   annotationId={annotation.id}
                   annotationType="visual"
                 />
+                </div>
               </div>
-            ))}
+            );
+              })}
           </div>
         </Card>
       )}
@@ -753,12 +779,31 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 
                 return true;
               })
-              .map((annotation) => (
+              .map((annotation) => {
+                const isSelected = annotation.id && (visualAnnotations.includes(annotation) ? selectedVisualIds : selectedVoiceIds).includes(annotation.id);
+                const setSelected = visualAnnotations.includes(annotation) ? setSelectedVisualIds : setSelectedVoiceIds;
+                const selectedIds = visualAnnotations.includes(annotation) ? selectedVisualIds : selectedVoiceIds;
+                return (
               <div
                 key={annotation.id}
-                className="p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors space-y-2"
+                className={`p-3 rounded-lg transition-colors space-y-2 ${
+                  isSelected ? 'bg-primary/10 border-2 border-primary' : 'bg-muted/50 hover:bg-muted'
+                }`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelected([...selectedIds, annotation.id]);
+                      } else {
+                        setSelected(selectedIds.filter(id => id !== annotation.id));
+                      }
+                    }}
+                    className="h-4 w-4 cursor-pointer"
+                  />
+                  <div className="flex items-center justify-between flex-1">
                   <button
                     onClick={() => jumpToAnnotation(annotation.videoTimestamp)}
                     className="flex items-center gap-3 flex-1 text-left"
@@ -819,8 +864,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                   annotationId={annotation.id}
                   annotationType="voice"
                 />
+                </div>
               </div>
-            ))}
+            );
+              })}
           </div>
         </Card>
       )}

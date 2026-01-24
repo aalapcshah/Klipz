@@ -204,6 +204,13 @@
       "when": 1769241414111,
       "tag": "0028_living_riptide",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "5",
+      "when": 1769279473762,
+      "tag": "0029_furry_maestro",
+      "breakpoints": true
     }
   ]
 }

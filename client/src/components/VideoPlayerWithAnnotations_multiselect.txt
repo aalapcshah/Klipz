@@ -1,0 +1,35 @@
+Due to complexity of the file, I need to simplify the approach. Instead of complex inline logic, I'll:
+
+1. Fix line 669-671 to:
+```
+const isSelected = selectedVisualIds.includes(annotation.id);
+```
+
+2. Fix line 684-688 to:
+```
+onChange={(e) => {
+  if (e.target.checked) {
+    setSelectedVisualIds([...selectedVisualIds, annotation.id]);
+  } else {
+    setSelectedVisualIds(selectedVisualIds.filter(id => id !== annotation.id));
+  }
+}}
+```
+
+3. Fix line 783-785 to:
+```
+const isSelected = selectedVoiceIds.includes(annotation.id);
+```
+
+4. Fix line 798-802 to:
+```
+onChange={(e) => {
+  if (e.target.checked) {
+    setSelectedVoiceIds([...selectedVoiceIds, annotation.id]);
+  } else {
+    setSelectedVoiceIds(selectedVoiceIds.filter(id => id !== annotation.id));
+  }
+}}
+```
+
+5. Add BatchActionsToolbar components at the end before closing tags

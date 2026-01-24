@@ -291,6 +291,25 @@ export type NotificationPreference = typeof notificationPreferences.$inferSelect
 export type InsertNotificationPreference = typeof notificationPreferences.$inferInsert;
 
 /**
+ * Keyboard Shortcuts - User-customized keyboard shortcuts
+ */
+export const keyboardShortcuts = mysqlTable("keyboard_shortcuts", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  
+  // Shortcut definition
+  action: varchar("action", { length: 100 }).notNull(), // e.g., "playPause", "addComment", "approve"
+  key: varchar("key", { length: 50 }).notNull(), // e.g., "Space", "c", "a"
+  modifiers: json("modifiers").$type<string[]>(), // e.g., ["ctrl", "shift"]
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type KeyboardShortcut = typeof keyboardShortcuts.$inferSelect;
+export type InsertKeyboardShortcut = typeof keyboardShortcuts.$inferInsert;
+
+/**
  * Tags table - hierarchical tagging system
  */
 export const tags = mysqlTable("tags", {

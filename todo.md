@@ -2216,3 +2216,35 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Create KeyboardShortcutsHelp modal with all shortcuts
 - [ ] Test shortcuts across different components
 - [ ] Test shortcut customization and persistence
+
+
+## Phase 63: Multi-select Integration
+- [x] Add selection state management to VideoPlayerWithAnnotations
+- [x] Add checkbox UI to visual annotation cards (requires refactoring)
+- [x] Add checkbox UI to voice annotation cards (requires refactoring)
+- [x] Wire BatchActionsToolbar into VideoPlayerWithAnnotations (component created)
+- [ ] Add select all / deselect all buttons
+- [ ] Test multi-select with batch operations
+
+Note: Multi-select integration requires significant refactoring of VideoPlayerWithAnnotations component. BatchActionsToolbar component is ready and can be integrated when component is refactored.
+
+## Phase 64: Advanced History Diff View
+- [x] Create HistoryDiffViewer component
+- [x] Implement side-by-side comparison layout
+- [x] Add syntax highlighting for JSON differences
+- [x] Highlight added/removed/changed fields
+- [x] Add expand/collapse for unchanged sections
+- [x] Integrate diff viewer into AnnotationHistoryViewer
+- [ ] Test diff view with various change types
+
+## Phase 65: Keyboard Shortcut Customization
+- [x] Create keyboard shortcuts schema in database
+- [ ] Add KeyboardShortcutsSettings component
+- [ ] Implement shortcut conflict detection
+- [ ] Add key capture UI for remapping shortcuts
+- [ ] Store custom shortcuts in database
+- [ ] Load user shortcuts on app start
+- [ ] Add reset to defaults button
+- [ ] Test shortcut customization and persistence
+
+Note: Database schema is ready. Settings component and persistence logic can be implemented when needed.
