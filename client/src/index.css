@@ -121,7 +121,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-size: 14px;
+    font-size: 13px;
   }
   /* Typography Scale Presets */
   h1 {

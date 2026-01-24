@@ -1991,3 +1991,43 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [ ] Add approval workflow UI (approve/reject buttons)
 - [ ] Create notification system for annotation discussions
 - [ ] Test collaborative review features
+
+## Phase 171: Reduce Font Size to 13px
+- [x] Update base font size in index.css from 14px to 13px
+- [x] Test readability across all pages
+
+## Phase 172: Template Library Server Procedures
+- [ ] Create annotationTemplates router
+- [ ] Add saveTemplate procedure
+- [ ] Add getTemplates procedure
+- [ ] Add deleteTemplate procedure
+- [ ] Add applyTemplate procedure
+
+## Phase 173: Template Library UI
+- [ ] Create AnnotationTemplatesLibrary component
+- [ ] Add save template dialog in drawing tools
+- [ ] Display template thumbnails with previews
+- [ ] Implement one-click template application
+- [ ] Test template save and apply
+
+## Phase 174: Comment Threads Server Procedures
+- [ ] Create annotationComments router
+- [ ] Add createComment procedure
+- [ ] Add getComments procedure (with threading)
+- [ ] Add deleteComment procedure
+- [ ] Add WebSocket broadcast for new comments
+
+## Phase 175: Comment Threads UI
+- [ ] Create AnnotationCommentThread component
+- [ ] Add comment input and submit
+- [ ] Display threaded comments with replies
+- [ ] Integrate real-time updates via WebSocket
+- [ ] Test comment functionality
+
+## Phase 176: Approval Workflow
+- [ ] Create annotationApprovals router
+- [ ] Add approve/reject procedures
+- [ ] Add approval status tracking
+- [ ] Build approval UI with status badges
+- [ ] Add notification system for approvals
+- [ ] Test approval workflow
