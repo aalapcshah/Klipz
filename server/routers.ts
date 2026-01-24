@@ -4,6 +4,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { stripeRouter } from "./routers/stripe";
 import { voiceAnnotationsRouter } from "./routers/voiceAnnotations";
 import { visualAnnotationsRouter } from "./routers/visual-annotations";
+import { analyticsRouter } from "./routers/analytics";
 import { storageCleanupRouter } from "./routers/storageCleanup";
 import { qualityScoreRouter } from "./routers/qualityScore";
 import { qualityImprovementRouter } from "./routers/qualityImprovement";
@@ -323,6 +324,7 @@ export const appRouter = router({
   stripe: stripeRouter,
   voiceAnnotations: voiceAnnotationsRouter,
   visualAnnotations: visualAnnotationsRouter,
+  annotationAnalytics: analyticsRouter,
   storageCleanup: storageCleanupRouter,
   qualityScore: qualityScoreRouter,
   qualityImprovement: qualityImprovementRouter,

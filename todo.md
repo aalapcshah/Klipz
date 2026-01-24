@@ -1940,7 +1940,33 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [x] Implement room-based messaging (file rooms)
 - [x] Add user presence tracking (join/leave)
 - [x] Create useWebSocket hook for client integration
-- [ ] Integrate WebSocket into VideoPlayerWithAnnotations
-- [ ] Add user avatar display to annotations
-- [ ] Add user presence indicators
+- [x] Integrate WebSocket into VideoPlayerWithAnnotations
+- [x] Add user presence indicators
 - [ ] Test real-time collaboration with multiple users
+
+## Phase 167: Complete WebSocket Client Integration
+- [x] Import and integrate useWebSocket hook in VideoPlayerWithAnnotations
+- [x] Broadcast annotation creation events via WebSocket
+- [x] Broadcast annotation deletion events via WebSocket
+- [x] Handle incoming annotation events and refresh data
+- [x] Add user presence indicator component
+- [x] Display active collaborators list with avatars
+- [x] Show connection status and viewer count
+- [ ] Add user avatar display to annotation items
+- [ ] Show creator name on each annotation
+- [ ] Test real-time syncing with multiple browser tabs
+- [ ] Test collaboration features
+
+## Phase 168: Annotation Analytics Dashboard
+- [x] Create analytics router with metrics procedures
+- [x] Calculate total annotations per video
+- [x] Calculate average annotation duration
+- [x] Find most annotated timestamps
+- [x] Calculate voice vs drawing annotation ratio
+- [x] Add annotation timeline by day
+- [x] Register analytics router in appRouter
+- [ ] Create Analytics page component
+- [ ] Add charts for visualization (Chart.js)
+- [ ] Display key metrics cards
+- [ ] Add date range filter for analytics
+- [ ] Test analytics dashboard

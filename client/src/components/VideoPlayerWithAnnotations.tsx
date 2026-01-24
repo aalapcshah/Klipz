@@ -10,6 +10,7 @@ import { HorizontalAnnotationTimeline } from "./HorizontalAnnotationTimeline";
 import { AnnotationHistoryTimeline } from "./AnnotationHistoryTimeline";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 interface VideoPlayerWithAnnotationsProps {
   fileId: number;
@@ -41,6 +42,27 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [maxDuration, setMaxDuration] = useState<number | null>(null);
 
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.voiceAnnotations.getAnnotations.useQuery({ fileId });
+  
+  // WebSocket for real-time collaboration
+  const { isConnected, activeUsers, broadcastAnnotation } = useWebSocket({
+    fileId,
+    onAnnotationCreated: () => {
+      refetchAnnotations();
+      refetchVisualAnnotations();
+      toast.success("New annotation added by collaborator");
+    },
+    onAnnotationDeleted: () => {
+      refetchAnnotations();
+      refetchVisualAnnotations();
+      toast.info("Annotation removed by collaborator");
+    },
+    onUserJoined: (data) => {
+      toast.info(`${data.userName} joined`);
+    },
+    onUserLeft: (data) => {
+      toast.info(`${data.userName} left`);
+    },
+  });
   const { data: visualAnnotations = [], refetch: refetchVisualAnnotations } = trpc.visualAnnotations.getAnnotations.useQuery({ fileId });
   const saveAnnotation = trpc.voiceAnnotations.saveAnnotation.useMutation();
   const saveVisualAnnotation = trpc.visualAnnotations.saveAnnotation.useMutation();
@@ -216,7 +238,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       reader.onloadend = async () => {
         const audioDataUrl = reader.result as string;
         
-        await saveAnnotation.mutateAsync({
+        const newAnnotation = await saveAnnotation.mutateAsync({
           fileId,
           audioDataUrl,
           duration,
@@ -225,6 +247,9 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
 
         toast.success("Voice annotation saved!");
         refetchAnnotations();
+        
+        // Broadcast to collaborators
+        broadcastAnnotation("annotation_created", "voice", newAnnotation);
         setShowRecorder(false);
       };
       reader.readAsDataURL(audioBlob);
@@ -238,6 +263,9 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       await deleteAnnotation.mutateAsync({ annotationId });
       toast.success("Annotation deleted");
       refetchAnnotations();
+      
+      // Broadcast to collaborators
+      broadcastAnnotation("annotation_deleted", "voice", { id: annotationId });
     } catch (error) {
       toast.error("Failed to delete annotation");
     }
@@ -299,7 +327,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
 
   const handleSaveVisualAnnotation = async (imageDataUrl: string, timestamp: number, duration: number) => {
     try {
-      await saveVisualAnnotation.mutateAsync({
+      const newAnnotation = await saveVisualAnnotation.mutateAsync({
         fileId,
         imageDataUrl,
         videoTimestamp: Math.floor(timestamp),
@@ -307,6 +335,9 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       });
       toast.success(`Drawing saved (${duration}s duration)`);
       refetchVisualAnnotations();
+      
+      // Broadcast to collaborators
+      broadcastAnnotation("annotation_created", "visual", newAnnotation);
     } catch (error) {
       toast.error("Failed to save drawing annotation");
     }
@@ -317,6 +348,9 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       await deleteVisualAnnotation.mutateAsync({ annotationId });
       toast.success("Drawing annotation deleted");
       refetchVisualAnnotations();
+      
+      // Broadcast to collaborators
+      broadcastAnnotation("annotation_deleted", "visual", { id: annotationId });
     } catch (error) {
       toast.error("Failed to delete drawing annotation");
     }
@@ -324,6 +358,31 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
 
   return (
     <div className="space-y-4">
+      {/* User Presence Indicator */}
+      {activeUsers.length > 0 && (
+        <Card className="p-3">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-sm font-medium">
+                {isConnected ? `${activeUsers.length + 1} viewing` : 'Connecting...'}
+              </span>
+            </div>
+            <div className="flex -space-x-2">
+              {activeUsers.map((user, index) => (
+                <div
+                  key={user.userId}
+                  className="h-8 w-8 rounded-full bg-primary/20 border-2 border-background flex items-center justify-center text-xs font-medium"
+                  title={user.userName}
+                >
+                  {user.userName.charAt(0).toUpperCase()}
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      )}
+      
       <Card className="overflow-hidden">
         <div className="relative bg-black" id="video-container">
           <video
