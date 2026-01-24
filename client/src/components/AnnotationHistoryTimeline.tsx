@@ -99,7 +99,7 @@ export function AnnotationHistoryTimeline({ fileId }: AnnotationHistoryTimelineP
       ) : (
         <div className="space-y-2 max-h-96 overflow-y-auto">
           {filteredHistory.map((item) => {
-            const state = (item.newState || item.previousState) as any;
+            const state = item.previousState as any;
             return (
               <Card key={item.id} className="p-3">
                 <div className="flex items-start justify-between gap-3">
@@ -121,11 +121,7 @@ export function AnnotationHistoryTimeline({ fileId }: AnnotationHistoryTimelineP
                       <p className="text-xs text-muted-foreground">
                         {formatDate(item.createdAt)}
                       </p>
-                      {item.changeDescription && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {item.changeDescription}
-                        </p>
-                      )}
+
                       {state?.duration && (
                         <p className="text-xs text-muted-foreground mt-1">
                           Duration: {state.duration}s

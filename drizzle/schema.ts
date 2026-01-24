@@ -159,14 +159,78 @@ export const annotationHistory = mysqlTable("annotation_history", {
   // Previous state (JSON snapshot before change)
   previousState: json("previousState"), // Stores the full annotation object before change
   
-  // New state (JSON snapshot after change)
-  newState: json("newState"), // Stores the full annotation object after change
-  
-  // Metadata
-  changeDescription: text("changeDescription"), // Optional description of what changed
-  
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
+
+/**
+ * Annotation Templates - User-saved annotation styles for reuse
+ */
+export const annotationTemplates = mysqlTable("annotation_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  
+  // Template info
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  
+  // Template style (JSON with color, strokeWidth, shapes, etc.)
+  style: json("style").notNull(), // { color, strokeWidth, shapes: [{type, ...}] }
+  
+  // Preview thumbnail
+  thumbnailUrl: text("thumbnailUrl"),
+  thumbnailKey: varchar("thumbnailKey", { length: 512 }),
+  
+  // Usage tracking
+  usageCount: int("usageCount").default(0).notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+/**
+ * Annotation Comments - Comment threads on annotations for collaboration
+ */
+export const annotationComments = mysqlTable("annotation_comments", {
+  id: int("id").autoincrement().primaryKey(),
+  annotationId: int("annotationId").notNull(),
+  annotationType: mysqlEnum("annotationType", ["voice", "visual"]).notNull(),
+  userId: int("userId").notNull(),
+  
+  // Comment content
+  content: text("content").notNull(),
+  
+  // Threading
+  parentCommentId: int("parentCommentId"), // For nested replies
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+/**
+ * Annotation Approvals - Approval workflow for team reviews
+ */
+export const annotationApprovals = mysqlTable("annotation_approvals", {
+  id: int("id").autoincrement().primaryKey(),
+  annotationId: int("annotationId").notNull(),
+  annotationType: mysqlEnum("annotationType", ["voice", "visual"]).notNull(),
+  userId: int("userId").notNull(),
+  
+  // Approval status
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  comment: text("comment"), // Optional comment with approval/rejection
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AnnotationTemplate = typeof annotationTemplates.$inferSelect;
+export type InsertAnnotationTemplate = typeof annotationTemplates.$inferInsert;
+
+export type AnnotationComment = typeof annotationComments.$inferSelect;
+export type InsertAnnotationComment = typeof annotationComments.$inferInsert;
+
+export type AnnotationApproval = typeof annotationApprovals.$inferSelect;
+export type InsertAnnotationApproval = typeof annotationApprovals.$inferInsert;
 
 export type AnnotationHistory = typeof annotationHistory.$inferSelect;
 export type InsertAnnotationHistory = typeof annotationHistory.$inferInsert;

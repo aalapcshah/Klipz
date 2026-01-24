@@ -61,8 +61,6 @@ export const visualAnnotationsRouter = router({
         userId: ctx.user.id,
         changeType: "created",
         previousState: null,
-        newState: annotationData,
-        changeDescription: "Annotation created",
       });
 
       return {
@@ -162,8 +160,6 @@ export const visualAnnotationsRouter = router({
         userId: ctx.user.id,
         changeType: "deleted",
         previousState: annotation,
-        newState: null,
-        changeDescription: "Annotation deleted",
       });
 
       // Delete from database

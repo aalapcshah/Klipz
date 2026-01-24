@@ -1970,3 +1970,24 @@ Note: Deferred to next session due to router syntax complexity.hboard with vario
 - [ ] Display key metrics cards
 - [ ] Add date range filter for analytics
 - [ ] Test analytics dashboard
+
+## Phase 169: Annotation Templates Library
+- [x] Create annotationTemplates database table
+- [x] Push database schema changes
+- [ ] Add template CRUD procedures to server
+- [ ] Create AnnotationTemplatesLibrary component
+- [ ] Add template save dialog in drawing tools
+- [ ] Implement one-click template application
+- [ ] Add template preview thumbnails
+- [ ] Test template save and apply functionality
+
+## Phase 170: Collaborative Annotation Review
+- [x] Create annotationComments database table
+- [x] Create annotationApprovals database table
+- [x] Push database schema changes
+- [ ] Add comment CRUD procedures to server
+- [ ] Add approval procedures to server
+- [ ] Implement comment thread UI on annotations
+- [ ] Add approval workflow UI (approve/reject buttons)
+- [ ] Create notification system for annotation discussions
+- [ ] Test collaborative review features
