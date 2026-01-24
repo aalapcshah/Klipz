@@ -20,7 +20,7 @@ export default function EnrichmentQueue() {
     },
   });
 
-  const files = filesData || [];
+  const files = filesData?.files || [];
   
   // Filter files by enrichment status
   const filteredFiles = selectedStatus === "all" 

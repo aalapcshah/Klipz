@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Upload, LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileUploadDialog } from "@/components/files/FileUploadDialog";
 import FileGridEnhanced from "@/components/files/FileGridEnhanced";
 import { FileListView } from "@/components/files/FileListView";
@@ -38,9 +39,19 @@ export default function FilesView() {
     const saved = localStorage.getItem('filesViewMode');
     return (saved as 'grid' | 'list') || 'grid';
   });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(() => {
+    const saved = localStorage.getItem('filesPageSize');
+    return saved ? parseInt(saved) : 50;
+  });
   const utils = trpc.useUtils();
-  const { data: filesData } = trpc.files.list.useQuery(undefined);
+  const { data: filesData } = trpc.files.list.useQuery({ page, pageSize });
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
+  
+  // Persist page size preference
+  useEffect(() => {
+    localStorage.setItem('filesPageSize', pageSize.toString());
+  }, [pageSize]);
 
   // Persist filters to localStorage
   useEffect(() => {
@@ -152,11 +163,62 @@ export default function FilesView() {
             />
           ) : (
             <FileListView
-              files={searchResults || filesData || []}
+              files={searchResults || filesData?.files || []}
               onFileClick={handleFileClick}
               selectedFileIds={selectedFileIds}
               onSelectionChange={setSelectedFileIds}
             />
+          )}
+          
+          {/* Pagination Controls */}
+          {!searchResults && filesData?.pagination && (
+            <div className="flex items-center justify-between mt-6 pt-4 border-t">
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground">
+                  Showing {Math.min((filesData.pagination.page - 1) * filesData.pagination.pageSize + 1, filesData.pagination.totalCount)} - {Math.min(filesData.pagination.page * filesData.pagination.pageSize, filesData.pagination.totalCount)} of {filesData.pagination.totalCount} files
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Items per page:</span>
+                  <Select
+                    value={pageSize.toString()}
+                    onValueChange={(value) => {
+                      setPageSize(parseInt(value));
+                      setPage(1); // Reset to first page
+                    }}
+                  >
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {filesData.pagination.page} of {filesData.pagination.totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.min(filesData.pagination.totalPages, p + 1))}
+                  disabled={page === filesData.pagination.totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           )}
         </div>
 

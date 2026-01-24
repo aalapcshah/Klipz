@@ -54,7 +54,8 @@ export function VideoRecorderWithTranscription() {
   const startTimeRef = useRef<number>(0);
 
   const createVideoMutation = trpc.videos.create.useMutation();
-  const { data: allFiles } = trpc.files.list.useQuery();
+  const { data: allFilesData } = trpc.files.list.useQuery({ page: 1, pageSize: 100 });
+  const allFiles = allFilesData?.files || [];
   const trpcUtils = trpc.useUtils();
 
   // Warn before leaving with unsaved recording

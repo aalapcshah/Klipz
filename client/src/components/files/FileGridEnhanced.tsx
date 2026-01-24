@@ -228,7 +228,7 @@ export default function FileGridEnhanced({
 
   const [exportMutation, setExportMutation] = useState({ isPending: false });
 
-  let files = filesData || [];
+  let files = filesData?.files || [];
 
   // Apply file type filter
   if (filterType !== "all") {

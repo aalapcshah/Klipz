@@ -2394,3 +2394,18 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [ ] Add pagination to search results
 - [ ] Test pagination with large datasets (1000+ files)
 - [ ] Measure and document performance improvements
+
+
+## Phase 81: Tutorial Restart & Pagination
+- [x] Add "Restart Tutorial" button to Settings page
+- [x] Implement pagination backend for files.list query
+- [ ] Implement pagination backend for videos.list query (future work)
+- [x] Update FilesView to use paginated API
+- [ ] Update VideosView to use paginated API (future work)
+- [x] Update FileGridEnhanced to support pagination
+- [x] Update all components that use files.list query
+- [x] Add pagination UI controls (prev/next, page size selector)
+- [x] Add "items per page" selector (25/50/100)
+- [x] Persist pagination preferences in localStorage
+- [x] Test pagination with large datasets
+- [x] Ensure search and filters work with pagination

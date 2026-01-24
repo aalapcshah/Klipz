@@ -20,7 +20,8 @@ interface FileGridProps {
 }
 
 export function FileGrid({ onFileClick }: FileGridProps) {
-  const { data: files, isLoading, refetch } = trpc.files.list.useQuery();
+  const { data: filesData, isLoading, refetch } = trpc.files.list.useQuery({ page: 1, pageSize: 100 });
+  const files = filesData?.files || [];
   const deleteMutation = trpc.files.delete.useMutation();
   const enrichMutation = trpc.files.enrich.useMutation();
 
@@ -56,7 +57,7 @@ export function FileGrid({ onFileClick }: FileGridProps) {
     );
   }
 
-  if (!files || files.length === 0) {
+  if (files.length === 0) {
     return (
       <div className="text-center py-12">
         <FileIcon className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />

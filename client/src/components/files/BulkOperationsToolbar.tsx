@@ -53,7 +53,8 @@ export function BulkOperationsToolbar({
   const addTagsMutation = trpc.bulkOperations.addTags.useMutation();
   const addToCollectionMutation = trpc.bulkOperations.addToCollection.useMutation();
   const reEnrichMutation = trpc.bulkOperations.reEnrichFiles.useMutation();
-  const { data: allFiles } = trpc.files.list.useQuery();
+  const { data: allFilesData } = trpc.files.list.useQuery({ page: 1, pageSize: 1000 }); // Get more files for bulk operations
+  const allFiles = allFilesData?.files || [];
 
   const { data: tags } = trpc.tags.list.useQuery();
   const { data: collections } = trpc.collections.list.useQuery();

@@ -73,7 +73,8 @@ export function AnnotationEditor({ videoId }: AnnotationEditorProps) {
 
   const { data: video, refetch } = trpc.videos.get.useQuery({ id: videoId });
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.annotations.getByVideo.useQuery({ videoId });
-  const { data: files = [] } = trpc.files.list.useQuery();
+  const { data: filesData } = trpc.files.list.useQuery({ page: 1, pageSize: 100 });
+  const files = filesData?.files || [];
   
   const createAnnotation = trpc.annotations.create.useMutation();
   const updateAnnotation = trpc.annotations.update.useMutation();

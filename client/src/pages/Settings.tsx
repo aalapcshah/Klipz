@@ -121,6 +121,15 @@ export default function Settings() {
   const createMutation = trpc.externalKnowledgeGraphs.create.useMutation();
   const updateMutation = trpc.externalKnowledgeGraphs.update.useMutation();
   const deleteMutation = trpc.externalKnowledgeGraphs.delete.useMutation();
+  const restartTutorialMutation = trpc.onboarding.restartTutorial.useMutation({
+    onSuccess: () => {
+      toast.success("Tutorial will start on next page load. Refresh the page to begin.");
+      setTimeout(() => window.location.reload(), 1500);
+    },
+    onError: () => {
+      toast.error("Failed to restart tutorial");
+    },
+  });
   const testMutation = trpc.externalKnowledgeGraphs.testConnection.useMutation();
 
   const resetForm = () => {
@@ -258,6 +267,31 @@ export default function Settings() {
 
         <TabsContent value="appearance" className="space-y-6 mt-6">
           <FontSizePreference />
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Tutorial & Onboarding</CardTitle>
+              <CardDescription>
+                Restart the interactive tutorial to review key features
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={() => restartTutorialMutation.mutate()}
+                variant="outline"
+                disabled={restartTutorialMutation.isPending}
+              >
+                {restartTutorialMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Restarting...
+                  </>
+                ) : (
+                  "Restart Tutorial"
+                )}
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="knowledge-graphs" className="space-y-6 mt-6">

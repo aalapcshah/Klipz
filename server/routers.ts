@@ -439,11 +439,25 @@ export const appRouter = router({
   files: router({
     // List all files for current user
     list: protectedProcedure
-      .input(z.object({ collectionId: z.number().optional() }).optional())
+      .input(z.object({ 
+        collectionId: z.number().optional(),
+        page: z.number().default(1),
+        pageSize: z.number().default(50),
+      }).optional())
       .query(async ({ ctx, input }) => {
+      const page = input?.page || 1;
+      const pageSize = input?.pageSize || 50;
+      const offset = (page - 1) * pageSize;
+      
+      // Get total count
+      const totalCount = input?.collectionId
+        ? await db.getFilesCountByCollection(input.collectionId)
+        : await db.getFilesCountByUserId(ctx.user.id);
+      
+      // Get paginated files
       const files = input?.collectionId
-        ? await db.getFilesByCollection(ctx.user.id, input.collectionId)
-        : await db.getFilesByUserId(ctx.user.id);
+        ? await db.getFilesByCollection(ctx.user.id, input.collectionId, pageSize, offset)
+        : await db.getFilesByUserId(ctx.user.id, pageSize, offset);
       
       // Get tags and calculate quality score for each file
       const filesWithTags = await Promise.all(
@@ -495,7 +509,15 @@ export const appRouter = router({
         })
       );
       
-      return filesWithTags;
+      return {
+        files: filesWithTags,
+        pagination: {
+          page,
+          pageSize,
+          totalCount,
+          totalPages: Math.ceil(totalCount / pageSize),
+        },
+      };
     }),
 
     // Get single file with full details

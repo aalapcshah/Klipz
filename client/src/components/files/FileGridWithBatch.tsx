@@ -47,7 +47,8 @@ export function FileGridWithBatch({ onFileClick }: FileGridWithBatchProps) {
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [newTagName, setNewTagName] = useState("");
 
-  const { data: files = [], isLoading, refetch } = trpc.files.list.useQuery();
+  const { data: filesData, isLoading, refetch } = trpc.files.list.useQuery({ page: 1, pageSize: 100 });
+  const files = filesData?.files || [];
   const { data: tags = [] } = trpc.tags.list.useQuery();
   const utils = trpc.useUtils();
 

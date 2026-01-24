@@ -176,15 +176,37 @@ export async function createFile(file: InsertFile) {
   return (result as any).insertId;
 }
 
-export async function getFilesByUserId(userId: number) {
+export async function getFilesByUserId(userId: number, limit?: number, offset?: number) {
   const db = await getDb();
   if (!db) return [];
 
-  return await db
+  const baseQuery = db
     .select()
     .from(files)
     .where(eq(files.userId, userId))
     .orderBy(desc(files.createdAt));
+  
+  if (limit !== undefined && offset !== undefined) {
+    return await baseQuery.limit(limit).offset(offset);
+  } else if (limit !== undefined) {
+    return await baseQuery.limit(limit);
+  } else if (offset !== undefined) {
+    return await baseQuery.offset(offset);
+  }
+  
+  return await baseQuery;
+}
+
+export async function getFilesCountByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(files)
+    .where(eq(files.userId, userId));
+  
+  return result[0]?.count || 0;
 }
 
 export async function getFileById(fileId: number) {
@@ -741,11 +763,11 @@ export async function removeFileFromCollection(
     );
 }
 
-export async function getFilesByCollection(userId: number, collectionId: number) {
+export async function getFilesByCollection(userId: number, collectionId: number, limit?: number, offset?: number) {
   const db = await getDb();
   if (!db) return [];
 
-  const result = await db
+  const baseQuery = db
     .select({
       id: files.id,
       title: files.title,
@@ -765,8 +787,28 @@ export async function getFilesByCollection(userId: number, collectionId: number)
     .innerJoin(files, eq(collectionFiles.fileId, files.id))
     .where(eq(collectionFiles.collectionId, collectionId))
     .orderBy(desc(collectionFiles.addedAt));
+  
+  if (limit !== undefined && offset !== undefined) {
+    return await baseQuery.limit(limit).offset(offset);
+  } else if (limit !== undefined) {
+    return await baseQuery.limit(limit);
+  } else if (offset !== undefined) {
+    return await baseQuery.offset(offset);
+  }
 
-  return result;
+  return await baseQuery;
+}
+
+export async function getFilesCountByCollection(collectionId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(collectionFiles)
+    .where(eq(collectionFiles.collectionId, collectionId));
+  
+  return result[0]?.count || 0;
 }
 
 
