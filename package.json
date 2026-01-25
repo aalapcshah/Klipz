@@ -60,6 +60,7 @@
     "driver.js": "^1.4.0",
     "drizzle-orm": "^0.44.5",
     "embla-carousel-react": "^8.6.0",
+    "exceljs": "^4.4.0",
     "exif-parser": "^0.1.12",
     "exifr": "^7.1.3",
     "express": "^4.21.2",

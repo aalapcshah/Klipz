@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Users, Files, Activity, TrendingUp, Shield, ShieldOff } from "lucide-react";
+import { Loader2, Users, Files, Activity, TrendingUp, Shield, ShieldOff, Download, FileSpreadsheet } from "lucide-react";
 import { Line } from "react-chartjs-2";
 import { toast } from "sonner";
 
@@ -33,6 +33,10 @@ export function Admin() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [roleChangeUserId, setRoleChangeUserId] = useState<number | null>(null);
   const [newRole, setNewRole] = useState<"user" | "admin">("user");
+  const [exportStartDate, setExportStartDate] = useState("");
+  const [exportEndDate, setExportEndDate] = useState("");
+  const [exportUserId, setExportUserId] = useState<string>("");
+  const [exportActivityType, setExportActivityType] = useState<string>("");
 
   const { data: systemStats, isLoading: statsLoading } = trpc.admin.getSystemStats.useQuery();
   const { data: allUsers, isLoading: usersLoading } = trpc.admin.getAllUsers.useQuery({
@@ -47,6 +51,8 @@ export function Admin() {
     { userId: selectedUserId! },
     { enabled: !!selectedUserId }
   );
+  const { data: engagementMetrics } = trpc.admin.getEngagementMetrics.useQuery();
+  const { data: engagementTrends } = trpc.admin.getEngagementTrends.useQuery();
 
   const updateRoleMutation = trpc.admin.updateUserRole.useMutation({
     onSuccess: () => {
@@ -134,6 +140,211 @@ export function Admin() {
           </CardHeader>
         </Card>
       </div>
+
+      {/* Engagement Metrics Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            User Engagement Metrics
+          </CardTitle>
+          <CardDescription>Track user activity and retention</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {/* Active Users */}
+            <div>
+              <h4 className="text-sm font-semibold mb-3">Active Users</h4>
+              <div className="grid grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Daily Active Users</CardDescription>
+                    <CardTitle className="text-2xl">{engagementMetrics?.dau || 0}</CardTitle>
+                  </CardHeader>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Weekly Active Users</CardDescription>
+                    <CardTitle className="text-2xl">{engagementMetrics?.wau || 0}</CardTitle>
+                  </CardHeader>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Monthly Active Users</CardDescription>
+                    <CardTitle className="text-2xl">{engagementMetrics?.mau || 0}</CardTitle>
+                  </CardHeader>
+                </Card>
+              </div>
+            </div>
+
+            {/* Retention Rates */}
+            <div>
+              <h4 className="text-sm font-semibold mb-3">Retention Rates</h4>
+              <div className="grid grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Day 1 Retention</CardDescription>
+                    <CardTitle className="text-2xl">
+                      {engagementMetrics?.retentionDay1.toFixed(1) || 0}%
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Day 7 Retention</CardDescription>
+                    <CardTitle className="text-2xl">
+                      {engagementMetrics?.retentionDay7.toFixed(1) || 0}%
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Day 30 Retention</CardDescription>
+                    <CardTitle className="text-2xl">
+                      {engagementMetrics?.retentionDay30.toFixed(1) || 0}%
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+              </div>
+            </div>
+
+            {/* Feature Adoption */}
+            <div>
+              <h4 className="text-sm font-semibold mb-3">Feature Adoption</h4>
+              <div className="space-y-2">
+                {engagementMetrics?.featureAdoption.map((feature) => (
+                  <div key={feature.feature} className="flex items-center justify-between">
+                    <span className="text-sm capitalize">{feature.feature}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        {feature.userCount} users
+                      </span>
+                      <Badge variant="secondary">{feature.percentage.toFixed(1)}%</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Engagement Trend Chart */}
+            {engagementTrends && (
+              <div>
+                <h4 className="text-sm font-semibold mb-3">Daily Active Users Trend (30 Days)</h4>
+                <Line
+                  data={{
+                    labels: engagementTrends.dates,
+                    datasets: [
+                      {
+                        label: "Daily Active Users",
+                        data: engagementTrends.dauTrend,
+                        borderColor: "rgb(75, 192, 192)",
+                        backgroundColor: "rgba(75, 192, 192, 0.2)",
+                        tension: 0.4,
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: false,
+                      },
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        ticks: {
+                          precision: 0,
+                        },
+                      },
+                    },
+                  }}
+                  height={200}
+                />
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Activity Export Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Download className="h-5 w-5" />
+            Export Activity Reports
+          </CardTitle>
+          <CardDescription>Download activity data in CSV or Excel format</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Start Date</label>
+                <input
+                  type="date"
+                  value={exportStartDate}
+                  onChange={(e) => setExportStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">End Date</label>
+                <input
+                  type="date"
+                  value={exportEndDate}
+                  onChange={(e) => setExportEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">User ID (optional)</label>
+                <input
+                  type="number"
+                  value={exportUserId}
+                  onChange={(e) => setExportUserId(e.target.value)}
+                  placeholder="All users"
+                  className="w-full px-3 py-2 border rounded-md"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Activity Type (optional)</label>
+                <Select value={exportActivityType} onValueChange={setExportActivityType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All types</SelectItem>
+                    <SelectItem value="upload">Upload</SelectItem>
+                    <SelectItem value="view">View</SelectItem>
+                    <SelectItem value="edit">Edit</SelectItem>
+                    <SelectItem value="delete">Delete</SelectItem>
+                    <SelectItem value="share">Share</SelectItem>
+                    <SelectItem value="tag">Tag</SelectItem>
+                    <SelectItem value="enrich">Enrich</SelectItem>
+                    <SelectItem value="export">Export</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <ExportCSVButton
+                startDate={exportStartDate}
+                endDate={exportEndDate}
+                userId={exportUserId ? parseInt(exportUserId) : undefined}
+                activityType={exportActivityType || undefined}
+              />
+              <ExportExcelButton
+                startDate={exportStartDate}
+                endDate={exportEndDate}
+                userId={exportUserId ? parseInt(exportUserId) : undefined}
+                activityType={exportActivityType || undefined}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* User Management Table */}
       <Card>
@@ -369,5 +580,100 @@ export function Admin() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// Export CSV Button Component
+function ExportCSVButton(props: {
+  startDate?: string;
+  endDate?: string;
+  userId?: number;
+  activityType?: string;
+}) {
+  const exportMutation = trpc.admin.exportActivityCSV.useMutation();
+
+  const handleExport = async () => {
+    try {
+      const result = await exportMutation.mutateAsync({
+        startDate: props.startDate || undefined,
+        endDate: props.endDate || undefined,
+        userId: props.userId,
+        activityType: props.activityType,
+      });
+
+      // Create download link
+      const blob = new Blob([result.data], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = result.filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success("CSV report downloaded successfully");
+    } catch (error) {
+      toast.error("Failed to export CSV");
+    }
+  };
+
+  return (
+    <Button onClick={handleExport} disabled={exportMutation.isPending}>
+      {exportMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+      <Download className="mr-2 h-4 w-4" />
+      Export CSV
+    </Button>
+  );
+}
+
+// Export Excel Button Component
+function ExportExcelButton(props: {
+  startDate?: string;
+  endDate?: string;
+  userId?: number;
+  activityType?: string;
+}) {
+  const exportMutation = trpc.admin.exportActivityExcel.useMutation();
+
+  const handleExport = async () => {
+    try {
+      const result = await exportMutation.mutateAsync({
+        startDate: props.startDate || undefined,
+        endDate: props.endDate || undefined,
+        userId: props.userId,
+        activityType: props.activityType,
+      });
+
+      // Decode base64 and create download link
+      const binaryString = atob(result.data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = result.filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success("Excel report downloaded successfully");
+    } catch (error) {
+      toast.error("Failed to export Excel");
+    }
+  };
+
+  return (
+    <Button onClick={handleExport} disabled={exportMutation.isPending} variant="outline">
+      {exportMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+      <FileSpreadsheet className="mr-2 h-4 w-4" />
+      Export Excel
+    </Button>
   );
 }

@@ -2585,3 +2585,24 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [x] Write tests for digest system
 - [ ] Implement daily digest cron job (requires production scheduler)
 - [ ] Implement weekly digest cron job (requires production scheduler)
+
+
+## Phase 47: Activity Export & User Engagement Metrics
+- [x] Design activity export data structure (CSV/Excel format)
+- [x] Create backend endpoint for activity data export
+- [x] Add CSV generation utility
+- [x] Add Excel generation utility (using exceljs)
+- [x] Add date range filter for export
+- [x] Add user filter for export (all users or specific user)
+- [x] Add activity type filter for export
+- [x] Create "Download Activity Report" button in admin dashboard
+- [x] Design engagement metrics calculations (DAU, WAU, MAU)
+- [x] Implement retention rate calculation (day 1, day 7, day 30)
+- [x] Track feature adoption metrics (which features users are using)
+- [x] Create engagement metrics visualization with Chart.js
+- [x] Add engagement trends over time (30-day DAU trend)
+- [x] Test CSV export functionality (8/8 tests passing)
+- [x] Test Excel export functionality (8/8 tests passing)
+- [x] Test engagement metrics calculations (8/8 tests passing)
+- [x] Write tests for export endpoints
+- [x] Write tests for engagement analytics

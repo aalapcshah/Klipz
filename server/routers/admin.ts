@@ -4,6 +4,8 @@ import { getDb } from "../db";
 import { users, files, fileActivityLogs } from "../../drizzle/schema";
 import { eq, sql, desc, and, gte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
+import { fetchActivityDataForExport, generateCSV, generateExcel } from "../_core/activityExport";
+import { getAllEngagementMetrics, getEngagementTrends } from "../_core/engagementMetrics";
 
 export const adminRouter = router({
   /**
@@ -238,4 +240,98 @@ export const adminRouter = router({
         dailyActivity: dailyActivityRaw,
       };
     }),
+
+  /**
+   * Export activity data as CSV
+   */
+  exportActivityCSV: adminProcedure
+    .input(
+      z.object({
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+        userId: z.number().optional(),
+        activityType: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const filters: any = {};
+      
+      if (input.startDate) {
+        filters.startDate = new Date(input.startDate);
+      }
+      
+      if (input.endDate) {
+        filters.endDate = new Date(input.endDate);
+      }
+      
+      if (input.userId) {
+        filters.userId = input.userId;
+      }
+      
+      if (input.activityType) {
+        filters.activityType = input.activityType;
+      }
+
+      const data = await fetchActivityDataForExport(filters);
+      const csv = generateCSV(data);
+
+      return {
+        data: csv,
+        filename: `activity-report-${new Date().toISOString().split('T')[0]}.csv`,
+      };
+    }),
+
+  /**
+   * Export activity data as Excel
+   */
+  exportActivityExcel: adminProcedure
+    .input(
+      z.object({
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+        userId: z.number().optional(),
+        activityType: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const filters: any = {};
+      
+      if (input.startDate) {
+        filters.startDate = new Date(input.startDate);
+      }
+      
+      if (input.endDate) {
+        filters.endDate = new Date(input.endDate);
+      }
+      
+      if (input.userId) {
+        filters.userId = input.userId;
+      }
+      
+      if (input.activityType) {
+        filters.activityType = input.activityType;
+      }
+
+      const data = await fetchActivityDataForExport(filters);
+      const buffer = await generateExcel(data);
+
+      return {
+        data: buffer.toString('base64'),
+        filename: `activity-report-${new Date().toISOString().split('T')[0]}.xlsx`,
+      };
+    }),
+
+  /**
+   * Get engagement metrics (DAU, WAU, MAU, retention, feature adoption)
+   */
+  getEngagementMetrics: adminProcedure.query(async () => {
+    return await getAllEngagementMetrics();
+  }),
+
+  /**
+   * Get engagement trends over time
+   */
+  getEngagementTrends: adminProcedure.query(async () => {
+    return await getEngagementTrends();
+  }),
 });
