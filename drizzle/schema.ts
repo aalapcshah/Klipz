@@ -1087,3 +1087,28 @@ export const savedCohortComparisons = mysqlTable("saved_cohort_comparisons", {
 
 export type SavedCohortComparison = typeof savedCohortComparisons.$inferSelect;
 export type InsertSavedCohortComparison = typeof savedCohortComparisons.$inferInsert;
+
+
+export const generatedReports = mysqlTable("generated_reports", {
+  id: int("id").primaryKey().autoincrement(),
+  scheduledReportId: int("scheduledReportId"),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  format: mysqlEnum("format", ["csv", "excel"]).notNull(),
+  fileKey: text("fileKey").notNull(), // S3 file key
+  fileUrl: text("fileUrl").notNull(), // S3 file URL
+  fileSize: int("fileSize"), // File size in bytes
+  recordCount: int("recordCount"), // Number of records in report
+  startDate: timestamp("startDate"),
+  endDate: timestamp("endDate"),
+  userId: int("userId"), // Filter: specific user or null for all users
+  activityType: varchar("activityType", { length: 100 }), // Filter: activity type
+  generatedBy: int("generatedBy").notNull(), // Admin who generated/scheduled the report
+  generatedAt: timestamp("generatedAt").defaultNow().notNull(),
+}, (table) => ({
+  scheduledReportIdIndex: index("generated_reports_scheduled_report_id_idx").on(table.scheduledReportId),
+  generatedByIndex: index("generated_reports_generated_by_idx").on(table.generatedBy),
+  generatedAtIndex: index("generated_reports_generated_at_idx").on(table.generatedAt),
+}));
+
+export type GeneratedReport = typeof generatedReports.$inferSelect;

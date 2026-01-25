@@ -2812,3 +2812,70 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [ ] Test dashboard customization (deferred)
 - [x] Test alert auto-resolution (5/5 tests passing)
 - [ ] Test scheduled report exports (already functional, sends notifications)
+
+## Phase 53: Cron Jobs, SendGrid Integration & Dashboard Widgets
+- [ ] Install node-cron package
+- [ ] Create cron job service file
+- [ ] Set up hourly job for checkAndResolveAlerts()
+- [ ] Set up daily job for sendDailyDigests() at 9 AM
+- [ ] Set up weekly job for sendWeeklyDigests() on Monday 9 AM
+- [ ] Initialize cron jobs in server startup
+- [ ] Request SendGrid API key from user
+- [ ] Install @sendgrid/mail package
+- [ ] Create SendGrid email service wrapper
+- [ ] Implement email templates with HTML formatting
+- [ ] Add attachment support for scheduled reports
+- [ ] Replace notifyOwner calls with SendGrid emails
+- [ ] Design preset dashboard layouts (Monitoring, Analytics, Balanced)
+- [ ] Create dashboard layout preferences schema
+- [ ] Add layout selector to admin dashboard
+- [ ] Implement widget visibility toggles
+- [ ] Save layout preference to database
+- [ ] Restore user's layout on dashboard load
+- [ ] Test cron job execution
+- [ ] Test SendGrid email delivery
+- [ ] Test dashboard layout switching
+
+## Phase 53 (Revised): Reports Dashboard & Dashboard Widgets
+- [x] Install node-cron package
+- [x] Create cron job service file
+- [x] Set up hourly job for checkAndResolveAlerts()
+- [x] Set up daily job for sendDailyDigests() at 9 AM
+- [x] Set up weekly job for sendWeeklyDigests() on Monday 9 AM
+- [x] Initialize cron jobs in server startup
+- [ ] Create generated_reports table for storing report metadata
+- [ ] Add S3 storage for report files (CSV/Excel)
+- [ ] Create admin reports page to view all generated reports
+- [ ] Modify scheduled reports to save files to S3
+- [ ] Add download functionality for reports
+- [ ] Display report generation history with filters
+- [ ] Design preset dashboard layouts (Monitoring, Analytics, Balanced)
+- [ ] Create dashboard layout preferences schema
+- [ ] Add layout selector to admin dashboard
+- [ ] Implement widget visibility toggles
+- [ ] Save layout preference to database
+- [ ] Restore user's layout on dashboard load
+- [ ] Test report generation and storage
+- [ ] Test dashboard layout switching
+
+## Phase 53 (Revised) - Completed Features:
+- [x] Install node-cron package
+- [x] Create cron job service file
+- [x] Set up hourly job for checkAndResolveAlerts()
+- [x] Set up daily job for sendDailyDigests() at 9 AM
+- [x] Set up weekly job for sendWeeklyDigests() on Monday 9 AM
+- [x] Initialize cron jobs in server startup
+- [x] Create generated_reports table for storing report metadata
+- [x] Add S3 storage for report files (CSV/Excel)
+- [x] Create admin reports page to view all generated reports
+- [x] Modify scheduled reports to save files to S3
+- [x] Add download functionality for reports
+- [x] Display report generation history with filters
+- [ ] Design preset dashboard layouts (Monitoring, Analytics, Balanced)
+- [ ] Create dashboard layout preferences schema
+- [ ] Add layout selector to admin dashboard
+- [ ] Implement widget visibility toggles
+- [ ] Save layout preference to database
+- [ ] Restore user's layout on dashboard load
+- [ ] Test report generation and storage
+- [ ] Test dashboard layout switching

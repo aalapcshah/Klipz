@@ -6,6 +6,8 @@ import { eq, desc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { fetchActivityDataForExport, generateCSV, generateExcel } from "../_core/activityExport";
 import { notifyOwner } from "../_core/notification";
+import { storagePut } from "../storage";
+import { generatedReports } from "../../drizzle/schema";
 
 export const scheduledReportsRouter = router({
   /**
@@ -302,19 +304,45 @@ export async function executeScheduledReport(report: any): Promise<void> {
       mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     }
 
-    // Send notification to owner (in production, this would email the recipients)
+    // Upload file to S3
+    const fileKey = `reports/${report.id}/${filename}`;
+    const { url: fileUrl } = await storagePut(fileKey, fileBuffer, mimeType);
+
+    // Save report metadata to database
+    const db = await getDb();
+    if (db) {
+      await db.insert(generatedReports).values({
+        scheduledReportId: report.id,
+        name: report.name,
+        description: report.description,
+        format: report.format,
+        fileKey,
+        fileUrl,
+        fileSize: fileBuffer.length,
+        recordCount: data.length,
+        startDate: report.startDate,
+        endDate: report.endDate,
+        userId: report.userId,
+        activityType: report.activityType,
+        generatedBy: report.createdBy,
+      });
+    }
+
+    // Send notification to owner
     const recipients = report.recipients.split(",").map((email: string) => email.trim());
     
     await notifyOwner({
       title: `Scheduled Report: ${report.name}`,
       content: `
-Scheduled activity report generated.
+Scheduled activity report generated and saved.
 
 Report: ${report.name}
 Recipients: ${recipients.join(", ")}
 Period: ${report.startDate ? new Date(report.startDate).toLocaleDateString() : "All time"} - ${report.endDate ? new Date(report.endDate).toLocaleDateString() : "Present"}
 Total Activities: ${data.length}
 Format: ${report.format.toUpperCase()}
+
+The report is available in the Admin Reports section.
 
 Generated: ${new Date().toLocaleString()}
 
@@ -323,7 +351,6 @@ Note: In production, this report would be emailed to recipients with the ${filen
     });
 
     // Update last run time and calculate next run
-    const db = await getDb();
     if (db) {
       const nextRunAt = calculateNextRunTime(
         report.frequency,

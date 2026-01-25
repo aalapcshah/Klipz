@@ -77,6 +77,10 @@ async function startServer() {
   // Setup WebSocket server
   setupWebSocket(server);
 
+  // Initialize cron jobs for automated monitoring
+  const { initializeCronJobs } = await import("./cronJobs");
+  initializeCronJobs();
+
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
   });
