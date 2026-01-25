@@ -13,8 +13,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users, Loader2, Plus, X } from "lucide-react";
+import { Users, Loader2, Plus, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { cohortTemplates, getCohortTemplate } from "@/lib/cohortTemplates";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export function AdminCohorts() {
   return (
@@ -43,6 +51,8 @@ function CohortsContent() {
 
   const compareMutation = trpc.admin.compareCohorts.useMutation();
 
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+
   const addCohort = () => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -56,6 +66,23 @@ function CohortsContent() {
         endDate: endOfMonth,
       },
     ]);
+  };
+
+  const addCohortFromTemplate = (templateId: string) => {
+    const template = getCohortTemplate(templateId);
+    if (!template) return;
+
+    const { startDate, endDate } = template.getDateRange();
+    setCohorts([
+      ...cohorts,
+      {
+        name: template.name,
+        startDate,
+        endDate,
+      },
+    ]);
+    setSelectedTemplate("");
+    toast.success(`Added ${template.name} cohort`);
   };
 
   const removeCohort = (index: number) => {
@@ -140,10 +167,37 @@ function CohortsContent() {
             </div>
           ))}
 
+          {/* Template Selector */}
+          <div className="p-4 border rounded-lg bg-muted/30">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <Label className="font-semibold">Quick Add from Template</Label>
+            </div>
+            <div className="flex gap-2">
+              <Select value={selectedTemplate} onValueChange={addCohortFromTemplate}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Select a preset cohort..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {cohortTemplates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      <div>
+                        <div className="font-medium">{template.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {template.description}
+                        </div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div className="flex gap-2">
             <Button variant="outline" onClick={addCohort}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Cohort
+              Add Custom Cohort
             </Button>
             <Button
               onClick={handleCompare}

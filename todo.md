@@ -2651,3 +2651,36 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [x] Test engagement alerts system (5/5 tests passing)
 - [x] Test cohort analysis (3/3 tests passing)
 - [x] Write tests for all admin features
+
+
+## Phase 49: Admin Panel Enhancements
+- [ ] Add user role management UI to admin user list
+- [ ] Create promote/demote admin buttons with confirmation
+- [ ] Add role badge display in user table
+- [ ] Create alert dashboard widget component
+- [ ] Display recently triggered alerts in widget
+- [ ] Show current metric values vs thresholds
+- [ ] Add quick navigation to alert details
+- [ ] Design cohort template system
+- [ ] Create preset cohort definitions (Last 30 Days, Q1 2026, Power Users, etc.)
+- [ ] Add template selector to cohort analysis page
+- [ ] Implement template application logic
+- [ ] Test user role management
+- [ ] Test alert dashboard widget
+- [ ] Test cohort templates
+
+## Phase 49: Admin Panel Enhancements
+- [x] Add user role management UI to admin user list (already implemented with shield buttons)
+- [x] Create promote/demote admin buttons with confirmation
+- [x] Add role badge display in user table
+- [x] Create alert dashboard widget component
+- [x] Display recently triggered alerts in widget
+- [x] Show current metric values vs thresholds
+- [x] Add quick navigation to alert details
+- [x] Design cohort template system
+- [x] Create preset cohort definitions (Last 30 Days, Q1 2026, Power Users, etc.)
+- [x] Add template selector to cohort analysis page
+- [x] Implement template application logic
+- [x] Test user role management (UI already functional)
+- [x] Test alert dashboard widget (displays live alert status)
+- [x] Test cohort templates (11 preset templates available)

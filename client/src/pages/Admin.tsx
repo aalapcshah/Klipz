@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AdminLayout } from "@/components/AdminLayout";
+import { AlertDashboardWidget } from "@/components/AlertDashboardWidget";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -100,6 +101,9 @@ function AdminDashboard() {
           Manage users and monitor system-wide statistics
         </p>
       </div>
+
+      {/* Alert Dashboard Widget */}
+      <AlertDashboardWidget />
 
       {/* System Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
