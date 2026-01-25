@@ -3073,3 +3073,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Make close button sticky at top-right when scrolling in modal (sticky top-0 z-10)
 - [x] Collapse Drawing Annotations section by default when viewing saved videos
 - [ ] Test all mobile UI fixes on actual device
+
+
+## Phase 62: Fix Files Page Header Layout
+- [x] Reduce "Files" heading font size (text-2xl on mobile, text-3xl on desktop)
+- [x] Align "Upload Files" and "Clean Up Storage" buttons on same line (flex-wrap gap-2)
+- [x] Make buttons slightly smaller for better mobile layout (size="sm", shortened labels on mobile)
+- [x] Fix close button (X) position on file cards (top-1 right-1 with z-10)
+- [ ] Test on mobile to ensure proper layout

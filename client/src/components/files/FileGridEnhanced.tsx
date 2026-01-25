@@ -1337,7 +1337,7 @@ export default function FileGridEnhanced({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute top-2 right-2 h-8 w-8 md:h-6 md:w-6 md:opacity-0 md:group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground transition-opacity"
+                    className="absolute top-1 right-1 h-7 w-7 md:h-6 md:w-6 md:opacity-0 md:group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground transition-opacity z-10"
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedFiles(new Set([file.id]));

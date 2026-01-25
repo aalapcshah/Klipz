@@ -108,10 +108,10 @@ export default function FilesView() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="p-6 space-y-6 overflow-y-auto">
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold">Files</h1>
-                <p className="text-muted-foreground">
+                <h1 className="text-2xl md:text-3xl font-bold">Files</h1>
+                <p className="text-sm text-muted-foreground">
                   Manage and enrich your media files with AI
                 </p>
               </div>
@@ -143,13 +143,15 @@ export default function FilesView() {
                 >
                   {filtersOpen ? 'Hide Filters' : 'Show Filters'}
                 </Button>
-                <Button variant="outline" onClick={() => setShowCleanupWizard(true)}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Clean Up Storage
+                <Button variant="outline" size="sm" onClick={() => setShowCleanupWizard(true)}>
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">Clean Up Storage</span>
+                  <span className="sm:hidden">Clean Up</span>
                 </Button>
-                <Button id="upload-files-button" onClick={() => setUploadDialogOpen(true)}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Files
+                <Button id="upload-files-button" size="sm" onClick={() => setUploadDialogOpen(true)}>
+                  <Upload className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">Upload Files</span>
+                  <span className="sm:hidden">Upload</span>
                 </Button>
               </div>
             </div>
