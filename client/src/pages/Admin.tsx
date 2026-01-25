@@ -27,9 +27,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Users, Files, Activity, TrendingUp, Shield, ShieldOff, Download, FileSpreadsheet } from "lucide-react";
+import { Loader2, Users, Files, Activity, TrendingUp, Shield, ShieldOff, Download, FileSpreadsheet, Layout } from "lucide-react";
 import { Line } from "react-chartjs-2";
 import { toast } from "sonner";
+import { DASHBOARD_LAYOUTS, type DashboardLayout } from "@/lib/dashboardLayouts";
 
 export function Admin() {
   return (
@@ -41,6 +42,7 @@ export function Admin() {
 
 function AdminDashboard() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [currentLayout, setCurrentLayout] = useState<DashboardLayout>("balanced");
   const [roleChangeUserId, setRoleChangeUserId] = useState<number | null>(null);
   const [newRole, setNewRole] = useState<"user" | "admin">("user");
   const [exportStartDate, setExportStartDate] = useState("");

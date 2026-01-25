@@ -1112,3 +1112,16 @@ export const generatedReports = mysqlTable("generated_reports", {
 }));
 
 export type GeneratedReport = typeof generatedReports.$inferSelect;
+
+
+export const dashboardLayoutPreferences = mysqlTable("dashboard_layout_preferences", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("userId").notNull(),
+  layout: mysqlEnum("layout", ["monitoring", "analytics", "balanced"]).notNull().default("balanced"),
+  widgetVisibility: json("widgetVisibility").$type<Record<string, boolean>>(), // Which widgets are visible
+  updatedAt: timestamp("updatedAt").defaultNow().notNull().onUpdateNow(),
+}, (table) => ({
+  userIdIndex: index("dashboard_layout_preferences_user_id_idx").on(table.userId),
+}));
+
+export type DashboardLayoutPreference = typeof dashboardLayoutPreferences.$inferSelect;

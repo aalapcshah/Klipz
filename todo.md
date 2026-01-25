@@ -2879,3 +2879,42 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [ ] Restore user's layout on dashboard load
 - [ ] Test report generation and storage
 - [ ] Test dashboard layout switching
+
+## Phase 54: Dashboard Presets, Report Retention & Real-time Monitoring
+- [ ] Create dashboard_layout_preferences table
+- [ ] Define 3 preset layouts (Monitoring, Analytics, Balanced)
+- [ ] Add layout selector to admin dashboard header
+- [ ] Implement widget visibility toggles for each preset
+- [ ] Save user's selected layout to database
+- [ ] Restore layout preference on dashboard load
+- [ ] Create report retention settings table
+- [ ] Add configurable retention period in admin settings
+- [ ] Implement cron job for automatic report cleanup
+- [ ] Add manual cleanup button for immediate execution
+- [ ] Create real-time metrics endpoint for current values
+- [ ] Build live alert dashboard component
+- [ ] Implement WebSocket updates for metric changes
+- [ ] Add trending indicators (up/down arrows)
+- [ ] Display alert status with color coding
+- [ ] Test dashboard layout switching
+- [ ] Test report retention cleanup
+- [ ] Test real-time dashboard updates
+
+## Phase 54 Progress Update:
+- [x] Create dashboard_layout_preferences table
+- [x] Define 3 preset layouts (Monitoring, Analytics, Balanced)
+- [x] Create dashboard layout configuration file
+- [x] Create dashboard layout preferences router
+- [ ] Add layout selector to admin dashboard header
+- [ ] Implement widget visibility toggles for each preset
+- [ ] Save user's selected layout to database
+- [ ] Restore layout preference on dashboard load
+- [ ] Create report retention settings table
+- [ ] Add configurable retention period in admin settings
+- [ ] Implement cron job for automatic report cleanup
+- [ ] Add manual cleanup button for immediate execution
+- [ ] Create real-time metrics endpoint for current values
+- [ ] Build live alert dashboard component
+- [ ] Implement WebSocket updates for metric changes
+- [ ] Add trending indicators (up/down arrows)
+- [ ] Display alert status with color coding

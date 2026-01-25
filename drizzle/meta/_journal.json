@@ -281,6 +281,13 @@
       "when": 1769307833101,
       "tag": "0039_charming_skrulls",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "5",
+      "when": 1769308151962,
+      "tag": "0040_chubby_psylocke",
+      "breakpoints": true
     }
   ]
 }
