@@ -83,7 +83,7 @@ export function OnboardingTutorial() {
         {
           popover: {
             title: 'Collaboration Features',
-            description: 'Work with your team using:\n• Annotation templates for consistency\n• Comment threads for discussions\n• Approval workflows for review\n• Real-time updates when others make changes',
+            description: 'Work with your team using:\n\n• Annotation templates for consistency\n\n• Comment threads for discussions\n\n• Approval workflows for review\n\n• Real-time updates when others make changes',
             side: "left",
             align: 'center'
           }

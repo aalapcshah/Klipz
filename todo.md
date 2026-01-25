@@ -2918,3 +2918,16 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [ ] Implement WebSocket updates for metric changes
 - [ ] Add trending indicators (up/down arrows)
 - [ ] Display alert status with color coding
+
+## Bug Fix: Onboarding Tutorial Formatting
+- [ ] Fix collaboration features bullet points to display on separate lines
+- [ ] Test onboarding tutorial display
+
+## Bug Fix: Remove Test Images
+- [ ] Delete test images (test1.jpg, test2.jpg) from database
+- [ ] Verify Files tab shows no test images
+
+## Completed Bug Fixes:
+- [x] Fix collaboration features bullet points to display on separate lines
+- [x] Delete test images (test1.jpg, test2.jpg) from database
+- [x] Verify Files tab shows no test images
