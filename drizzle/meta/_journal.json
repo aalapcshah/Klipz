@@ -267,6 +267,13 @@
       "when": 1769306272510,
       "tag": "0037_natural_lilandra",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "5",
+      "when": 1769306681739,
+      "tag": "0038_bumpy_phil_sheldon",
+      "breakpoints": true
     }
   ]
 }

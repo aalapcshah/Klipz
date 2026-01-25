@@ -13,7 +13,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users, Loader2, Plus, X, Sparkles } from "lucide-react";
+import { Users, Loader2, Plus, X, Sparkles, Save, Trash2, FolderOpen } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cohortTemplates, getCohortTemplate } from "@/lib/cohortTemplates";
 import {
@@ -48,8 +56,14 @@ function CohortsContent() {
   ]);
 
   const [results, setResults] = useState<any[] | null>(null);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [saveDescription, setSaveDescription] = useState("");
 
   const compareMutation = trpc.admin.compareCohorts.useMutation();
+  const saveMutation = trpc.admin.saveCohortComparison.useMutation();
+  const { data: savedComparisons, refetch: refetchSaved } = trpc.admin.getSavedCohortComparisons.useQuery();
+  const deleteMutation = trpc.admin.deleteSavedCohortComparison.useMutation();
 
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
 
@@ -102,6 +116,67 @@ function CohortsContent() {
       toast.success("Cohort analysis complete");
     } catch (error) {
       toast.error("Failed to analyze cohorts");
+    }
+  };
+
+  const handleSave = async () => {
+    if (!results || cohorts.length < 2) {
+      toast.error("Please run a comparison first");
+      return;
+    }
+
+    if (!saveName.trim()) {
+      toast.error("Please enter a name");
+      return;
+    }
+
+    try {
+      await saveMutation.mutateAsync({
+        name: saveName,
+        description: saveDescription,
+        cohort1Name: cohorts[0].name,
+        cohort1StartDate: cohorts[0].startDate.toISOString(),
+        cohort1EndDate: cohorts[0].endDate.toISOString(),
+        cohort2Name: cohorts[1].name,
+        cohort2StartDate: cohorts[1].startDate.toISOString(),
+        cohort2EndDate: cohorts[1].endDate.toISOString(),
+        results,
+      });
+
+      toast.success("Comparison saved successfully");
+      setShowSaveDialog(false);
+      setSaveName("");
+      setSaveDescription("");
+      refetchSaved();
+    } catch (error) {
+      toast.error("Failed to save comparison");
+    }
+  };
+
+  const handleLoadSaved = (saved: any) => {
+    setCohorts([
+      {
+        name: saved.cohort1Name,
+        startDate: new Date(saved.cohort1StartDate),
+        endDate: new Date(saved.cohort1EndDate),
+      },
+      {
+        name: saved.cohort2Name,
+        startDate: new Date(saved.cohort2StartDate),
+        endDate: new Date(saved.cohort2EndDate),
+      },
+    ]);
+    setResults(saved.results);
+    toast.success(`Loaded ${saved.name}`);
+  };
+
+  const handleDeleteSaved = async (id: number) => {
+    try {
+      await deleteMutation.mutateAsync({ id });
+      toast.success("Comparison deleted");
+      refetchSaved();
+    } catch (error) {
+      toast.error("Failed to delete comparison");
     }
   };
 
@@ -212,13 +287,63 @@ function CohortsContent() {
         </CardContent>
       </Card>
 
-      {results && results.length > 0 && (
+      {/* Saved Comparisons */}
+      {savedComparisons && savedComparisons.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Comparison Results</CardTitle>
+            <CardTitle>
+              <FolderOpen className="h-5 w-5 inline mr-2" />
+              Saved Comparisons
+            </CardTitle>
             <CardDescription>
-              Side-by-side metrics for each cohort
+              Quick load previously saved cohort analyses
             </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {savedComparisons.map((saved: any) => (
+                <div key={saved.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex-1">
+                    <div className="font-medium">{saved.name}</div>
+                    {saved.description && (
+                      <div className="text-sm text-muted-foreground">{saved.description}</div>
+                    )}
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {saved.cohort1Name} vs {saved.cohort2Name}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleLoadSaved(saved)}
+                    >
+                      Load
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteSaved(saved.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {results && results.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Comparison Results</CardTitle>
+              <CardDescription>
+                Side-by-side metrics for each cohort
+              </CardDescription>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -354,9 +479,59 @@ function CohortsContent() {
                 </TableBody>
               </Table>
             </div>
+            <div className="mt-4 flex justify-end">
+              <Button onClick={() => setShowSaveDialog(true)}>
+                <Save className="h-4 w-4 mr-2" />
+                Save Comparison
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
+
+      {/* Save Dialog */}
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save Cohort Comparison</DialogTitle>
+            <DialogDescription>
+              Save this comparison for quick reference later
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="save-name">Name</Label>
+              <Input
+                id="save-name"
+                value={saveName}
+                onChange={(e) => setSaveName(e.target.value)}
+                placeholder="Q1 vs Q2 Performance"
+              />
+            </div>
+            <div>
+              <Label htmlFor="save-description">Description (optional)</Label>
+              <Textarea
+                id="save-description"
+                value={saveDescription}
+                onChange={(e) => setSaveDescription(e.target.value)}
+                placeholder="Comparison notes..."
+                rows={3}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={saveMutation.isPending}>
+                {saveMutation.isPending && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {!results && (
         <Card>

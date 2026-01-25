@@ -1067,3 +1067,23 @@ export const alertNotificationLog = mysqlTable("alert_notification_log", {
 
 export type AlertNotificationLog = typeof alertNotificationLog.$inferSelect;
 export type InsertAlertNotificationLog = typeof alertNotificationLog.$inferInsert;
+
+
+export const savedCohortComparisons = mysqlTable("saved_cohort_comparisons", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  cohort1Name: varchar("cohort1Name", { length: 255 }).notNull(),
+  cohort1StartDate: timestamp("cohort1StartDate").notNull(),
+  cohort1EndDate: timestamp("cohort1EndDate").notNull(),
+  cohort2Name: varchar("cohort2Name", { length: 255 }).notNull(),
+  cohort2StartDate: timestamp("cohort2StartDate").notNull(),
+  cohort2EndDate: timestamp("cohort2EndDate").notNull(),
+  results: json("results").notNull(), // Store the comparison results
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type SavedCohortComparison = typeof savedCohortComparisons.$inferSelect;
+export type InsertSavedCohortComparison = typeof savedCohortComparisons.$inferInsert;

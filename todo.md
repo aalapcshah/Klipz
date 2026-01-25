@@ -2728,3 +2728,47 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [ ] Test alert notification history
 - [ ] Test saved cohort comparisons
 - [ ] Test dashboard customization
+
+## Phase 51: Saved Cohorts, Dashboard Customization & Auto-Resolution
+- [ ] Design saved cohort comparisons database schema
+- [ ] Create saved_cohort_comparisons table
+- [ ] Add save comparison button to cohort analysis page
+- [ ] Implement save comparison mutation with name and description
+- [ ] Create saved comparisons list section
+- [ ] Add quick load functionality for saved comparisons
+- [ ] Design dashboard layout preferences schema
+- [ ] Create dashboard_widget_preferences table
+- [ ] Install react-grid-layout for drag-and-drop
+- [ ] Implement widget visibility toggles
+- [ ] Add save layout preferences mutation
+- [ ] Restore user's dashboard layout on load
+- [ ] Design alert auto-resolution logic
+- [ ] Create background job to check alert thresholds
+- [ ] Implement sustained threshold checking (e.g., 24 hours)
+- [ ] Auto-update alert status to resolved when healthy
+- [ ] Add notification when alert auto-resolves
+- [ ] Test saved cohort comparisons
+- [ ] Test dashboard customization
+- [ ] Test alert auto-resolution
+
+## Phase 51: Saved Cohorts, Dashboard Customization & Auto-Resolution (In Progress)
+- [x] Design saved cohort comparisons database schema
+- [x] Create saved_cohort_comparisons table
+- [x] Add save comparison button to cohort analysis page
+- [x] Implement save comparison mutation with name and description
+- [x] Create saved comparisons list section
+- [x] Add quick load functionality for saved comparisons
+- [ ] Design dashboard layout preferences schema
+- [ ] Create dashboard_widget_preferences table
+- [ ] Install react-grid-layout for drag-and-drop
+- [ ] Implement widget visibility toggles
+- [ ] Add save layout preferences mutation
+- [ ] Restore user's dashboard layout on load
+- [ ] Design alert auto-resolution logic
+- [ ] Create background job to check alert thresholds
+- [ ] Implement sustained threshold checking (e.g., 24 hours)
+- [ ] Auto-update alert status to resolved when healthy
+- [ ] Add notification when alert auto-resolves
+- [ ] Test saved cohort comparisons
+- [ ] Test dashboard customization
+- [ ] Test alert auto-resolution

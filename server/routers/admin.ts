@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { users, files, fileActivityLogs } from "../../drizzle/schema";
+import { users, files, fileActivityLogs, savedCohortComparisons } from "../../drizzle/schema";
 import { eq, sql, desc, and, gte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { fetchActivityDataForExport, generateCSV, generateExcel } from "../_core/activityExport";
@@ -368,5 +368,72 @@ export const adminRouter = router({
     )
     .mutation(async ({ input }) => {
       return await compareCohorts(input);
+    }),
+
+  /**
+   * Get saved cohort comparisons for current admin
+   */
+  getSavedCohortComparisons: adminProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+    
+    return db
+      .select()
+      .from(savedCohortComparisons)
+      .where(eq(savedCohortComparisons.userId, ctx.user.id))
+      .orderBy(desc(savedCohortComparisons.createdAt));
+  }),
+
+  /**
+   * Save a cohort comparison
+   */
+  saveCohortComparison: adminProcedure
+    .input(
+      z.object({
+        name: z.string(),
+        description: z.string().optional(),
+        cohort1Name: z.string(),
+        cohort1StartDate: z.string(),
+        cohort1EndDate: z.string(),
+        cohort2Name: z.string(),
+        cohort2StartDate: z.string(),
+        cohort2EndDate: z.string(),
+        results: z.any(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      
+      const [saved] = await db.insert(savedCohortComparisons).values({
+        userId: ctx.user.id,
+        name: input.name,
+        description: input.description,
+        cohort1Name: input.cohort1Name,
+        cohort1StartDate: new Date(input.cohort1StartDate),
+        cohort1EndDate: new Date(input.cohort1EndDate),
+        cohort2Name: input.cohort2Name,
+        cohort2StartDate: new Date(input.cohort2StartDate),
+        cohort2EndDate: new Date(input.cohort2EndDate),
+        results: input.results,
+      });
+
+      return { success: true, id: saved.insertId };
+    }),
+
+  /**
+   * Delete a saved cohort comparison
+   */
+  deleteSavedCohortComparison: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      
+      await db
+        .delete(savedCohortComparisons)
+        .where(eq(savedCohortComparisons.id, input.id));
+
+      return { success: true };
     }),
 });
