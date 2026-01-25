@@ -1352,14 +1352,14 @@ export default function FileGridEnhanced({
                         checked={compareFiles.includes(file.id)}
                         onCheckedChange={() => toggleCompareFile(file.id)}
                         onClick={(e) => e.stopPropagation()}
-                        className="w-4 h-4 md:w-5 md:h-5"
+                        className="w-3 h-3 md:w-5 md:h-5"
                       />
                     ) : (
                       <Checkbox
                         checked={selectedFilesSet.has(file.id)}
                         onCheckedChange={() => toggleFile(file.id)}
                         onClick={(e) => e.stopPropagation()}
-                        className="w-4 h-4 md:w-5 md:h-5"
+                        className="w-3 h-3 md:w-5 md:h-5"
                       />
                     )}
                     <div
@@ -1406,9 +1406,9 @@ export default function FileGridEnhanced({
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{formatFileSize(file.fileSize)}</span>
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-muted-foreground">
+                        <span className="shrink-0">{formatFileSize(file.fileSize)}</span>
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span
                             className={
                               file.enrichmentStatus === "completed"

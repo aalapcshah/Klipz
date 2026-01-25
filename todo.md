@@ -3063,3 +3063,13 @@ Note: The application already has extensive annotation features including voice 
 - [x] Write comprehensive tests for bookmark feature (9 test cases)
 - [ ] Test bookmark feature on actual mobile devices
 - [ ] Test annotation tools on actual mobile devices
+
+
+## Phase 61: Mobile UI Fixes - Checkboxes, Text Overflow, Modal Width
+- [x] Reduce checkbox size to 1/3 current size on mobile (w-3 h-3 on mobile, w-5 h-5 on desktop)
+- [x] Fix text overflow on file cards (added flex-wrap and shrink-0 to metadata row)
+- [x] Fix Show Filters button overlap (added flex-wrap to button container)
+- [x] Make file detail modal horizontally wider (max-w-6xl w-[95vw])
+- [x] Make close button sticky at top-right when scrolling in modal (sticky top-0 z-10)
+- [x] Collapse Drawing Annotations section by default when viewing saved videos
+- [ ] Test all mobile UI fixes on actual device

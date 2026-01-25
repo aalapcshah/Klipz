@@ -47,8 +47,8 @@ export function FileQuickViewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="sticky top-0 z-10 bg-background pb-4 border-b">
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0 pr-4">
               <DialogTitle className="text-lg font-semibold truncate">

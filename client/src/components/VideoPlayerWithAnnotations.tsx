@@ -55,6 +55,9 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   // Multi-select state
   const [selectedVisualIds, setSelectedVisualIds] = useState<number[]>([]);
   const [selectedVoiceIds, setSelectedVoiceIds] = useState<number[]>([]);
+  
+  // Collapsible sections state
+  const [drawingAnnotationsCollapsed, setDrawingAnnotationsCollapsed] = useState(true);
 
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.voiceAnnotations.getAnnotations.useQuery({ fileId });
   
@@ -602,10 +605,11 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       {/* Drawing Annotations List */}
       {visualAnnotations.length > 0 && (
         <Card className="p-4">
-          <h3 className="font-semibold mb-3 flex items-center justify-between">
+          <h3 className="font-semibold mb-3 flex items-center justify-between cursor-pointer" onClick={() => setDrawingAnnotationsCollapsed(!drawingAnnotationsCollapsed)}>
             <div className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5" />
               Drawing Annotations ({visualAnnotations.length})
+              <span className="text-xs text-muted-foreground">{drawingAnnotationsCollapsed ? '(Click to expand)' : '(Click to collapse)'}</span>
             </div>
             <div className="flex items-center gap-2 text-sm font-normal">
               {selectedVisualIds.length > 0 && (
@@ -631,6 +635,8 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             </div>
           </h3>
           
+          {!drawingAnnotationsCollapsed && (
+          <>
           {/* Search and Filter Bar */}
           <div className="mb-4 space-y-3">
             <input
@@ -839,6 +845,8 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               </>
             );
           })()}
+          </>
+          )}
         </Card>
       )}
 
