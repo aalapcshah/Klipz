@@ -3278,3 +3278,13 @@ Note: The application already has extensive annotation features including voice 
 - [x] Test annotation search with multiple annotations
 - [x] Test template creation and reuse workflow
 - [x] Test collaboration indicators with multiple users
+
+## Annotation Export Feature
+- [x] Create backend API endpoint for annotation export (PDF and CSV formats)
+- [x] Include creator attribution (name, email) in export data
+- [x] Format PDF export with timestamps, transcripts, and creator info
+- [x] Format CSV export with structured columns for easy analysis
+- [x] Add export button to video player UI with format selection
+- [x] Test PDF export with multiple annotations
+- [x] Test CSV export and verify data structure
+- [x] Handle empty annotation cases gracefully

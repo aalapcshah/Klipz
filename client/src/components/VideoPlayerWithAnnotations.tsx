@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine, Eye, EyeOff } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine, Eye, EyeOff, Download } from "lucide-react";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { VideoDrawingCanvas } from "./VideoDrawingCanvas";
 import { AnnotationTimeline } from "./AnnotationTimeline";
@@ -69,6 +69,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [drawingAnnotationsCollapsed, setDrawingAnnotationsCollapsed] = useState(true);
 
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.voiceAnnotations.getAnnotations.useQuery({ fileId });
+  const exportAnnotationsMutation = trpc.annotationExport.exportAnnotations.useMutation();
   
   // WebSocket for real-time collaboration
   const { isConnected, activeUsers, broadcastAnnotation } = useWebSocket({
@@ -552,6 +553,51 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             >
               {showAnnotationPreview ? <Eye className="h-5 w-5 md:h-4 md:w-4" /> : <EyeOff className="h-5 w-5 md:h-4 md:w-4" />}
             </Button>
+
+            {/* Export Annotations Button */}
+            <Select onValueChange={async (format: "pdf" | "csv") => {
+              try {
+                toast.loading("Generating export...");
+                const result = await exportAnnotationsMutation.mutateAsync({
+                  fileId,
+                  format,
+                });
+                
+                // Download the file
+                if (result.format === "pdf") {
+                  const blob = new Blob([Uint8Array.from(atob(result.content), c => c.charCodeAt(0))], { type: "application/pdf" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = result.filename;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                } else {
+                  const blob = new Blob([result.content], { type: "text/csv" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = result.filename;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }
+                
+                toast.dismiss();
+                toast.success(`Exported annotations as ${format.toUpperCase()}`);
+              } catch (error) {
+                toast.dismiss();
+                toast.error("Failed to export annotations");
+              }
+            }}>
+              <SelectTrigger className="w-auto h-11 md:h-9 gap-2">
+                <Download className="h-5 w-5 md:h-4 md:w-4" />
+                <span className="hidden md:inline">Export</span>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pdf">Export as PDF</SelectItem>
+                <SelectItem value="csv">Export as CSV</SelectItem>
+              </SelectContent>
+            </Select>
             
             {/* Playback Speed Control */}
             <Select value={playbackSpeed.toString()} onValueChange={(value) => {
