@@ -93,6 +93,32 @@ export function VideoDrawingCanvas({
     { id: 'layer-1', name: 'Layer 1', visible: true, locked: false }
   ]);
   const [currentLayerId, setCurrentLayerId] = useState('layer-1');
+  const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
+  
+  // Layer reordering handlers
+  const handleLayerDragStart = (e: React.DragEvent, layerId: string) => {
+    setDraggedLayerId(layerId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  
+  const handleLayerDragOver = (e: React.DragEvent, targetLayerId: string) => {
+    e.preventDefault();
+    if (!draggedLayerId || draggedLayerId === targetLayerId) return;
+    
+    const draggedIndex = layers.findIndex(l => l.id === draggedLayerId);
+    const targetIndex = layers.findIndex(l => l.id === targetLayerId);
+    
+    if (draggedIndex === -1 || targetIndex === -1) return;
+    
+    const newLayers = [...layers];
+    const [draggedLayer] = newLayers.splice(draggedIndex, 1);
+    newLayers.splice(targetIndex, 0, draggedLayer);
+    setLayers(newLayers);
+  };
+  
+  const handleLayerDragEnd = () => {
+    setDraggedLayerId(null);
+  };
 
   // Handle external toggle request
   useEffect(() => {
@@ -171,12 +197,15 @@ export function VideoDrawingCanvas({
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Draw elements only from visible layers
-    elements.forEach((element) => {
-      const layer = layers.find(l => l.id === element.layerId);
-      if (layer && layer.visible) {
-        drawElement(ctx, element);
-      }
+    // Draw elements layer by layer (bottom to top = first to last in array)
+    // This respects the layer order for z-index
+    layers.forEach((layer) => {
+      if (!layer.visible) return;
+      
+      // Draw all elements from this layer
+      elements
+        .filter(element => element.layerId === layer.id)
+        .forEach(element => drawElement(ctx, element));
     });
     
     // Always draw current element being created
@@ -282,6 +311,13 @@ export function VideoDrawingCanvas({
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Check if current layer is locked
+    const currentLayer = layers.find(l => l.id === currentLayerId);
+    if (currentLayer?.locked) {
+      toast.error(`${currentLayer.name} is locked. Unlock to edit.`);
+      return;
+    }
+    
     if (selectedTool === "text") {
       const pos = getMousePos(e);
       setTextPosition(pos);
@@ -305,6 +341,14 @@ export function VideoDrawingCanvas({
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
+    
+    // Check if current layer is locked
+    const currentLayer = layers.find(l => l.id === currentLayerId);
+    if (currentLayer?.locked) {
+      toast.error(`${currentLayer.name} is locked. Unlock to edit.`);
+      return;
+    }
+    
     if (selectedTool === "text") {
       const pos = getTouchPos(e);
       setTextPosition(pos);
@@ -312,8 +356,7 @@ export function VideoDrawingCanvas({
     }
     
     setIsDrawing(true);
-    const pos = getTouchPos(e);
-    
+    const pos = getTouchPos(e);   
     const newElement: DrawingElement = {
       id: Date.now().toString(),
       type: selectedTool,
@@ -909,10 +952,16 @@ export function VideoDrawingCanvas({
               {layers.map((layer) => (
                 <div
                   key={layer.id}
-                  className={`flex items-center gap-2 p-2 rounded text-sm ${
+                  draggable
+                  onDragStart={(e) => handleLayerDragStart(e, layer.id)}
+                  onDragOver={(e) => handleLayerDragOver(e, layer.id)}
+                  onDragEnd={handleLayerDragEnd}
+                  className={`flex items-center gap-2 p-2 rounded text-sm cursor-move ${
                     currentLayerId === layer.id
                       ? 'bg-primary/20 border border-primary'
                       : 'bg-muted/50 hover:bg-muted'
+                  } ${
+                    draggedLayerId === layer.id ? 'opacity-50' : ''
                   }`}
                 >
                   <Button
@@ -926,6 +975,23 @@ export function VideoDrawingCanvas({
                     }}
                   >
                     {layer.visible ? '👁️' : '🚫'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0"
+                    onClick={() => {
+                      setLayers(layers.map(l =>
+                        l.id === layer.id ? { ...l, locked: !l.locked } : l
+                      ));
+                      if (!layer.locked) {
+                        toast.info(`${layer.name} locked`);
+                      } else {
+                        toast.info(`${layer.name} unlocked`);
+                      }
+                    }}
+                  >
+                    {layer.locked ? '🔒' : '🔓'}
                   </Button>
                   <button
                     className="flex-1 text-left"

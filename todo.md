@@ -3148,3 +3148,13 @@ Note: The application already has extensive annotation features including voice 
 - [x] Update redrawCanvas to respect layer visibility
 - [x] Persist layers in localStorage with draft
 - [x] Test layer creation, visibility toggle, and element assignment
+
+## Phase 48: Layer Reordering and Locking
+- [x] Add drag-and-drop functionality for layer reordering
+- [x] Update layer rendering order to respect array position (z-index)
+- [x] Add visual drag indicators during reorder
+- [x] Implement layer lock toggle button
+- [x] Block drawing on locked layers with toast notification
+- [x] Add visual lock indicator (🔒) on locked layers
+- [x] Persist layer order and lock states in localStorage (already in draft save)
+- [x] Test drag-and-drop reordering and lock functionality
