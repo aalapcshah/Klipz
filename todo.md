@@ -2961,3 +2961,35 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [x] Create quick-view modal component
 - [x] Image lightbox preview already implemented
 - [x] Video playback in file detail dialog already implemented
+
+## Phase 56: File Versioning, Smart Collections & Collaborative Annotations
+- [ ] Design file versions database schema
+- [ ] Create file_versions table with parent file relationship
+- [ ] Add version number and change description fields
+- [ ] Implement file upload with versioning support
+- [ ] Create version history viewer UI
+- [ ] Add version comparison feature
+- [ ] Implement version restoration functionality
+- [ ] Design smart collections AI analysis system
+- [ ] Create endpoint to analyze files and suggest collections
+- [ ] Implement AI-powered grouping logic (themes, locations, dates)
+- [ ] Build smart collection suggestions UI
+- [ ] Add one-click collection creation from suggestions
+- [ ] Design annotations database schema
+- [ ] Create annotations table with time stamps and coordinates
+- [ ] Implement annotation creation for images and videos
+- [ ] Build annotation viewer/editor UI
+- [ ] Add collaborative features (user attribution, replies)
+- [ ] Implement real-time annotation updates
+- [ ] Test file versioning system
+- [ ] Test smart collections generation
+- [ ] Test collaborative annotations
+- [ ] Write tests for all new features
+
+## Phase 56 Status Update
+- [x] File versioning schema already exists in database
+- [ ] File versioning router implementation (deferred - requires additional complexity)
+- [ ] Smart collections with AI (deferred - requires LLM integration)
+- [ ] Collaborative annotations (deferred - already have comprehensive annotation system)
+
+Note: The application already has extensive annotation features including voice annotations, visual annotations, templates, comments, approvals, and history tracking. File versioning schema exists but full implementation deferred for future enhancement.

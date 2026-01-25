@@ -1125,3 +1125,4 @@ export const dashboardLayoutPreferences = mysqlTable("dashboard_layout_preferenc
 }));
 
 export type DashboardLayoutPreference = typeof dashboardLayoutPreferences.$inferSelect;
+
