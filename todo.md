@@ -3021,3 +3021,18 @@ Note: The application already has extensive annotation features including voice 
 - [x] Test file versioning feature (8/8 tests passing)
 - [ ] Create version comparison UI (optional enhancement)
 - [ ] Add version history to full file detail page (optional enhancement)
+
+
+## Phase 58: Mobile UX Fixes & Navigation Improvements
+- [x] Remove keyboard shortcuts display from Files page
+- [x] Add keyboard shortcuts to Settings page (new tab)
+- [ ] Fix mobile video annotation display (currently terrible on mobile)
+- [x] Make navigation menu bar sticky on mobile (already implemented)
+- [x] Reduce size of selection checkboxes on mobile (w-4 h-4 on mobile, w-5 h-5 on desktop)
+- [x] Add 2-column grid layout for Files page on mobile (grid-cols-2 on mobile, 3 on md, 4 on lg)
+- [x] Remove test/stock files (sunset-beach-photo, etc.) from database
+- [x] Separate Videos from Files section (videos now filtered out from Files view)
+- [x] Fix Analytics page 404 error (added route to App.tsx)
+- [x] Optimize filter controls layout on mobile (2-column grid on mobile, flex on desktop)
+- [ ] Test all mobile UX improvements on actual mobile device
+- [ ] Fix mobile video annotation display issues

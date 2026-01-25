@@ -876,7 +876,7 @@ export default function FileGridEnhanced({
       {/* Main Content */}
       <div className="flex-1 space-y-4">
         {/* Filters and Sort */}
-        <div className="flex items-center gap-4 flex-wrap">
+        <div className="grid grid-cols-2 md:flex md:items-center gap-3 md:gap-4">
           {/* Collection Filter */}
           <div className="flex items-center gap-2">
           <label className="text-sm font-medium">Filter by Collection:</label>
@@ -1027,14 +1027,7 @@ export default function FileGridEnhanced({
           )}
         </div>
 
-        {/* Keyboard Shortcuts Hint */}
-        <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-2 rounded-md">
-          <span className="font-medium">Keyboard shortcuts:</span>{" "}
-          <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs">Ctrl+A</kbd> Select all,{" "}
-          <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs">Delete</kbd> Delete selected,{" "}
-          <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs">Ctrl+Z</kbd> Undo,{" "}
-          <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs">Esc</kbd> Clear selection
-        </div>
+
 
         {/* Batch Actions Toolbar */}
         {selectedFilesSet.size > 0 && (
@@ -1323,7 +1316,7 @@ export default function FileGridEnhanced({
           </Card>
         ) : (
           <div 
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4"
             role="grid"
             aria-label="File grid"
           >
@@ -1353,18 +1346,20 @@ export default function FileGridEnhanced({
                   >
                     <X className="h-4 w-4" />
                   </Button>
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-2 md:gap-3">
                     {compareMode ? (
                       <Checkbox
                         checked={compareFiles.includes(file.id)}
                         onCheckedChange={() => toggleCompareFile(file.id)}
                         onClick={(e) => e.stopPropagation()}
+                        className="w-4 h-4 md:w-5 md:h-5"
                       />
                     ) : (
                       <Checkbox
                         checked={selectedFilesSet.has(file.id)}
                         onCheckedChange={() => toggleFile(file.id)}
                         onClick={(e) => e.stopPropagation()}
+                        className="w-4 h-4 md:w-5 md:h-5"
                       />
                     )}
                     <div

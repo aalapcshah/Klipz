@@ -1,0 +1,55 @@
+{
+  "query": "SELECT id, filename, mimeType FROM files WHERE filename LIKE '%sunset-beach%' OR filename LIKE '%test%' OR filename LIKE '%sample%' OR filename LIKE '%recording-176%' LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, filename, mimeType FROM files WHERE filename LIKE '%sunset-beach%' OR filename LIKE '%test%' OR filename LIKE '%sample%' OR filename LIKE '%recording-176%' LIMIT 20;",
+  "rows": [
+    {
+      "id": "99999",
+      "filename": "test.jpg",
+      "mimeType": "image/jpeg"
+    },
+    {
+      "id": "510008",
+      "filename": "sunset-beach-photo.jpg",
+      "mimeType": "image/jpeg"
+    },
+    {
+      "id": "510026",
+      "filename": "sunset-beach-photo.jpg",
+      "mimeType": "image/jpeg"
+    },
+    {
+      "id": "510042",
+      "filename": "sunset-beach-photo.jpg",
+      "mimeType": "image/jpeg"
+    },
+    {
+      "id": "510058",
+      "filename": "sunset-beach-photo.jpg",
+      "mimeType": "image/jpeg"
+    },
+    {
+      "id": "540001",
+      "filename": "recording-1768979227799.webm",
+      "mimeType": "video/webm"
+    },
+    {
+      "id": "540002",
+      "filename": "recording-1768979240857.webm",
+      "mimeType": "video/webm"
+    },
+    {
+      "id": "540003",
+      "filename": "recording-1769156372716.webm",
+      "mimeType": "video/webm"
+    },
+    {
+      "id": "540004",
+      "filename": "recording-1769164788686.webm",
+      "mimeType": "video/webm"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfilename\tmimeType\n99999\ttest.jpg\timage/jpeg\n510008\tsunset-beach-photo.jpg\timage/jpeg\n510026\tsunset-beach-photo.jpg\timage/jpeg\n510042\tsunset-beach-photo.jpg\timage/jpeg\n510058\tsunset-beach-photo.jpg\timage/jpeg\n540001\trecording-1768979227799.webm\tvideo/webm\n540002\trecording-1768979240857.webm\tvideo/webm\n540003\trecording-1769156372716.webm\tvideo/webm\n540004\trecording-1769164788686.webm\tvideo/webm\n",
+  "stderr": "",
+  "execution_time_ms": 53
+}

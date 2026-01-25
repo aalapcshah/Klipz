@@ -260,6 +260,7 @@ export default function Settings() {
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="keyboard">Keyboard Shortcuts</TabsTrigger>
           <TabsTrigger value="knowledge-graphs">Knowledge Graphs</TabsTrigger>
         </TabsList>
 
@@ -269,6 +270,42 @@ export default function Settings() {
 
         <TabsContent value="notifications" className="space-y-6 mt-6">
           <NotificationPreferencesSettings />
+        </TabsContent>
+
+        <TabsContent value="keyboard" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Keyboard Shortcuts</CardTitle>
+              <CardDescription>
+                Use these keyboard shortcuts to navigate and manage files more efficiently
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <span className="text-sm font-medium">Select all files</span>
+                    <kbd className="px-2 py-1 bg-muted border rounded text-sm font-mono">Ctrl+A</kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <span className="text-sm font-medium">Delete selected files</span>
+                    <kbd className="px-2 py-1 bg-muted border rounded text-sm font-mono">Delete</kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <span className="text-sm font-medium">Undo last action</span>
+                    <kbd className="px-2 py-1 bg-muted border rounded text-sm font-mono">Ctrl+Z</kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <span className="text-sm font-medium">Clear selection</span>
+                    <kbd className="px-2 py-1 bg-muted border rounded text-sm font-mono">Esc</kbd>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground mt-4">
+                  Note: On Mac, use <kbd className="px-1.5 py-0.5 bg-muted border rounded text-xs font-mono">Cmd</kbd> instead of <kbd className="px-1.5 py-0.5 bg-muted border rounded text-xs font-mono">Ctrl</kbd>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="appearance" className="space-y-6 mt-6">

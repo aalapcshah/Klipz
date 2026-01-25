@@ -184,7 +184,12 @@ export async function getFilesByUserId(userId: number, limit?: number, offset?: 
   const baseQuery = db
     .select()
     .from(files)
-    .where(eq(files.userId, userId))
+    .where(
+      and(
+        eq(files.userId, userId),
+        sql`${files.mimeType} NOT LIKE 'video/%'`
+      )
+    )
     .orderBy(desc(files.createdAt));
   
   if (limit !== undefined && offset !== undefined) {
@@ -205,7 +210,12 @@ export async function getFilesCountByUserId(userId: number) {
   const result = await db
     .select({ count: sql<number>`count(*)` })
     .from(files)
-    .where(eq(files.userId, userId));
+    .where(
+      and(
+        eq(files.userId, userId),
+        sql`${files.mimeType} NOT LIKE 'video/%'`
+      )
+    );
   
   return result[0]?.count || 0;
 }

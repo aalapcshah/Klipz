@@ -38,6 +38,10 @@ function Router() {
       <Route path="/search" component={Dashboard} />
       <Route path="/videos" component={Dashboard} />
       <Route path="/collections" component={Dashboard} />
+      <Route path="/analytics" component={Dashboard} />
+      <Route path="/enrichment-queue" component={Dashboard} />
+      <Route path="/scheduled-exports" component={Dashboard} />
+      <Route path="/settings" component={Dashboard} />
       <Route path="/knowledge-graph" component={Dashboard} />
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
