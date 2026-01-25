@@ -232,19 +232,27 @@ export function VideoDrawingCanvas({
     const resizeCanvas = () => {
       const rect = video.getBoundingClientRect();
       const containerRect = videoContainer.getBoundingClientRect();
+      
+      // Set canvas internal resolution
       canvas.width = rect.width;
       canvas.height = rect.height;
+      
       // Position canvas over video
       canvas.style.display = 'block';
       canvas.style.position = 'absolute';
-      canvas.style.top = '0';
-      canvas.style.left = '0';
+      // Calculate position relative to container
+      const topOffset = rect.top - containerRect.top;
+      const leftOffset = rect.left - containerRect.left;
+      canvas.style.top = topOffset + 'px';
+      canvas.style.left = leftOffset + 'px';
       canvas.style.width = rect.width + 'px';
       canvas.style.height = rect.height + 'px';
       canvas.style.zIndex = '10';
       canvas.style.pointerEvents = showCanvas ? 'auto' : 'none';
       canvas.style.cursor = 'crosshair';
       canvas.style.touchAction = 'none';
+      canvas.style.userSelect = 'none';
+      canvas.style.webkitUserSelect = 'none';
       redrawCanvas();
     };
     

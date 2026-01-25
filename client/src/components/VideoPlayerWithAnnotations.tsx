@@ -434,7 +434,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       )}
       
       <Card className="overflow-hidden">
-        <div className="relative bg-black" id="video-container">
+        <div className="relative bg-black" id="video-container" style={{ position: 'relative' }}>
           <video
             ref={videoRef}
             src={videoUrl}
@@ -581,7 +581,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           </div>
           
           {/* Mobile Floating Action Buttons for Annotation Tools */}
-          <div className="md:hidden fixed bottom-20 right-4 z-50 flex flex-col gap-3">
+          <div className={`md:hidden fixed right-4 z-50 flex flex-col gap-3 transition-all duration-300 ${showRecorder ? 'bottom-64' : 'bottom-20'}`}>
             <Button 
               size="lg"
               className="h-14 w-14 rounded-full shadow-lg bg-green-600 hover:bg-green-700 text-white p-0"

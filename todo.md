@@ -3256,3 +3256,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add feedback button to navigation or settings
 - [x] Send feedback notifications to owner
 - [x] Test feedback form submission
+
+## Video Annotation Mobile Bug Fixes
+- [x] Fix floating action buttons overlapping voice annotation cancel button
+- [x] Fix drawing functionality not working on video player
+- [x] Test annotation features on mobile layout
