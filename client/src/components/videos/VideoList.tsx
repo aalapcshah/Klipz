@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import {
   VideoIcon,
   Loader2,
@@ -15,6 +16,8 @@ import {
   PenLine,
   MessageSquare,
   ChevronDown,
+  Search,
+  X,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -59,6 +62,17 @@ export function VideoList() {
     return saved ? parseInt(saved) : 50;
   });
   const [sortBy, setSortBy] = useState<'date' | 'annotations'>('date');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1); // Reset to first page on search
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
   
   // Update URL when page or pageSize changes
   useEffect(() => {
@@ -72,7 +86,7 @@ export function VideoList() {
     localStorage.setItem('videosPageSize', pageSize.toString());
   }, [pageSize]);
   
-  const { data: videosData, isLoading, refetch } = trpc.videos.list.useQuery({ page, pageSize, sortBy });
+  const { data: videosData, isLoading, refetch } = trpc.videos.list.useQuery({ page, pageSize, sortBy, search: debouncedSearch });
   const videos = videosData?.videos || [];
   const deleteMutation = trpc.videos.delete.useMutation();
   const batchDeleteMutation = trpc.videos.batchDelete.useMutation();
@@ -206,9 +220,31 @@ export function VideoList() {
 
   return (
     <>
-      {/* Sort Controls */}
-      {videos && videos.length > 0 && (
-        <div className="mb-4 flex items-center justify-end gap-2">
+      {/* Search and Sort Controls */}
+      <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        {/* Search Input */}
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search videos by title, description, or transcript..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Sort Controls */}
+        {videos && videos.length > 0 && (
+          <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Sort by:</span>
           <Select value={sortBy} onValueChange={(value: 'date' | 'annotations') => setSortBy(value)}>
             <SelectTrigger className="w-[180px]">
@@ -219,8 +255,9 @@ export function VideoList() {
               <SelectItem value="annotations">Annotation Count</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       {/* Batch Export Controls */}
       {videos && videos.length > 0 && (

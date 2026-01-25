@@ -1126,3 +1126,37 @@ export const dashboardLayoutPreferences = mysqlTable("dashboard_layout_preferenc
 
 export type DashboardLayoutPreference = typeof dashboardLayoutPreferences.$inferSelect;
 
+
+/**
+ * Video tags table - stores unique tags for organizing videos
+ */
+export const videoTags = mysqlTable("video_tags", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(), // Tags are user-specific
+  name: varchar("name", { length: 100 }).notNull(),
+  color: varchar("color", { length: 7 }).default("#3b82f6"), // Hex color code
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  userIdIndex: index("video_tags_user_id_idx").on(table.userId),
+  userNameIndex: index("video_tags_user_name_idx").on(table.userId, table.name),
+}));
+
+export type VideoTag = typeof videoTags.$inferSelect;
+export type InsertVideoTag = typeof videoTags.$inferInsert;
+
+/**
+ * Video tag assignments - junction table linking videos to tags
+ */
+export const videoTagAssignments = mysqlTable("video_tag_assignments", {
+  id: int("id").autoincrement().primaryKey(),
+  videoId: int("videoId").notNull(),
+  tagId: int("tagId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  videoIdIndex: index("video_tag_assignments_video_id_idx").on(table.videoId),
+  tagIdIndex: index("video_tag_assignments_tag_id_idx").on(table.tagId),
+  uniqueAssignment: index("video_tag_assignments_unique_idx").on(table.videoId, table.tagId),
+}));
+
+export type VideoTagAssignment = typeof videoTagAssignments.$inferSelect;
+export type InsertVideoTagAssignment = typeof videoTagAssignments.$inferInsert;

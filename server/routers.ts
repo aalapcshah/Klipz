@@ -1224,18 +1224,20 @@ export const appRouter = router({
         page: z.number().default(1),
         pageSize: z.number().default(50),
         sortBy: z.enum(['date', 'annotations']).optional(),
+        search: z.string().optional(),
       }).optional())
       .query(async ({ ctx, input }) => {
         const page = input?.page || 1;
         const pageSize = input?.pageSize || 50;
         const sortBy = input?.sortBy || 'date';
+        const search = input?.search || '';
         const offset = (page - 1) * pageSize;
         
         // Get total count
-        const totalCount = await db.getVideosCountByUserId(ctx.user.id);
+        const totalCount = await db.getVideosCountByUserId(ctx.user.id, search);
         
         // Get paginated videos
-        const videos = await db.getVideosByUserId(ctx.user.id, pageSize, offset, sortBy);
+        const videos = await db.getVideosByUserId(ctx.user.id, pageSize, offset, sortBy, search);
         
         return {
           videos,
@@ -2430,6 +2432,82 @@ For each suggestion, provide:
           }));
       }),
   }),
+
+  // ============= VIDEO TAGS ROUTER =============
+  videoTags: router({
+    // List all tags for the current user
+    list: protectedProcedure
+      .query(async ({ ctx }) => {
+        return await db.getVideoTagsByUserId(ctx.user.id);
+      }),
+
+    // Create a new tag
+    create: protectedProcedure
+      .input(z.object({
+        name: z.string().min(1).max(100),
+        color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const tagId = await db.createVideoTag({
+          userId: ctx.user.id,
+          name: input.name,
+          color: input.color || '#3b82f6',
+        });
+        return { id: tagId };
+      }),
+
+    // Update a tag
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().min(1).max(100).optional(),
+        color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await db.updateVideoTag(input.id, ctx.user.id, {
+          name: input.name,
+          color: input.color,
+        });
+        return { success: true };
+      }),
+
+    // Delete a tag
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await db.deleteVideoTag(input.id, ctx.user.id);
+        return { success: true };
+      }),
+
+    // Assign tag to video
+    assignToVideo: protectedProcedure
+      .input(z.object({
+        videoId: z.number(),
+        tagId: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await db.assignTagToVideo(input.videoId, input.tagId, ctx.user.id);
+        return { success: true };
+      }),
+
+    // Remove tag from video
+    removeFromVideo: protectedProcedure
+      .input(z.object({
+        videoId: z.number(),
+        tagId: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await db.removeTagFromVideo(input.videoId, input.tagId, ctx.user.id);
+        return { success: true };
+      }),
+
+    // Get tags for a specific video
+    getVideoTags: protectedProcedure
+      .input(z.object({ videoId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        return await db.getTagsForVideo(input.videoId, ctx.user.id);
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
@@ -2526,3 +2604,4 @@ function calculateSimilarity(file1: any, file2: any): number {
   
   return Math.min(score, 100);
 }
+

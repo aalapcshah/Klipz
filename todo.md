@@ -3190,3 +3190,15 @@ Note: The application already has extensive annotation features including voice 
 - [x] Update video list query to support sorting by annotation count
 - [x] Add sort UI to video library frontend
 - [x] Test annotation previews, batch delete, and sorting
+
+## Phase 52: Video Search, Tagging, and Playback Speed
+- [x] Add search parameter to videos.list query (backend)
+- [x] Update getVideosByUserId to support search filtering
+- [x] Add search input UI to video library
+- [x] Design video tags database schema (tags table, video_tags junction table)
+- [x] Implement tag CRUD operations in backend
+- [ ] Add tag management UI to video cards
+- [ ] Add tag filter dropdown to video library
+- [ ] Add playback speed controls to VideoPlayerWithAnnotations
+- [ ] Persist playback speed preference to localStorage
+- [ ] Test search, tagging, and playback speed features

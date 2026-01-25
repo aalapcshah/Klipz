@@ -43,6 +43,10 @@ import {
   InsertAnnotationHistory,
   userOnboarding,
   recentlyViewedFiles,
+  videoTags,
+  InsertVideoTag,
+  videoTagAssignments,
+  InsertVideoTagAssignment,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -486,26 +490,56 @@ export async function createVideo(video: InsertVideo) {
   return result[0].insertId;
 }
 
-export async function getVideosCountByUserId(userId: number): Promise<number> {
+export async function getVideosCountByUserId(userId: number, search?: string) {
   const db = await getDb();
   if (!db) return 0;
+
+  const conditions = [eq(videos.userId, userId)];
+
+  // Add search filter if provided
+  if (search && search.trim()) {
+    const searchTerm = `%${search.trim()}%`;
+    conditions.push(
+      or(
+        sql`${videos.title} LIKE ${searchTerm}`,
+        sql`${videos.filename} LIKE ${searchTerm}`,
+        sql`${videos.description} LIKE ${searchTerm}`,
+        sql`${videos.transcript} LIKE ${searchTerm}`
+      ) as any
+    );
+  }
 
   const result = await db
     .select({ count: sql<number>`count(*)` })
     .from(videos)
-    .where(eq(videos.userId, userId));
+    .where(and(...conditions));
 
   return result[0]?.count || 0;
 }
 
-export async function getVideosByUserId(userId: number, limit?: number, offset?: number, sortBy: 'date' | 'annotations' = 'date') {
+export async function getVideosByUserId(userId: number, limit?: number, offset?: number, sortBy: 'date' | 'annotations' = 'date', search?: string) {
   const db = await getDb();
   if (!db) return [];
 
-  const baseQuery = db
+  const conditions = [eq(videos.userId, userId)];
+
+  // Add search filter if provided
+  if (search && search.trim()) {
+    const searchTerm = `%${search.trim()}%`;
+    conditions.push(
+      or(
+        sql`${videos.title} LIKE ${searchTerm}`,
+        sql`${videos.filename} LIKE ${searchTerm}`,
+        sql`${videos.description} LIKE ${searchTerm}`,
+        sql`${videos.transcript} LIKE ${searchTerm}`
+      ) as any
+    );
+  }
+
+  let baseQuery = db
     .select()
     .from(videos)
-    .where(eq(videos.userId, userId))
+    .where(and(...conditions))
     .orderBy(desc(videos.createdAt));
   
   const videoList = limit !== undefined && offset !== undefined
@@ -2033,4 +2067,120 @@ export async function upsertActivityNotificationPreferences(params: {
   }
 
   return await getActivityNotificationPreferences(params.userId);
+}
+
+
+// ============= VIDEO TAGS HELPERS =============
+
+export async function getVideoTagsByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(videoTags)
+    .where(eq(videoTags.userId, userId))
+    .orderBy(videoTags.name);
+}
+
+export async function createVideoTag(tag: InsertVideoTag) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(videoTags).values(tag);
+  return result[0].insertId;
+}
+
+export async function updateVideoTag(tagId: number, userId: number, updates: Partial<InsertVideoTag>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .update(videoTags)
+    .set(updates)
+    .where(and(eq(videoTags.id, tagId), eq(videoTags.userId, userId)));
+}
+
+export async function deleteVideoTag(tagId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // First delete all assignments
+  await db
+    .delete(videoTagAssignments)
+    .where(eq(videoTagAssignments.tagId, tagId));
+
+  // Then delete the tag
+  await db
+    .delete(videoTags)
+    .where(and(eq(videoTags.id, tagId), eq(videoTags.userId, userId)));
+}
+
+export async function assignTagToVideo(videoId: number, tagId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Verify the video belongs to the user
+  const video = await db
+    .select()
+    .from(videos)
+    .where(and(eq(videos.id, videoId), eq(videos.userId, userId)))
+    .limit(1);
+
+  if (!video.length) throw new Error("Video not found");
+
+  // Check if assignment already exists
+  const existing = await db
+    .select()
+    .from(videoTagAssignments)
+    .where(and(eq(videoTagAssignments.videoId, videoId), eq(videoTagAssignments.tagId, tagId)))
+    .limit(1);
+
+  if (existing.length) return; // Already assigned
+
+  await db.insert(videoTagAssignments).values({ videoId, tagId });
+}
+
+export async function removeTagFromVideo(videoId: number, tagId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Verify the video belongs to the user
+  const video = await db
+    .select()
+    .from(videos)
+    .where(and(eq(videos.id, videoId), eq(videos.userId, userId)))
+    .limit(1);
+
+  if (!video.length) throw new Error("Video not found");
+
+  await db
+    .delete(videoTagAssignments)
+    .where(and(eq(videoTagAssignments.videoId, videoId), eq(videoTagAssignments.tagId, tagId)));
+}
+
+export async function getTagsForVideo(videoId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  // Verify the video belongs to the user
+  const video = await db
+    .select()
+    .from(videos)
+    .where(and(eq(videos.id, videoId), eq(videos.userId, userId)))
+    .limit(1);
+
+  if (!video.length) return [];
+
+  const result = await db
+    .select({
+      id: videoTags.id,
+      name: videoTags.name,
+      color: videoTags.color,
+    })
+    .from(videoTagAssignments)
+    .innerJoin(videoTags, eq(videoTagAssignments.tagId, videoTags.id))
+    .where(eq(videoTagAssignments.videoId, videoId));
+
+  return result;
 }
