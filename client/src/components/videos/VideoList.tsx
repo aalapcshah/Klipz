@@ -482,10 +482,28 @@ export function VideoList() {
 
             {/* Video Info */}
             <div className="space-y-2">
-              <h3 className="text-sm font-medium truncate">
-                {video.title || video.filename}
-              </h3>
+              {/* Title with draft badge */}
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-medium truncate flex-1">
+                  {video.title || video.filename}
+                </h3>
+                {video.exportStatus && (
+                  <Badge
+                    variant={
+                      video.exportStatus === "completed"
+                        ? "default"
+                        : video.exportStatus === "processing"
+                          ? "secondary"
+                          : "outline"
+                    }
+                    className="text-xs shrink-0"
+                  >
+                    {video.exportStatus}
+                  </Badge>
+                )}
+              </div>
               
+              {/* Duration, annotations, tags, and action buttons on same line */}
               <div className="flex items-center gap-1.5 flex-wrap">
                 <Badge variant="secondary" className="text-xs">
                   {formatDuration(video.duration)}
@@ -506,33 +524,29 @@ export function VideoList() {
                     )}
                   </>
                 )}
-                {video.exportStatus && (
-                  <Badge
-                    variant={
-                      video.exportStatus === "completed"
-                        ? "default"
-                        : video.exportStatus === "processing"
-                          ? "secondary"
-                          : "outline"
-                    }
-                    className="text-xs"
-                  >
-                    {video.exportStatus}
-                  </Badge>
-                )}
-                {video.voiceAnnotationCount > 0 && (
-                  <Badge variant="outline" className="text-xs flex items-center gap-1">
-                    <Mic className="h-3 w-3" />
-                    {video.voiceAnnotationCount}
-                  </Badge>
-                )}
-                {video.visualAnnotationCount > 0 && (
-                  <Badge variant="outline" className="text-xs flex items-center gap-1">
-                    <PenLine className="h-3 w-3" />
-                    {video.visualAnnotationCount}
-                  </Badge>
-                )}
                 <VideoTagManager videoId={video.id} onTagsChange={refetch} />
+                
+                {/* Action buttons inline */}
+                <div className="flex items-center gap-1 ml-auto">
+                  <Button variant="ghost" size="sm" className="h-7 px-2" asChild>
+                    <a href={video.url} target="_blank" rel="noopener noreferrer">
+                      <Play className="h-3 w-3 mr-1" />
+                      Play
+                    </a>
+                  </Button>
+                  {video.fileId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2"
+                      onClick={() => setAnnotatingVideo({ id: video.id, fileId: video.fileId!, url: video.url, title: video.title || video.filename })}
+                      title="Annotate (Voice, Drawing, Text)"
+                    >
+                      <MessageSquare className="h-3 w-3 mr-1" />
+                      Annotate
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {video.description && (
@@ -556,26 +570,8 @@ export function VideoList() {
               )}
             </div>
 
-            {/* Actions */}
+            {/* Export and Delete Actions */}
             <div className="flex flex-wrap gap-2 mt-3">
-              <Button variant="outline" size="sm" className="flex-1" asChild>
-                <a href={video.url} target="_blank" rel="noopener noreferrer">
-                  <Play className="h-3 w-3 mr-1" />
-                  Play
-                </a>
-              </Button>
-              {video.fileId && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAnnotatingVideo({ id: video.id, fileId: video.fileId!, url: video.url, title: video.title || video.filename })}
-                  title="Annotate (Voice, Drawing, Text)"
-                  className="flex-1"
-                >
-                  <MessageSquare className="h-3 w-3 mr-1" />
-                  Annotate
-                </Button>
-              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button

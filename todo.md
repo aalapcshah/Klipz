@@ -3330,3 +3330,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add file titles to file display cards in small font
 - [x] Make AI enrichment metadata tags collapsible to save space
 - [x] Test all fixes on mobile layout
+
+## Video Card Layout Reorganization
+- [x] Move Play and Annotate buttons to same line as duration (0:02) and draft badge
+- [x] Move draft status badge up to title/timestamp line
+- [x] Test compact layout on mobile
