@@ -1257,17 +1257,9 @@ export default function FileGridEnhanced({
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Status:</span>
-                          <span
-                            className={
-                              file.enrichmentStatus === "completed"
-                                ? "text-green-500"
-                                : "text-yellow-500"
-                            }
-                          >
-                            {file.enrichmentStatus === "completed"
-                              ? "Enriched"
-                              : "Not Enriched"}
-                          </span>
+                          {file.enrichmentStatus === "completed" && (
+                            <span className="text-green-500">Enriched</span>
+                          )}
                         </div>
                         {fileCollections.length > 0 && (
                           <div>
@@ -1408,17 +1400,9 @@ export default function FileGridEnhanced({
                       <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-muted-foreground">
                         <span className="shrink-0">{formatFileSize(file.fileSize)}</span>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span
-                            className={
-                              file.enrichmentStatus === "completed"
-                                ? "text-green-500"
-                                : "text-yellow-500"
-                            }
-                          >
-                            {file.enrichmentStatus === "enriched"
-                              ? "Enriched"
-                              : "Not Enriched"}
-                          </span>
+                          {file.enrichmentStatus === "enriched" && (
+                            <span className="text-green-500">Enriched</span>
+                          )}
                           {(file as any).qualityScore !== undefined && (
                             <span
                               className={

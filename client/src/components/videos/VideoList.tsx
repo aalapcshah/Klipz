@@ -33,6 +33,7 @@ import { useLocation, useSearch } from "wouter";
 import { AnnotationEditor } from "./AnnotationEditor";
 import { CloudExportDialog } from "./CloudExportDialog";
 import { VideoPlayerWithAnnotations } from "../VideoPlayerWithAnnotations";
+import { VideoTagManager } from "./VideoTagManager";
 import {
   Dialog,
   DialogContent,
@@ -93,6 +94,15 @@ export function VideoList() {
   const exportMutation = trpc.videoExport.export.useMutation();
   const batchExportMutation = trpc.videoExport.batchExport.useMutation();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  // Tag management
+  const { data: allTags = [] } = trpc.videoTags.list.useQuery();
+  const createTagMutation = trpc.videoTags.create.useMutation();
+  const assignTagMutation = trpc.videoTags.assignToVideo.useMutation();
+  const removeTagMutation = trpc.videoTags.removeFromVideo.useMutation();
+  const [managingTagsForVideo, setManagingTagsForVideo] = useState<number | null>(null);
+  const [newTagName, setNewTagName] = useState('');
+  const [selectedTagFilter, setSelectedTagFilter] = useState<number | null>(null);
 
   const handleToggleSelection = (videoId: number) => {
     setSelectedVideoIds(prev => 
@@ -413,6 +423,9 @@ export function VideoList() {
                   {video.description}
                 </p>
               )}
+              
+              {/* Tag management */}
+              <VideoTagManager videoId={video.id} onTagsChange={refetch} />
 
               {/* Show exported video link if available */}
               {video.exportStatus === "completed" && video.exportedUrl && (

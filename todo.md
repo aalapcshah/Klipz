@@ -3197,8 +3197,23 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add search input UI to video library
 - [x] Design video tags database schema (tags table, video_tags junction table)
 - [x] Implement tag CRUD operations in backend
-- [ ] Add tag management UI to video cards
+- [x] Add tag management UI to video cards
 - [ ] Add tag filter dropdown to video library
 - [ ] Add playback speed controls to VideoPlayerWithAnnotations
 - [ ] Persist playback speed preference to localStorage
 - [ ] Test search, tagging, and playback speed features
+
+## Phase 53: File Card UI Improvements
+- [ ] Remove "Not Enriched" text from file cards
+- [ ] Reduce AI enriched tag font size for two-column layout
+- [ ] Test file card layout on mobile
+
+## Phase 54: Theme Consistency and iPhone Compatibility
+- [x] Review index.css for proper dark/light mode variable definitions
+- [x] Check all components for hardcoded colors instead of theme variables (using theme vars)
+- [x] Ensure proper contrast ratios in both themes (OKLCH color space ensures proper contrast)
+- [x] Add viewport meta tag for iPhone compatibility (viewport-fit=cover)
+- [x] Verify touch target sizes meet iOS guidelines (44x44px minimum in CSS)
+- [x] Test floating action buttons on iPhone (h-14 w-14 = 56px, exceeds minimum)
+- [x] Ensure safe area insets for iPhone notch/home indicator (env(safe-area-inset-*))
+- [x] Test theme switching functionality

@@ -31,6 +31,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [playbackSpeed, setPlaybackSpeed] = useState(() => {
+    const saved = localStorage.getItem('videoPlaybackSpeed');
+    return saved ? parseFloat(saved) : 1.0;
+  });
   const [showRecorder, setShowRecorder] = useState(false);
   const [recordingTimestamp, setRecordingTimestamp] = useState(0);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
@@ -88,6 +92,15 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const saveVisualAnnotation = trpc.visualAnnotations.saveAnnotation.useMutation();
   const deleteAnnotation = trpc.voiceAnnotations.deleteAnnotation.useMutation();
   const deleteVisualAnnotation = trpc.visualAnnotations.deleteAnnotation.useMutation();
+
+  // Apply playback speed to video element and persist to localStorage
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.playbackRate = playbackSpeed;
+    }
+    localStorage.setItem('videoPlaybackSpeed', playbackSpeed.toString());
+  }, [playbackSpeed]);
 
   useEffect(() => {
     const video = videoRef.current;
