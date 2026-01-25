@@ -260,6 +260,13 @@
       "when": 1769302126845,
       "tag": "0036_crazy_morlocks",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "5",
+      "when": 1769306272510,
+      "tag": "0037_natural_lilandra",
+      "breakpoints": true
     }
   ]
 }

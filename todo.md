@@ -2684,3 +2684,47 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [x] Test user role management (UI already functional)
 - [x] Test alert dashboard widget (displays live alert status)
 - [x] Test cohort templates (11 preset templates available)
+
+
+## Phase 50: Alert History, Saved Cohorts & Dashboard Customization
+- [ ] Design alert notification history database schema
+- [ ] Create alert_notification_log table with timestamps and values
+- [ ] Add resolution status tracking (triggered, resolved, acknowledged)
+- [ ] Create alert history router with CRUD operations
+- [ ] Build alert history page with timeline view
+- [ ] Add filtering by alert type and date range
+- [ ] Design saved cohort comparisons database schema
+- [ ] Create saved_cohort_comparisons table
+- [ ] Add save comparison functionality to cohort analysis
+- [ ] Create saved comparisons list page
+- [ ] Add quick load saved comparison feature
+- [ ] Design dashboard customization system
+- [ ] Create dashboard_layout_preferences table
+- [ ] Implement drag-and-drop widget reordering
+- [ ] Add widget visibility toggles
+- [ ] Save and restore dashboard layout preferences
+- [ ] Test alert notification history
+- [ ] Test saved cohort comparisons
+- [ ] Test dashboard customization
+
+## Phase 50: Alert History, Saved Cohorts & Dashboard Customization
+- [x] Design alert notification history database schema
+- [x] Create alert_notification_log table with timestamps and values
+- [x] Add resolution status tracking (triggered, resolved, acknowledged)
+- [x] Create alert history router with CRUD operations
+- [x] Build alert history page with timeline view
+- [x] Add filtering by alert type and date range
+- [x] Add alert history link to admin navigation
+- [ ] Design saved cohort comparisons database schema
+- [ ] Create saved_cohort_comparisons table
+- [ ] Add save comparison functionality to cohort analysis
+- [ ] Create saved comparisons list page
+- [ ] Add quick load saved comparison feature
+- [ ] Design dashboard customization system
+- [ ] Create dashboard_layout_preferences table
+- [ ] Implement drag-and-drop widget reordering
+- [ ] Add widget visibility toggles
+- [ ] Save and restore dashboard layout preferences
+- [ ] Test alert notification history
+- [ ] Test saved cohort comparisons
+- [ ] Test dashboard customization

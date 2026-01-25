@@ -24,6 +24,7 @@ import { notificationPreferencesRouter } from "./routers/notificationPreferences
 import { adminRouter } from "./routers/admin";
 import { scheduledReportsRouter } from "./routers/scheduledReports";
 import { engagementAlertsRouter } from "./routers/engagementAlerts";
+import { alertHistoryRouter } from "./routers/alertHistory";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { sendUploadEmail, sendEditEmail, sendDeleteEmail, sendEnrichEmail } from "./_core/activityEmailNotifications";
 import { TRPCError } from "@trpc/server";
@@ -359,6 +360,7 @@ export const appRouter = router({
   admin: adminRouter,
   scheduledReports: scheduledReportsRouter,
   engagementAlerts: engagementAlertsRouter,
+  alertHistory: alertHistoryRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

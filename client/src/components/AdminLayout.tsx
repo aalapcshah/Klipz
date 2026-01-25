@@ -10,7 +10,8 @@ import {
   Bell, 
   Calendar,
   LogOut,
-  Shield
+  Shield,
+  History
 } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -50,7 +51,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { href: "/admin/reports", label: "Reports", icon: FileText },
     { href: "/admin/engagement", label: "Engagement", icon: TrendingUp },
     { href: "/admin/alerts", label: "Alerts", icon: Bell },
+    { href: "/admin/alert-history", label: "Alert History", icon: History },
     { href: "/admin/scheduled", label: "Scheduled Reports", icon: Calendar },
+    { href: "/admin/cohorts", label: "Cohort Analysis", icon: TrendingUp },
   ];
 
   return (

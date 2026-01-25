@@ -1051,3 +1051,19 @@ export const engagementAlertsRelations = relations(engagementAlerts, ({ one }) =
     references: [users.id],
   }),
 }));
+
+
+export const alertNotificationLog = mysqlTable("alert_notification_log", {
+  id: int("id").autoincrement().primaryKey(),
+  alertId: int("alertId").notNull(),
+  triggeredAt: timestamp("triggeredAt").notNull(),
+  metricValue: float("metricValue").notNull(),
+  thresholdValue: float("thresholdValue").notNull(),
+  status: mysqlEnum("status", ["triggered", "resolved", "acknowledged"]).notNull().default("triggered"),
+  resolvedAt: timestamp("resolvedAt"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AlertNotificationLog = typeof alertNotificationLog.$inferSelect;
+export type InsertAlertNotificationLog = typeof alertNotificationLog.$inferInsert;
