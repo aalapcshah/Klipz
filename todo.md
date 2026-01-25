@@ -3339,3 +3339,19 @@ Note: The application already has extensive annotation features including voice 
 
 ## Mobile Video Player Overflow Fix
 - [x] Fix horizontal overflow on mobile video annotation screen - content should fit viewport without horizontal scrolling
+
+
+## Mobile Annotation Enhancements
+- [ ] Implement pinch-to-zoom for video canvas on mobile devices
+- [ ] Add zoom controls (zoom in, zoom out, reset) to drawing toolbar
+- [ ] Implement pan functionality when zoomed in
+- [ ] Add voice annotation playback speed control (0.5x, 1x, 1.5x, 2x)
+- [ ] Add speed control UI to voice annotation cards
+- [ ] Test pinch-to-zoom on mobile devices
+- [ ] Test playback speed control functionality
+
+
+## Voice Annotation UI Cleanup
+- [x] Make voice annotation filters and controls collapsible (hidden by default)
+- [x] Add toggle button to show/hide filters section
+- [x] Test collapsible filters on mobile viewport

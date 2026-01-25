@@ -98,6 +98,14 @@ export function VideoDrawingCanvas({
   const [editingName, setEditingName] = useState('');
   const [selectedLayerIds, setSelectedLayerIds] = useState<string[]>([]);
   
+  // Zoom and pan state
+  const [zoom, setZoom] = useState(1);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+  const [isPanning, setIsPanning] = useState(false);
+  const [lastPinchDistance, setLastPinchDistance] = useState<number | null>(null);
+  const [lastPanPosition, setLastPanPosition] = useState<{x: number, y: number} | null>(null);
+  
   // Layer reordering handlers
   const handleLayerDragStart = (e: React.DragEvent, layerId: string) => {
     setDraggedLayerId(layerId);
@@ -387,9 +395,33 @@ export function VideoDrawingCanvas({
     
     const rect = canvas.getBoundingClientRect();
     const touch = e.touches[0];
+    // Account for zoom and pan
+    const x = (touch.clientX - rect.left - panX) / zoom;
+    const y = (touch.clientY - rect.top - panY) / zoom;
+    return { x, y };
+  };
+
+  // Calculate distance between two touch points for pinch gesture
+  const getPinchDistance = (e: React.TouchEvent<HTMLCanvasElement>): number => {
+    if (e.touches.length < 2) return 0;
+    const touch1 = e.touches[0];
+    const touch2 = e.touches[1];
+    const dx = touch2.clientX - touch1.clientX;
+    const dy = touch2.clientY - touch1.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  // Get center point between two touches
+  const getPinchCenter = (e: React.TouchEvent<HTMLCanvasElement>): Point => {
+    if (e.touches.length < 2) return { x: 0, y: 0 };
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const touch1 = e.touches[0];
+    const touch2 = e.touches[1];
     return {
-      x: touch.clientX - rect.left,
-      y: touch.clientY - rect.top,
+      x: ((touch1.clientX + touch2.clientX) / 2) - rect.left,
+      y: ((touch1.clientY + touch2.clientY) / 2) - rect.top,
     };
   };
 
@@ -424,6 +456,23 @@ export function VideoDrawingCanvas({
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
+    
+    // Handle pinch-to-zoom (two fingers)
+    if (e.touches.length === 2) {
+      const distance = getPinchDistance(e);
+      setLastPinchDistance(distance);
+      setIsDrawing(false);
+      setCurrentElement(null);
+      return;
+    }
+    
+    // Handle pan mode when zoomed in (one finger when zoom > 1)
+    if (e.touches.length === 1 && zoom > 1) {
+      const touch = e.touches[0];
+      setLastPanPosition({ x: touch.clientX, y: touch.clientY });
+      setIsPanning(true);
+      return;
+    }
     
     // Check if current layer is locked
     const currentLayer = layers.find(l => l.id === currentLayerId);

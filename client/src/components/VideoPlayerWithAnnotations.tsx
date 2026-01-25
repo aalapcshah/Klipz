@@ -67,6 +67,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   
   // Collapsible sections state
   const [drawingAnnotationsCollapsed, setDrawingAnnotationsCollapsed] = useState(true);
+  const [voiceFiltersCollapsed, setVoiceFiltersCollapsed] = useState(true);
 
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.voiceAnnotations.getAnnotations.useQuery({ fileId });
   const exportAnnotationsMutation = trpc.annotationExport.exportAnnotations.useMutation();
@@ -1065,9 +1066,21 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 )}
               </div>
             </h3>
+          </div>
             
-            {/* Search and Filter Bar */}
-            <div className="mb-4 space-y-3">
+            {/* Filters Toggle Button */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setVoiceFiltersCollapsed(!voiceFiltersCollapsed)}
+              className="w-full mb-3"
+            >
+              {voiceFiltersCollapsed ? 'Show' : 'Hide'} Filters & Controls
+            </Button>
+            
+            {/* Search and Filter Bar - Collapsible */}
+            {!voiceFiltersCollapsed && (
+            <div className="mb-4 space-y-3 border-t pt-3">
               <input
                 type="text"
                 placeholder="Search voice annotations..."
@@ -1173,7 +1186,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 <span className="text-xs text-muted-foreground w-8">{speechRate.toFixed(1)}x</span>
               </div>
             </div>
-          </div>
+            )}
           
           {(() => {
             const filteredVoiceAnnotations = annotations.filter((annotation) => {
