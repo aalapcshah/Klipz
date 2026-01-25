@@ -3217,3 +3217,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Test floating action buttons on iPhone (h-14 w-14 = 56px, exceeds minimum)
 - [x] Ensure safe area insets for iPhone notch/home indicator (env(safe-area-inset-*))
 - [x] Test theme switching functionality
+
+## Phase 55: Video Action Buttons Mobile Visibility Fix
+- [x] Remove hover-only opacity from video action buttons
+- [x] Make action buttons always visible on mobile/touch devices (opacity-100 on mobile, hover on desktop)
+- [x] Test Annotate button visibility on Android

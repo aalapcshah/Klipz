@@ -443,7 +443,7 @@ export function VideoList() {
             </div>
 
             {/* Actions */}
-            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
               <Button variant="outline" size="sm" className="flex-1" asChild>
                 <a href={video.url} target="_blank" rel="noopener noreferrer">
                   <Play className="h-3 w-3 mr-1" />
