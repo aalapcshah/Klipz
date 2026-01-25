@@ -17,6 +17,8 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { UserPresenceIndicator } from "./UserPresenceIndicator";
 
 import { BatchActionsToolbar } from "./BatchActionsToolbar";
+import { VoiceAnnotationExport } from "./VoiceAnnotationExport";
+import { HighlightedText } from "./HighlightedText";
 
 interface VideoPlayerWithAnnotationsProps {
   fileId: number;
@@ -848,7 +850,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 <MessageSquare className="h-5 w-5" />
                 Voice Annotations ({annotations.length})
               </div>
-              <div className="flex items-center gap-2 text-sm font-normal">
+              <div className="flex items-center gap-3 text-sm font-normal">
                 {selectedVoiceIds.length > 0 && (
                   <span className="text-muted-foreground">
                     {selectedVoiceIds.length} of {annotations.length} selected
@@ -869,6 +871,17 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                   />
                   <span className="text-xs">Select All</span>
                 </label>
+                {selectedVoiceIds.length > 0 && (
+                  <VoiceAnnotationExport
+                    annotations={annotations
+                      .filter(a => a.id && selectedVoiceIds.includes(a.id))
+                      .map(a => ({
+                        ...a,
+                        createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : a.createdAt
+                      }))}
+                    videoTitle={fileId.toString()}
+                  />
+                )}
               </div>
             </h3>
             
@@ -1068,7 +1081,9 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 {annotation.transcript && (
                   <div className="pl-2 border-l-2 border-primary/30 space-y-2">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm text-foreground flex-1">{annotation.transcript}</p>
+                      <p className="text-sm text-foreground flex-1">
+                        <HighlightedText text={annotation.transcript} searchQuery={searchQuery} />
+                      </p>
                       <Button
                         size="sm"
                         variant="ghost"

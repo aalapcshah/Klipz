@@ -3092,3 +3092,39 @@ Note: The application already has extensive annotation features including voice 
 - [x] Remove keyboard shortcuts from video annotation page (lines 559-570 removed)
 - [x] Move voice notes recording box to appear immediately below "Show Timeline" button
 - [x] Verify keyboard shortcuts are completely removed from VideoPlayerWithAnnotations
+
+
+## Phase 65: Mobile Testing, Batch Voice Export, and Voice Search
+- [x] Create comprehensive mobile testing checklist document (MOBILE_TESTING_CHECKLIST.md)
+- [ ] Test checkbox sizes on actual mobile devices
+- [ ] Test Files page header layout on mobile
+- [ ] Test video annotation tools on mobile (touch interactions)
+- [ ] Test voice recording on mobile devices
+- [ ] Test file detail modal on mobile
+- [x] Implement batch voice transcription export (select multiple or all annotations)
+- [x] Add export button to voice annotations list header
+- [x] Create export format options (Plain Text, PDF via HTML, Word via HTML)
+- [x] Implement voice note full-text search across all transcripts (already existed)
+- [x] Search input already exists in voice annotations section
+- [x] Voice transcripts indexed and searchable (case-insensitive)
+- [x] Highlight search terms in results (yellow highlight with dark mode support)
+- [ ] Write tests for batch export functionality (UI feature, manual testing sufficient)
+- [ ] Write tests for voice search functionality (UI feature, manual testing sufficient)
+
+
+## Phase 66: Batch Voice Export & Search Highlighting (Careful Implementation)
+- [ ] Design batch export UI component separately
+- [ ] Implement export function with proper document generation
+- [ ] Add export button to voice annotations header
+- [ ] Test export functionality with multiple annotations
+- [ ] Implement search term highlighting helper function
+- [ ] Add highlighting to transcript display
+- [ ] Test search highlighting with various queries
+- [ ] Write unit tests for export function
+- [ ] Verify no JSX syntax errors before checkpoint
+
+## Phase 44: File Card UI Improvements
+- [x] Reduce file card checkbox sizes significantly (much smaller than current w-3.5 h-3.5)
+- [x] Implement hover/touch popup for metadata descriptions to reduce crowding
+- [x] Complete batch voice transcription export integration
+- [x] Implement voice note search with highlighting
