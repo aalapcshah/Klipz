@@ -3178,3 +3178,15 @@ Note: The application already has extensive annotation features including voice 
 - [x] Create export dropdown menu component with CSV and JSON options
 - [x] Replace separate Export CSV and Export JSON buttons with dropdown
 - [x] Test annotation tools on mobile, checkbox sizes, and export menu
+
+## Phase 51: Video Library Enhancements
+- [x] Add annotation count to video list query (already exists)
+- [x] Display annotation preview thumbnails on video cards (using badges with icons)
+- [x] Show annotation count badge on video cards
+- [x] Implement batch delete mutation
+- [x] Add batch delete button to video library UI
+- [x] Add confirmation dialog for batch delete
+- [x] Add "Annotation Count" option to sort dropdown (backend)
+- [x] Update video list query to support sorting by annotation count
+- [x] Add sort UI to video library frontend
+- [x] Test annotation previews, batch delete, and sorting

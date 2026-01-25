@@ -498,7 +498,7 @@ export async function getVideosCountByUserId(userId: number): Promise<number> {
   return result[0]?.count || 0;
 }
 
-export async function getVideosByUserId(userId: number, limit?: number, offset?: number) {
+export async function getVideosByUserId(userId: number, limit?: number, offset?: number, sortBy: 'date' | 'annotations' = 'date') {
   const db = await getDb();
   if (!db) return [];
 
@@ -520,7 +520,7 @@ export async function getVideosByUserId(userId: number, limit?: number, offset?:
   const videosWithCounts = await Promise.all(
     videoList.map(async (video) => {
       if (!video.fileId) {
-        return { ...video, voiceAnnotationCount: 0, visualAnnotationCount: 0 };
+        return { ...video, voiceAnnotationCount: 0, visualAnnotationCount: 0, totalAnnotationCount: 0 };
       }
 
       const voiceNotes = await db
@@ -537,9 +537,15 @@ export async function getVideosByUserId(userId: number, limit?: number, offset?:
         ...video,
         voiceAnnotationCount: voiceNotes.length,
         visualAnnotationCount: drawings.length,
+        totalAnnotationCount: voiceNotes.length + drawings.length,
       };
     })
   );
+
+  // Sort by annotation count if requested
+  if (sortBy === 'annotations') {
+    videosWithCounts.sort((a, b) => b.totalAnnotationCount - a.totalAnnotationCount);
+  }
 
   return videosWithCounts;
 }

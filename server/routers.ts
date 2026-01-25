@@ -1223,17 +1223,19 @@ export const appRouter = router({
       .input(z.object({ 
         page: z.number().default(1),
         pageSize: z.number().default(50),
+        sortBy: z.enum(['date', 'annotations']).optional(),
       }).optional())
       .query(async ({ ctx, input }) => {
         const page = input?.page || 1;
         const pageSize = input?.pageSize || 50;
+        const sortBy = input?.sortBy || 'date';
         const offset = (page - 1) * pageSize;
         
         // Get total count
         const totalCount = await db.getVideosCountByUserId(ctx.user.id);
         
         // Get paginated videos
-        const videos = await db.getVideosByUserId(ctx.user.id, pageSize, offset);
+        const videos = await db.getVideosByUserId(ctx.user.id, pageSize, offset, sortBy);
         
         return {
           videos,
@@ -1332,6 +1334,28 @@ export const appRouter = router({
         await db.deleteVideo(input.id);
         
         return { success: true };
+      }),
+
+    // Batch delete videos
+    batchDelete: protectedProcedure
+      .input(z.object({ ids: z.array(z.number()) }))
+      .mutation(async ({ input, ctx }) => {
+        // Verify all videos belong to the user
+        const videos = await Promise.all(
+          input.ids.map(id => db.getVideoById(id))
+        );
+        
+        const invalidVideos = videos.filter(v => !v || v.userId !== ctx.user.id);
+        if (invalidVideos.length > 0) {
+          throw new Error("One or more videos not found or unauthorized");
+        }
+        
+        // Delete all videos
+        await Promise.all(
+          input.ids.map(id => db.deleteVideo(id))
+        );
+        
+        return { success: true, count: input.ids.length };
       }),
   }),
 

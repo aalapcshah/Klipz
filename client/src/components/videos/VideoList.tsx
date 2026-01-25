@@ -58,6 +58,7 @@ export function VideoList() {
     const saved = localStorage.getItem('videosPageSize');
     return saved ? parseInt(saved) : 50;
   });
+  const [sortBy, setSortBy] = useState<'date' | 'annotations'>('date');
   
   // Update URL when page or pageSize changes
   useEffect(() => {
@@ -71,11 +72,13 @@ export function VideoList() {
     localStorage.setItem('videosPageSize', pageSize.toString());
   }, [pageSize]);
   
-  const { data: videosData, isLoading, refetch } = trpc.videos.list.useQuery({ page, pageSize });
+  const { data: videosData, isLoading, refetch } = trpc.videos.list.useQuery({ page, pageSize, sortBy });
   const videos = videosData?.videos || [];
   const deleteMutation = trpc.videos.delete.useMutation();
+  const batchDeleteMutation = trpc.videos.batchDelete.useMutation();
   const exportMutation = trpc.videoExport.export.useMutation();
   const batchExportMutation = trpc.videoExport.batchExport.useMutation();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleToggleSelection = (videoId: number) => {
     setSelectedVideoIds(prev => 
@@ -117,6 +120,23 @@ export function VideoList() {
       setSelectedVideoIds([]);
     } catch (error) {
       toast.error("Failed to export annotations");
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedVideoIds.length === 0) {
+      toast.error("Please select at least one video");
+      return;
+    }
+
+    try {
+      await batchDeleteMutation.mutateAsync({ ids: selectedVideoIds });
+      toast.success(`Deleted ${selectedVideoIds.length} video(s)`);
+      setSelectedVideoIds([]);
+      setShowDeleteConfirm(false);
+      refetch();
+    } catch (error) {
+      toast.error("Failed to delete videos");
     }
   };
 
@@ -186,6 +206,22 @@ export function VideoList() {
 
   return (
     <>
+      {/* Sort Controls */}
+      {videos && videos.length > 0 && (
+        <div className="mb-4 flex items-center justify-end gap-2">
+          <span className="text-sm text-muted-foreground">Sort by:</span>
+          <Select value={sortBy} onValueChange={(value: 'date' | 'annotations') => setSortBy(value)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="date">Date Added</SelectItem>
+              <SelectItem value="annotations">Annotation Count</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {/* Batch Export Controls */}
       {videos && videos.length > 0 && (
         <div className="mb-4 flex items-center justify-between gap-4 p-4 bg-muted/30 rounded-lg">
@@ -203,22 +239,23 @@ export function VideoList() {
             </span>
           </div>
           {selectedVideoIds.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={batchExportMutation.isPending}
-                >
-                  {batchExportMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Download className="h-4 w-4 mr-2" />
-                  )}
-                  Export
-                  <ChevronDown className="h-4 w-4 ml-2" />
-                </Button>
-              </DropdownMenuTrigger>
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={batchExportMutation.isPending}
+                  >
+                    {batchExportMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Download className="h-4 w-4 mr-2" />
+                    )}
+                    Export
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Export Format</DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -232,6 +269,20 @@ export function VideoList() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={batchDeleteMutation.isPending}
+            >
+              {batchDeleteMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Delete
+            </Button>
+            </div>
           )}
         </div>
       )}
@@ -276,6 +327,22 @@ export function VideoList() {
                 <Badge variant="secondary" className="text-xs">
                   {formatDuration(video.duration)}
                 </Badge>
+                {(video.voiceAnnotationCount > 0 || video.visualAnnotationCount > 0) && (
+                  <>
+                    {video.voiceAnnotationCount > 0 && (
+                      <Badge variant="outline" className="text-xs flex items-center gap-1">
+                        <Mic className="h-3 w-3" />
+                        {video.voiceAnnotationCount}
+                      </Badge>
+                    )}
+                    {video.visualAnnotationCount > 0 && (
+                      <Badge variant="outline" className="text-xs flex items-center gap-1">
+                        <PenLine className="h-3 w-3" />
+                        {video.visualAnnotationCount}
+                      </Badge>
+                    )}
+                  </>
+                )}
                 {video.exportStatus && (
                   <Badge
                     variant={
@@ -516,6 +583,26 @@ export function VideoList() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Batch Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete {selectedVideoIds.length} video(s)? This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleBatchDelete}>
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
