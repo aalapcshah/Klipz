@@ -3310,3 +3310,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Reduce excessive spacing between video player and annotation timeline on mobile
 - [x] Optimize vertical space usage for better mobile experience
 - [x] Test mobile layout with reduced spacing
+
+## Annotation UX Enhancements
+- [x] Implement collapsible annotation sections with expand/collapse buttons (drawing annotations already have this)
+- [x] Add collapse state persistence for voice and drawing annotation sections (already implemented)
+- [x] Add quick annotation preview on timeline hover/tap
+- [x] Show thumbnail preview of annotation content on timeline markers
+- [x] Test collapsible sections on mobile and desktop
+- [x] Test timeline preview functionality

@@ -467,12 +467,12 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               {annotations.map((annotation) => (
                 <div
                   key={annotation.id}
-                  className="absolute top-0 w-1 h-3 bg-yellow-500 rounded-full cursor-pointer pointer-events-auto group"
+                  className="absolute top-0 w-2 h-4 md:w-1 md:h-3 bg-yellow-500 rounded-full cursor-pointer pointer-events-auto group"
                   style={{ left: `${(annotation.videoTimestamp / duration) * 100}%` }}
                   onClick={() => jumpToAnnotation(annotation.videoTimestamp)}
                 >
                   {/* Hover Preview Tooltip */}
-                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity pointer-events-none z-50">
                     <div className="bg-popover border border-border rounded-lg shadow-lg p-2 min-w-[120px] max-w-[200px]">
                       <div className="text-xs space-y-1">
                         <div className="font-medium text-center">{formatTime(annotation.videoTimestamp)}</div>
@@ -491,12 +491,12 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               {visualAnnotations.map((annotation) => (
                 <div
                   key={annotation.id}
-                  className="absolute top-0 w-1 h-3 bg-blue-500 rounded-full cursor-pointer pointer-events-auto group"
+                  className="absolute top-0 w-2 h-4 md:w-1 md:h-3 bg-blue-500 rounded-full cursor-pointer pointer-events-auto group"
                   style={{ left: `${(annotation.videoTimestamp / duration) * 100}%` }}
                   onClick={() => jumpToAnnotation(annotation.videoTimestamp)}
                 >
                   {/* Hover Preview Tooltip */}
-                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity pointer-events-none z-50">
                     <div className="bg-popover border border-border rounded-lg shadow-lg p-2 min-w-[120px]">
                       <img
                         src={annotation.imageUrl}
