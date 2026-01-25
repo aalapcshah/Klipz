@@ -239,6 +239,13 @@
       "when": 1769297375756,
       "tag": "0033_past_thena",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "5",
+      "when": 1769300514266,
+      "tag": "0034_plain_living_tribunal",
+      "breakpoints": true
     }
   ]
 }

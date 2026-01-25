@@ -1947,6 +1947,7 @@ export async function getActivityNotificationPreferences(userId: number) {
       enableExportNotifications: true,
       quietHoursStart: null,
       quietHoursEnd: null,
+      emailDigestFrequency: "immediate" as const,
     };
   }
 
@@ -1965,6 +1966,7 @@ export async function upsertActivityNotificationPreferences(params: {
   enableExportNotifications?: boolean;
   quietHoursStart?: string | null;
   quietHoursEnd?: string | null;
+  emailDigestFrequency?: "immediate" | "daily" | "weekly" | "disabled";
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not initialized");
@@ -1993,6 +1995,7 @@ export async function upsertActivityNotificationPreferences(params: {
         enableExportNotifications: params.enableExportNotifications ?? existing.enableExportNotifications,
         quietHoursStart: params.quietHoursStart !== undefined ? params.quietHoursStart : existing.quietHoursStart,
         quietHoursEnd: params.quietHoursEnd !== undefined ? params.quietHoursEnd : existing.quietHoursEnd,
+        emailDigestFrequency: params.emailDigestFrequency ?? existing.emailDigestFrequency,
       })
       .where(eq(activityNotificationPreferences.userId, params.userId));
   } else {
@@ -2009,6 +2012,7 @@ export async function upsertActivityNotificationPreferences(params: {
       enableExportNotifications: params.enableExportNotifications ?? true,
       quietHoursStart: params.quietHoursStart ?? null,
       quietHoursEnd: params.quietHoursEnd ?? null,
+      emailDigestFrequency: params.emailDigestFrequency ?? "immediate",
     });
   }
 

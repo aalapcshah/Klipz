@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Bell, Clock, Save } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Bell, Clock, Save, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 export function NotificationPreferencesSettings() {
@@ -24,6 +25,7 @@ export function NotificationPreferencesSettings() {
     enableExportNotifications: true,
     quietHoursStart: "",
     quietHoursEnd: "",
+    emailDigestFrequency: "immediate" as "immediate" | "daily" | "weekly" | "disabled",
   });
 
   useEffect(() => {
@@ -39,6 +41,7 @@ export function NotificationPreferencesSettings() {
         enableExportNotifications: preferences.enableExportNotifications,
         quietHoursStart: preferences.quietHoursStart || "",
         quietHoursEnd: preferences.quietHoursEnd || "",
+        emailDigestFrequency: (preferences as any).emailDigestFrequency || "immediate",
       });
     }
   }, [preferences]);
@@ -248,6 +251,38 @@ export function NotificationPreferencesSettings() {
           <p className="text-xs text-muted-foreground mt-2">
             Leave empty to receive notifications 24/7
           </p>
+        </div>
+
+        <div className="border-t pt-6">
+          <h4 className="text-md font-semibold flex items-center gap-2 mb-4">
+            <Mail className="h-4 w-4" />
+            Email Digest
+          </h4>
+          <p className="text-sm text-muted-foreground mb-4">
+            Choose how often you want to receive email notifications
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor="digestFrequency">Frequency</Label>
+            <Select
+              value={localPrefs.emailDigestFrequency}
+              onValueChange={(value: any) =>
+                setLocalPrefs({ ...localPrefs, emailDigestFrequency: value })
+              }
+            >
+              <SelectTrigger id="digestFrequency">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="immediate">Immediate (send each notification as it happens)</SelectItem>
+                <SelectItem value="daily">Daily (batch notifications once per day)</SelectItem>
+                <SelectItem value="weekly">Weekly (batch notifications once per week)</SelectItem>
+                <SelectItem value="disabled">Disabled (no email notifications)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-2">
+              Daily digests are sent at 9:00 AM, weekly digests on Monday mornings
+            </p>
+          </div>
         </div>
 
         <div className="flex justify-end">

@@ -941,6 +941,9 @@ export const activityNotificationPreferences = mysqlTable("activity_notification
   quietHoursStart: varchar("quietHoursStart", { length: 5 }), // e.g., "22:00"
   quietHoursEnd: varchar("quietHoursEnd", { length: 5 }), // e.g., "08:00"
   
+  // Email digest frequency
+  emailDigestFrequency: mysqlEnum("emailDigestFrequency", ["immediate", "daily", "weekly", "disabled"]).default("immediate").notNull(),
+  
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({

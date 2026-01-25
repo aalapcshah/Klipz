@@ -2564,3 +2564,24 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [x] Write comprehensive tests for email notification system
 - [ ] Add admin endpoint to list all users for filtering (deferred - requires admin role system)
 - [ ] Implement user-specific filter dropdown in statistics dashboard (deferred - requires admin endpoint)
+
+
+## Phase 46: Admin Dashboard & Email Digest System
+- [x] Verify admin role field exists in users table
+- [x] Create admin procedure middleware for protected endpoints
+- [x] Create admin dashboard page with navigation
+- [x] Add system-wide statistics overview (total users, files, activities)
+- [x] Create user management table with activity counts
+- [x] Add user detail view with individual statistics
+- [x] Implement user role management (promote/demote admin)
+- [x] Add digest frequency preference (immediate/daily/weekly/disabled)
+- [x] Create email digest batching service
+- [x] Create digest email templates
+- [x] Add digest preferences to notification settings UI
+- [x] Test admin dashboard access control (5/5 tests passing)
+- [x] Test user statistics display
+- [x] Test digest email generation and delivery (8/8 tests passing)
+- [x] Write tests for admin endpoints
+- [x] Write tests for digest system
+- [ ] Implement daily digest cron job (requires production scheduler)
+- [ ] Implement weekly digest cron job (requires production scheduler)

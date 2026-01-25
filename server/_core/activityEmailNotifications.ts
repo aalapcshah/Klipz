@@ -52,6 +52,12 @@ export async function sendActivityEmail(params: SendActivityEmailParams): Promis
   try {
     // Get activity notification preferences
     const prefs = await db.getActivityNotificationPreferences(params.userId);
+    
+    // Check if digest is enabled (skip immediate emails if digest is active)
+    if (prefs.emailDigestFrequency !== "immediate") {
+      console.log(`[ActivityEmail] Skipping immediate email - digest mode is ${prefs.emailDigestFrequency}`);
+      return false;
+    }
 
     // Check if email notifications are enabled for this activity type
     const enableField = `enable${params.activityType.charAt(0).toUpperCase() + params.activityType.slice(1)}Notifications` as keyof typeof prefs;

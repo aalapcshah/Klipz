@@ -1,0 +1,1 @@
+ALTER TABLE `activity_notification_preferences` ADD `emailDigestFrequency` enum('immediate','daily','weekly','disabled') DEFAULT 'immediate' NOT NULL;
