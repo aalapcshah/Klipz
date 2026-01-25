@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine } from "lucide-react";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { VideoDrawingCanvas } from "./VideoDrawingCanvas";
@@ -535,6 +536,27 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             <Button size="default" className="h-11 px-4 md:h-9 md:px-3" variant="outline" onClick={toggleMute}>
               {isMuted ? <VolumeX className="h-5 w-5 md:h-4 md:w-4" /> : <Volume2 className="h-5 w-5 md:h-4 md:w-4" />}
             </Button>
+            
+            {/* Playback Speed Control */}
+            <Select value={playbackSpeed.toString()} onValueChange={(value) => {
+              const speed = parseFloat(value);
+              setPlaybackSpeed(speed);
+              localStorage.setItem('videoPlaybackSpeed', value);
+              if (videoRef.current) {
+                videoRef.current.playbackRate = speed;
+              }
+            }}>
+              <SelectTrigger className="w-20 h-11 md:h-9">
+                <SelectValue>{playbackSpeed}x</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0.5">0.5x</SelectItem>
+                <SelectItem value="1">1x</SelectItem>
+                <SelectItem value="1.5">1.5x</SelectItem>
+                <SelectItem value="2">2x</SelectItem>
+              </SelectContent>
+            </Select>
+            
             <div className="flex-1" />
             {/* Annotation Tools - Visible on desktop */}
             <div className="hidden md:flex items-center gap-2">

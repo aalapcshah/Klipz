@@ -490,7 +490,7 @@ export async function createVideo(video: InsertVideo) {
   return result[0].insertId;
 }
 
-export async function getVideosCountByUserId(userId: number, search?: string) {
+export async function getVideosCountByUserId(userId: number, search?: string, tagId?: number) {
   const db = await getDb();
   if (!db) return 0;
 
@@ -509,15 +509,25 @@ export async function getVideosCountByUserId(userId: number, search?: string) {
     );
   }
 
-  const result = await db
+  let baseQuery = db
     .select({ count: sql<number>`count(*)` })
-    .from(videos)
-    .where(and(...conditions));
+    .from(videos);
+  
+  // Join with videoTagAssignments if filtering by tag
+  if (tagId) {
+    baseQuery = baseQuery
+      .innerJoin(videoTagAssignments, eq(videos.id, videoTagAssignments.videoId))
+      .where(and(...conditions, eq(videoTagAssignments.tagId, tagId))) as any;
+  } else {
+    baseQuery = baseQuery
+      .where(and(...conditions)) as any;
+  }
 
+  const result = await baseQuery;
   return result[0]?.count || 0;
 }
 
-export async function getVideosByUserId(userId: number, limit?: number, offset?: number, sortBy: 'date' | 'annotations' = 'date', search?: string) {
+export async function getVideosByUserId(userId: number, limit?: number, offset?: number, sortBy: 'date' | 'annotations' = 'date', search?: string, tagId?: number) {
   const db = await getDb();
   if (!db) return [];
 
@@ -536,19 +546,42 @@ export async function getVideosByUserId(userId: number, limit?: number, offset?:
     );
   }
 
-  let baseQuery = db
-    .select()
-    .from(videos)
-    .where(and(...conditions))
-    .orderBy(desc(videos.createdAt));
+  let videoList;
   
-  const videoList = limit !== undefined && offset !== undefined
-    ? await baseQuery.limit(limit).offset(offset)
-    : limit !== undefined
-    ? await baseQuery.limit(limit)
-    : offset !== undefined
-    ? await baseQuery.offset(offset)
-    : await baseQuery;
+  // Join with videoTagAssignments if filtering by tag
+  if (tagId) {
+    const queryResult = await db
+      .select({
+        id: videos.id,
+        userId: videos.userId,
+        fileId: videos.fileId,
+        title: videos.title,
+        filename: videos.filename,
+        description: videos.description,
+        url: videos.url,
+        duration: videos.duration,
+        transcript: videos.transcript,
+        exportStatus: videos.exportStatus,
+        exportedUrl: videos.exportedUrl,
+        createdAt: videos.createdAt,
+        updatedAt: videos.updatedAt,
+      })
+      .from(videos)
+      .innerJoin(videoTagAssignments, eq(videos.id, videoTagAssignments.videoId))
+      .where(and(...conditions, eq(videoTagAssignments.tagId, tagId)))
+      .orderBy(desc(videos.createdAt))
+      .limit(limit || 1000)
+      .offset(offset || 0);
+    videoList = queryResult;
+  } else {
+    videoList = await db
+      .select()
+      .from(videos)
+      .where(and(...conditions))
+      .orderBy(desc(videos.createdAt))
+      .limit(limit || 1000)
+      .offset(offset || 0);
+  }
 
   // Get annotation counts for each video
   const videosWithCounts = await Promise.all(

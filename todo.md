@@ -3222,3 +3222,25 @@ Note: The application already has extensive annotation features including voice 
 - [x] Remove hover-only opacity from video action buttons
 - [x] Make action buttons always visible on mobile/touch devices (opacity-100 on mobile, hover on desktop)
 - [x] Test Annotate button visibility on Android
+
+## Phase 56: URGENT Video Library UI Fixes
+- [x] Fix massive video library checkboxes (added scale-[0.6] transform for mobile, scale-75 for desktop)
+- [x] Debug why action buttons still not visible on Android despite opacity fix (removed opacity transitions, made always visible)
+- [x] Verify button rendering in actual video library component (VideoList in Dashboard VideosView)
+- [ ] Test checkbox and button fixes on Android
+
+## Phase 57: Video Playback Speed Controls
+- [x] Add playback speed state and localStorage persistence (already existed)
+- [x] Create speed control dropdown UI (0.5x, 1x, 1.5x, 2x)
+- [x] Apply speed to video element (useEffect already handles this)
+- [ ] Test speed controls
+
+## Phase 58: Video Tag Filtering
+- [ ] Add tag filter dropdown to video library
+- [ ] Update backend query to support tag filtering
+- [ ] Test tag filtering functionality
+
+## Phase 59: AI Tag Font Size Reduction
+- [ ] Reduce AI enriched tag font size in file cards
+- [ ] Enable two-column layout for tags
+- [ ] Test tag layout on mobile

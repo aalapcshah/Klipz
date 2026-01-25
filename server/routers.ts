@@ -1225,19 +1225,21 @@ export const appRouter = router({
         pageSize: z.number().default(50),
         sortBy: z.enum(['date', 'annotations']).optional(),
         search: z.string().optional(),
+        tagId: z.number().optional(),
       }).optional())
       .query(async ({ ctx, input }) => {
         const page = input?.page || 1;
         const pageSize = input?.pageSize || 50;
         const sortBy = input?.sortBy || 'date';
         const search = input?.search || '';
+        const tagId = input?.tagId;
         const offset = (page - 1) * pageSize;
         
         // Get total count
-        const totalCount = await db.getVideosCountByUserId(ctx.user.id, search);
+        const totalCount = await db.getVideosCountByUserId(ctx.user.id, search, tagId);
         
         // Get paginated videos
-        const videos = await db.getVideosByUserId(ctx.user.id, pageSize, offset, sortBy, search);
+        const videos = await db.getVideosByUserId(ctx.user.id, pageSize, offset, sortBy, search, tagId);
         
         return {
           videos,

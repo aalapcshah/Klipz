@@ -47,6 +47,7 @@ export function VideoList() {
   const [cloudExportVideo, setCloudExportVideo] = useState<{ id: number; title: string } | null>(null);
   const [annotatingVideo, setAnnotatingVideo] = useState<{ id: number; fileId: number; url: string; title: string } | null>(null);
   const [selectedVideoIds, setSelectedVideoIds] = useState<number[]>([]);
+  const [selectedTagId, setSelectedTagId] = useState<number | null>(null);
   
   const searchParams = useSearch();
   const [, setLocation] = useLocation();
@@ -87,7 +88,13 @@ export function VideoList() {
     localStorage.setItem('videosPageSize', pageSize.toString());
   }, [pageSize]);
   
-  const { data: videosData, isLoading, refetch } = trpc.videos.list.useQuery({ page, pageSize, sortBy, search: debouncedSearch });
+  const { data: videosData, isLoading, refetch } = trpc.videos.list.useQuery({ 
+    page, 
+    pageSize, 
+    sortBy, 
+    search: debouncedSearch,
+    tagId: selectedTagId || undefined 
+  });
   const videos = videosData?.videos || [];
   const deleteMutation = trpc.videos.delete.useMutation();
   const batchDeleteMutation = trpc.videos.batchDelete.useMutation();
@@ -252,19 +259,48 @@ export function VideoList() {
           )}
         </div>
 
-        {/* Sort Controls */}
+        {/* Sort and Filter Controls */}
         {videos && videos.length > 0 && (
-          <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Sort by:</span>
-          <Select value={sortBy} onValueChange={(value: 'date' | 'annotations') => setSortBy(value)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="date">Date Added</SelectItem>
-              <SelectItem value="annotations">Annotation Count</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-4">
+            {/* Sort Dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Sort by:</span>
+              <Select value={sortBy} onValueChange={(value: 'date' | 'annotations') => setSortBy(value)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">Date Added</SelectItem>
+                  <SelectItem value="annotations">Annotation Count</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Tag Filter Dropdown */}
+            {allTags.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Filter by tag:</span>
+                <Select 
+                  value={selectedTagId?.toString() || "all"} 
+                  onValueChange={(value) => {
+                    setSelectedTagId(value === "all" ? null : parseInt(value));
+                    setPage(1); // Reset to first page on filter change
+                  }}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="All tags" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All tags</SelectItem>
+                    {allTags.map((tag) => (
+                      <SelectItem key={tag.id} value={tag.id.toString()}>
+                        {tag.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -277,7 +313,7 @@ export function VideoList() {
               type="checkbox"
               checked={selectedVideoIds.length === videos.length}
               onChange={handleSelectAll}
-              className="h-2.5 w-2.5 md:h-3 md:w-3"
+              className="h-2.5 w-2.5 md:h-3 md:w-3 scale-[0.6] md:scale-75 cursor-pointer"
             />
             <span className="text-sm text-muted-foreground">
               {selectedVideoIds.length === 0 
@@ -343,7 +379,7 @@ export function VideoList() {
                 type="checkbox"
                 checked={selectedVideoIds.includes(video.id)}
                 onChange={() => handleToggleSelection(video.id)}
-                className="h-2.5 w-2.5 md:h-3 md:w-3 cursor-pointer"
+                className="h-2.5 w-2.5 md:h-3 md:w-3 cursor-pointer scale-[0.6] md:scale-75"
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
@@ -443,7 +479,7 @@ export function VideoList() {
             </div>
 
             {/* Actions */}
-            <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+            <div className="flex flex-wrap gap-2 mt-3">
               <Button variant="outline" size="sm" className="flex-1" asChild>
                 <a href={video.url} target="_blank" rel="noopener noreferrer">
                   <Play className="h-3 w-3 mr-1" />
