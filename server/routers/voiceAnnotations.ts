@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../_core/trpc";
 import { getDb } from "../db";
-import { voiceAnnotations, files } from "../../drizzle/schema";
+import { voiceAnnotations, files, users } from "../../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import { storagePut } from "../storage";
 import { transcribeAudio } from "../_core/voiceTranscription";
@@ -106,10 +106,24 @@ export const voiceAnnotationsRouter = router({
         throw new Error("File not found or access denied");
       }
 
-      // Get all annotations for this file
+      // Get all annotations for this file with user information
       const annotations = await db
-        .select()
+        .select({
+          id: voiceAnnotations.id,
+          fileId: voiceAnnotations.fileId,
+          userId: voiceAnnotations.userId,
+          audioUrl: voiceAnnotations.audioUrl,
+          audioKey: voiceAnnotations.audioKey,
+          duration: voiceAnnotations.duration,
+          videoTimestamp: voiceAnnotations.videoTimestamp,
+          transcript: voiceAnnotations.transcript,
+          createdAt: voiceAnnotations.createdAt,
+          // User information
+          userName: users.name,
+          userEmail: users.email,
+        })
         .from(voiceAnnotations)
+        .leftJoin(users, eq(voiceAnnotations.userId, users.id))
         .where(eq(voiceAnnotations.fileId, input.fileId))
         .orderBy(voiceAnnotations.videoTimestamp);
 

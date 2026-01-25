@@ -20,6 +20,7 @@ import { UserPresenceIndicator } from "./UserPresenceIndicator";
 import { BatchActionsToolbar } from "./BatchActionsToolbar";
 import { VoiceAnnotationExport } from "./VoiceAnnotationExport";
 import { HighlightedText } from "./HighlightedText";
+import { AnnotationSearch } from "./videos/AnnotationSearch";
 
 interface VideoPlayerWithAnnotationsProps {
   fileId: number;
@@ -630,6 +631,17 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
 
         </div>
       </Card>
+
+      {/* Annotation Search */}
+      {annotations.length > 0 && (
+        <Card className="p-4">
+          <AnnotationSearch
+            annotations={annotations}
+            onJumpToTimestamp={jumpToAnnotation}
+            formatTime={formatTime}
+          />
+        </Card>
+      )}
 
       {/* Voice Recorder - appears immediately below Show Timeline */}
       {showRecorder && (

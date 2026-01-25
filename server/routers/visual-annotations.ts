@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { visualAnnotations, annotationHistory } from "../../drizzle/schema";
+import { visualAnnotations, annotationHistory, users } from "../../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
@@ -108,8 +108,21 @@ export const visualAnnotationsRouter = router({
       const db = await getDb();
       if (!db) throw new Error("Database not available");
       const annotations = await db
-        .select()
+        .select({
+          id: visualAnnotations.id,
+          fileId: visualAnnotations.fileId,
+          userId: visualAnnotations.userId,
+          imageUrl: visualAnnotations.imageUrl,
+          imageKey: visualAnnotations.imageKey,
+          videoTimestamp: visualAnnotations.videoTimestamp,
+          duration: visualAnnotations.duration,
+          createdAt: visualAnnotations.createdAt,
+          // User information
+          userName: users.name,
+          userEmail: users.email,
+        })
         .from(visualAnnotations)
+        .leftJoin(users, eq(visualAnnotations.userId, users.id))
         .where(
           and(
             eq(visualAnnotations.fileId, input.fileId),

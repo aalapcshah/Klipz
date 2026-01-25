@@ -109,6 +109,11 @@ export function HorizontalAnnotationTimeline({
                     <Mic className="h-3 w-3 text-yellow-500" />
                     <span className="font-medium">{formatTime(ann.videoTimestamp)}</span>
                   </div>
+                  {(ann as any).userName && (
+                    <div className="text-[10px] text-muted-foreground mb-1">
+                      by {(ann as any).userName}
+                    </div>
+                  )}
                   {ann.transcript && (
                     <p className="line-clamp-3">{ann.transcript}</p>
                   )}
@@ -137,6 +142,11 @@ export function HorizontalAnnotationTimeline({
                     <span className="font-medium">{formatTime(ann.videoTimestamp)}</span>
                     <span className="text-muted-foreground">({ann.duration}s)</span>
                   </div>
+                  {(ann as any).userName && (
+                    <div className="text-[10px] text-muted-foreground mb-1">
+                      by {(ann as any).userName}
+                    </div>
+                  )}
                   <img
                     src={ann.imageUrl}
                     alt="Drawing preview"

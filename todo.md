@@ -3267,3 +3267,14 @@ Note: The application already has extensive annotation features including voice 
 - [x] Implement annotation preview mode toggle to show/hide all annotations
 - [x] Test undo/redo functionality on mobile devices
 - [x] Test annotation preview mode with multiple annotations
+
+## Annotation Collaboration Features
+- [x] Implement annotation search functionality to search transcripts
+- [x] Add jump-to-timestamp feature from search results
+- [x] Create annotation templates system with reusable presets (shapes, colors, text)
+- [x] Add template management UI (save, load, delete templates)
+- [x] Show annotation creator information on each annotation
+- [x] Implement real-time cursor tracking for collaborative drawing
+- [x] Test annotation search with multiple annotations
+- [x] Test template creation and reuse workflow
+- [x] Test collaboration indicators with multiple users
