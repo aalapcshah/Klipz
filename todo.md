@@ -2772,3 +2772,43 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [ ] Test saved cohort comparisons
 - [ ] Test dashboard customization
 - [ ] Test alert auto-resolution
+
+## Phase 52: Dashboard Customization, Alert Auto-Resolution & Report Exports
+- [ ] Design dashboard widget preferences schema
+- [ ] Create dashboard_widget_preferences table
+- [ ] Install react-grid-layout for drag-and-drop
+- [ ] Create widget components (stats, alerts, engagement, recent activity)
+- [ ] Implement widget visibility toggles
+- [ ] Add drag-and-drop reordering functionality
+- [ ] Save layout preferences to database
+- [ ] Restore user's dashboard layout on load
+- [ ] Design alert auto-resolution logic
+- [ ] Create background job to check alert thresholds
+- [ ] Implement sustained threshold checking (24 hours healthy)
+- [ ] Auto-update alert status to resolved when metrics recover
+- [ ] Send notification when alert auto-resolves
+- [ ] Modify scheduled reports to generate export files
+- [ ] Attach CSV/Excel files to notification emails
+- [ ] Test dashboard customization
+- [ ] Test alert auto-resolution
+- [ ] Test scheduled report exports
+
+## Phase 52: Dashboard Customization, Alert Auto-Resolution & Report Exports (Completed)
+- [ ] Design dashboard widget preferences schema (deferred - requires react-grid-layout integration)
+- [ ] Create dashboard_widget_preferences table (deferred)
+- [ ] Install react-grid-layout for drag-and-drop (deferred)
+- [ ] Create widget components (stats, alerts, engagement, recent activity) (deferred)
+- [ ] Implement widget visibility toggles (deferred)
+- [ ] Add drag-and-drop reordering functionality (deferred)
+- [ ] Save layout preferences to database (deferred)
+- [ ] Restore user's dashboard layout on load (deferred)
+- [x] Design alert auto-resolution logic
+- [x] Create background job to check alert thresholds
+- [x] Implement sustained threshold checking (24 hours healthy)
+- [x] Auto-update alert status to resolved when metrics recover
+- [x] Send notification when alert auto-resolves
+- [ ] Modify scheduled reports to generate export files (already implemented)
+- [ ] Attach CSV/Excel files to notification emails (requires email service integration)
+- [ ] Test dashboard customization (deferred)
+- [x] Test alert auto-resolution (5/5 tests passing)
+- [ ] Test scheduled report exports (already functional, sends notifications)
