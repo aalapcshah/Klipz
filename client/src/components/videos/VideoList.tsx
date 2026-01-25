@@ -18,6 +18,7 @@ import {
   ChevronDown,
   Search,
   X,
+  Plus,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -47,7 +48,8 @@ export function VideoList() {
   const [cloudExportVideo, setCloudExportVideo] = useState<{ id: number; title: string } | null>(null);
   const [annotatingVideo, setAnnotatingVideo] = useState<{ id: number; fileId: number; url: string; title: string } | null>(null);
   const [selectedVideoIds, setSelectedVideoIds] = useState<number[]>([]);
-  const [selectedTagId, setSelectedTagId] = useState<number | null>(null);
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [tagFilterMode, setTagFilterMode] = useState<'AND' | 'OR'>('OR');
   
   const searchParams = useSearch();
   const [, setLocation] = useLocation();
@@ -93,7 +95,8 @@ export function VideoList() {
     pageSize, 
     sortBy, 
     search: debouncedSearch,
-    tagId: selectedTagId || undefined 
+    tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+    tagFilterMode: selectedTagIds.length > 1 ? tagFilterMode : undefined
   });
   const videos = videosData?.videos || [];
   const deleteMutation = trpc.videos.delete.useMutation();
@@ -276,29 +279,106 @@ export function VideoList() {
               </Select>
             </div>
             
-            {/* Tag Filter Dropdown */}
+            {/* Multi-Tag Filter */}
             {allTags.length > 0 && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Filter by tag:</span>
-                <Select 
-                  value={selectedTagId?.toString() || "all"} 
-                  onValueChange={(value) => {
-                    setSelectedTagId(value === "all" ? null : parseInt(value));
-                    setPage(1); // Reset to first page on filter change
-                  }}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="All tags" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All tags</SelectItem>
-                    {allTags.map((tag) => (
-                      <SelectItem key={tag.id} value={tag.id.toString()}>
-                        {tag.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-muted-foreground">Filter by tags:</span>
+                <div className="flex items-center gap-2">
+                  {/* Tag selection badges */}
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {selectedTagIds.length === 0 ? (
+                      <Badge variant="outline" className="text-xs">All videos</Badge>
+                    ) : (
+                      selectedTagIds.map((tagId) => {
+                        const tag = allTags.find(t => t.id === tagId);
+                        if (!tag) return null;
+                        return (
+                          <Badge
+                            key={tagId}
+                            style={{ backgroundColor: tag.color || '#3b82f6' }}
+                            className="text-white flex items-center gap-1 pr-1 text-xs cursor-pointer"
+                            onClick={() => {
+                              setSelectedTagIds(prev => prev.filter(id => id !== tagId));
+                              setPage(1);
+                            }}
+                          >
+                            {tag.name}
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        );
+                      })
+                    )}
+                  </div>
+                  
+                  {/* Add tag dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-7 text-xs">
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add Tag
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel>Select Tags to Filter</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {allTags.map((tag) => {
+                        const isSelected = selectedTagIds.includes(tag.id);
+                        return (
+                          <DropdownMenuItem
+                            key={tag.id}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedTagIds(prev => prev.filter(id => id !== tag.id));
+                              } else {
+                                setSelectedTagIds(prev => [...prev, tag.id]);
+                              }
+                              setPage(1);
+                            }}
+                          >
+                            <div className="flex items-center gap-2 w-full">
+                              <div
+                                className="h-3 w-3 rounded-full"
+                                style={{ backgroundColor: tag.color || '#3b82f6' }}
+                              />
+                              <span className="flex-1">{tag.name}</span>
+                              {isSelected && <span className="text-primary">✓</span>}
+                            </div>
+                          </DropdownMenuItem>
+                        );
+                      })}
+                      {selectedTagIds.length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedTagIds([]);
+                              setPage(1);
+                            }}
+                            className="text-destructive"
+                          >
+                            Clear All Filters
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  
+                  {/* AND/OR toggle (only show when 2+ tags selected) */}
+                  {selectedTagIds.length > 1 && (
+                    <Select value={tagFilterMode} onValueChange={(value: 'AND' | 'OR') => {
+                      setTagFilterMode(value);
+                      setPage(1);
+                    }}>
+                      <SelectTrigger className="w-[100px] h-7 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OR">Any tag</SelectItem>
+                        <SelectItem value="AND">All tags</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               </div>
             )}
           </div>

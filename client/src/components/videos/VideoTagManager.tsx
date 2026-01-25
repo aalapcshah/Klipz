@@ -81,7 +81,7 @@ export function VideoTagManager({ videoId, onTagsChange }: VideoTagManagerProps)
         <Badge
           key={tag.id}
           style={{ backgroundColor: tag.color || '#3b82f6' }}
-          className="text-white flex items-center gap-1 pr-1"
+          className="text-white flex items-center gap-1 pr-1 text-[10px] md:text-xs"
         >
           {tag.name}
           <button
@@ -91,7 +91,7 @@ export function VideoTagManager({ videoId, onTagsChange }: VideoTagManagerProps)
             }}
             className="hover:bg-white/20 rounded-full p-0.5"
           >
-            <X className="h-3 w-3" />
+            <X className="h-2.5 w-2.5 md:h-3 md:w-3" />
           </button>
         </Badge>
       ))}

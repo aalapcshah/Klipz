@@ -3244,3 +3244,8 @@ Note: The application already has extensive annotation features including voice 
 - [ ] Reduce AI enriched tag font size in file cards
 - [ ] Enable two-column layout for tags
 - [ ] Test tag layout on mobile
+
+## Video Library Tag Enhancements (Current)
+- [x] Reduce AI tag font size on video cards for two-column layout on mobile
+- [x] Implement multi-tag filtering with AND/OR logic in video library
+- [x] Add tag color coding display on video cards

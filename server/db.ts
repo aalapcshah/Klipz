@@ -490,7 +490,7 @@ export async function createVideo(video: InsertVideo) {
   return result[0].insertId;
 }
 
-export async function getVideosCountByUserId(userId: number, search?: string, tagId?: number) {
+export async function getVideosCountByUserId(userId: number, search?: string, tagIds?: number[], tagFilterMode: 'AND' | 'OR' = 'OR') {
   const db = await getDb();
   if (!db) return 0;
 
@@ -509,25 +509,41 @@ export async function getVideosCountByUserId(userId: number, search?: string, ta
     );
   }
 
-  let baseQuery = db
-    .select({ count: sql<number>`count(*)` })
-    .from(videos);
+  let count = 0;
   
-  // Join with videoTagAssignments if filtering by tag
-  if (tagId) {
-    baseQuery = baseQuery
-      .innerJoin(videoTagAssignments, eq(videos.id, videoTagAssignments.videoId))
-      .where(and(...conditions, eq(videoTagAssignments.tagId, tagId))) as any;
+  // Join with videoTagAssignments if filtering by tags
+  if (tagIds && tagIds.length > 0) {
+    if (tagFilterMode === 'AND' && tagIds.length > 1) {
+      // AND logic: count videos that have ALL selected tags
+      const result = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${videos.id})` })
+        .from(videos)
+        .innerJoin(videoTagAssignments, eq(videos.id, videoTagAssignments.videoId))
+        .where(and(...conditions, sql`${videoTagAssignments.tagId} IN (${sql.join(tagIds.map(id => sql`${id}`), sql`, `)})`))
+        .groupBy(videos.id)
+        .having(sql`COUNT(DISTINCT ${videoTagAssignments.tagId}) = ${tagIds.length}`);
+      count = result.length; // Count the number of groups (videos)
+    } else {
+      // OR logic: count distinct videos that have ANY of the selected tags
+      const result = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${videos.id})` })
+        .from(videos)
+        .innerJoin(videoTagAssignments, eq(videos.id, videoTagAssignments.videoId))
+        .where(and(...conditions, sql`${videoTagAssignments.tagId} IN (${sql.join(tagIds.map(id => sql`${id}`), sql`, `)})`));
+      count = result[0]?.count || 0;
+    }
   } else {
-    baseQuery = baseQuery
-      .where(and(...conditions)) as any;
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(videos)
+      .where(and(...conditions));
+    count = result[0]?.count || 0;
   }
 
-  const result = await baseQuery;
-  return result[0]?.count || 0;
+  return count;
 }
 
-export async function getVideosByUserId(userId: number, limit?: number, offset?: number, sortBy: 'date' | 'annotations' = 'date', search?: string, tagId?: number) {
+export async function getVideosByUserId(userId: number, limit?: number, offset?: number, sortBy: 'date' | 'annotations' = 'date', search?: string, tagIds?: number[], tagFilterMode: 'AND' | 'OR' = 'OR') {
   const db = await getDb();
   if (!db) return [];
 
@@ -548,31 +564,64 @@ export async function getVideosByUserId(userId: number, limit?: number, offset?:
 
   let videoList;
   
-  // Join with videoTagAssignments if filtering by tag
-  if (tagId) {
-    const queryResult = await db
-      .select({
-        id: videos.id,
-        userId: videos.userId,
-        fileId: videos.fileId,
-        title: videos.title,
-        filename: videos.filename,
-        description: videos.description,
-        url: videos.url,
-        duration: videos.duration,
-        transcript: videos.transcript,
-        exportStatus: videos.exportStatus,
-        exportedUrl: videos.exportedUrl,
-        createdAt: videos.createdAt,
-        updatedAt: videos.updatedAt,
-      })
-      .from(videos)
-      .innerJoin(videoTagAssignments, eq(videos.id, videoTagAssignments.videoId))
-      .where(and(...conditions, eq(videoTagAssignments.tagId, tagId)))
-      .orderBy(desc(videos.createdAt))
-      .limit(limit || 1000)
-      .offset(offset || 0);
-    videoList = queryResult;
+  // Join with videoTagAssignments if filtering by tags
+  if (tagIds && tagIds.length > 0) {
+    if (tagFilterMode === 'AND' && tagIds.length > 1) {
+      // AND logic: video must have ALL selected tags
+      // Use subquery to count matching tags per video
+      const queryResult = await db
+        .select({
+          id: videos.id,
+          userId: videos.userId,
+          fileId: videos.fileId,
+          fileKey: videos.fileKey,
+          title: videos.title,
+          filename: videos.filename,
+          description: videos.description,
+          url: videos.url,
+          duration: videos.duration,
+          transcript: videos.transcript,
+          exportStatus: videos.exportStatus,
+          exportedUrl: videos.exportedUrl,
+          createdAt: videos.createdAt,
+          updatedAt: videos.updatedAt,
+        })
+        .from(videos)
+        .innerJoin(videoTagAssignments, eq(videos.id, videoTagAssignments.videoId))
+        .where(and(...conditions, sql`${videoTagAssignments.tagId} IN (${sql.join(tagIds.map(id => sql`${id}`), sql`, `)})`))
+        .groupBy(videos.id)
+        .having(sql`COUNT(DISTINCT ${videoTagAssignments.tagId}) = ${tagIds.length}`)
+        .orderBy(desc(videos.createdAt))
+        .limit(limit || 1000)
+        .offset(offset || 0);
+      videoList = queryResult;
+    } else {
+      // OR logic: video must have ANY of the selected tags
+      const queryResult = await db
+        .selectDistinct({
+          id: videos.id,
+          userId: videos.userId,
+          fileId: videos.fileId,
+          fileKey: videos.fileKey,
+          title: videos.title,
+          filename: videos.filename,
+          description: videos.description,
+          url: videos.url,
+          duration: videos.duration,
+          transcript: videos.transcript,
+          exportStatus: videos.exportStatus,
+          exportedUrl: videos.exportedUrl,
+          createdAt: videos.createdAt,
+          updatedAt: videos.updatedAt,
+        })
+        .from(videos)
+        .innerJoin(videoTagAssignments, eq(videos.id, videoTagAssignments.videoId))
+        .where(and(...conditions, sql`${videoTagAssignments.tagId} IN (${sql.join(tagIds.map(id => sql`${id}`), sql`, `)})`))
+        .orderBy(desc(videos.createdAt))
+        .limit(limit || 1000)
+        .offset(offset || 0);
+      videoList = queryResult;
+    }
   } else {
     videoList = await db
       .select()
