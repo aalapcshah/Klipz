@@ -27,6 +27,7 @@ export function FileVersionHistory({ fileId, onVersionRestored }: FileVersionHis
   
   const utils = trpc.useUtils();
   const versionsQuery = trpc.fileVersions.list.useQuery({ fileId });
+  const versions = versionsQuery.data?.versions || [];
   const createVersionMutation = trpc.fileVersions.create.useMutation({
     onSuccess: () => {
       toast.success("Version created successfully");
@@ -59,7 +60,7 @@ export function FileVersionHistory({ fileId, onVersionRestored }: FileVersionHis
   
   const handleRestoreVersion = (versionId: number, versionNumber: number) => {
     if (confirm(`Are you sure you want to restore version ${versionNumber}? This will create a backup of the current state.`)) {
-      restoreVersionMutation.mutate({ versionId });
+      restoreVersionMutation.mutate({ fileId, versionId });
     }
   };
   
@@ -89,9 +90,9 @@ export function FileVersionHistory({ fileId, onVersionRestored }: FileVersionHis
         <Card className="p-4 text-center text-muted-foreground">
           Loading versions...
         </Card>
-      ) : versionsQuery.data && versionsQuery.data.length > 0 ? (
+      ) : versions.length > 0 ? (
         <div className="space-y-3">
-          {versionsQuery.data.map((version: any) => (
+          {versions.map((version: any) => (
             <Card key={version.id} className="p-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0 space-y-2">

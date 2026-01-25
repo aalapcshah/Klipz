@@ -27,6 +27,7 @@ import { engagementAlertsRouter } from "./routers/engagementAlerts";
 import { alertHistoryRouter } from "./routers/alertHistory";
 import { reportsRouter } from "./routers/reports";
 import { dashboardLayoutRouter } from "./routers/dashboardLayout";
+import { fileVersionsRouter } from "./routers/fileVersions";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { sendUploadEmail, sendEditEmail, sendDeleteEmail, sendEnrichEmail } from "./_core/activityEmailNotifications";
 import { TRPCError } from "@trpc/server";
@@ -365,6 +366,7 @@ export const appRouter = router({
   alertHistory: alertHistoryRouter,
   reports: reportsRouter,
   dashboardLayout: dashboardLayoutRouter,
+  fileVersions: fileVersionsRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
@@ -1040,112 +1042,6 @@ export const appRouter = router({
         }
         
         return { transcript: result.text };
-      }),
-  }),
-
-  // ============= FILE VERSIONS ROUTER =============
-  fileVersions: router({
-    // Create a new version snapshot
-    create: protectedProcedure
-      .input(
-        z.object({
-          fileId: z.number(),
-          changeDescription: z.string().optional(),
-        })
-      )
-      .mutation(async ({ input, ctx }) => {
-        // Get current file state
-        const file = await db.getFileById(input.fileId);
-        if (!file || file.userId !== ctx.user.id) {
-          throw new Error("File not found");
-        }
-        
-        // Get current version count
-        const versions = await db.getFileVersions(input.fileId);
-        const versionNumber = versions.length + 1;
-        
-        // Create version snapshot
-        const versionId = await db.createFileVersion({
-          fileId: input.fileId,
-          userId: ctx.user.id,
-          versionNumber,
-          changeDescription: input.changeDescription,
-          fileKey: file.fileKey,
-          url: file.url,
-          filename: file.filename,
-          mimeType: file.mimeType,
-          fileSize: file.fileSize,
-          title: file.title,
-          description: file.description,
-          aiAnalysis: file.aiAnalysis,
-          ocrText: file.ocrText,
-          detectedObjects: file.detectedObjects,
-        });
-        
-        return { id: versionId, versionNumber };
-      }),
-
-    // List all versions for a file
-    list: protectedProcedure
-      .input(z.object({ fileId: z.number() }))
-      .query(async ({ input, ctx }) => {
-        // Verify file ownership
-        const file = await db.getFileById(input.fileId);
-        if (!file || file.userId !== ctx.user.id) {
-          throw new Error("File not found");
-        }
-        
-        return await db.getFileVersions(input.fileId);
-      }),
-
-    // Restore a specific version
-    restore: protectedProcedure
-      .input(z.object({ versionId: z.number() }))
-      .mutation(async ({ input, ctx }) => {
-        // Get version
-        const version = await db.getFileVersionById(input.versionId);
-        if (!version) {
-          throw new Error("Version not found");
-        }
-        
-        // Verify file ownership
-        const file = await db.getFileById(version.fileId);
-        if (!file || file.userId !== ctx.user.id) {
-          throw new Error("File not found");
-        }
-        
-        // Create a new version snapshot of current state before restoring
-        const currentVersions = await db.getFileVersions(version.fileId);
-        await db.createFileVersion({
-          fileId: version.fileId,
-          userId: ctx.user.id,
-          versionNumber: currentVersions.length + 1,
-          changeDescription: `Auto-backup before restoring version ${version.versionNumber}`,
-          fileKey: file.fileKey,
-          url: file.url,
-          filename: file.filename,
-          mimeType: file.mimeType,
-          fileSize: file.fileSize,
-          title: file.title,
-          description: file.description,
-          aiAnalysis: file.aiAnalysis,
-          ocrText: file.ocrText,
-          detectedObjects: file.detectedObjects,
-        });
-        
-        // Restore version to current file
-        await db.updateFile(version.fileId, {
-          fileKey: version.fileKey,
-          url: version.url,
-          filename: version.filename,
-          title: version.title,
-          description: version.description,
-          aiAnalysis: version.aiAnalysis,
-          ocrText: version.ocrText,
-          detectedObjects: version.detectedObjects,
-        });
-        
-        return { success: true };
       }),
   }),
 

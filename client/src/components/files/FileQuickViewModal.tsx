@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, Download, ExternalLink, Calendar, FileIcon, Tag as TagIcon } from "lucide-react";
+import { X, Download, ExternalLink, Calendar, FileIcon, Tag as TagIcon, History } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { FileVersionHistory } from "./FileVersionHistory";
 
 interface FileQuickViewModalProps {
   file: {
@@ -27,6 +29,8 @@ export function FileQuickViewModal({
   onOpenChange,
   onViewDetails,
 }: FileQuickViewModalProps) {
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  
   if (!file) return null;
 
   const isImage = file.mimeType?.startsWith("image/");
@@ -57,6 +61,14 @@ export function FileQuickViewModal({
               )}
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowVersionHistory(!showVersionHistory)}
+              >
+                <History className="w-4 h-4 mr-2" />
+                Version History
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -159,6 +171,19 @@ export function FileQuickViewModal({
                   </Badge>
                 ))}
               </div>
+            </div>
+          )}
+          
+          {/* Version History */}
+          {showVersionHistory && (
+            <div className="border-t pt-4">
+              <FileVersionHistory 
+                fileId={file.id} 
+                onVersionRestored={() => {
+                  // Optionally refresh file data or notify parent
+                  onOpenChange(false);
+                }}
+              />
             </div>
           )}
         </div>
