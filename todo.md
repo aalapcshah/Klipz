@@ -3049,3 +3049,17 @@ Note: The application already has extensive annotation features including voice 
 - [ ] Test mobile device support for annotation tools (touch events already implemented)
 - [ ] Test all annotation tools work with single click
 - [ ] Test highlight tool allows click-and-drag highlighting
+
+
+## Phase 60: Mobile Annotation Support & Video Bookmarks
+- [x] Verify mobile annotation touch support (already implemented in VideoDrawingCanvas)
+- [x] Design bookmark data schema (table: video_bookmarks with fileId, userId, timestamp, label, description, color)
+- [x] Implement bookmark backend API (create, list, listAll, get, update, delete)
+- [x] Add bookmark button to video player controls
+- [x] Create bookmark dialog UI with label, description, color picker (6 color options)
+- [x] Display bookmarks list below video player with jump-to functionality
+- [x] Add bookmark markers to horizontal timeline with colored indicators
+- [x] Implement jump-to-bookmark functionality
+- [x] Write comprehensive tests for bookmark feature (9 test cases)
+- [ ] Test bookmark feature on actual mobile devices
+- [ ] Test annotation tools on actual mobile devices
