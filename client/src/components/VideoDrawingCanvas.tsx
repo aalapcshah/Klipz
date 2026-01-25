@@ -43,6 +43,14 @@ interface DrawingElement {
   color: string;
   strokeWidth: number;
   text?: string;
+  layerId: string; // Layer this element belongs to
+}
+
+interface Layer {
+  id: string;
+  name: string;
+  visible: boolean;
+  locked: boolean;
 }
 
 interface VideoDrawingCanvasProps {
@@ -79,6 +87,12 @@ export function VideoDrawingCanvas({
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const fileIdRef = useRef<string>("");
+  
+  // Layer management
+  const [layers, setLayers] = useState<Layer[]>([
+    { id: 'layer-1', name: 'Layer 1', visible: true, locked: false }
+  ]);
+  const [currentLayerId, setCurrentLayerId] = useState('layer-1');
 
   // Handle external toggle request
   useEffect(() => {
@@ -157,10 +171,15 @@ export function VideoDrawingCanvas({
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+    // Draw elements only from visible layers
     elements.forEach((element) => {
-      drawElement(ctx, element);
+      const layer = layers.find(l => l.id === element.layerId);
+      if (layer && layer.visible) {
+        drawElement(ctx, element);
+      }
     });
     
+    // Always draw current element being created
     if (currentElement) {
       drawElement(ctx, currentElement);
     }
@@ -278,6 +297,7 @@ export function VideoDrawingCanvas({
       points: [pos],
       color,
       strokeWidth,
+      layerId: currentLayerId,
     };
     
     setCurrentElement(newElement);
@@ -300,6 +320,7 @@ export function VideoDrawingCanvas({
       points: [pos],
       color,
       strokeWidth,
+      layerId: currentLayerId,
     };
     
     setCurrentElement(newElement);
@@ -387,6 +408,7 @@ export function VideoDrawingCanvas({
       color,
       strokeWidth: 2,
       text: textInput,
+      layerId: currentLayerId,
     };
     
     const newElements = [...elements, newElement];
@@ -472,6 +494,7 @@ export function VideoDrawingCanvas({
           ],
           color: color + '80', // Add transparency
           strokeWidth: 2,
+          layerId: currentLayerId,
         };
         break;
       case 'callout':
@@ -485,6 +508,7 @@ export function VideoDrawingCanvas({
           ],
           color: color,
           strokeWidth: 4,
+          layerId: currentLayerId,
         };
         break;
       case 'bubble':
@@ -496,6 +520,7 @@ export function VideoDrawingCanvas({
             { x: centerX - size / 2, y: centerY - size / 2 },
             { x: centerX + size / 2, y: centerY + size / 2 },
           ],
+          layerId: currentLayerId,
           color: color,
           strokeWidth: 3,
         };
@@ -521,6 +546,8 @@ export function VideoDrawingCanvas({
       duration,
       timestamp: currentTime,
       savedAt: Date.now(),
+      layers,
+      currentLayerId,
     };
     localStorage.setItem(draftKey, JSON.stringify(draft));
   };
@@ -545,6 +572,13 @@ export function VideoDrawingCanvas({
     localStorage.removeItem(draftKey);
   };
 
+  // Redraw canvas when layer visibility changes
+  useEffect(() => {
+    if (showCanvas) {
+      redrawCanvas();
+    }
+  }, [layers]);
+
   // Auto-save whenever elements change
   useEffect(() => {
     if (showCanvas && elements.length > 0) {
@@ -560,6 +594,12 @@ export function VideoDrawingCanvas({
       if (draft && draft.elements && draft.elements.length > 0) {
         setElements(draft.elements);
         setDuration(draft.duration || 5);
+        if (draft.layers) {
+          setLayers(draft.layers);
+        }
+        if (draft.currentLayerId) {
+          setCurrentLayerId(draft.currentLayerId);
+        }
         const newHistory = [draft.elements];
         setHistory(newHistory);
         setHistoryStep(0);
@@ -839,6 +879,90 @@ export function VideoDrawingCanvas({
                   Bubble
                 </Button>
               </div>
+            </div>
+          </div>
+
+          {/* Layer Management */}
+          <div className="space-y-2 border-t pt-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Layers</span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const newLayerId = `layer-${Date.now()}`;
+                  setLayers([...layers, {
+                    id: newLayerId,
+                    name: `Layer ${layers.length + 1}`,
+                    visible: true,
+                    locked: false,
+                  }]);
+                  setCurrentLayerId(newLayerId);
+                  toast.success(`Layer ${layers.length + 1} created`);
+                }}
+                className="h-7 text-xs"
+              >
+                + Add Layer
+              </Button>
+            </div>
+            <div className="space-y-1 max-h-32 overflow-y-auto">
+              {layers.map((layer) => (
+                <div
+                  key={layer.id}
+                  className={`flex items-center gap-2 p-2 rounded text-sm ${
+                    currentLayerId === layer.id
+                      ? 'bg-primary/20 border border-primary'
+                      : 'bg-muted/50 hover:bg-muted'
+                  }`}
+                >
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0"
+                    onClick={() => {
+                      setLayers(layers.map(l =>
+                        l.id === layer.id ? { ...l, visible: !l.visible } : l
+                      ));
+                    }}
+                  >
+                    {layer.visible ? '👁️' : '🚫'}
+                  </Button>
+                  <button
+                    className="flex-1 text-left"
+                    onClick={() => setCurrentLayerId(layer.id)}
+                  >
+                    {layer.name}
+                    {currentLayerId === layer.id && (
+                      <span className="ml-2 text-xs text-primary">(active)</span>
+                    )}
+                  </button>
+                  {layers.length > 1 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0 text-destructive"
+                      onClick={() => {
+                        if (layers.length === 1) {
+                          toast.error('Cannot delete the last layer');
+                          return;
+                        }
+                        // Remove elements from this layer
+                        setElements(elements.filter(e => e.layerId !== layer.id));
+                        // Remove layer
+                        const newLayers = layers.filter(l => l.id !== layer.id);
+                        setLayers(newLayers);
+                        // Switch to first layer if current layer was deleted
+                        if (currentLayerId === layer.id) {
+                          setCurrentLayerId(newLayers[0].id);
+                        }
+                        toast.success(`${layer.name} deleted`);
+                      }}
+                    >
+                      🗑️
+                    </Button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 

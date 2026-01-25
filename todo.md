@@ -3139,3 +3139,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add restore draft functionality when reopening drawing tools
 - [x] Add confirmation dialog when canceling with unsaved drawings
 - [x] Test auto-save and confirmation dialog workflows
+
+## Phase 47: Drawing Layers System
+- [x] Design layer data structure (Layer interface with id, name, visible, locked)
+- [x] Implement layer state management (current layer, layer list)
+- [x] Create layer management UI component (list, add, delete, toggle visibility)
+- [x] Update drawing logic to assign elements to current layer
+- [x] Update redrawCanvas to respect layer visibility
+- [x] Persist layers in localStorage with draft
+- [x] Test layer creation, visibility toggle, and element assignment
