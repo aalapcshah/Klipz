@@ -94,6 +94,9 @@ export function VideoDrawingCanvas({
   ]);
   const [currentLayerId, setCurrentLayerId] = useState('layer-1');
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
+  const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const [selectedLayerIds, setSelectedLayerIds] = useState<string[]>([]);
   
   // Layer reordering handlers
   const handleLayerDragStart = (e: React.DragEvent, layerId: string) => {
@@ -118,6 +121,78 @@ export function VideoDrawingCanvas({
   
   const handleLayerDragEnd = () => {
     setDraggedLayerId(null);
+  };
+  
+  // Layer renaming handlers
+  const startEditingLayer = (layerId: string, currentName: string) => {
+    setEditingLayerId(layerId);
+    setEditingName(currentName);
+  };
+  
+  const saveLayerName = () => {
+    if (!editingLayerId) return;
+    
+    const trimmedName = editingName.trim();
+    if (!trimmedName) {
+      toast.error('Layer name cannot be empty');
+      return;
+    }
+    
+    // Check for duplicate names
+    const isDuplicate = layers.some(l => l.id !== editingLayerId && l.name === trimmedName);
+    if (isDuplicate) {
+      toast.error('Layer name already exists');
+      return;
+    }
+    
+    setLayers(layers.map(l => 
+      l.id === editingLayerId ? { ...l, name: trimmedName } : l
+    ));
+    setEditingLayerId(null);
+    setEditingName('');
+    toast.success('Layer renamed');
+  };
+  
+  const cancelEditingLayer = () => {
+    setEditingLayerId(null);
+    setEditingName('');
+  };
+  
+  // Layer merge handler
+  const mergeLayers = () => {
+    if (selectedLayerIds.length < 2) {
+      toast.error('Select at least 2 layers to merge');
+      return;
+    }
+    
+    // Find the first selected layer (will be the target)
+    const targetLayerId = selectedLayerIds[0];
+    const targetLayer = layers.find(l => l.id === targetLayerId);
+    if (!targetLayer) return;
+    
+    // Collect all elements from selected layers and reassign to target layer
+    const mergedElements = elements.map(element => {
+      if (selectedLayerIds.includes(element.layerId)) {
+        return { ...element, layerId: targetLayerId };
+      }
+      return element;
+    });
+    
+    // Remove the other selected layers (keep target)
+    const newLayers = layers.filter(l => 
+      !selectedLayerIds.includes(l.id) || l.id === targetLayerId
+    );
+    
+    setElements(mergedElements);
+    setLayers(newLayers);
+    setSelectedLayerIds([]);
+    
+    // Switch to merged layer if current layer was deleted
+    if (selectedLayerIds.includes(currentLayerId) && currentLayerId !== targetLayerId) {
+      setCurrentLayerId(targetLayerId);
+    }
+    
+    toast.success(`${selectedLayerIds.length} layers merged into ${targetLayer.name}`);
   };
 
   // Handle external toggle request
@@ -927,26 +1002,38 @@ export function VideoDrawingCanvas({
 
           {/* Layer Management */}
           <div className="space-y-2 border-t pt-2">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium">Layers</span>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  const newLayerId = `layer-${Date.now()}`;
-                  setLayers([...layers, {
-                    id: newLayerId,
-                    name: `Layer ${layers.length + 1}`,
-                    visible: true,
-                    locked: false,
-                  }]);
-                  setCurrentLayerId(newLayerId);
-                  toast.success(`Layer ${layers.length + 1} created`);
-                }}
-                className="h-7 text-xs"
-              >
-                + Add Layer
-              </Button>
+              <div className="flex gap-1">
+                {selectedLayerIds.length >= 2 && (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={mergeLayers}
+                    className="h-7 text-xs"
+                  >
+                    Merge ({selectedLayerIds.length})
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const newLayerId = `layer-${Date.now()}`;
+                    setLayers([...layers, {
+                      id: newLayerId,
+                      name: `Layer ${layers.length + 1}`,
+                      visible: true,
+                      locked: false,
+                    }]);
+                    setCurrentLayerId(newLayerId);
+                    toast.success(`Layer ${layers.length + 1} created`);
+                  }}
+                  className="h-7 text-xs"
+                >
+                  + Add
+                </Button>
+              </div>
             </div>
             <div className="space-y-1 max-h-32 overflow-y-auto">
               {layers.map((layer) => (
@@ -964,6 +1051,19 @@ export function VideoDrawingCanvas({
                     draggedLayerId === layer.id ? 'opacity-50' : ''
                   }`}
                 >
+                  <input
+                    type="checkbox"
+                    checked={selectedLayerIds.includes(layer.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedLayerIds([...selectedLayerIds, layer.id]);
+                      } else {
+                        setSelectedLayerIds(selectedLayerIds.filter(id => id !== layer.id));
+                      }
+                    }}
+                    className="h-4 w-4"
+                    onClick={(e) => e.stopPropagation()}
+                  />
                   <Button
                     size="sm"
                     variant="ghost"
@@ -993,15 +1093,49 @@ export function VideoDrawingCanvas({
                   >
                     {layer.locked ? '🔒' : '🔓'}
                   </Button>
-                  <button
-                    className="flex-1 text-left"
-                    onClick={() => setCurrentLayerId(layer.id)}
-                  >
-                    {layer.name}
-                    {currentLayerId === layer.id && (
-                      <span className="ml-2 text-xs text-primary">(active)</span>
-                    )}
-                  </button>
+                  {editingLayerId === layer.id ? (
+                    <div className="flex-1 flex gap-1">
+                      <input
+                        type="text"
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveLayerName();
+                          if (e.key === 'Escape') cancelEditingLayer();
+                        }}
+                        className="flex-1 px-2 py-1 text-xs bg-background border border-border rounded"
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 text-green-600"
+                        onClick={saveLayerName}
+                      >
+                        ✓
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 text-red-600"
+                        onClick={cancelEditingLayer}
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      className="flex-1 text-left"
+                      onClick={() => setCurrentLayerId(layer.id)}
+                      onDoubleClick={() => startEditingLayer(layer.id, layer.name)}
+                    >
+                      {layer.name}
+                      {currentLayerId === layer.id && (
+                        <span className="ml-2 text-xs text-primary">(active)</span>
+                      )}
+                    </button>
+                  )}
                   {layers.length > 1 && (
                     <Button
                       size="sm"

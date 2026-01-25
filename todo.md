@@ -3158,3 +3158,15 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add visual lock indicator (🔒) on locked layers
 - [x] Persist layer order and lock states in localStorage (already in draft save)
 - [x] Test drag-and-drop reordering and lock functionality
+
+## Phase 49: Layer Renaming and Merge
+- [x] Add editing state for layer names (editingLayerId, editingName)
+- [x] Implement double-click on layer name to enter edit mode
+- [x] Add inline input field for layer name editing
+- [x] Add save/cancel buttons for name editing (✓ and ×)
+- [x] Validate layer names (non-empty, unique)
+- [x] Add layer selection state for merge (selectedLayerIds)
+- [x] Add checkboxes for layer selection
+- [x] Add "Merge Selected" button when 2+ layers selected
+- [x] Implement merge logic: combine elements, delete source layers
+- [x] Test layer renaming and merge functionality
