@@ -486,7 +486,7 @@ export function VideoList() {
                 {video.title || video.filename}
               </h3>
               
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <Badge variant="secondary" className="text-xs">
                   {formatDuration(video.duration)}
                 </Badge>
@@ -532,6 +532,7 @@ export function VideoList() {
                     {video.visualAnnotationCount}
                   </Badge>
                 )}
+                <VideoTagManager videoId={video.id} onTagsChange={refetch} />
               </div>
 
               {video.description && (
@@ -539,9 +540,6 @@ export function VideoList() {
                   {video.description}
                 </p>
               )}
-              
-              {/* Tag management */}
-              <VideoTagManager videoId={video.id} onTagsChange={refetch} />
 
               {/* Show exported video link if available */}
               {video.exportStatus === "completed" && video.exportedUrl && (

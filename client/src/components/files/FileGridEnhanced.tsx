@@ -1389,8 +1389,13 @@ export default function FileGridEnhanced({
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="text-sm font-medium truncate">
-                            {file.filename}
+                            {file.title || file.filename}
                           </h3>
+                          {file.title && (
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {file.filename}
+                            </p>
+                          )}
                           {file.description && (
                             <MetadataPopup description={file.description} maxLength={50} />
                           )}
@@ -1440,18 +1445,37 @@ export default function FileGridEnhanced({
                       )}
 
                       {file.tags && file.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {file.tags.map((tag: any) => (
-                            <span
-                              key={tag.id}
-                              className="px-2 py-1 bg-primary/20 text-primary text-xs rounded flex items-center gap-1"
-                              title={`Source: ${tag.source}`}
-                            >
-                              {tag.name}
-                              {tag.source === "ai" && <Sparkles className="h-3 w-3" />}
-                              {tag.source === "metadata" && <FileIcon className="h-3 w-3" />}
-                            </span>
-                          ))}
+                        <div className="mt-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const tagsDiv = e.currentTarget.nextElementSibling as HTMLElement;
+                              if (tagsDiv) {
+                                tagsDiv.classList.toggle('hidden');
+                                e.currentTarget.textContent = tagsDiv.classList.contains('hidden') 
+                                  ? `Show ${file.tags.length} tags` 
+                                  : 'Hide tags';
+                              }
+                            }}
+                          >
+                            Show {file.tags.length} tags
+                          </Button>
+                          <div className="hidden flex-wrap gap-1 mt-1">
+                            {file.tags.map((tag: any) => (
+                              <span
+                                key={tag.id}
+                                className="px-2 py-1 bg-primary/20 text-primary text-xs rounded flex items-center gap-1"
+                                title={`Source: ${tag.source}`}
+                              >
+                                {tag.name}
+                                {tag.source === "ai" && <Sparkles className="h-3 w-3" />}
+                                {tag.source === "metadata" && <FileIcon className="h-3 w-3" />}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>

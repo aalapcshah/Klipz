@@ -3318,3 +3318,15 @@ Note: The application already has extensive annotation features including voice 
 - [x] Show thumbnail preview of annotation content on timeline markers
 - [x] Test collapsible sections on mobile and desktop
 - [x] Test timeline preview functionality
+
+## Mobile UX Fixes
+- [ ] Compact video card layout - put duration, status, and Tag button on same line
+- [ ] Add file titles/names to file display cards in small font
+- [ ] Make AI enrichment metadata tags collapsible to save space
+- [ ] Test all fixes on mobile viewport
+
+## Mobile UX Fixes
+- [x] Compact video card layout - put duration, status, and Tag button on same line
+- [x] Add file titles to file display cards in small font
+- [x] Make AI enrichment metadata tags collapsible to save space
+- [x] Test all fixes on mobile layout
