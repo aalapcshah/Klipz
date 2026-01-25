@@ -9,6 +9,7 @@ import { FileListView } from "@/components/files/FileListView";
 import { VoiceSearchBar } from "@/components/VoiceSearchBar";
 import { FileDetailDialog } from "@/components/files/FileDetailDialog";
 import { BulkOperationsToolbar } from "@/components/files/BulkOperationsToolbar";
+import { FilesEmptyState } from "@/components/files/FilesEmptyState";
 import { AdvancedFiltersPanel, type AdvancedFilters } from "@/components/files/AdvancedFiltersPanel";
 import { trpc } from "@/lib/trpc";
 import { StorageCleanupWizard } from "@/components/StorageCleanupWizard";
@@ -238,20 +239,25 @@ export default function FilesView() {
             </div>
           )}
 
-          {viewMode === 'grid' ? (
-            <FileGridEnhanced 
-              onFileClick={handleFileClick}
-              selectedFileIds={selectedFileIds}
-              onSelectionChange={setSelectedFileIds}
-              advancedFilters={advancedFilters}
-            />
+          {/* Empty State */}
+          {!searchResults && filesData?.files && filesData.files.length === 0 ? (
+            <FilesEmptyState onUploadClick={() => setUploadDialogOpen(true)} />
           ) : (
-            <FileListView
-              files={searchResults || filesData?.files || []}
-              onFileClick={handleFileClick}
-              selectedFileIds={selectedFileIds}
-              onSelectionChange={setSelectedFileIds}
-            />
+            viewMode === 'grid' ? (
+              <FileGridEnhanced 
+                onFileClick={handleFileClick}
+                selectedFileIds={selectedFileIds}
+                onSelectionChange={setSelectedFileIds}
+                advancedFilters={advancedFilters}
+              />
+            ) : (
+              <FileListView
+                files={searchResults || filesData?.files || []}
+                onFileClick={handleFileClick}
+                selectedFileIds={selectedFileIds}
+                onSelectionChange={setSelectedFileIds}
+              />
+            )
           )}
           
           {/* Pagination Controls */}
