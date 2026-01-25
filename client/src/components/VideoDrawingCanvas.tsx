@@ -865,33 +865,44 @@ export function VideoDrawingCanvas({
                 <Type className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
               <Button
-                size="sm"
+                size="default"
+                className="md:h-9 md:w-9 md:p-0"
                 variant={selectedTool === "eraser" ? "default" : "outline"}
                 onClick={() => setSelectedTool("eraser")}
               >
-                <Eraser className="h-4 w-4" />
+                <Eraser className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
 
               <Separator orientation="vertical" className="h-8" />
 
               <Button
-                size="sm"
+                size="default"
+                className="md:h-9 md:w-9 md:p-0"
                 variant="outline"
                 onClick={handleUndo}
                 disabled={historyStep === 0}
+                title="Undo"
               >
-                <Undo className="h-4 w-4" />
+                <Undo className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
               <Button
-                size="sm"
+                size="default"
+                className="md:h-9 md:w-9 md:p-0"
                 variant="outline"
                 onClick={handleRedo}
                 disabled={historyStep >= history.length - 1}
+                title="Redo"
               >
-                <Redo className="h-4 w-4" />
+                <Redo className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
-              <Button size="sm" variant="outline" onClick={handleClear}>
-                <Trash2 className="h-4 w-4" />
+              <Button 
+                size="default" 
+                className="md:h-9 md:w-9 md:p-0" 
+                variant="outline" 
+                onClick={handleClear}
+                title="Clear All"
+              >
+                <Trash2 className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
             </div>
 

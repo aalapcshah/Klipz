@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine, Eye, EyeOff } from "lucide-react";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { VideoDrawingCanvas } from "./VideoDrawingCanvas";
 import { AnnotationTimeline } from "./AnnotationTimeline";
@@ -40,6 +40,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [recordingTimestamp, setRecordingTimestamp] = useState(0);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
+  const [showAnnotationPreview, setShowAnnotationPreview] = useState(true);
   const [visibleAnnotationIds, setVisibleAnnotationIds] = useState<number[]>([]);
   const [drawToggleRequest, setDrawToggleRequest] = useState<boolean>();
   const [copiedAnnotation, setCopiedAnnotation] = useState<typeof visualAnnotations[0] | null>(null);
@@ -444,7 +445,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           />
           
           {/* Visible annotation overlays */}
-          {visualAnnotations
+          {showAnnotationPreview && visualAnnotations
             .filter(ann => visibleAnnotationIds.includes(ann.id))
             .map(ann => (
               <img
@@ -457,7 +458,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             ))}
           
           {/* Voice annotation markers on timeline */}
-          {annotations.length > 0 && duration > 0 && (
+          {showAnnotationPreview && annotations.length > 0 && duration > 0 && (
             <div className="absolute bottom-16 left-0 right-0 h-1 bg-transparent">
               {annotations.map((annotation) => (
                 <div
@@ -535,6 +536,20 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             </Button>
             <Button size="default" className="h-11 px-4 md:h-9 md:px-3" variant="outline" onClick={toggleMute}>
               {isMuted ? <VolumeX className="h-5 w-5 md:h-4 md:w-4" /> : <Volume2 className="h-5 w-5 md:h-4 md:w-4" />}
+            </Button>
+            
+            {/* Annotation Preview Toggle */}
+            <Button 
+              size="default" 
+              className="h-11 px-4 md:h-9 md:px-3" 
+              variant={showAnnotationPreview ? "default" : "outline"}
+              onClick={() => {
+                setShowAnnotationPreview(!showAnnotationPreview);
+                toast.success(showAnnotationPreview ? "Annotations hidden" : "Annotations visible");
+              }}
+              title={showAnnotationPreview ? "Hide annotations" : "Show annotations"}
+            >
+              {showAnnotationPreview ? <Eye className="h-5 w-5 md:h-4 md:w-4" /> : <EyeOff className="h-5 w-5 md:h-4 md:w-4" />}
             </Button>
             
             {/* Playback Speed Control */}
