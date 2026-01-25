@@ -3335,3 +3335,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Move Play and Annotate buttons to same line as duration (0:02) and draft badge
 - [x] Move draft status badge up to title/timestamp line
 - [x] Test compact layout on mobile
+
+
+## Mobile Video Player Overflow Fix
+- [x] Fix horizontal overflow on mobile video annotation screen - content should fit viewport without horizontal scrolling

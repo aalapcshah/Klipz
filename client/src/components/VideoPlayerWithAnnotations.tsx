@@ -396,10 +396,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   };
 
   return (
-    <div className="space-y-2 md:space-y-4">
+    <div className="space-y-2 md:space-y-4 max-w-full overflow-x-hidden">
       {/* User Presence Indicator */}
       {activeUsers.length > 0 && (
-        <Card className="p-3">
+        <Card className="p-3 max-w-full overflow-x-hidden">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
@@ -438,7 +438,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         />
       )}
       
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden max-w-full">
         <div className="relative bg-black" id="video-container" style={{ position: 'relative' }}>
           <video
             ref={videoRef}
@@ -515,7 +515,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           )}
         </div>
 
-        <div className="p-2 md:p-4 space-y-2 md:space-y-3 bg-card">
+        <div className="p-2 md:p-4 space-y-2 md:space-y-3 bg-card max-w-full overflow-x-hidden">
           {/* Timeline */}
           <div className="space-y-1">
             <input
@@ -534,7 +534,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           </div>
 
           {/* Controls */}
-          <div className="flex items-center gap-2 flex-wrap video-controls">
+          <div className="flex items-center gap-2 flex-wrap video-controls max-w-full">
             <Button size="default" className="h-11 px-4 md:h-9 md:px-3" variant="outline" onClick={togglePlay}>
               {isPlaying ? <Pause className="h-5 w-5 md:h-4 md:w-4" /> : <Play className="h-5 w-5 md:h-4 md:w-4" />}
             </Button>
@@ -733,7 +733,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
 
       {/* Annotation Search */}
       {annotations.length > 0 && (
-        <Card className="p-4">
+        <Card className="p-4 max-w-full overflow-x-hidden">
           <AnnotationSearch
             annotations={annotations}
             onJumpToTimestamp={jumpToAnnotation}
@@ -744,7 +744,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
 
       {/* Voice Recorder - appears immediately below Show Timeline */}
       {showRecorder && (
-        <Card className="p-4">
+        <Card className="p-4 max-w-full overflow-x-hidden">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -776,7 +776,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
 
       {/* Drawing Annotations List */}
       {visualAnnotations.length > 0 && (
-        <Card className="p-4">
+        <Card className="p-4 max-w-full overflow-x-hidden">
           <h3 className="font-semibold mb-3 flex items-center justify-between cursor-pointer" onClick={() => setDrawingAnnotationsCollapsed(!drawingAnnotationsCollapsed)}>
             <div className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5" />
@@ -1024,7 +1024,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
 
       {/* Voice Annotations List */}
       {annotations.length > 0 && (
-        <Card className="p-4">
+        <Card className="p-4 max-w-full overflow-x-hidden">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1311,7 +1311,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
 
       {/* Annotation History Timeline */}
       {(visualAnnotations.length > 0 || annotations.length > 0) && (
-        <Card className="p-4">
+        <Card className="p-4 max-w-full overflow-x-hidden">
           <AnnotationHistoryTimeline fileId={fileId} />
         </Card>
       )}
