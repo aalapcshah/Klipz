@@ -959,3 +959,95 @@ export const activityNotificationPreferencesRelations = relations(activityNotifi
     references: [users.id],
   }),
 }));
+
+
+// ============= SCHEDULED REPORTS TABLE =============
+export const scheduledReports = mysqlTable("scheduled_reports", {
+  id: int("id").primaryKey().autoincrement(),
+  
+  // Report configuration
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  
+  // Schedule
+  frequency: mysqlEnum("frequency", ["daily", "weekly", "monthly"]).notNull(),
+  dayOfWeek: int("dayOfWeek"), // 0-6 for weekly reports (0 = Sunday)
+  dayOfMonth: int("dayOfMonth"), // 1-31 for monthly reports
+  timeOfDay: varchar("timeOfDay", { length: 5 }).notNull(), // HH:MM format
+  
+  // Filters
+  startDate: timestamp("startDate"),
+  endDate: timestamp("endDate"),
+  userId: int("userId"), // Filter by specific user, null = all users
+  activityType: varchar("activityType", { length: 50 }), // Filter by activity type
+  
+  // Delivery
+  recipients: text("recipients").notNull(), // Comma-separated email addresses
+  format: mysqlEnum("format", ["csv", "excel"]).default("excel").notNull(),
+  
+  // Status
+  enabled: boolean("enabled").default(true).notNull(),
+  lastRunAt: timestamp("lastRunAt"),
+  nextRunAt: timestamp("nextRunAt"),
+  
+  createdBy: int("createdBy").notNull(), // Admin who created it
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  createdByIndex: index("scheduled_reports_created_by_idx").on(table.createdBy),
+  nextRunIndex: index("scheduled_reports_next_run_idx").on(table.nextRunAt),
+}));
+
+export type ScheduledReport = typeof scheduledReports.$inferSelect;
+export type InsertScheduledReport = typeof scheduledReports.$inferInsert;
+
+export const scheduledReportsRelations = relations(scheduledReports, ({ one }) => ({
+  creator: one(users, {
+    fields: [scheduledReports.createdBy],
+    references: [users.id],
+  }),
+}));
+
+
+// ============= ENGAGEMENT ALERTS TABLE =============
+export const engagementAlerts = mysqlTable("engagement_alerts", {
+  id: int("id").primaryKey().autoincrement(),
+  
+  // Alert configuration
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  
+  // Metric to monitor
+  metricType: mysqlEnum("metricType", ["dau", "wau", "mau", "retention_day1", "retention_day7", "retention_day30"]).notNull(),
+  
+  // Threshold
+  thresholdType: mysqlEnum("thresholdType", ["below", "above"]).notNull(),
+  thresholdValue: int("thresholdValue").notNull(),
+  
+  // Notification settings
+  notifyEmails: text("notifyEmails").notNull(), // Comma-separated email addresses
+  checkFrequency: mysqlEnum("checkFrequency", ["hourly", "daily", "weekly"]).default("daily").notNull(),
+  
+  // Status
+  enabled: boolean("enabled").default(true).notNull(),
+  lastCheckedAt: timestamp("lastCheckedAt"),
+  lastTriggeredAt: timestamp("lastTriggeredAt"),
+  lastValue: int("lastValue"),
+  
+  createdBy: int("createdBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  createdByIndex: index("engagement_alerts_created_by_idx").on(table.createdBy),
+  enabledIndex: index("engagement_alerts_enabled_idx").on(table.enabled),
+}));
+
+export type EngagementAlert = typeof engagementAlerts.$inferSelect;
+export type InsertEngagementAlert = typeof engagementAlerts.$inferInsert;
+
+export const engagementAlertsRelations = relations(engagementAlerts, ({ one }) => ({
+  creator: one(users, {
+    fields: [engagementAlerts.createdBy],
+    references: [users.id],
+  }),
+}));

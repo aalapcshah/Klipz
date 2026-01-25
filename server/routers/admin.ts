@@ -6,6 +6,7 @@ import { eq, sql, desc, and, gte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { fetchActivityDataForExport, generateCSV, generateExcel } from "../_core/activityExport";
 import { getAllEngagementMetrics, getEngagementTrends } from "../_core/engagementMetrics";
+import { analyzeCohort, compareCohorts } from "../_core/cohortAnalysis";
 
 export const adminRouter = router({
   /**
@@ -334,4 +335,38 @@ export const adminRouter = router({
   getEngagementTrends: adminProcedure.query(async () => {
     return await getEngagementTrends();
   }),
+
+  /**
+   * Analyze a single cohort
+   */
+  analyzeCohort: adminProcedure
+    .input(
+      z.object({
+        name: z.string(),
+        startDate: z.date(),
+        endDate: z.date(),
+        userIds: z.array(z.number()).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return await analyzeCohort(input);
+    }),
+
+  /**
+   * Compare multiple cohorts
+   */
+  compareCohorts: adminProcedure
+    .input(
+      z.array(
+        z.object({
+          name: z.string(),
+          startDate: z.date(),
+          endDate: z.date(),
+          userIds: z.array(z.number()).optional(),
+        })
+      )
+    )
+    .mutation(async ({ input }) => {
+      return await compareCohorts(input);
+    }),
 });

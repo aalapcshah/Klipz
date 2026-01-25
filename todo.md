@@ -2606,3 +2606,48 @@ Note: Implemented simplified cloud export approach - users download files and ma
 - [x] Test engagement metrics calculations (8/8 tests passing)
 - [x] Write tests for export endpoints
 - [x] Write tests for engagement analytics
+
+
+## Phase 48: Dedicated Admin Panel & Advanced Features
+- [ ] Create separate admin panel layout (not accessible to regular users)
+- [ ] Remove admin link from regular user dashboard
+- [ ] Create dedicated admin navigation at /admin route
+- [ ] Add role-based route protection
+- [ ] Design scheduled reports database schema
+- [ ] Create scheduled reports management UI
+- [ ] Implement report scheduling backend (daily/weekly/monthly)
+- [ ] Add email delivery for scheduled reports
+- [ ] Create engagement alert thresholds table
+- [ ] Implement alert monitoring service
+- [ ] Add alert notification system (email/in-app)
+- [ ] Create alert configuration UI in admin panel
+- [ ] Design cohort analysis data structure
+- [ ] Implement cohort comparison backend
+- [ ] Create cohort selection UI (date ranges, user groups)
+- [ ] Add cohort comparison visualizations
+- [ ] Test admin panel access control
+- [ ] Test scheduled reports
+- [ ] Test engagement alerts
+- [ ] Test cohort analysis
+- [ ] Write tests for all new features
+
+## Phase 48: Dedicated Admin Panel & Advanced Features
+- [x] Create separate AdminLayout component with dedicated navigation
+- [x] Remove admin links from regular user Dashboard
+- [x] Add admin-only routes (/admin, /admin/scheduled, /admin/alerts, /admin/cohorts)
+- [x] Design scheduled reports database schema
+- [x] Create scheduled reports router with CRUD operations
+- [x] Build scheduled reports admin page with form UI
+- [x] Implement report generation and email delivery
+- [x] Add engagement alerts database schema
+- [x] Create engagement alerts router with threshold monitoring
+- [x] Build engagement alerts admin page with alert configuration
+- [x] Implement alert checking logic (DAU, WAU, MAU, retention)
+- [x] Add email notifications when alerts trigger
+- [x] Create cohort analysis service
+- [x] Add cohort comparison endpoints to admin router
+- [x] Build cohort analysis admin page with comparison UI
+- [x] Test scheduled reports functionality (4/4 tests passing)
+- [x] Test engagement alerts system (5/5 tests passing)
+- [x] Test cohort analysis (3/3 tests passing)
+- [x] Write tests for all admin features

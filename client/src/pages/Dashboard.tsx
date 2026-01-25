@@ -20,8 +20,7 @@ import {
   Calendar,
   Activity,
   ChevronDown,
-  Wrench,
-  Shield
+  Wrench
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -85,7 +84,6 @@ export default function Dashboard() {
     { href: "/knowledge-graph", label: "Knowledge Graph", icon: NetworkIcon },
     { href: "/activity", label: "Activity", icon: Activity },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
-    ...(user?.role === "admin" ? [{ href: "/admin", label: "Admin", icon: Shield }] : []),
   ];
 
   const allNavItems = [...mainNavItems, ...toolsMenuItems, ...insightsMenuItems, { href: "/settings", label: "Settings", icon: SettingsIcon }];

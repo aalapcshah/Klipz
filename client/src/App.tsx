@@ -21,6 +21,9 @@ import { TermsOfService } from "./pages/TermsOfService";
 import { PaymentSuccess } from "./pages/PaymentSuccess";
 import ActivityDashboard from "./pages/ActivityDashboard";
 import { Admin } from "./pages/Admin";
+import { AdminScheduledReports } from "./pages/AdminScheduledReports";
+import { AdminAlerts } from "./pages/AdminAlerts";
+import { AdminCohorts } from "./pages/AdminCohorts";
 import { trpc } from "./lib/trpc";
 import { useState, useEffect } from "react";
 import { CookieConsent } from "./components/CookieConsent";
@@ -44,6 +47,9 @@ function Router() {
       <Route path="/payment/success" component={PaymentSuccess} />
       <Route path="/activity" component={ActivityDashboard} />
       <Route path="/admin" component={Admin} />
+      <Route path="/admin/scheduled" component={AdminScheduledReports} />
+      <Route path="/admin/alerts" component={AdminAlerts} />
+      <Route path="/admin/cohorts" component={AdminCohorts} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

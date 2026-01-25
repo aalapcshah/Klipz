@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AdminLayout } from "@/components/AdminLayout";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,14 @@ import { Line } from "react-chartjs-2";
 import { toast } from "sonner";
 
 export function Admin() {
+  return (
+    <AdminLayout>
+      <AdminDashboard />
+    </AdminLayout>
+  );
+}
+
+function AdminDashboard() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [roleChangeUserId, setRoleChangeUserId] = useState<number | null>(null);
   const [newRole, setNewRole] = useState<"user" | "admin">("user");

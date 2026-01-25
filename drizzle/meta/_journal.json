@@ -246,6 +246,20 @@
       "when": 1769300514266,
       "tag": "0034_plain_living_tribunal",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "5",
+      "when": 1769301927217,
+      "tag": "0035_great_microchip",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "5",
+      "when": 1769302126845,
+      "tag": "0036_crazy_morlocks",
+      "breakpoints": true
     }
   ]
 }
