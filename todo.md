@@ -3081,3 +3081,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Make buttons slightly smaller for better mobile layout (size="sm", shortened labels on mobile)
 - [x] Fix close button (X) position on file cards (top-1 right-1 with z-10)
 - [ ] Test on mobile to ensure proper layout
+
+
+## Phase 63: Further Reduce Checkbox Sizes
+- [x] Reduce file card checkbox sizes (w-3.5 h-3.5 on mobile, w-4 h-4 on desktop)
+- [ ] Test on mobile to verify proper sizing

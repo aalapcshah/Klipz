@@ -1352,14 +1352,14 @@ export default function FileGridEnhanced({
                         checked={compareFiles.includes(file.id)}
                         onCheckedChange={() => toggleCompareFile(file.id)}
                         onClick={(e) => e.stopPropagation()}
-                        className="w-3 h-3 md:w-5 md:h-5"
+                        className="w-3.5 h-3.5 md:w-4 md:h-4"
                       />
                     ) : (
                       <Checkbox
                         checked={selectedFilesSet.has(file.id)}
                         onCheckedChange={() => toggleFile(file.id)}
                         onClick={(e) => e.stopPropagation()}
-                        className="w-3 h-3 md:w-5 md:h-5"
+                        className="w-3.5 h-3.5 md:w-4 md:h-4"
                       />
                     )}
                     <div
