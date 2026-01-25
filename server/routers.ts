@@ -2512,6 +2512,47 @@ For each suggestion, provide:
         return await db.getTagsForVideo(input.videoId, ctx.user.id);
       }),
   }),
+
+  // ============= FEEDBACK ROUTER =============
+  feedback: router({    
+    // Submit feedback
+    submit: protectedProcedure
+      .input(z.object({
+        type: z.enum(['general', 'bug', 'feature', 'improvement', 'question']),
+        message: z.string().min(1).max(1000),
+        email: z.string().email().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { notifyOwner } = await import('./_core/notification');
+        
+        // Format feedback notification
+        const feedbackTypeLabels = {
+          general: 'General Feedback',
+          bug: 'Bug Report',
+          feature: 'Feature Request',
+          improvement: 'Improvement Suggestion',
+          question: 'Question',
+        };
+        
+        const title = `New ${feedbackTypeLabels[input.type]} from ${ctx.user.name}`;
+        const content = `**User:** ${ctx.user.name} (${ctx.user.email})\n\n` +
+          `**Type:** ${feedbackTypeLabels[input.type]}\n\n` +
+          `**Message:**\n${input.message}` +
+          (input.email ? `\n\n**Contact Email:** ${input.email}` : '');
+        
+        // Send notification to owner
+        const sent = await notifyOwner({ title, content });
+        
+        if (!sent) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to send feedback notification',
+          });
+        }
+        
+        return { success: true };
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
