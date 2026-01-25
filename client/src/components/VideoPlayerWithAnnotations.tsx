@@ -523,25 +523,44 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               {isMuted ? <VolumeX className="h-5 w-5 md:h-4 md:w-4" /> : <Volume2 className="h-5 w-5 md:h-4 md:w-4" />}
             </Button>
             <div className="flex-1" />
-            {/* Annotation Tools - Green Buttons */}
+            {/* Annotation Tools - Visible on desktop */}
+            <div className="hidden md:flex items-center gap-2">
+              <Button 
+                size="default" 
+                className="h-9 px-3 bg-green-600 hover:bg-green-700 text-white" 
+                onClick={startAnnotation} 
+                disabled={showRecorder}
+              >
+                <Mic className="h-4 w-4 mr-2" />
+                Voice Note
+              </Button>
+              <Button 
+                size="default" 
+                className="h-9 px-3 bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => setDrawToggleRequest(!drawToggleRequest)}
+              >
+                <PenLine className="h-4 w-4 mr-2" />
+                Draw / Text
+              </Button>
+            </div>
+          </div>
+          
+          {/* Mobile Floating Action Buttons for Annotation Tools */}
+          <div className="md:hidden fixed bottom-20 right-4 z-50 flex flex-col gap-3">
             <Button 
-              size="default" 
-              className="h-11 px-4 md:h-9 md:px-3 bg-green-600 hover:bg-green-700 text-white" 
-              onClick={startAnnotation} 
+              size="lg"
+              className="h-14 w-14 rounded-full shadow-lg bg-green-600 hover:bg-green-700 text-white p-0"
+              onClick={startAnnotation}
               disabled={showRecorder}
             >
-              <Mic className="h-5 w-5 md:h-4 md:w-4 mr-2" />
-              <span className="hidden sm:inline">Voice Note</span>
-              <span className="sm:hidden">Voice</span>
+              <Mic className="h-6 w-6" />
             </Button>
             <Button 
-              size="default" 
-              className="h-11 px-4 md:h-9 md:px-3 bg-green-600 hover:bg-green-700 text-white"
+              size="lg"
+              className="h-14 w-14 rounded-full shadow-lg bg-green-600 hover:bg-green-700 text-white p-0"
               onClick={() => setDrawToggleRequest(!drawToggleRequest)}
             >
-              <PenLine className="h-5 w-5 md:h-4 md:w-4 mr-2" />
-              <span className="hidden sm:inline">Draw / Text</span>
-              <span className="sm:hidden">Draw</span>
+              <PenLine className="h-6 w-6" />
             </Button>
           </div>
           

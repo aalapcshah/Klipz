@@ -3170,3 +3170,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add "Merge Selected" button when 2+ layers selected
 - [x] Implement merge logic: combine elements, delete source layers
 - [x] Test layer renaming and merge functionality
+
+## Phase 50: Video Library and Mobile Annotation UI Improvements
+- [x] Fix annotation tools visibility in video player on mobile Android
+- [x] Make Draw and Voice Note buttons visible and accessible on mobile (floating action buttons)
+- [x] Reduce video card checkbox sizes to w-2.5 h-2.5 on mobile, w-3 h-3 on desktop
+- [x] Create export dropdown menu component with CSV and JSON options
+- [x] Replace separate Export CSV and Export JSON buttons with dropdown
+- [x] Test annotation tools on mobile, checkbox sizes, and export menu

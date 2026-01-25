@@ -194,7 +194,7 @@ export function VideoList() {
               type="checkbox"
               checked={selectedVideoIds.length === videos.length}
               onChange={handleSelectAll}
-              className="h-4 w-4"
+              className="h-2.5 w-2.5 md:h-3 md:w-3"
             />
             <span className="text-sm text-muted-foreground">
               {selectedVideoIds.length === 0 
@@ -203,34 +203,35 @@ export function VideoList() {
             </span>
           </div>
           {selectedVideoIds.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleBatchExport('csv')}
-                disabled={batchExportMutation.isPending}
-              >
-                {batchExportMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-                Export CSV
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleBatchExport('json')}
-                disabled={batchExportMutation.isPending}
-              >
-                {batchExportMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-                Export JSON
-              </Button>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={batchExportMutation.isPending}
+                >
+                  {batchExportMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  Export
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Export Format</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleBatchExport('csv')}>
+                  <Download className="h-4 w-4 mr-2" />
+                  CSV Format
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleBatchExport('json')}>
+                  <Download className="h-4 w-4 mr-2" />
+                  JSON Format
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       )}
@@ -244,7 +245,7 @@ export function VideoList() {
                 type="checkbox"
                 checked={selectedVideoIds.includes(video.id)}
                 onChange={() => handleToggleSelection(video.id)}
-                className="h-5 w-5 cursor-pointer"
+                className="h-2.5 w-2.5 md:h-3 md:w-3 cursor-pointer"
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
