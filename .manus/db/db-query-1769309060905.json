@@ -1,0 +1,60 @@
+{
+  "query": "SELECT id, filename, userId FROM files ORDER BY id LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, filename, userId FROM files ORDER BY id LIMIT 10;",
+  "rows": [
+    {
+      "id": "360001",
+      "filename": "Wearables Expanding into Lab Diagnostic Ecosystems 2025_10_08.jpg",
+      "userId": "1"
+    },
+    {
+      "id": "450001",
+      "filename": "Salary vs Cost of Living 2025_10_10.jpg",
+      "userId": "1"
+    },
+    {
+      "id": "480001",
+      "filename": "3_632727_5056114.docx",
+      "userId": "1"
+    },
+    {
+      "id": "480002",
+      "filename": "“Sickness Economy” Commentary 2025_09_01.jpg",
+      "userId": "1"
+    },
+    {
+      "id": "480003",
+      "filename": "$100K Salary Middle Class Debate.jpg",
+      "userId": "1"
+    },
+    {
+      "id": "480004",
+      "filename": "3X Salary Rule 2025_06_10.jpg",
+      "userId": "1"
+    },
+    {
+      "id": "480005",
+      "filename": "4. Luckiest Lottery Numbers Data.jpg",
+      "userId": "1"
+    },
+    {
+      "id": "480006",
+      "filename": "5 Anesthesia Policy Changes That Could Cut Pay 2025_08_12.jpg",
+      "userId": "1"
+    },
+    {
+      "id": "480007",
+      "filename": "5 Financial Literacy Trends 2025-02-15.jpg",
+      "userId": "1"
+    },
+    {
+      "id": "480008",
+      "filename": "10 Toxic Workplace Indicators.jpg",
+      "userId": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfilename\tuserId\n360001\tWearables Expanding into Lab Diagnostic Ecosystems 2025_10_08.jpg\t1\n450001\tSalary vs Cost of Living 2025_10_10.jpg\t1\n480001\t3_632727_5056114.docx\t1\n480002\t“Sickness Economy” Commentary 2025_09_01.jpg\t1\n480003\t$100K Salary Middle Class Debate.jpg\t1\n480004\t3X Salary Rule 2025_06_10.jpg\t1\n480005\t4. Luckiest Lottery Numbers Data.jpg\t1\n480006\t5 Anesthesia Policy Changes That Could Cut Pay 2025_08_12.jpg\t1\n480007\t5 Financial Literacy Trends 2025-02-15.jpg\t1\n480008\t10 Toxic Workplace Indicators.jpg\t1\n",
+  "stderr": "",
+  "execution_time_ms": 60
+}
