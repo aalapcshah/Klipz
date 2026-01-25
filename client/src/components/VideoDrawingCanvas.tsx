@@ -523,21 +523,32 @@ export function VideoDrawingCanvas({
 
   return (
     <div className="space-y-3">
-      <Button
-        size="default"
-        className="md:h-9 md:text-sm"
-        variant={showCanvas ? "default" : "outline"}
-        onClick={toggleCanvas}
-      >
-        <Pencil className="h-5 w-5 md:h-4 md:w-4 mr-2" />
-        {showCanvas ? "Hide Drawing Tools" : "Draw on Video"}
-      </Button>
+      {!showCanvas && (
+        <Button
+          size="default"
+          className="md:h-9 md:text-sm"
+          variant="outline"
+          onClick={toggleCanvas}
+        >
+          <Pencil className="h-5 w-5 md:h-4 md:w-4 mr-2" />
+          Draw on Video
+        </Button>
+      )}
 
       {showCanvas && (
         <Card className="p-3 space-y-2">
-          {/* Duration Slider - Moved to top */}
+          {/* Duration Slider with Cancel button */}
           <div className="space-y-1">
-            <span className="text-sm font-medium">Display Duration: {duration}s</span>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Display Duration: {duration}s</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={toggleCanvas}
+              >
+                Cancel
+              </Button>
+            </div>
             <input
               type="range"
               min="1"

@@ -3128,3 +3128,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Implement hover/touch popup for metadata descriptions to reduce crowding
 - [x] Complete batch voice transcription export integration
 - [x] Implement voice note search with highlighting
+
+## Phase 45: Voice Note UI Standardization
+- [x] Remove "Hide drawing Tools" button from drawing interface
+- [x] Add proper "Cancel" button on same line as Display Duration (right-aligned)
+- [x] Test drawing tools cancellation flow
