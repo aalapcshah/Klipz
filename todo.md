@@ -3086,3 +3086,9 @@ Note: The application already has extensive annotation features including voice 
 ## Phase 63: Further Reduce Checkbox Sizes
 - [x] Reduce file card checkbox sizes (w-3.5 h-3.5 on mobile, w-4 h-4 on desktop)
 - [ ] Test on mobile to verify proper sizing
+
+
+## Phase 64: Video Annotation UI Fixes - Remove Keyboard Shortcuts & Reposition Voice Notes
+- [x] Remove keyboard shortcuts from video annotation page (lines 559-570 removed)
+- [x] Move voice notes recording box to appear immediately below "Show Timeline" button
+- [x] Verify keyboard shortcuts are completely removed from VideoPlayerWithAnnotations

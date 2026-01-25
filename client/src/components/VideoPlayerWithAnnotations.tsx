@@ -556,31 +556,11 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             </Button>
           </div>
 
-          {/* Keyboard Shortcuts Help */}
-          <div className="text-xs text-muted-foreground bg-muted/30 rounded p-2">
-            <div className="font-medium mb-1">Keyboard Shortcuts:</div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-              <span><kbd className="px-1 py-0.5 bg-background rounded text-[10px]">Space</kbd> / <kbd className="px-1 py-0.5 bg-background rounded text-[10px]">K</kbd> Play/Pause</span>
-              <span><kbd className="px-1 py-0.5 bg-background rounded text-[10px]">←</kbd> / <kbd className="px-1 py-0.5 bg-background rounded text-[10px]">→</kbd> ±1s</span>
-              <span><kbd className="px-1 py-0.5 bg-background rounded text-[10px]">J</kbd> Rewind 5s</span>
-              <span><kbd className="px-1 py-0.5 bg-background rounded text-[10px]">L</kbd> Forward 5s</span>
-              <span><kbd className="px-1 py-0.5 bg-background rounded text-[10px]">Ctrl+C</kbd> Copy</span>
-              <span><kbd className="px-1 py-0.5 bg-background rounded text-[10px]">Ctrl+V</kbd> Paste</span>
-            </div>
-          </div>
+
         </div>
       </Card>
 
-      {/* Drawing Canvas Controls */}
-      <VideoDrawingCanvas
-        videoRef={videoRef}
-        currentTime={currentTime}
-        onSaveAnnotation={handleSaveVisualAnnotation}
-        onDrawingModeChange={setIsDrawingMode}
-        onToggleRequest={drawToggleRequest}
-      />
-
-      {/* Voice Recorder */}
+      {/* Voice Recorder - appears immediately below Show Timeline */}
       {showRecorder && (
         <Card className="p-4">
           <div className="space-y-3">
@@ -601,6 +581,15 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           </div>
         </Card>
       )}
+
+      {/* Drawing Canvas Controls */}
+      <VideoDrawingCanvas
+        videoRef={videoRef}
+        currentTime={currentTime}
+        onSaveAnnotation={handleSaveVisualAnnotation}
+        onDrawingModeChange={setIsDrawingMode}
+        onToggleRequest={drawToggleRequest}
+      />
 
       {/* Drawing Annotations List */}
       {visualAnnotations.length > 0 && (
