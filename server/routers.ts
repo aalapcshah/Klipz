@@ -5,6 +5,7 @@ import { stripeRouter } from "./routers/stripe";
 import { voiceAnnotationsRouter } from "./routers/voiceAnnotations";
 import { visualAnnotationsRouter } from "./routers/visual-annotations";
 import { annotationExportRouter } from "./routers/annotation-export";
+import { cloudStorageRouter } from "./routers/cloud-storage";
 import { analyticsRouter } from "./routers/analytics";
 import { annotationTemplatesRouter } from "./routers/annotation-templates";
 import { annotationCommentsRouter } from "./routers/annotation-comments";
@@ -345,6 +346,7 @@ export const appRouter = router({
   voiceAnnotations: voiceAnnotationsRouter,
   visualAnnotations: visualAnnotationsRouter,
   annotationExport: annotationExportRouter,
+  cloudStorage: cloudStorageRouter,
   annotationAnalytics: analyticsRouter,
   annotationTemplates: annotationTemplatesRouter,
   annotationComments: annotationCommentsRouter,

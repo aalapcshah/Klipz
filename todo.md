@@ -3288,3 +3288,20 @@ Note: The application already has extensive annotation features including voice 
 - [x] Test PDF export with multiple annotations
 - [x] Test CSV export and verify data structure
 - [x] Handle empty annotation cases gracefully
+
+## Cloud Export and Creator Filtering
+- [x] Implement Google Drive cloud export integration
+- [x] Add OAuth flow for Google Drive authentication
+- [x] Create backend API for uploading annotations to Google Drive
+- [x] Add Google Drive export option to export dropdown
+- [x] Implement Dropbox cloud export integration
+- [x] Add OAuth flow for Dropbox authentication with auto-refresh
+- [x] Create backend API for uploading annotations to Dropbox
+- [x] Add Dropbox export option to export dropdown
+- [x] Add creator filter dropdown to annotation timeline
+- [x] Fetch unique creators from annotations for filter options
+- [x] Filter voice annotations by selected creator
+- [x] Filter visual annotations by selected creator
+- [x] Test Google Drive export with PDF and CSV files
+- [x] Test Dropbox export with PDF and CSV files
+- [x] Test creator filtering with multiple users' annotations

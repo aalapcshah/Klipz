@@ -70,6 +70,8 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
 
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.voiceAnnotations.getAnnotations.useQuery({ fileId });
   const exportAnnotationsMutation = trpc.annotationExport.exportAnnotations.useMutation();
+  const uploadToGoogleDriveMutation = trpc.cloudStorage.uploadToGoogleDrive.useMutation();
+  const uploadToDropboxMutation = trpc.cloudStorage.uploadToDropbox.useMutation();
   
   // WebSocket for real-time collaboration
   const { isConnected, activeUsers, broadcastAnnotation } = useWebSocket({
@@ -555,7 +557,9 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             </Button>
 
             {/* Export Annotations Button */}
-            <Select onValueChange={async (format: "pdf" | "csv") => {
+            <Select onValueChange={async (value: string) => {
+              const [action, format] = value.split(":") as ["download" | "gdrive" | "dropbox", "pdf" | "csv"];
+              
               try {
                 toast.loading("Generating export...");
                 const result = await exportAnnotationsMutation.mutateAsync({
@@ -563,30 +567,75 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                   format,
                 });
                 
-                // Download the file
-                if (result.format === "pdf") {
-                  const blob = new Blob([Uint8Array.from(atob(result.content), c => c.charCodeAt(0))], { type: "application/pdf" });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = result.filename;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                } else {
-                  const blob = new Blob([result.content], { type: "text/csv" });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = result.filename;
-                  a.click();
-                  URL.revokeObjectURL(url);
+                if (action === "download") {
+                  // Download the file locally
+                  if (result.format === "pdf") {
+                    const blob = new Blob([Uint8Array.from(atob(result.content), c => c.charCodeAt(0))], { type: "application/pdf" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = result.filename;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  } else {
+                    const blob = new Blob([result.content], { type: "text/csv" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = result.filename;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }
+                  toast.dismiss();
+                  toast.success(`Downloaded annotations as ${format.toUpperCase()}`);
+                } else if (action === "gdrive") {
+                  // Upload to Google Drive
+                  toast.dismiss();
+                  toast.loading("Uploading to Google Drive...");
+                  const uploadResult = await uploadToGoogleDriveMutation.mutateAsync({
+                    filename: result.filename,
+                    content: result.content,
+                    mimeType: format === "pdf" ? "application/pdf" : "text/csv",
+                  });
+                  toast.dismiss();
+                  toast.success("Uploaded to Google Drive!", {
+                    action: {
+                      label: "Open",
+                      onClick: () => window.open(uploadResult.webViewLink, "_blank"),
+                    },
+                  });
+                } else if (action === "dropbox") {
+                  // Upload to Dropbox
+                  toast.dismiss();
+                  toast.loading("Uploading to Dropbox...");
+                  const uploadResult = await uploadToDropboxMutation.mutateAsync({
+                    filename: result.filename,
+                    content: result.content,
+                    mimeType: format === "pdf" ? "application/pdf" : "text/csv",
+                  });
+                  toast.dismiss();
+                  toast.success("Uploaded to Dropbox!", {
+                    action: uploadResult.sharedLink ? {
+                      label: "Open",
+                      onClick: () => window.open(uploadResult.sharedLink, "_blank"),
+                    } : undefined,
+                  });
                 }
-                
+              } catch (error: any) {
                 toast.dismiss();
-                toast.success(`Exported annotations as ${format.toUpperCase()}`);
-              } catch (error) {
-                toast.dismiss();
-                toast.error("Failed to export annotations");
+                if (error?.message?.includes("not connected")) {
+                  toast.error(error.message, {
+                    action: {
+                      label: "Connect",
+                      onClick: () => {
+                        // Open settings or connection modal
+                        toast.info("Please connect your cloud storage account in Settings");
+                      },
+                    },
+                  });
+                } else {
+                  toast.error("Failed to export annotations");
+                }
               }
             }}>
               <SelectTrigger className="w-auto h-11 md:h-9 gap-2">
@@ -594,8 +643,12 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 <span className="hidden md:inline">Export</span>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="pdf">Export as PDF</SelectItem>
-                <SelectItem value="csv">Export as CSV</SelectItem>
+                <SelectItem value="download:pdf">📥 Download PDF</SelectItem>
+                <SelectItem value="download:csv">📥 Download CSV</SelectItem>
+                <SelectItem value="gdrive:pdf">☁️ Google Drive (PDF)</SelectItem>
+                <SelectItem value="gdrive:csv">☁️ Google Drive (CSV)</SelectItem>
+                <SelectItem value="dropbox:pdf">📦 Dropbox (PDF)</SelectItem>
+                <SelectItem value="dropbox:csv">📦 Dropbox (CSV)</SelectItem>
               </SelectContent>
             </Select>
             

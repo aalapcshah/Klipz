@@ -1,13 +1,15 @@
 import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, Mic, PenLine } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, Mic, PenLine, User } from "lucide-react";
 
 interface VoiceAnnotation {
   id: number;
   videoTimestamp: number;
   transcript?: string | null;
   audioUrl?: string;
+  userName?: string | null;
 }
 
 interface VisualAnnotation {
@@ -15,6 +17,7 @@ interface VisualAnnotation {
   videoTimestamp: number;
   duration: number;
   imageUrl: string;
+  userName?: string | null;
 }
 
 interface HorizontalAnnotationTimelineProps {
@@ -33,15 +36,45 @@ export function HorizontalAnnotationTimeline({
   onJumpToTime,
 }: HorizontalAnnotationTimelineProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCreator, setSelectedCreator] = useState<string>("all");
 
-  // Filter annotations by search query
+  // Get unique creators from annotations
+  const uniqueCreators = useMemo(() => {
+    const creators = new Set<string>();
+    voiceAnnotations.forEach(ann => {
+      if (ann.userName) creators.add(ann.userName);
+    });
+    visualAnnotations.forEach(ann => {
+      if (ann.userName) creators.add(ann.userName);
+    });
+    return Array.from(creators).sort();
+  }, [voiceAnnotations, visualAnnotations]);
+
+  // Filter annotations by search query and creator
   const filteredVoiceAnnotations = useMemo(() => {
-    if (!searchQuery.trim()) return voiceAnnotations;
-    const query = searchQuery.toLowerCase();
-    return voiceAnnotations.filter(ann => 
-      ann.transcript?.toLowerCase().includes(query)
-    );
-  }, [voiceAnnotations, searchQuery]);
+    let filtered = voiceAnnotations;
+    
+    // Filter by creator
+    if (selectedCreator !== "all") {
+      filtered = filtered.filter(ann => ann.userName === selectedCreator);
+    }
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(ann => 
+        ann.transcript?.toLowerCase().includes(query)
+      );
+    }
+    
+    return filtered;
+  }, [voiceAnnotations, searchQuery, selectedCreator]);
+
+  // Filter visual annotations by creator
+  const filteredVisualAnnotations = useMemo(() => {
+    if (selectedCreator === "all") return visualAnnotations;
+    return visualAnnotations.filter(ann => ann.userName === selectedCreator);
+  }, [visualAnnotations, selectedCreator]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -56,8 +89,8 @@ export function HorizontalAnnotationTimeline({
 
   return (
     <Card className="p-4 space-y-3">
-      {/* Search Box */}
-      <div className="flex items-center gap-2">
+      {/* Search and Filter Controls */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -68,9 +101,28 @@ export function HorizontalAnnotationTimeline({
             className="pl-10"
           />
         </div>
-        {searchQuery && (
+        
+        {/* Creator Filter */}
+        {uniqueCreators.length > 0 && (
+          <Select value={selectedCreator} onValueChange={setSelectedCreator}>
+            <SelectTrigger className="w-full md:w-[200px]">
+              <User className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="All creators" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Creators</SelectItem>
+              {uniqueCreators.map(creator => (
+                <SelectItem key={creator} value={creator}>
+                  {creator}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        
+        {(searchQuery || selectedCreator !== "all") && (
           <span className="text-sm text-muted-foreground whitespace-nowrap">
-            {filteredVoiceAnnotations.length} of {voiceAnnotations.length} voice notes
+            {filteredVoiceAnnotations.length} voice + {filteredVisualAnnotations.length} drawing
           </span>
         )}
       </div>
@@ -94,7 +146,7 @@ export function HorizontalAnnotationTimeline({
           </div>
 
           {/* Voice Annotation Markers */}
-          {(searchQuery ? filteredVoiceAnnotations : voiceAnnotations).map((ann) => (
+          {filteredVoiceAnnotations.map((ann) => (
             <button
               key={`voice-${ann.id}`}
               className="absolute top-0 bottom-0 w-1 bg-yellow-500 hover:bg-yellow-400 transition-colors group cursor-pointer z-10"
@@ -123,7 +175,7 @@ export function HorizontalAnnotationTimeline({
           ))}
 
           {/* Visual Annotation Markers */}
-          {visualAnnotations.map((ann) => (
+          {filteredVisualAnnotations.map((ann) => (
             <button
               key={`visual-${ann.id}`}
               className="absolute top-0 bottom-0 bg-blue-500/30 hover:bg-blue-500/50 transition-colors group cursor-pointer z-10 border-l-2 border-r-2 border-blue-500"

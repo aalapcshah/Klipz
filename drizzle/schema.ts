@@ -1160,3 +1160,26 @@ export const videoTagAssignments = mysqlTable("video_tag_assignments", {
 
 export type VideoTagAssignment = typeof videoTagAssignments.$inferSelect;
 export type InsertVideoTagAssignment = typeof videoTagAssignments.$inferInsert;
+
+
+/**
+ * Cloud storage tokens - stores OAuth tokens for Google Drive and Dropbox
+ */
+export const cloudStorageTokens = mysqlTable("cloud_storage_tokens", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  provider: mysqlEnum("provider", ["google_drive", "dropbox"]).notNull(),
+  accessToken: text("accessToken").notNull(),
+  refreshToken: text("refreshToken"),
+  expiresAt: timestamp("expiresAt"),
+  email: varchar("email", { length: 320 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  userIdIndex: index("cloud_storage_tokens_user_id_idx").on(table.userId),
+  providerIndex: index("cloud_storage_tokens_provider_idx").on(table.provider),
+  uniqueUserProvider: index("cloud_storage_tokens_unique_idx").on(table.userId, table.provider),
+}));
+
+export type CloudStorageToken = typeof cloudStorageTokens.$inferSelect;
+export type InsertCloudStorageToken = typeof cloudStorageTokens.$inferInsert;
