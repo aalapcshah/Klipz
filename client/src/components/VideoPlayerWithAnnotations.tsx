@@ -396,7 +396,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2 md:space-y-4">
       {/* User Presence Indicator */}
       {activeUsers.length > 0 && (
         <Card className="p-3">
@@ -515,7 +515,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           )}
         </div>
 
-        <div className="p-4 space-y-3 bg-card">
+        <div className="p-2 md:p-4 space-y-2 md:space-y-3 bg-card">
           {/* Timeline */}
           <div className="space-y-1">
             <input
