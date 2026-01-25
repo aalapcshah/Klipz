@@ -591,6 +591,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         onSaveAnnotation={handleSaveVisualAnnotation}
         onDrawingModeChange={setIsDrawingMode}
         onToggleRequest={drawToggleRequest}
+        fileId={fileId}
       />
 
       {/* Drawing Annotations List */}

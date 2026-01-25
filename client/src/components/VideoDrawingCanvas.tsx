@@ -18,6 +18,16 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnnotationTemplatesLibrary } from "./AnnotationTemplatesLibrary";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type DrawingTool = "pen" | "rectangle" | "circle" | "arrow" | "text" | "eraser" | "highlight";
 
@@ -41,6 +51,7 @@ interface VideoDrawingCanvasProps {
   onSaveAnnotation: (imageDataUrl: string, timestamp: number, duration: number) => Promise<void>;
   onDrawingModeChange?: (isDrawing: boolean) => void;
   onToggleRequest?: boolean; // External toggle trigger
+  fileId?: number; // For auto-save draft identification
 }
 
 export function VideoDrawingCanvas({
@@ -49,6 +60,7 @@ export function VideoDrawingCanvas({
   onSaveAnnotation,
   onDrawingModeChange,
   onToggleRequest,
+  fileId,
 }: VideoDrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -64,6 +76,9 @@ export function VideoDrawingCanvas({
   const [textInput, setTextInput] = useState("");
   const [textPosition, setTextPosition] = useState<Point | null>(null);
   const [duration, setDuration] = useState(5); // Duration in seconds
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const fileIdRef = useRef<string>("");
 
   // Handle external toggle request
   useEffect(() => {
@@ -427,6 +442,8 @@ export function VideoDrawingCanvas({
       const imageDataUrl = canvas.toDataURL("image/png");
       await onSaveAnnotation(imageDataUrl, currentTime, duration);
       toast.success(`Drawing saved (${duration}s duration)`);
+      setHasUnsavedChanges(false);
+      clearDraft();
       handleClear();
       setShowCanvas(false);
     } catch (error) {
@@ -495,6 +512,76 @@ export function VideoDrawingCanvas({
     toast.success(`${templateType.charAt(0).toUpperCase() + templateType.slice(1)} template added`);
   };
 
+  // Auto-save draft to localStorage
+  const saveDraft = () => {
+    if (!fileId) return;
+    const draftKey = `drawing-draft-${fileId}`;
+    const draft = {
+      elements,
+      duration,
+      timestamp: currentTime,
+      savedAt: Date.now(),
+    };
+    localStorage.setItem(draftKey, JSON.stringify(draft));
+  };
+
+  // Restore draft from localStorage
+  const restoreDraft = () => {
+    if (!fileId) return null;
+    const draftKey = `drawing-draft-${fileId}`;
+    const draftStr = localStorage.getItem(draftKey);
+    if (!draftStr) return null;
+    try {
+      return JSON.parse(draftStr);
+    } catch {
+      return null;
+    }
+  };
+
+  // Clear draft from localStorage
+  const clearDraft = () => {
+    if (!fileId) return;
+    const draftKey = `drawing-draft-${fileId}`;
+    localStorage.removeItem(draftKey);
+  };
+
+  // Auto-save whenever elements change
+  useEffect(() => {
+    if (showCanvas && elements.length > 0) {
+      setHasUnsavedChanges(true);
+      saveDraft();
+    }
+  }, [elements, duration]);
+
+  // Restore draft when opening canvas
+  useEffect(() => {
+    if (showCanvas && elements.length === 0) {
+      const draft = restoreDraft();
+      if (draft && draft.elements && draft.elements.length > 0) {
+        setElements(draft.elements);
+        setDuration(draft.duration || 5);
+        const newHistory = [draft.elements];
+        setHistory(newHistory);
+        setHistoryStep(0);
+        toast.info(`Restored draft with ${draft.elements.length} drawing(s)`);
+      }
+    }
+  }, [showCanvas]);
+
+  const handleCancelClick = () => {
+    if (hasUnsavedChanges && elements.length > 0) {
+      setShowCancelDialog(true);
+    } else {
+      toggleCanvas();
+    }
+  };
+
+  const handleConfirmCancel = () => {
+    setShowCancelDialog(false);
+    setHasUnsavedChanges(false);
+    toggleCanvas();
+  };
+
   const toggleCanvas = () => {
     const newShowCanvas = !showCanvas;
     setShowCanvas(newShowCanvas);
@@ -504,6 +591,11 @@ export function VideoDrawingCanvas({
       // Pause video when starting to draw
       if (videoRef.current && !videoRef.current.paused) {
         videoRef.current.pause();
+      }
+    } else {
+      // Clear draft when closing after save
+      if (!hasUnsavedChanges) {
+        clearDraft();
       }
     }
   };
@@ -544,7 +636,7 @@ export function VideoDrawingCanvas({
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={toggleCanvas}
+                onClick={handleCancelClick}
               >
                 Cancel
               </Button>
@@ -793,6 +885,24 @@ export function VideoDrawingCanvas({
           </div>
         </Card>
       )}
+
+      {/* Confirmation Dialog for Unsaved Changes */}
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard unsaved drawing?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved drawings. If you cancel now, your work will be saved as a draft and can be restored when you return.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Editing</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmCancel}>
+              Discard & Close
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

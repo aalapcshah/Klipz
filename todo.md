@@ -3133,3 +3133,9 @@ Note: The application already has extensive annotation features including voice 
 - [x] Remove "Hide drawing Tools" button from drawing interface
 - [x] Add proper "Cancel" button on same line as Display Duration (right-aligned)
 - [x] Test drawing tools cancellation flow
+
+## Phase 46: Drawing Tools Safety Features
+- [x] Implement auto-save draft annotations to localStorage
+- [x] Add restore draft functionality when reopening drawing tools
+- [x] Add confirmation dialog when canceling with unsaved drawings
+- [x] Test auto-save and confirmation dialog workflows
