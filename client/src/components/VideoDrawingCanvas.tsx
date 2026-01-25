@@ -19,7 +19,7 @@ import {
 import { toast } from "sonner";
 import { AnnotationTemplatesLibrary } from "./AnnotationTemplatesLibrary";
 
-type DrawingTool = "pen" | "rectangle" | "circle" | "arrow" | "text" | "eraser";
+type DrawingTool = "pen" | "rectangle" | "circle" | "arrow" | "text" | "eraser" | "highlight";
 
 interface Point {
   x: number;
@@ -53,6 +53,7 @@ export function VideoDrawingCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [selectedTool, setSelectedTool] = useState<DrawingTool>("pen");
+  const [isHighlightMode, setIsHighlightMode] = useState(false);
   const [color, setColor] = useState("#FF0000");
   const [strokeWidth, setStrokeWidth] = useState(3);
   const [elements, setElements] = useState<DrawingElement[]>([]);
@@ -156,7 +157,18 @@ export function VideoDrawingCanvas({
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
 
-    if (element.type === "pen") {
+    if (element.type === "highlight") {
+      // Draw semi-transparent yellow highlight
+      if (element.points.length < 2) return;
+      const start = element.points[0];
+      const end = element.points[element.points.length - 1];
+      ctx.fillStyle = "rgba(255, 255, 0, 0.4)"; // Semi-transparent yellow
+      ctx.fillRect(start.x, start.y, end.x - start.x, end.y - start.y);
+      // Optional: add a subtle border
+      ctx.strokeStyle = "rgba(255, 255, 0, 0.6)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(start.x, start.y, end.x - start.x, end.y - start.y);
+    } else if (element.type === "pen") {
       if (element.points.length < 2) return;
       ctx.beginPath();
       ctx.moveTo(element.points[0].x, element.points[0].y);
@@ -377,19 +389,27 @@ export function VideoDrawingCanvas({
   };
 
   const handleUndo = () => {
-    if (historyStep === 0) return;
+    if (historyStep === 0) {
+      toast.info("Nothing to undo");
+      return;
+    }
     const newStep = historyStep - 1;
     setHistoryStep(newStep);
     setElements(history[newStep]);
     redrawCanvas();
+    toast.success("Undid last action");
   };
 
   const handleRedo = () => {
-    if (historyStep >= history.length - 1) return;
+    if (historyStep >= history.length - 1) {
+      toast.info("Nothing to redo");
+      return;
+    }
     const newStep = historyStep + 1;
     setHistoryStep(newStep);
     setElements(history[newStep]);
     redrawCanvas();
+    toast.success("Redid action");
   };
 
   const handleClear = () => {
@@ -606,55 +626,6 @@ export function VideoDrawingCanvas({
               </Button>
             </div>
 
-            {/* Annotation Templates */}
-            <div className="space-y-1">
-              <span className="text-sm font-medium">Quick Templates:</span>
-              <div className="flex items-center gap-2 flex-wrap">
-                <AnnotationTemplatesLibrary
-                  currentDrawingState={{
-                    tool: selectedTool === "eraser" ? "pen" : selectedTool,
-                    color,
-                    strokeWidth,
-                    text: textInput || undefined,
-                  }}
-                  onApplyTemplate={(templateData) => {
-                    setSelectedTool(templateData.tool as DrawingTool);
-                    setColor(templateData.color);
-                    setStrokeWidth(templateData.strokeWidth);
-                    if (templateData.text) setTextInput(templateData.text);
-                  }}
-                />
-                <Separator orientation="vertical" className="h-6" />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => insertTemplate('highlight')}
-                  className="text-xs"
-                >
-                  <Square className="h-3 w-3 mr-1" />
-                  Highlight
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => insertTemplate('callout')}
-                  className="text-xs"
-                >
-                  <ArrowRight className="h-3 w-3 mr-1" />
-                  Callout
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => insertTemplate('bubble')}
-                  className="text-xs"
-                >
-                  <Circle className="h-3 w-3 mr-1" />
-                  Bubble
-                </Button>
-              </div>
-            </div>
-
             {/* Color Picker */}
             <div className="space-y-1">
               <span className="text-sm font-medium">Color:</span>
@@ -695,6 +666,76 @@ export function VideoDrawingCanvas({
                 <Save className="h-4 w-4 mr-2" />
                 Confirm & Save
               </Button>
+            </div>
+
+            {/* Annotation Templates */}
+            <div className="space-y-1">
+              <span className="text-sm font-medium">Quick Templates:</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <AnnotationTemplatesLibrary
+                  currentDrawingState={{
+                    tool: selectedTool === "eraser" || selectedTool === "highlight" ? "pen" : selectedTool,
+                    color,
+                    strokeWidth,
+                    text: textInput || undefined,
+                  }}
+                  onApplyTemplate={(templateData) => {
+                    setSelectedTool(templateData.tool as DrawingTool);
+                    setColor(templateData.color);
+                    setStrokeWidth(templateData.strokeWidth);
+                    if (templateData.text) setTextInput(templateData.text);
+                  }}
+                />
+                <Separator orientation="vertical" className="h-6" />
+                <Button
+                  size="sm"
+                  variant={selectedTool === "highlight" ? "default" : "outline"}
+                  onClick={() => {
+                    if (!showCanvas) {
+                      setShowCanvas(true);
+                      onDrawingModeChange?.(true);
+                    }
+                    setSelectedTool("highlight");
+                    setColor("#FFFF00"); // Yellow
+                    setIsHighlightMode(true);
+                    toast.info("Click and drag to highlight");
+                  }}
+                  className="text-xs"
+                >
+                  <Square className="h-3 w-3 mr-1" />
+                  Highlight (Drag)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (!showCanvas) {
+                      setShowCanvas(true);
+                      onDrawingModeChange?.(true);
+                    }
+                    insertTemplate('callout');
+                  }}
+                  className="text-xs"
+                >
+                  <ArrowRight className="h-3 w-3 mr-1" />
+                  Callout
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (!showCanvas) {
+                      setShowCanvas(true);
+                      onDrawingModeChange?.(true);
+                    }
+                    insertTemplate('bubble');
+                  }}
+                  className="text-xs"
+                >
+                  <Circle className="h-3 w-3 mr-1" />
+                  Bubble
+                </Button>
+              </div>
             </div>
           </div>
 

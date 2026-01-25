@@ -3036,3 +3036,16 @@ Note: The application already has extensive annotation features including voice 
 - [x] Optimize filter controls layout on mobile (2-column grid on mobile, flex on desktop)
 - [ ] Test all mobile UX improvements on actual mobile device
 - [ ] Fix mobile video annotation display issues
+
+
+## Phase 59: Video Annotation UI Fixes
+- [x] Move quick templates below "Confirm and Save" button
+- [x] Remove keyboard shortcuts display from video annotation page
+- [x] Fix/clarify undo button functionality (added toast notifications for feedback)
+- [x] Replace rectangle "Highlight" button with actual yellow highlight tool (click-and-drag)
+- [x] Fix double-click bug (highlight, arrow, bubble buttons now auto-enable canvas)
+- [x] Remove all manual-tag.jpg test files from database
+- [ ] Document what templates are (AnnotationTemplatesLibrary + quick templates: Highlight, Callout, Bubble)
+- [ ] Test mobile device support for annotation tools (touch events already implemented)
+- [ ] Test all annotation tools work with single click
+- [ ] Test highlight tool allows click-and-drag highlighting

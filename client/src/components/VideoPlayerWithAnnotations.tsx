@@ -15,7 +15,7 @@ import { ApprovalWorkflow } from "./ApprovalWorkflow";
 import { AnnotationHistoryViewer } from "./AnnotationHistoryViewer";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { UserPresenceIndicator } from "./UserPresenceIndicator";
-import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
+
 import { BatchActionsToolbar } from "./BatchActionsToolbar";
 
 interface VideoPlayerWithAnnotationsProps {
@@ -384,7 +384,6 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               </span>
             </div>
             <UserPresenceIndicator activeUsers={activeUsers} maxDisplay={5} />
-            <KeyboardShortcutsHelp />
           </div>
         </Card>
       )}
