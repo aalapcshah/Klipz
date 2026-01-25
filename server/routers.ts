@@ -22,6 +22,7 @@ import { onboardingRouter } from "./routers/onboarding";
 import { activityLogsRouter } from "./routers/activityLogs";
 import { notificationPreferencesRouter } from "./routers/notificationPreferences";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { sendUploadEmail, sendEditEmail, sendDeleteEmail, sendEnrichEmail } from "./_core/activityEmailNotifications";
 import { TRPCError } from "@trpc/server";
 import * as premiumFeatures from "./premiumFeatures";
 import { z } from "zod";
@@ -574,6 +575,11 @@ export const appRouter = router({
           enrichmentStatus: "pending",
         });
         
+        // Send email notification asynchronously
+        sendUploadEmail(ctx.user.id, input.filename, fileId).catch(err => 
+          console.error('[Files] Failed to send upload email:', err)
+        );
+        
         return { id: fileId };
       }),
 
@@ -596,6 +602,12 @@ export const appRouter = router({
         
         const { id, ...updates } = input;
         await db.updateFile(id, updates);
+        
+        // Send email notification asynchronously
+        const details = Object.keys(updates).join(', ');
+        sendEditEmail(ctx.user.id, file.filename, id, `Updated: ${details}`).catch(err => 
+          console.error('[Files] Failed to send edit email:', err)
+        );
         
         return { success: true };
       }),
@@ -676,6 +688,11 @@ export const appRouter = router({
           ocrText: file.ocrText,
           detectedObjects: file.detectedObjects,
         });
+        
+        // Send email notification before deleting
+        sendDeleteEmail(ctx.user.id, file.filename).catch(err => 
+          console.error('[Files] Failed to send delete email:', err)
+        );
         
         await db.deleteFile(input.id);
         return { success: true };
@@ -887,6 +904,11 @@ export const appRouter = router({
             enrichmentStatus: "completed",
             enrichedAt: new Date(),
           });
+          
+          // Send email notification asynchronously
+          sendEnrichEmail(ctx.user.id, file.filename, input.id).catch(err => 
+            console.error('[Files] Failed to send enrich email:', err)
+          );
           
           // Auto-generate tags from AI analysis
           const autoTags = detectedObjects.slice(0, 5); // Top 5 keywords as tags

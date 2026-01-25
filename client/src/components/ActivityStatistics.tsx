@@ -49,6 +49,8 @@ export function ActivityStatistics() {
     );
   }
 
+
+
   // Activity trends over time (last 30 days)
   const trendsData = {
     labels: stats.dailyActivity?.map((d: any) => d.date) || [],

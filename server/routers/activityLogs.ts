@@ -45,7 +45,13 @@ export const activityLogsRouter = router({
     return await getActivityStats(ctx.user.id);
   }),
 
-  statistics: protectedProcedure.query(async ({ ctx }) => {
+  statistics: protectedProcedure
+    .input(
+      z.object({
+        userId: z.number().optional(), // Optional user filter for admins
+      }).optional()
+    )
+    .query(async ({ ctx, input }) => {
     const { getDb } = await import("../db");
     const { fileActivityLogs } = await import("../../drizzle/schema");
     const { sql, eq, gte, and } = await import("drizzle-orm");
@@ -70,7 +76,7 @@ export const activityLogsRouter = router({
       .from(fileActivityLogs)
       .where(
         and(
-          eq(fileActivityLogs.userId, ctx.user!.id),
+          eq(fileActivityLogs.userId, input?.userId || ctx.user!.id),
           gte(fileActivityLogs.createdAt, thirtyDaysAgo)
         )
       )
@@ -100,7 +106,7 @@ export const activityLogsRouter = router({
         count: sql<number>`COUNT(*)`,
       })
       .from(fileActivityLogs)
-      .where(eq(fileActivityLogs.userId, ctx.user!.id))
+      .where(eq(fileActivityLogs.userId, input?.userId || ctx.user!.id))
       .groupBy(sql`HOUR(${fileActivityLogs.createdAt})`);
     
     const hourlyActivity = Array(24).fill(0);
@@ -115,14 +121,14 @@ export const activityLogsRouter = router({
         count: sql<number>`COUNT(*)`,
       })
       .from(fileActivityLogs)
-      .where(eq(fileActivityLogs.userId, ctx.user!.id))
+      .where(eq(fileActivityLogs.userId, input?.userId || ctx.user!.id))
       .groupBy(fileActivityLogs.activityType);
 
     // Get total activities
     const totalResult = await db
       .select({ count: sql<number>`COUNT(*)` })
       .from(fileActivityLogs)
-      .where(eq(fileActivityLogs.userId, ctx.user!.id));
+      .where(eq(fileActivityLogs.userId, input?.userId || ctx.user!.id));
     
     // Get today's activities
     const todayResult = await db
@@ -130,7 +136,7 @@ export const activityLogsRouter = router({
       .from(fileActivityLogs)
       .where(
         and(
-          eq(fileActivityLogs.userId, ctx.user!.id),
+          eq(fileActivityLogs.userId, input?.userId || ctx.user!.id),
           gte(fileActivityLogs.createdAt, today)
         )
       );
@@ -141,7 +147,7 @@ export const activityLogsRouter = router({
       .from(fileActivityLogs)
       .where(
         and(
-          eq(fileActivityLogs.userId, ctx.user!.id),
+          eq(fileActivityLogs.userId, input?.userId || ctx.user!.id),
           gte(fileActivityLogs.createdAt, weekAgo)
         )
       );
@@ -152,7 +158,7 @@ export const activityLogsRouter = router({
       .from(fileActivityLogs)
       .where(
         and(
-          eq(fileActivityLogs.userId, ctx.user!.id),
+          eq(fileActivityLogs.userId, input?.userId || ctx.user!.id),
           gte(fileActivityLogs.createdAt, monthAgo)
         )
       );
