@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
 import { Upload, LayoutGrid, List, FileIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,12 +14,16 @@ import { AdvancedFiltersPanel, type AdvancedFilters } from "@/components/files/A
 import { trpc } from "@/lib/trpc";
 import { StorageCleanupWizard } from "@/components/StorageCleanupWizard";
 import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function FilesView() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [showCleanupWizard, setShowCleanupWizard] = useState(false);
   const [selectedFileId, setSelectedFileId] = useState<number | null>(null);
   const [selectedFileIds, setSelectedFileIds] = useState<number[]>([]);
+  const [isPulling, setIsPulling] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(() => {
     const saved = localStorage.getItem('advancedFiltersOpen');
     // On mobile, default to closed; on desktop, use saved preference
@@ -88,6 +92,50 @@ export default function FilesView() {
 
   const trackViewMutation = trpc.recentlyViewed.trackView.useMutation();
 
+  // Pull-to-refresh handlers
+  const pullThreshold = 80;
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer && scrollContainer.scrollTop === 0) {
+      setTouchStartY(e.touches[0].clientY);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartY === null) return;
+    
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer || scrollContainer.scrollTop > 0) {
+      setTouchStartY(null);
+      setPullDistance(0);
+      return;
+    }
+
+    const currentY = e.touches[0].clientY;
+    const distance = currentY - touchStartY;
+    
+    if (distance > 0) {
+      e.preventDefault();
+      setPullDistance(Math.min(distance, pullThreshold * 1.5));
+      setIsPulling(distance > pullThreshold);
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (isPulling && pullDistance > pullThreshold) {
+      // Trigger refresh
+      await utils.files.list.invalidate();
+      await utils.recentlyViewed.list.invalidate();
+      toast.success('Files refreshed');
+    }
+    
+    setTouchStartY(null);
+    setPullDistance(0);
+    setIsPulling(false);
+  };
+
   const handleFileClick = (fileId: number) => {
     setSelectedFileId(fileId);
     // Track file view in background
@@ -106,7 +154,28 @@ export default function FilesView() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="p-6 space-y-6 overflow-y-auto">
+        <div 
+          ref={scrollContainerRef}
+          className="p-6 space-y-6 overflow-y-auto"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          style={{
+            transform: `translateY(${pullDistance * 0.5}px)`,
+            transition: pullDistance === 0 ? 'transform 0.3s ease' : 'none',
+          }}
+        >
+          {/* Pull-to-refresh indicator */}
+          {pullDistance > 0 && (
+            <div 
+              className="flex items-center justify-center py-2 text-sm text-muted-foreground"
+              style={{
+                opacity: Math.min(pullDistance / pullThreshold, 1),
+              }}
+            >
+              {isPulling ? '↓ Release to refresh' : '↓ Pull to refresh'}
+            </div>
+          )}
           <div className="space-y-4">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>

@@ -32,6 +32,7 @@ import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Loader2 } from "lucide-react";
 import { StorageAlert } from "@/components/StorageAlert";
+import { triggerHaptic } from "@/lib/haptics";
 
 export default function Dashboard() {
   const { user, loading, isAuthenticated, logout } = useAuth();
@@ -61,6 +62,7 @@ export default function Dashboard() {
     const distance = touchStart - touchEnd;
     const isRightSwipe = distance < -minSwipeDistance;
     if (isRightSwipe && mobileMenuOpen) {
+      triggerHaptic('light');
       setMobileMenuOpen(false);
     }
     setTouchStart(null);
@@ -125,7 +127,10 @@ export default function Dashboard() {
               variant="ghost"
               size="sm"
               className="flex items-center gap-1.5"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              onClick={() => {
+                triggerHaptic('light');
+                setMobileMenuOpen(!mobileMenuOpen);
+              }}
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               <span className="text-sm">Menu</span>
@@ -153,6 +158,7 @@ export default function Dashboard() {
                 variant="ghost"
                 size="icon"
                 onClick={() => {
+                  triggerHaptic('light');
                   // Trigger upload - will be handled by Files page
                   window.location.href = '/?upload=true';
                 }}
