@@ -3492,3 +3492,29 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix compression process hanging
 - [x] Add better error messages for upload failures
 - [x] Test video upload with various file sizes
+
+
+## S3 Direct Upload Implementation
+- [x] Create tRPC procedure for generating S3 presigned upload URLs
+- [x] Replace base64 database storage with S3 direct upload
+- [x] Update VideoUploadSection to use presigned URLs
+- [x] Handle S3 upload errors and retries
+- [x] Store S3 file keys and URLs in database
+- [x] Test S3 upload with various file sizes
+
+## Video Quality Selector
+- [x] Add quality selector UI (Original, High 1080p, Medium 720p, Low 480p)
+- [x] Implement video resolution detection
+- [x] Create video transcoding/optimization function (client-side processing)
+- [x] Adjust bitrate based on selected quality
+- [x] Show estimated file size for each quality option
+- [x] Test quality optimization with various video formats
+
+## Chunked Upload with Resume
+- [x] Implement chunked file upload (5MB chunks)
+- [x] Store upload progress in localStorage
+- [x] Detect interrupted uploads on page load
+- [x] Add "Resume Upload" UI for interrupted files
+- [x] Handle chunk upload failures with retry logic
+- [x] Clear completed uploads from localStorage
+- [x] Test resume functionality with network interruptions

@@ -32,6 +32,7 @@ import { dashboardLayoutRouter } from "./routers/dashboardLayout";
 import { fileVersionsRouter } from "./routers/fileVersions";
 import { videoTranscriptionRouter } from "./routers/videoTranscription";
 import { videoChaptersRouter } from "./routers/videoChapters";
+import { s3UploadRouter } from "./routers/s3Upload";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { sendUploadEmail, sendEditEmail, sendDeleteEmail, sendEnrichEmail } from "./_core/activityEmailNotifications";
 import { TRPCError } from "@trpc/server";
@@ -375,6 +376,7 @@ export const appRouter = router({
   fileVersions: fileVersionsRouter,
   videoTranscription: videoTranscriptionRouter,
   videoChapters: videoChaptersRouter,
+  s3Upload: s3UploadRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
