@@ -3606,3 +3606,10 @@ Note: The application already has extensive annotation features including voice 
 - [ ] Add Clear All button to delete all drawings on canvas
 - [ ] Fix canvas positioning over video on mobile
 - [ ] Test drawing with finger on mobile device
+
+## Drawing Canvas Improvements
+- [x] Clear All button already implemented (Trash2 icon in toolbar)
+- [x] Fixed Draw button toggle mechanism (changed from boolean to counter)
+- [x] Reset zoom to 1 when canvas opens to prevent pan mode interference
+- [x] Added visual feedback to Draw buttons (purple when active, green when inactive)
+- [x] Draw button shows "Drawing..." text when canvas is active

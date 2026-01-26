@@ -58,7 +58,7 @@ interface VideoDrawingCanvasProps {
   currentTime: number;
   onSaveAnnotation: (imageDataUrl: string, timestamp: number, duration: number) => Promise<void>;
   onDrawingModeChange?: (isDrawing: boolean) => void;
-  onToggleRequest?: boolean; // External toggle trigger
+  onToggleRequest?: number; // External toggle trigger (counter)
   fileId?: number; // For auto-save draft identification
 }
 
@@ -210,7 +210,7 @@ export function VideoDrawingCanvas({
 
   // Handle external toggle request
   useEffect(() => {
-    if (onToggleRequest !== undefined) {
+    if (onToggleRequest !== undefined && onToggleRequest > 0) {
       setShowCanvas(prev => !prev);
     }
   }, [onToggleRequest]);
@@ -976,6 +976,10 @@ export function VideoDrawingCanvas({
         if (videoRef.current && !videoRef.current.paused) {
           videoRef.current.pause();
         }
+        // Reset zoom and pan to prevent pan mode interference on mobile
+        setZoom(1);
+        setPanX(0);
+        setPanY(0);
       } else {
         // Clear draft when closing after save
         if (!hasUnsavedChanges) {

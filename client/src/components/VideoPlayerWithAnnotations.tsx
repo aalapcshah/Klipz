@@ -46,7 +46,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [showTimeline, setShowTimeline] = useState(false);
   const [showAnnotationPreview, setShowAnnotationPreview] = useState(true);
   const [visibleAnnotationIds, setVisibleAnnotationIds] = useState<number[]>([]);
-  const [drawToggleRequest, setDrawToggleRequest] = useState<boolean>();
+  const [drawToggleRequest, setDrawToggleRequest] = useState(0);
   const [copiedAnnotation, setCopiedAnnotation] = useState<typeof visualAnnotations[0] | null>(null);
   const [speakingAnnotationId, setSpeakingAnnotationId] = useState<number | null>(null);
   const [speechRate, setSpeechRate] = useState(1.0);
@@ -756,11 +756,11 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               </Button>
               <Button 
                 size="default" 
-                className="h-9 px-3 bg-green-600 hover:bg-green-700 text-white"
-                onClick={() => setDrawToggleRequest(!drawToggleRequest)}
+                className={`h-9 px-3 ${isDrawingMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-600 hover:bg-green-700'} text-white`}
+                onClick={() => setDrawToggleRequest(prev => prev + 1)}
               >
                 <PenLine className="h-4 w-4 mr-2" />
-                Draw / Text
+                {isDrawingMode ? 'Drawing...' : 'Draw / Text'}
               </Button>
             </div>
           </div>
@@ -777,8 +777,8 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             </Button>
             <Button 
               size="lg"
-              className="h-14 w-14 rounded-full shadow-lg bg-green-600 hover:bg-green-700 text-white p-0"
-              onClick={() => setDrawToggleRequest(!drawToggleRequest)}
+              className={`h-14 w-14 rounded-full shadow-lg ${isDrawingMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-600 hover:bg-green-700'} text-white p-0`}
+              onClick={() => setDrawToggleRequest(prev => prev + 1)}
             >
               <PenLine className="h-6 w-6" />
             </Button>
