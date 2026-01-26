@@ -103,6 +103,8 @@ export function VideoList() {
   const batchDeleteMutation = trpc.videos.batchDelete.useMutation();
   const exportMutation = trpc.videoExport.export.useMutation();
   const batchExportMutation = trpc.videoExport.batchExport.useMutation();
+  const transcribeMutation = trpc.videoTranscription.transcribeVideo.useMutation();
+  const [transcribingVideos, setTranscribingVideos] = useState<Set<number>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   // Tag management
@@ -172,6 +174,45 @@ export function VideoList() {
     } catch (error) {
       toast.error("Failed to delete videos");
     }
+  };
+
+  const handleBatchTranscribe = async () => {
+    if (selectedVideoIds.length === 0) {
+      toast.error("Please select at least one video");
+      return;
+    }
+
+    // Get the file IDs for selected videos
+    const videosToTranscribe = videos.filter(v => selectedVideoIds.includes(v.id));
+    const newTranscribing = new Set(transcribingVideos);
+    
+    toast.info(`Starting transcription for ${videosToTranscribe.length} video(s)...`);
+
+    // Transcribe videos sequentially
+    for (const video of videosToTranscribe) {
+      try {
+        newTranscribing.add(video.id);
+        setTranscribingVideos(new Set(newTranscribing));
+
+        if (!video.fileId) {
+          throw new Error('Video file ID not found');
+        }
+        await transcribeMutation.mutateAsync({ fileId: video.fileId });
+        
+        newTranscribing.delete(video.id);
+        setTranscribingVideos(new Set(newTranscribing));
+        
+        toast.success(`Transcribed: ${video.title}`);
+      } catch (error: any) {
+        newTranscribing.delete(video.id);
+        setTranscribingVideos(new Set(newTranscribing));
+        toast.error(`Failed to transcribe ${video.title}: ${error.message}`);
+      }
+    }
+
+    setSelectedVideoIds([]);
+    refetch();
+    toast.success("Batch transcription complete");
   };
 
   const handleDelete = async (videoId: number) => {
@@ -432,11 +473,24 @@ export function VideoList() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => setShowDeleteConfirm(true)}
-              disabled={batchDeleteMutation.isPending}
+              <Button
+                size="sm"
+                variant="default"
+                onClick={handleBatchTranscribe}
+                disabled={transcribeMutation.isPending || transcribingVideos.size > 0}
+              >
+                {transcribingVideos.size > 0 ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Mic className="h-4 w-4 mr-2" />
+                )}
+                Transcribe All
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={batchDeleteMutation.isPending}
             >
               {batchDeleteMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />

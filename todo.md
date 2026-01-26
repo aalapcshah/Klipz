@@ -3423,3 +3423,31 @@ Note: The application already has extensive annotation features including voice 
 - [x] Show upload progress and success/error states
 - [x] Refresh video list after successful upload
 - [x] Add mobile-friendly upload interface
+
+
+## Batch Video Transcription
+- [x] Add "Transcribe All" button to Video Library header
+- [x] Add checkbox selection to video list for batch operations
+- [x] Implement transcription queue management system
+- [x] Show progress indicator for batch transcription
+- [x] Display transcription status for each video (pending, processing, completed, failed)
+- [x] Add ability to cancel ongoing transcriptions
+- [x] Test batch transcription with multiple videos
+
+## Auto-Generate Video Thumbnails
+- [x] Implement thumbnail extraction at 0s, 25%, 50%, 75% timestamps
+- [x] Add thumbnail generation during video upload process
+- [x] Store thumbnail URLs in database
+- [x] Display thumbnails in Video Library grid view
+- [x] Add fallback thumbnail for videos without generated thumbnails
+- [x] Optimize thumbnail size for web display
+- [x] Test thumbnail generation with various video formats
+
+## Video Compression Option
+- [x] Add compression toggle to upload interface
+- [x] Implement client-side video compression using browser APIs
+- [x] Show compression settings (quality slider, target size)
+- [x] Display estimated file size reduction
+- [x] Add compression progress indicator
+- [x] Maintain aspect ratio and key metadata during compression
+- [x] Test compression with various video formats and sizes

@@ -12,6 +12,7 @@ interface UploadingFile {
   status: "uploading" | "success" | "error";
   error?: string;
   fileId?: number;
+  thumbnails?: string[]; // Base64 encoded thumbnails
 }
 
 const ACCEPTED_VIDEO_FORMATS = [
@@ -28,6 +29,8 @@ const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
 export function VideoUploadSection() {
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [enableCompression, setEnableCompression] = useState(false);
+  const [compressionQuality, setCompressionQuality] = useState(0.7); // 0.1 to 1.0
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadMutation = trpc.files.create.useMutation();
@@ -83,8 +86,41 @@ export function VideoUploadSection() {
           );
         }, 200);
 
+        // Compress video if enabled
+        let fileToUpload = uploadFile.file;
+        if (enableCompression) {
+          try {
+            toast.info(`Compressing ${uploadFile.file.name}...`);
+            fileToUpload = await compressVideo(uploadFile.file, compressionQuality);
+            const originalSize = (uploadFile.file.size / (1024 * 1024)).toFixed(2);
+            const compressedSize = (fileToUpload.size / (1024 * 1024)).toFixed(2);
+            const reduction = ((1 - fileToUpload.size / uploadFile.file.size) * 100).toFixed(0);
+            toast.success(`Compressed: ${originalSize}MB → ${compressedSize}MB (${reduction}% reduction)`);
+          } catch (error) {
+            console.error('Failed to compress video:', error);
+            toast.warning('Compression failed, uploading original file');
+            // Continue with original file
+          }
+        }
+
+        // Generate thumbnails
+        let thumbnails: string[] = [];
+        try {
+          thumbnails = await generateVideoThumbnails(fileToUpload);
+          setUploadingFiles((prev) =>
+            prev.map((f) =>
+              f.file === uploadFile.file
+                ? { ...f, thumbnails }
+                : f
+            )
+          );
+        } catch (error) {
+          console.error('Failed to generate thumbnails:', error);
+          // Continue without thumbnails
+        }
+
         // Convert file to base64 for upload
-        const base64 = await fileToBase64(uploadFile.file);
+        const base64 = await fileToBase64(fileToUpload);
 
         // Upload file to S3 first (using storagePut would require server-side implementation)
         // For now, we'll use a simplified approach with base64 in database
@@ -140,6 +176,130 @@ export function VideoUploadSection() {
         resolve(base64);
       };
       reader.onerror = reject;
+    });
+  };
+
+  const compressVideo = async (file: File, quality: number): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'));
+        return;
+      }
+
+      video.preload = 'metadata';
+      video.src = URL.createObjectURL(file);
+
+      video.onloadedmetadata = () => {
+        // Scale down resolution based on quality
+        const scale = 0.5 + (quality * 0.5); // 0.5x to 1.0x
+        canvas.width = video.videoWidth * scale;
+        canvas.height = video.videoHeight * scale;
+
+        const stream = canvas.captureStream(30); // 30 FPS
+        const mediaRecorder = new MediaRecorder(stream, {
+          mimeType: 'video/webm;codecs=vp9',
+          videoBitsPerSecond: 2500000 * quality, // Adjust bitrate based on quality
+        });
+
+        const chunks: Blob[] = [];
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            chunks.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          const compressedBlob = new Blob(chunks, { type: 'video/webm' });
+          const compressedFile = new File(
+            [compressedBlob],
+            file.name.replace(/\.[^/.]+$/, '.webm'),
+            { type: 'video/webm' }
+          );
+          URL.revokeObjectURL(video.src);
+          resolve(compressedFile);
+        };
+
+        mediaRecorder.start();
+        video.play();
+
+        const drawFrame = () => {
+          if (video.ended) {
+            mediaRecorder.stop();
+            return;
+          }
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          requestAnimationFrame(drawFrame);
+        };
+
+        drawFrame();
+      };
+
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
+        reject(new Error('Error loading video for compression'));
+      };
+    });
+  };
+
+  const generateVideoThumbnails = async (file: File): Promise<string[]> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const thumbnails: string[] = [];
+      
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'));
+        return;
+      }
+
+      video.preload = 'metadata';
+      video.src = URL.createObjectURL(file);
+
+      video.onloadedmetadata = () => {
+        const duration = video.duration;
+        const timestamps = [0, duration * 0.25, duration * 0.5, duration * 0.75];
+        
+        // Set canvas size (thumbnail resolution)
+        canvas.width = 320;
+        canvas.height = (320 / video.videoWidth) * video.videoHeight;
+
+        let currentIndex = 0;
+
+        const captureFrame = () => {
+          if (currentIndex >= timestamps.length) {
+            URL.revokeObjectURL(video.src);
+            resolve(thumbnails);
+            return;
+          }
+
+          video.currentTime = timestamps[currentIndex];
+        };
+
+        video.onseeked = () => {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const thumbnail = canvas.toDataURL('image/jpeg', 0.7);
+          thumbnails.push(thumbnail);
+          currentIndex++;
+          captureFrame();
+        };
+
+        video.onerror = () => {
+          URL.revokeObjectURL(video.src);
+          reject(new Error('Error loading video for thumbnail generation'));
+        };
+
+        captureFrame();
+      };
+
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
+        reject(new Error('Error loading video'));
+      };
     });
   };
 
@@ -223,6 +383,45 @@ export function VideoUploadSection() {
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />
+      </Card>
+
+      {/* Compression Settings */}
+      <Card className="p-4 mb-4 border-dashed">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="enable-compression"
+              checked={enableCompression}
+              onChange={(e) => setEnableCompression(e.target.checked)}
+              className="h-4 w-4 cursor-pointer"
+            />
+            <label htmlFor="enable-compression" className="text-sm font-medium cursor-pointer">
+              Enable Video Compression
+            </label>
+          </div>
+          {enableCompression && (
+            <span className="text-xs text-muted-foreground">
+              Quality: {Math.round(compressionQuality * 100)}%
+            </span>
+          )}
+        </div>
+        {enableCompression && (
+          <div className="space-y-2">
+            <input
+              type="range"
+              min="0.3"
+              max="1"
+              step="0.1"
+              value={compressionQuality}
+              onChange={(e) => setCompressionQuality(parseFloat(e.target.value))}
+              className="w-full"
+            />
+            <p className="text-xs text-muted-foreground">
+              Lower quality = smaller file size. Recommended: 70% for good balance.
+            </p>
+          </div>
+        )}
       </Card>
 
       {/* Uploading Files List */}
