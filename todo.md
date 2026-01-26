@@ -3813,3 +3813,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Display duration functionality - already working (filters annotations by time range)
 - [x] Mobile touch event handlers - exist in VideoDrawingCanvas, fixed useEffect timing
 - [x] Reduce spacing - moved VideoDrawingCanvas inside the Card component
+
+
+## Drawing Stopped Working - January 26, 2026
+- [x] Drawing functionality broke after recent changes
+- [x] Root cause: useEffect cleanup was removing event listeners on re-renders
+- [x] Fix: Used forwardRef + useImperativeHandle to expose handlers via ref
+- [x] Canvas now uses React native event props that call ref methods directly
+- [ ] User needs to test with real mouse/touch input on production

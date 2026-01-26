@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine, Eye, EyeOff, Download } from "lucide-react";
 import { VoiceRecorder } from "./VoiceRecorder";
-import { VideoDrawingCanvas } from "./VideoDrawingCanvas";
+import { VideoDrawingCanvas, VideoDrawingCanvasHandle } from "./VideoDrawingCanvas";
 import { AnnotationTimeline } from "./AnnotationTimeline";
 import { HorizontalAnnotationTimeline } from "./HorizontalAnnotationTimeline";
 import { AnnotationHistoryTimeline } from "./AnnotationHistoryTimeline";
@@ -33,6 +33,7 @@ interface VideoPlayerWithAnnotationsProps {
 export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWithAnnotationsProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
+  const drawingCanvasComponentRef = useRef<VideoDrawingCanvasHandle>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -620,6 +621,14 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             id="drawing-canvas"
             width={videoRef.current?.clientWidth || 800}
             height={videoRef.current?.clientHeight || 600}
+            onMouseDown={(e) => drawingCanvasComponentRef.current?.handleMouseDown(e)}
+            onMouseMove={(e) => drawingCanvasComponentRef.current?.handleMouseMove(e)}
+            onMouseUp={() => drawingCanvasComponentRef.current?.handleMouseUp()}
+            onMouseLeave={() => drawingCanvasComponentRef.current?.handleMouseUp()}
+            onTouchStart={(e) => drawingCanvasComponentRef.current?.handleTouchStart(e)}
+            onTouchMove={(e) => drawingCanvasComponentRef.current?.handleTouchMove(e)}
+            onTouchEnd={() => drawingCanvasComponentRef.current?.handleTouchEnd()}
+            onTouchCancel={() => drawingCanvasComponentRef.current?.handleTouchEnd()}
             style={{
               position: 'absolute',
               top: 0,
@@ -938,6 +947,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           
           {/* Drawing Canvas Controls - inside card for minimal spacing */}
           <VideoDrawingCanvas
+            ref={drawingCanvasComponentRef}
             videoRef={videoRef}
             canvasRef={drawingCanvasRef}
             currentTime={currentTime}

@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
+import { forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -74,7 +75,18 @@ interface VideoDrawingCanvasProps {
   onCanvasHandlersReady?: (handlers: CanvasEventHandlers) => void; // Callback to pass handlers to parent
 }
 
-export function VideoDrawingCanvas({
+// Ref handle type for parent components
+export interface VideoDrawingCanvasHandle {
+  handleMouseDown: (e: React.MouseEvent<HTMLCanvasElement>) => void;
+  handleMouseMove: (e: React.MouseEvent<HTMLCanvasElement>) => void;
+  handleMouseUp: () => void;
+  handleTouchStart: (e: React.TouchEvent<HTMLCanvasElement>) => void;
+  handleTouchMove: (e: React.TouchEvent<HTMLCanvasElement>) => void;
+  handleTouchEnd: () => void;
+  isActive: boolean;
+}
+
+export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDrawingCanvasProps>(function VideoDrawingCanvas({
   videoRef,
   currentTime,
   onSaveAnnotation,
@@ -83,7 +95,7 @@ export function VideoDrawingCanvas({
   fileId,
   canvasRef: externalCanvasRef,
   onCanvasHandlersReady,
-}: VideoDrawingCanvasProps) {
+}: VideoDrawingCanvasProps, ref) {
   console.log('[VideoDrawingCanvas] Component rendering, onToggleRequest:', onToggleRequest);
   
   // Check if component renders at all
@@ -811,6 +823,17 @@ export function VideoDrawingCanvas({
     redrawCanvas();
   };
 
+  // Expose handlers via ref for parent component to use directly on canvas
+  useImperativeHandle(ref, () => ({
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    handleTouchStart: (e: React.TouchEvent<HTMLCanvasElement>) => handleTouchStart(e),
+    handleTouchMove: (e: React.TouchEvent<HTMLCanvasElement>) => handleTouchMove(e),
+    handleTouchEnd,
+    isActive: showCanvas,
+  }), [showCanvas, handleMouseDown, handleMouseMove, handleMouseUp, handleTouchStart, handleTouchMove, handleTouchEnd]);
+
   // Pass handlers to parent immediately - they're always needed when drawing mode is active
   useEffect(() => {
     if (onCanvasHandlersReady) {
@@ -1510,4 +1533,4 @@ export function VideoDrawingCanvas({
     </div>
     </>
   );
-}
+});
