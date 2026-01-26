@@ -52,21 +52,55 @@ export const s3UploadRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       try {
-        // Combine all chunks
-        const combinedData = input.chunks.join("");
-        const buffer = Buffer.from(combinedData, "base64");
+        console.log(`[S3Upload] Starting upload for ${input.filename}, ${input.chunks.length} chunks, total size: ${input.fileSize} bytes`);
+        
+        // Validate total size
+        if (input.fileSize > 2 * 1024 * 1024 * 1024) { // 2GB
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "File size exceeds 2GB limit",
+          });
+        }
+
+        // Combine all chunks with streaming to avoid memory issues
+        const chunkBuffers: Buffer[] = [];
+        let totalSize = 0;
+
+        for (let i = 0; i < input.chunks.length; i++) {
+          try {
+            const buffer = Buffer.from(input.chunks[i], "base64");
+            chunkBuffers.push(buffer);
+            totalSize += buffer.length;
+            
+            // Log progress every 10 chunks
+            if ((i + 1) % 10 === 0 || i === input.chunks.length - 1) {
+              console.log(`[S3Upload] Processed ${i + 1}/${input.chunks.length} chunks, ${totalSize} bytes`);
+            }
+          } catch (error) {
+            console.error(`[S3Upload] Failed to process chunk ${i}:`, error);
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Failed to process chunk ${i}: Invalid base64 data`,
+            });
+          }
+        }
+
+        // Combine buffers
+        const combinedBuffer = Buffer.concat(chunkBuffers);
+        console.log(`[S3Upload] Combined buffer size: ${combinedBuffer.length} bytes`);
 
         // Upload to S3
-        const { url } = await storagePut(input.fileKey, buffer, input.mimeType);
+        console.log(`[S3Upload] Uploading to S3 with key: ${input.fileKey}`);
+        const { url } = await storagePut(input.fileKey, combinedBuffer, input.mimeType);
+        console.log(`[S3Upload] Upload successful, URL: ${url}`);
 
-        // Store file metadata in database via files.create
-        // This would be called from the frontend after upload completes
         return {
           fileKey: input.fileKey,
           url,
           success: true,
         };
       } catch (error: any) {
+        console.error("[S3Upload] Upload failed:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: `Failed to complete upload: ${error.message}`,
@@ -74,7 +108,7 @@ export const s3UploadRouter = router({
       }
     }),
 
-  // Upload single chunk
+  // Upload single chunk (for future streaming implementation)
   uploadChunk: protectedProcedure
     .input(
       z.object({

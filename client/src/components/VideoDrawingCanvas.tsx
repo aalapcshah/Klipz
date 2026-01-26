@@ -84,6 +84,8 @@ export function VideoDrawingCanvas({
   const [showCanvas, setShowCanvas] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [textPosition, setTextPosition] = useState<Point | null>(null);
+  const [debugTouchPos, setDebugTouchPos] = useState<{x: number, y: number} | null>(null);
+  const [touchDetected, setTouchDetected] = useState(false);
   const [duration, setDuration] = useState(5); // Duration in seconds
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -249,13 +251,16 @@ export function VideoDrawingCanvas({
     // Add touch event listeners
     const touchStart = (e: TouchEvent) => {
       console.log('[VideoDrawingCanvas] touchStart fired!', e.touches.length, 'touches');
+      setTouchDetected(true);
       e.preventDefault();
       e.stopPropagation();
-      handleTouchStart(e as any);
+      // Call handleTouchStart with native TouchEvent
+      handleTouchStart(e);
     };
     const touchMove = (e: TouchEvent) => {
       e.preventDefault();
-      handleTouchMove(e as any);
+      // Call handleTouchMove with native TouchEvent
+      handleTouchMove(e);
     };
     const touchEnd = () => handleTouchEnd();
     
@@ -267,8 +272,8 @@ export function VideoDrawingCanvas({
     if (showCanvas) {
       canvas.addEventListener('touchstart', touchStart, { passive: false });
       canvas.addEventListener('touchmove', touchMove, { passive: false });
-      canvas.addEventListener('touchend', touchEnd);
-      canvas.addEventListener('touchcancel', touchEnd);
+      canvas.addEventListener('touchend', touchEnd, { passive: false });
+      canvas.addEventListener('touchcancel', touchEnd, { passive: false });
       canvas.addEventListener('mousedown', mouseDown);
       canvas.addEventListener('mousemove', mouseMove);
       canvas.addEventListener('mouseup', mouseUp);
@@ -468,7 +473,7 @@ export function VideoDrawingCanvas({
     }
   };
 
-  const getTouchPos = (e: React.TouchEvent<HTMLCanvasElement>): Point => {
+  const getTouchPos = (e: React.TouchEvent<HTMLCanvasElement> | TouchEvent): Point => {
     const canvas = canvasRef.current;
     if (!canvas || e.touches.length === 0) return { x: 0, y: 0 };
     
@@ -477,11 +482,13 @@ export function VideoDrawingCanvas({
     // Account for zoom and pan
     const x = (touch.clientX - rect.left - panX) / zoom;
     const y = (touch.clientY - rect.top - panY) / zoom;
+    console.log('[VideoDrawingCanvas] getTouchPos:', { clientX: touch.clientX, clientY: touch.clientY, rectLeft: rect.left, rectTop: rect.top, x, y, panX, panY, zoom });
+    setDebugTouchPos({ x: Math.round(x), y: Math.round(y) });
     return { x, y };
   };
 
   // Calculate distance between two touch points for pinch gesture
-  const getPinchDistance = (e: React.TouchEvent<HTMLCanvasElement>): number => {
+  const getPinchDistance = (e: React.TouchEvent<HTMLCanvasElement> | TouchEvent): number => {
     if (e.touches.length < 2) return 0;
     const touch1 = e.touches[0];
     const touch2 = e.touches[1];
@@ -550,7 +557,7 @@ export function VideoDrawingCanvas({
     setCurrentElement(newElement);
   };
 
-  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement> | TouchEvent) => {
     e.preventDefault();
     
     // Handle pinch-to-zoom (two fingers)
@@ -662,7 +669,7 @@ export function VideoDrawingCanvas({
     redrawCanvas();
   };
 
-  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement> | TouchEvent) => {
     e.preventDefault();
     const pos = getTouchPos(e);
     
@@ -1042,7 +1049,13 @@ export function VideoDrawingCanvas({
       )}
 
       {showCanvas && (
-        <Card className="p-2 space-y-1.5" style={{ position: 'relative', zIndex: 20 }}>
+        <Card className="p-2 space-y-1.5" style={{ position: 'relative', zIndex: 20, backgroundColor: touchDetected ? '#ff0000' : undefined }}>
+          {/* Debug Touch Detection */}
+          <div className="bg-blue-500 text-white p-2 text-center font-bold text-lg">
+            {touchDetected ? 'TOUCH DETECTED!' : 'Waiting for touch...'}
+            {debugTouchPos && ` at (${debugTouchPos.x}, ${debugTouchPos.y})`}
+          </div>
+          
           {/* Duration Slider with Cancel button */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">

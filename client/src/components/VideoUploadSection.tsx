@@ -7,18 +7,19 @@ import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video, Pause, Play } fro
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
-import { ChunkedUploader } from "@/lib/chunkedUpload";
+
 interface UploadingFile {
   file: File;
   progress: number;
   status: "uploading" | "paused" | "success" | "error";
   error?: string;
   fileId?: number;
-  uploader?: ChunkedUploader;
   s3Key?: string;
   originalSize?: number;
   processedSize?: number;
   uploadedBytes?: number;
+  chunks?: string[];
+  currentChunk?: number;
 }
 
 type VideoQuality = "original" | "high" | "medium" | "low";
@@ -33,6 +34,7 @@ const ACCEPTED_VIDEO_FORMATS = [
 ];
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
 
 const QUALITY_SETTINGS = {
   original: { label: "Original Quality", maxHeight: null, bitrate: null },
@@ -47,7 +49,7 @@ export function VideoUploadSection() {
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality>("high");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Removed unused presigned URL mutation
+  const uploadChunkMutation = trpc.s3Upload.uploadChunk.useMutation();
   const completeUploadMutation = trpc.s3Upload.completeUpload.useMutation();
   const createFileMutation = trpc.files.create.useMutation();
 
@@ -109,17 +111,105 @@ export function VideoUploadSection() {
     });
   };
 
-  const uploadToS3 = async (file: File, presignedUrl: string): Promise<void> => {
-    const response = await fetch(presignedUrl, {
-      method: "PUT",
-      body: file,
-      headers: {
-        "Content-Type": file.type,
-      },
+  const readChunkAsBase64 = (file: File, start: number, end: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const blob = file.slice(start, end);
+      const reader = new FileReader();
+      
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove data URL prefix to get base64
+        const base64 = result.split(",")[1] || result;
+        resolve(base64);
+      };
+      
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
     });
+  };
 
-    if (!response.ok) {
-      throw new Error(`S3 upload failed: ${response.statusText}`);
+  const uploadFileInChunks = async (file: File, processedFile: File) => {
+    const totalChunks = Math.ceil(processedFile.size / CHUNK_SIZE);
+    const chunks: string[] = [];
+    const timestamp = Date.now();
+    const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const fileKey = `uploads/${timestamp}-${sanitizedFilename}`;
+
+    try {
+      // Read and upload chunks
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, processedFile.size);
+        
+        // Update progress - reading chunk
+        setUploadingFiles(prev =>
+          prev.map(f => (f.file === file ? { 
+            ...f, 
+            progress: (i / totalChunks) * 90, // 0-90% for chunks
+            uploadedBytes: start,
+            currentChunk: i + 1
+          } : f))
+        );
+
+        // Read chunk as base64
+        const chunkData = await readChunkAsBase64(processedFile, start, end);
+        chunks.push(chunkData);
+
+        // Update progress - chunk read
+        setUploadingFiles(prev =>
+          prev.map(f => (f.file === file ? { 
+            ...f, 
+            progress: ((i + 0.5) / totalChunks) * 90,
+            uploadedBytes: end
+          } : f))
+        );
+      }
+
+      // Update progress to 90%
+      setUploadingFiles(prev =>
+        prev.map(f => (f.file === file ? { ...f, progress: 90 } : f))
+      );
+
+      // Complete upload by sending all chunks to server
+      const uploadResult = await completeUploadMutation.mutateAsync({
+        fileKey,
+        filename: file.name,
+        mimeType: file.type,
+        fileSize: processedFile.size,
+        title: file.name.replace(/\.[^/.]+$/, ""),
+        chunks,
+      });
+
+      // Update progress to 95%
+      setUploadingFiles(prev =>
+        prev.map(f => (f.file === file ? { ...f, progress: 95 } : f))
+      );
+
+      // Create file record in database
+      const fileRecord = await createFileMutation.mutateAsync({
+        fileKey: uploadResult.fileKey,
+        url: uploadResult.url,
+        filename: file.name,
+        mimeType: file.type,
+        fileSize: processedFile.size,
+        title: file.name.replace(/\.[^/.]+$/, ""),
+        description: `Uploaded video - ${QUALITY_SETTINGS[selectedQuality].label}`,
+      });
+
+      // Success
+      setUploadingFiles(prev =>
+        prev.map(f =>
+          f.file === file
+            ? { ...f, progress: 100, status: "success", fileId: fileRecord.id }
+            : f
+        )
+      );
+
+      toast.success(`${file.name} uploaded successfully!`);
+      triggerHaptic("success");
+
+    } catch (error: any) {
+      throw new Error(`Upload failed: ${error.message}`);
     }
   };
 
@@ -142,6 +232,7 @@ export function VideoUploadSection() {
         progress: 0,
         status: "uploading",
         originalSize: file.size,
+        currentChunk: 0,
       };
 
       setUploadingFiles(prev => [...prev, uploadingFile]);
@@ -154,58 +245,8 @@ export function VideoUploadSection() {
         
         uploadingFile.processedSize = processedFile.size;
 
-        // Convert to base64 for upload
-        const reader = new FileReader();
-        
-        reader.onprogress = (e) => {
-          if (e.lengthComputable) {
-            const percentComplete = (e.loaded / e.total) * 80; // 0-80%
-            setUploadingFiles(prev =>
-              prev.map(f => (f.file === file ? { ...f, progress: percentComplete, uploadedBytes: e.loaded } : f))
-            );
-          }
-        };
-        
-        reader.onload = async () => {
-          try {
-            const base64 = reader.result as string;
-            
-            // Update progress to 80%
-            setUploadingFiles(prev =>
-              prev.map(f => (f.file === file ? { ...f, progress: 80 } : f))
-            );
-            
-            // Upload to backend with S3 storage
-            const fileRecord = await createFileMutation.mutateAsync({
-              filename: file.name,
-              mimeType: file.type,
-              fileSize: processedFile.size,
-              content: base64,
-              title: file.name.replace(/\.[^/.]+$/, ""),
-              description: `Uploaded video - ${QUALITY_SETTINGS[selectedQuality].label}`,
-            });
-            
-            // Success
-            setUploadingFiles(prev =>
-              prev.map(f =>
-                f.file === file
-                  ? { ...f, progress: 100, status: "success", fileId: fileRecord.id }
-                  : f
-              )
-            );
-            
-            toast.success(`${file.name} uploaded successfully!`);
-            triggerHaptic("success");
-          } catch (error: any) {
-            throw new Error(`Upload failed: ${error.message}`);
-          }
-        };
-        
-        reader.onerror = () => {
-          throw new Error("Failed to read file");
-        };
-        
-        reader.readAsDataURL(processedFile);
+        // Upload file in chunks
+        await uploadFileInChunks(file, processedFile);
 
       } catch (error) {
         console.error("Upload error:", error);
@@ -353,60 +394,73 @@ export function VideoUploadSection() {
                           </span>
                         )}
                       </p>
+                      {uploadingFile.status === "uploading" && uploadingFile.currentChunk && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Processing chunk {uploadingFile.currentChunk} of {Math.ceil((uploadingFile.processedSize || uploadingFile.originalSize || 0) / CHUNK_SIZE)}
+                        </p>
+                      )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeFile(uploadingFile.file)}
-                      disabled={uploadingFile.status === "uploading"}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {uploadingFile.status === "uploading" && (
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                      )}
+                      {uploadingFile.status === "success" && (
+                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                      )}
+                      {uploadingFile.status === "error" && (
+                        <AlertCircle className="w-5 h-5 text-red-600" />
+                      )}
+                      {(uploadingFile.status === "error" || uploadingFile.status === "success") && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFile(uploadingFile.file)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
+                  {/* Progress Bar */}
                   {uploadingFile.status === "uploading" && (
-                    <div className="space-y-2">
-                      <div className="w-full bg-secondary rounded-full h-2">
+                    <div className="space-y-1">
+                      <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
                         <div
-                          className="bg-primary h-2 rounded-full transition-all duration-300"
+                          className="bg-primary h-full transition-all duration-300"
                           style={{ width: `${uploadingFile.progress}%` }}
                         />
                       </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          {uploadingFile.progress.toFixed(0)}%
-                          {uploadingFile.uploadedBytes !== undefined && uploadingFile.processedSize && (
-                            <span className="ml-2 text-xs opacity-70">
-                              ({(uploadingFile.uploadedBytes / 1024 / 1024).toFixed(1)} of {(uploadingFile.processedSize / 1024 / 1024).toFixed(1)} MB)
-                            </span>
-                          )}
-                        </span>
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{uploadingFile.progress.toFixed(0)}%</span>
+                        {uploadingFile.uploadedBytes && (
+                          <span>
+                            {formatFileSize(uploadingFile.uploadedBytes)} / {formatFileSize(uploadingFile.processedSize || uploadingFile.originalSize || 0)}
+                          </span>
+                        )}
                       </div>
                     </div>
                   )}
 
-                  {uploadingFile.status === "success" && (
-                    <div className="flex items-center gap-2 text-green-600">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span className="text-sm">Upload complete</span>
-                    </div>
-                  )}
-
-                  {uploadingFile.status === "error" && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-destructive">
-                        <AlertCircle className="w-4 h-4" />
-                        <span className="text-sm">{uploadingFile.error || "Upload failed"}</span>
-                      </div>
+                  {/* Error Message */}
+                  {uploadingFile.status === "error" && uploadingFile.error && (
+                    <div className="mt-2 space-y-2">
+                      <p className="text-sm text-red-600">{uploadingFile.error}</p>
                       <Button
-                        size="sm"
                         variant="outline"
+                        size="sm"
                         onClick={() => retryUpload(uploadingFile)}
                       >
                         Retry Upload
                       </Button>
                     </div>
+                  )}
+
+                  {/* Success Message */}
+                  {uploadingFile.status === "success" && (
+                    <p className="text-sm text-green-600 mt-2">
+                      Upload complete! File ID: {uploadingFile.fileId}
+                    </p>
                   )}
                 </div>
               </div>

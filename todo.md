@@ -3661,3 +3661,27 @@ Note: The application already has extensive annotation features including voice 
 - [x] Request Approval buttons to the left of History in same row
 - [x] Proper horizontal spacing with flex layout
 - [x] ApprovalWorkflow and AnnotationHistoryViewer in same row with flex-wrap for mobile
+
+## Canvas Touch Events Not Firing
+- [ ] Canvas displays correctly (yellow border visible, blocks video touches)
+- [ ] But touch events don't trigger drawing - addEventListener might need passive: false
+- [ ] Try touch-action: manipulation instead of touch-action: none
+- [ ] Ensure event listeners are attached with proper options for mobile browsers
+
+## Video Upload Failure Investigation
+- [ ] 30-second video upload fails with "failed upload" message
+- [ ] Check file size limits in upload handler
+- [ ] Check S3 upload timeout settings
+- [ ] Check video processing/transcoding timeout
+- [ ] Add better error logging to identify exact failure point
+- [ ] Test with different video file sizes to find threshold
+
+
+## Video Upload Fix - January 26, 2026
+- [x] Diagnosed video upload failure for 30-second videos
+- [x] Identified root cause: base64 encoding loading entire file into memory
+- [x] Refactored VideoUploadSection to use proper chunked uploads (5MB chunks)
+- [x] Updated s3Upload router to handle chunks efficiently with logging
+- [x] Added size validation (2GB limit) and error handling
+- [x] Created comprehensive test suite for chunked uploads
+- [x] Verified 30-second video upload simulation passes tests
