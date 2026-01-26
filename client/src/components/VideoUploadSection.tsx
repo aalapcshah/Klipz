@@ -75,38 +75,52 @@ export function VideoUploadSection() {
     // Upload files sequentially
     for (const uploadFile of newFiles) {
       try {
-        // Simulate progress (since we don't have real upload progress from tRPC)
-        const progressInterval = setInterval(() => {
+        // Simulate progress with stages
+        const updateProgress = (progress: number) => {
           setUploadingFiles((prev) =>
             prev.map((f) =>
-              f.file === uploadFile.file && f.progress < 90
-                ? { ...f, progress: f.progress + 10 }
+              f.file === uploadFile.file
+                ? { ...f, progress }
                 : f
             )
           );
-        }, 200);
+        };
+        
+        updateProgress(10); // Starting
 
         // Compress video if enabled
         let fileToUpload = uploadFile.file;
         if (enableCompression) {
           try {
+            updateProgress(20);
             toast.info(`Compressing ${uploadFile.file.name}...`);
             fileToUpload = await compressVideo(uploadFile.file, compressionQuality);
             const originalSize = (uploadFile.file.size / (1024 * 1024)).toFixed(2);
             const compressedSize = (fileToUpload.size / (1024 * 1024)).toFixed(2);
             const reduction = ((1 - fileToUpload.size / uploadFile.file.size) * 100).toFixed(0);
             toast.success(`Compressed: ${originalSize}MB → ${compressedSize}MB (${reduction}% reduction)`);
+            updateProgress(40);
           } catch (error) {
             console.error('Failed to compress video:', error);
             toast.warning('Compression failed, uploading original file');
+            updateProgress(30);
             // Continue with original file
           }
+        } else {
+          updateProgress(30);
         }
 
-        // Generate thumbnails
+        // Generate thumbnails with timeout
         let thumbnails: string[] = [];
         try {
-          thumbnails = await generateVideoThumbnails(fileToUpload);
+          updateProgress(50);
+          toast.info('Generating thumbnails...');
+          thumbnails = await Promise.race([
+            generateVideoThumbnails(fileToUpload),
+            new Promise<string[]>((_, reject) => 
+              setTimeout(() => reject(new Error('Thumbnail generation timeout')), 30000)
+            )
+          ]);
           setUploadingFiles((prev) =>
             prev.map((f) =>
               f.file === uploadFile.file
@@ -114,18 +128,25 @@ export function VideoUploadSection() {
                 : f
             )
           );
+          updateProgress(60);
         } catch (error) {
           console.error('Failed to generate thumbnails:', error);
+          toast.warning('Skipping thumbnail generation');
+          updateProgress(60);
           // Continue without thumbnails
         }
 
         // Convert file to base64 for upload
+        updateProgress(70);
+        toast.info('Processing video file...');
         const base64 = await fileToBase64(fileToUpload);
 
         // Upload file to S3 first (using storagePut would require server-side implementation)
         // For now, we'll use a simplified approach with base64 in database
         // In production, implement proper S3 upload flow
         
+        updateProgress(85);
+        toast.info('Uploading to server...');
         const result = await uploadMutation.mutateAsync({
           fileKey: `uploads/${Date.now()}-${uploadFile.file.name}`,
           url: `data:${uploadFile.file.type};base64,${base64}`,
@@ -134,8 +155,6 @@ export function VideoUploadSection() {
           fileSize: uploadFile.file.size,
           title: uploadFile.file.name.replace(/\.[^/.]+$/, ""),
         });
-
-        clearInterval(progressInterval);
 
         setUploadingFiles((prev) =>
           prev.map((f) =>

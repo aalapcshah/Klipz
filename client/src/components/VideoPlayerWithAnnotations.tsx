@@ -76,6 +76,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.voiceAnnotations.getAnnotations.useQuery({ fileId });
+  const { data: chapters = [] } = trpc.videoChapters.getChapters.useQuery({ fileId });
   const exportAnnotationsMutation = trpc.annotationExport.exportAnnotations.useMutation();
   const uploadToGoogleDriveMutation = trpc.cloudStorage.uploadToGoogleDrive.useMutation();
   const uploadToDropboxMutation = trpc.cloudStorage.uploadToDropbox.useMutation();
@@ -552,15 +553,41 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         <div className="p-2 md:p-4 space-y-2 md:space-y-3 bg-card max-w-full overflow-x-hidden">
           {/* Timeline */}
           <div className="space-y-1">
-            <input
-              type="range"
-              min="0"
-              max={duration || 0}
-              step="0.1"
-              value={currentTime}
-              onChange={handleSeek}
-              className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-            />
+            <div className="relative">
+              <input
+                type="range"
+                min="0"
+                max={duration || 0}
+                step="0.1"
+                value={currentTime}
+                onChange={handleSeek}
+                className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+              />
+              {/* Chapter markers */}
+              {chapters.map((chapter) => {
+                const position = duration > 0 ? (chapter.timestamp / duration) * 100 : 0;
+                return (
+                  <div
+                    key={chapter.id}
+                    className="absolute top-0 bottom-0 w-1 bg-primary hover:w-2 transition-all cursor-pointer group"
+                    style={{ left: `${position}%` }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (videoRef.current) {
+                        videoRef.current.currentTime = chapter.timestamp;
+                      }
+                    }}
+                    title={chapter.name}
+                  >
+                    {/* Tooltip on hover */}
+                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg border">
+                      {chapter.name}
+                      <div className="text-[10px] text-muted-foreground">{formatTime(chapter.timestamp)}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>{formatTime(currentTime)}</span>
               <span>{formatTime(duration)}</span>

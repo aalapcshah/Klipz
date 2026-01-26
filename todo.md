@@ -3474,3 +3474,21 @@ Note: The application already has extensive annotation features including voice 
 - [x] Visual feedback with "Saving..." and "Saved" badges
 - [x] No conflicts possible - instant save on completion
 - [x] Test auto-save reliability (immediate save is more reliable)
+
+
+## Timeline Chapter Markers
+- [x] Fetch chapters in VideoPlayerWithAnnotations component
+- [x] Add visual chapter markers to video timeline scrubber
+- [x] Position markers based on chapter timestamps
+- [x] Implement click-to-jump on timeline markers
+- [x] Add hover tooltip showing chapter name on markers
+- [x] Style markers to stand out on timeline
+- [x] Test chapter markers on mobile and desktop
+
+
+## Video Upload Bug Fix
+- [x] Investigate VideoUploadSection stuck at 90% issue
+- [x] Fix thumbnail generation timeout or error handling
+- [x] Fix compression process hanging
+- [x] Add better error messages for upload failures
+- [x] Test video upload with various file sizes
