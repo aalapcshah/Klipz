@@ -303,8 +303,9 @@ Only include files with relevance score >= ${input.minRelevanceScore}. If no fil
           });
 
           const content = response.choices[0].message.content;
-          if (content && typeof content === 'string') {
-            const result = JSON.parse(content);
+          const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
+          if (contentStr) {
+            const result = JSON.parse(contentStr);
             const matches = result.matches || [];
 
             for (const match of matches) {

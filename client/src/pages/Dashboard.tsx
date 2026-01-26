@@ -399,6 +399,7 @@ function SearchView() {
 
 import { VideoRecorderWithTranscription } from "@/components/videos/VideoRecorderWithTranscription";
 import { VideoList } from "@/components/videos/VideoList";
+import { VideoUploadSection } from "@/components/VideoUploadSection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 function VideosView() {
@@ -414,10 +415,14 @@ function VideosView() {
       <Tabs defaultValue="record" className="w-full">
         <TabsList>
           <TabsTrigger value="record">Record New</TabsTrigger>
+          <TabsTrigger value="upload">Upload Video</TabsTrigger>
           <TabsTrigger value="library">Video Library</TabsTrigger>
         </TabsList>
         <TabsContent value="record" className="mt-6">
           <VideoRecorderWithTranscription />
+        </TabsContent>
+        <TabsContent value="upload" className="mt-6">
+          <VideoUploadSection />
         </TabsContent>
         <TabsContent value="library" className="mt-6">
           <VideoList />

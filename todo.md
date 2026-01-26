@@ -3414,3 +3414,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add loading states and skeleton screens for mobile
 - [x] Test on iPhone Safari and Android Chrome
 - [x] Ensure haptic feedback works with suggestion interactions
+
+
+## Direct Video Upload in Videos Section
+- [x] Add upload button to Videos page header
+- [x] Implement video format validation (mp4, mov, avi, webm, etc.)
+- [x] Create video upload modal/dialog with progress indicator
+- [x] Show upload progress and success/error states
+- [x] Refresh video list after successful upload
+- [x] Add mobile-friendly upload interface
