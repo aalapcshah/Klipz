@@ -3563,3 +3563,18 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix text overlapping on mobile - made layout responsive with flex-col on mobile
 - [x] Enable drawing on video - fixed toggleCanvas with useCallback and functional state update
 - [ ] Test all four fixes on actual mobile view
+
+## Drawing Tool Button Fixes (CRITICAL)
+- [x] Fix highlight button always showing as selected (green) - added setIsHighlightMode(false) to all other tools
+- [x] Fix oval button not responding to clicks - bubble button now selects circle tool
+- [x] Fix callout button not responding to clicks - callout button now selects arrow tool
+- [x] Verify all tool buttons can be selected properly
+
+## Shape Movement Feature
+- [x] Add selection mode to identify which shape is clicked/tapped
+- [x] Implement hit detection for shapes (rectangle, oval, arrow, text, pen)
+- [ ] Add visual indicator for selected shape (highlight border or handles)
+- [x] Implement drag-to-move for selected shapes with mouse
+- [x] Implement drag-to-move for selected shapes with touch
+- [x] Update shape coordinates during drag
+- [ ] Test shape movement on desktop and mobile

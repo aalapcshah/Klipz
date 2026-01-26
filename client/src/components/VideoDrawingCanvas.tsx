@@ -29,7 +29,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type DrawingTool = "pen" | "rectangle" | "circle" | "arrow" | "text" | "eraser" | "highlight";
+type DrawingTool = "pen" | "rectangle" | "circle" | "arrow" | "text" | "eraser" | "highlight" | "select";
 
 interface Point {
   x: number;
@@ -87,6 +87,11 @@ export function VideoDrawingCanvas({
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const fileIdRef = useRef<string>("");
+  
+  // Selection and movement state
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [isDraggingElement, setIsDraggingElement] = useState(false);
+  const [dragOffset, setDragOffset] = useState<Point>({ x: 0, y: 0 });
   
   // Layer management
   const [layers, setLayers] = useState<Layer[]>([
@@ -389,6 +394,62 @@ export function VideoDrawingCanvas({
     };
   };
 
+  // Check if a point is inside a shape's bounds
+  const isPointInShape = (point: Point, element: DrawingElement): boolean => {
+    if (element.points.length < 2) return false;
+    
+    const [start, end] = element.points;
+    const padding = 10; // Hit detection padding
+    
+    switch (element.type) {
+      case 'rectangle':
+      case 'highlight':
+        const minX = Math.min(start.x, end.x) - padding;
+        const maxX = Math.max(start.x, end.x) + padding;
+        const minY = Math.min(start.y, end.y) - padding;
+        const maxY = Math.max(start.y, end.y) + padding;
+        return point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY;
+      
+      case 'circle':
+        const centerX = (start.x + end.x) / 2;
+        const centerY = (start.y + end.y) / 2;
+        const radiusX = Math.abs(end.x - start.x) / 2 + padding;
+        const radiusY = Math.abs(end.y - start.y) / 2 + padding;
+        const dx = (point.x - centerX) / radiusX;
+        const dy = (point.y - centerY) / radiusY;
+        return (dx * dx + dy * dy) <= 1;
+      
+      case 'arrow':
+        // Check if point is near the arrow line
+        const distToLine = Math.abs(
+          (end.y - start.y) * point.x - (end.x - start.x) * point.y + end.x * start.y - end.y * start.x
+        ) / Math.sqrt((end.y - start.y) ** 2 + (end.x - start.x) ** 2);
+        return distToLine <= padding;
+      
+      case 'text':
+        // Simple bounding box for text
+        const textWidth = 100; // Approximate
+        const textHeight = 30;
+        return point.x >= start.x - padding && point.x <= start.x + textWidth + padding &&
+               point.y >= start.y - textHeight - padding && point.y <= start.y + padding;
+      
+      case 'pen':
+        // Check if point is near any segment of the pen stroke
+        for (let i = 0; i < element.points.length - 1; i++) {
+          const p1 = element.points[i];
+          const p2 = element.points[i + 1];
+          const dist = Math.abs(
+            (p2.y - p1.y) * point.x - (p2.x - p1.x) * point.y + p2.x * p1.y - p2.y * p1.x
+          ) / Math.sqrt((p2.y - p1.y) ** 2 + (p2.x - p1.x) ** 2);
+          if (dist <= padding) return true;
+        }
+        return false;
+      
+      default:
+        return false;
+    }
+  };
+
   const getTouchPos = (e: React.TouchEvent<HTMLCanvasElement>): Point => {
     const canvas = canvasRef.current;
     if (!canvas || e.touches.length === 0) return { x: 0, y: 0 };
@@ -433,14 +494,31 @@ export function VideoDrawingCanvas({
       return;
     }
     
+    const pos = getMousePos(e);
+    
+    // Check if clicking on an existing shape to select/move it
+    const clickedElement = [...elements].reverse().find(el => isPointInShape(pos, el));
+    
+    if (clickedElement) {
+      // Select the shape
+      setSelectedElementId(clickedElement.id);
+      setIsDraggingElement(true);
+      
+      // Calculate offset from shape's first point
+      const shapeStart = clickedElement.points[0];
+      setDragOffset({ x: pos.x - shapeStart.x, y: pos.y - shapeStart.y });
+      return;
+    }
+    
+    // Deselect if clicking on empty space
+    setSelectedElementId(null);
+    
     if (selectedTool === "text") {
-      const pos = getMousePos(e);
       setTextPosition(pos);
       return;
     }
     
     setIsDrawing(true);
-    const pos = getMousePos(e);
     
     const newElement: DrawingElement = {
       id: Date.now().toString(),
@@ -481,14 +559,31 @@ export function VideoDrawingCanvas({
       return;
     }
     
+    const pos = getTouchPos(e);
+    
+    // Check if tapping on an existing shape to select/move it
+    const tappedElement = [...elements].reverse().find(el => isPointInShape(pos, el));
+    
+    if (tappedElement) {
+      // Select the shape
+      setSelectedElementId(tappedElement.id);
+      setIsDraggingElement(true);
+      
+      // Calculate offset from shape's first point
+      const shapeStart = tappedElement.points[0];
+      setDragOffset({ x: pos.x - shapeStart.x, y: pos.y - shapeStart.y });
+      return;
+    }
+    
+    // Deselect if tapping on empty space
+    setSelectedElementId(null);
+    
     if (selectedTool === "text") {
-      const pos = getTouchPos(e);
       setTextPosition(pos);
       return;
     }
     
-    setIsDrawing(true);
-    const pos = getTouchPos(e);   
+    setIsDrawing(true);   
     const newElement: DrawingElement = {
       id: Date.now().toString(),
       type: selectedTool,
@@ -502,9 +597,34 @@ export function VideoDrawingCanvas({
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || !currentElement) return;
-    
     const pos = getMousePos(e);
+    
+    // Handle dragging an existing shape
+    if (isDraggingElement && selectedElementId) {
+      const elementIndex = elements.findIndex(el => el.id === selectedElementId);
+      if (elementIndex === -1) return;
+      
+      const element = elements[elementIndex];
+      const newStartPoint = { x: pos.x - dragOffset.x, y: pos.y - dragOffset.y };
+      
+      // Calculate the offset for all points
+      const offsetX = newStartPoint.x - element.points[0].x;
+      const offsetY = newStartPoint.y - element.points[0].y;
+      
+      // Move all points by the offset
+      const newPoints = element.points.map(p => ({
+        x: p.x + offsetX,
+        y: p.y + offsetY
+      }));
+      
+      const updatedElements = [...elements];
+      updatedElements[elementIndex] = { ...element, points: newPoints };
+      setElements(updatedElements);
+      redrawCanvas();
+      return;
+    }
+    
+    if (!isDrawing || !currentElement) return;
     
     if (selectedTool === "pen") {
       setCurrentElement({
@@ -523,9 +643,34 @@ export function VideoDrawingCanvas({
 
   const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    if (!isDrawing || !currentElement) return;
-    
     const pos = getTouchPos(e);
+    
+    // Handle dragging an existing shape
+    if (isDraggingElement && selectedElementId) {
+      const elementIndex = elements.findIndex(el => el.id === selectedElementId);
+      if (elementIndex === -1) return;
+      
+      const element = elements[elementIndex];
+      const newStartPoint = { x: pos.x - dragOffset.x, y: pos.y - dragOffset.y };
+      
+      // Calculate the offset for all points
+      const offsetX = newStartPoint.x - element.points[0].x;
+      const offsetY = newStartPoint.y - element.points[0].y;
+      
+      // Move all points by the offset
+      const newPoints = element.points.map(p => ({
+        x: p.x + offsetX,
+        y: p.y + offsetY
+      }));
+      
+      const updatedElements = [...elements];
+      updatedElements[elementIndex] = { ...element, points: newPoints };
+      setElements(updatedElements);
+      redrawCanvas();
+      return;
+    }
+    
+    if (!isDrawing || !currentElement) return;
     
     if (selectedTool === "pen") {
       setCurrentElement({
@@ -543,6 +688,18 @@ export function VideoDrawingCanvas({
   };
 
   const handleTouchEnd = () => {
+    // Handle end of dragging
+    if (isDraggingElement) {
+      setIsDraggingElement(false);
+      // Add to history
+      const newHistory = history.slice(0, historyStep + 1);
+      newHistory.push(elements);
+      setHistory(newHistory);
+      setHistoryStep(newHistory.length - 1);
+      setHasUnsavedChanges(true);
+      return;
+    }
+    
     if (!isDrawing || !currentElement) return;
     
     setElements([...elements, currentElement]);
@@ -557,6 +714,18 @@ export function VideoDrawingCanvas({
   };
 
   const handleMouseUp = () => {
+    // Handle end of dragging
+    if (isDraggingElement) {
+      setIsDraggingElement(false);
+      // Add to history
+      const newHistory = history.slice(0, historyStep + 1);
+      newHistory.push(elements);
+      setHistory(newHistory);
+      setHistoryStep(newHistory.length - 1);
+      setHasUnsavedChanges(true);
+      return;
+    }
+    
     if (!isDrawing || !currentElement) return;
     
     setIsDrawing(false);
@@ -880,7 +1049,7 @@ export function VideoDrawingCanvas({
                 size="default"
                 className="md:h-9 md:w-9 md:p-0"
                 variant={selectedTool === "pen" ? "default" : "outline"}
-                onClick={() => setSelectedTool("pen")}
+                onClick={() => { setSelectedTool("pen"); setIsHighlightMode(false); }}
               >
                 <Pencil className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
@@ -888,7 +1057,7 @@ export function VideoDrawingCanvas({
                 size="default"
                 className="md:h-9 md:w-9 md:p-0"
                 variant={selectedTool === "rectangle" ? "default" : "outline"}
-                onClick={() => setSelectedTool("rectangle")}
+                onClick={() => { setSelectedTool("rectangle"); setIsHighlightMode(false); }}
               >
                 <Square className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
@@ -896,7 +1065,7 @@ export function VideoDrawingCanvas({
                 size="default"
                 className="md:h-9 md:w-9 md:p-0"
                 variant={selectedTool === "circle" ? "default" : "outline"}
-                onClick={() => setSelectedTool("circle")}
+                onClick={() => { setSelectedTool("circle"); setIsHighlightMode(false); }}
               >
                 <Circle className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
@@ -904,7 +1073,7 @@ export function VideoDrawingCanvas({
                 size="default"
                 className="md:h-9 md:w-9 md:p-0"
                 variant={selectedTool === "arrow" ? "default" : "outline"}
-                onClick={() => setSelectedTool("arrow")}
+                onClick={() => { setSelectedTool("arrow"); setIsHighlightMode(false); }}
               >
                 <ArrowRight className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
@@ -912,7 +1081,7 @@ export function VideoDrawingCanvas({
                 size="default"
                 className="md:h-9 md:w-9 md:p-0"
                 variant={selectedTool === "text" ? "default" : "outline"}
-                onClick={() => setSelectedTool("text")}
+                onClick={() => { setSelectedTool("text"); setIsHighlightMode(false); }}
               >
                 <Type className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
@@ -920,7 +1089,7 @@ export function VideoDrawingCanvas({
                 size="default"
                 className="md:h-9 md:w-9 md:p-0"
                 variant={selectedTool === "eraser" ? "default" : "outline"}
-                onClick={() => setSelectedTool("eraser")}
+                onClick={() => { setSelectedTool("eraser"); setIsHighlightMode(false); }}
               >
                 <Eraser className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
@@ -1006,7 +1175,7 @@ export function VideoDrawingCanvas({
               <div className="flex items-center gap-2 flex-wrap">
                 <AnnotationTemplatesLibrary
                   currentDrawingState={{
-                    tool: selectedTool === "eraser" || selectedTool === "highlight" ? "pen" : selectedTool,
+                    tool: selectedTool === "eraser" || selectedTool === "highlight" || selectedTool === "select" ? "pen" : selectedTool,
                     color,
                     strokeWidth,
                     text: textInput || undefined,
@@ -1039,13 +1208,16 @@ export function VideoDrawingCanvas({
                 </Button>
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant={selectedTool === "arrow" ? "default" : "outline"}
                   onClick={() => {
                     if (!showCanvas) {
                       setShowCanvas(true);
                       onDrawingModeChange?.(true);
                     }
                     insertTemplate('callout');
+                    setSelectedTool('arrow');
+                    setIsHighlightMode(false);
+                    toast.info("Callout added! Continue drawing arrows or move existing shapes");
                   }}
                   className="text-xs"
                 >
@@ -1054,13 +1226,16 @@ export function VideoDrawingCanvas({
                 </Button>
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant={selectedTool === "circle" ? "default" : "outline"}
                   onClick={() => {
                     if (!showCanvas) {
                       setShowCanvas(true);
                       onDrawingModeChange?.(true);
                     }
                     insertTemplate('bubble');
+                    setSelectedTool('circle');
+                    setIsHighlightMode(false);
+                    toast.info("Bubble added! Continue drawing circles or move existing shapes");
                   }}
                   className="text-xs"
                 >
