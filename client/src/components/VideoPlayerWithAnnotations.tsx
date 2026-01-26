@@ -255,17 +255,42 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         }, 100);
       }
     };
+    
+    // Also handle durationchange event for more reliable duration detection
+    const handleDurationChange = () => {
+      const dur = video.duration;
+      if (isFinite(dur) && !isNaN(dur) && dur > 0) {
+        setDuration(dur);
+      }
+    };
+    
+    // Handle loadeddata as another fallback
+    const handleLoadedData = () => {
+      const dur = video.duration;
+      if (isFinite(dur) && !isNaN(dur) && dur > 0 && duration === 0) {
+        setDuration(dur);
+      }
+    };
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
 
     video.addEventListener("timeupdate", handleTimeUpdate);
     video.addEventListener("loadedmetadata", handleLoadedMetadata);
+    video.addEventListener("durationchange", handleDurationChange);
+    video.addEventListener("loadeddata", handleLoadedData);
     video.addEventListener("play", handlePlay);
     video.addEventListener("pause", handlePause);
+    
+    // Also try to get duration immediately if video is already loaded
+    if (video.readyState >= 1 && isFinite(video.duration) && video.duration > 0) {
+      setDuration(video.duration);
+    }
 
     return () => {
       video.removeEventListener("timeupdate", handleTimeUpdate);
       video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      video.removeEventListener("durationchange", handleDurationChange);
+      video.removeEventListener("loadeddata", handleLoadedData);
       video.removeEventListener("play", handlePlay);
       video.removeEventListener("pause", handlePause);
     };
@@ -589,19 +614,12 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             style={{ pointerEvents: isDrawingMode ? 'none' : 'auto' }}
           />
           
-          {/* Drawing canvas overlay - direct handlers for reliability */}
+          {/* Drawing canvas overlay - VideoDrawingCanvas handles all drawing events */}
           <canvas
             ref={drawingCanvasRef}
             id="drawing-canvas"
             width={videoRef.current?.clientWidth || 800}
             height={videoRef.current?.clientHeight || 600}
-            onMouseDown={handleCanvasMouseDown}
-            onMouseMove={handleCanvasMouseMove}
-            onMouseUp={handleCanvasMouseUp}
-            onMouseLeave={handleCanvasMouseUp}
-            onTouchStart={handleCanvasTouchStart}
-            onTouchMove={handleCanvasTouchMove}
-            onTouchEnd={handleCanvasTouchEnd}
             style={{
               position: 'absolute',
               top: 0,
@@ -917,20 +935,19 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               <PenLine className="h-6 w-6" />
             </Button>
           </div>
+          
+          {/* Drawing Canvas Controls - inside card for minimal spacing */}
+          <VideoDrawingCanvas
+            videoRef={videoRef}
+            canvasRef={drawingCanvasRef}
+            currentTime={currentTime}
+            onSaveAnnotation={handleSaveVisualAnnotation}
+            onDrawingModeChange={setIsDrawingMode}
+            onToggleRequest={drawToggleRequest}
+            fileId={fileId}
+          />
         </div>
       </Card>
-
-      {/* Drawing Canvas Controls - appears right after Voice Note/Draw buttons */}
-      <VideoDrawingCanvas
-        videoRef={videoRef}
-        canvasRef={drawingCanvasRef}
-        currentTime={currentTime}
-        onSaveAnnotation={handleSaveVisualAnnotation}
-        onDrawingModeChange={setIsDrawingMode}
-        onToggleRequest={drawToggleRequest}
-        fileId={fileId}
-        // onCanvasHandlersReady removed - using direct handlers in parent
-      />
 
       {/* Voice Recorder */}
       {showRecorder && (

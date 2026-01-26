@@ -3805,3 +3805,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Added direct event handlers in VideoPlayerWithAnnotations
 - [ ] Browser automation clicks don't trigger real mouse events (limitation)
 - [ ] User needs to test with real mouse interaction on production
+
+
+## Drawing Annotation Fixes - January 26, 2026
+- [x] Save/confirm button exists in VideoDrawingCanvas (was always there, issue was event handlers)
+- [x] Fix video duration display - added durationchange and loadeddata event listeners
+- [x] Display duration functionality - already working (filters annotations by time range)
+- [x] Mobile touch event handlers - exist in VideoDrawingCanvas, fixed useEffect timing
+- [x] Reduce spacing - moved VideoDrawingCanvas inside the Card component

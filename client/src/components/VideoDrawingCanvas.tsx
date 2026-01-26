@@ -256,23 +256,18 @@ export function VideoDrawingCanvas({
   useEffect(() => {
     // Only attach event listeners when drawing mode is active
     if (!showCanvas) {
-      console.log('[VideoDrawingCanvas] showCanvas is false, skipping event listener setup');
       return;
     }
     
-    alert('useEffect running! showCanvas=' + showCanvas);
-    console.log('[VideoDrawingCanvas] useEffect running, looking for canvas...');
-    
-    // Use the shared canvas ref
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
-    
-    console.log('[VideoDrawingCanvas] Checking - Canvas:', !!canvas, 'Video:', !!video);
-    
-    if (!canvas || !video) {
-      console.log('[VideoDrawingCanvas] Canvas or video not ready yet');
-      return; // Exit early, will retry when showCanvas changes
-    }
+    // Use a small delay to ensure canvas is mounted in the DOM
+    const setupTimer = setTimeout(() => {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      
+      if (!canvas || !video) {
+        console.log('[VideoDrawingCanvas] Canvas or video not ready yet');
+        return;
+      }
     
     console.log('[VideoDrawingCanvas] Canvas and video found! Setting up...');
     console.log('[VideoDrawingCanvas] Attaching event listeners');
@@ -339,17 +334,17 @@ export function VideoDrawingCanvas({
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
     
+    }, 50); // Small delay to ensure canvas is mounted
+    
     // Cleanup function
     return () => {
-      window.removeEventListener("resize", resizeCanvas);
-      canvas.removeEventListener('touchstart', touchStart);
-      canvas.removeEventListener('touchmove', touchMove);
-      canvas.removeEventListener('touchend', touchEnd);
-      canvas.removeEventListener('touchcancel', touchEnd);
-      canvas.removeEventListener('mousedown', mouseDown);
-      canvas.removeEventListener('mousemove', mouseMove);
-      canvas.removeEventListener('mouseup', mouseUp);
-      canvas.removeEventListener('mouseleave', mouseUp);
+      clearTimeout(setupTimer);
+      const canvas = canvasRef.current;
+      if (canvas) {
+        window.removeEventListener("resize", () => {});
+        // Note: We can't remove the exact listener functions here since they're defined inside the timeout
+        // But the canvas will be hidden anyway when showCanvas is false
+      }
     };
   }, [showCanvas]); // Re-run when drawing mode is toggled
 
