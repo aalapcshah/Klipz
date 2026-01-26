@@ -3404,3 +3404,13 @@ Note: The application already has extensive annotation features including voice 
 - [x] Display file thumbnails and relevance scores in suggestion list
 - [ ] Test transcription accuracy and file matching quality
 - [ ] Write vitest tests for file suggestion logic
+
+
+## Mobile Optimization for File Suggestions
+- [x] Optimize FileSuggestions layout for mobile (responsive stacking, touch targets)
+- [x] Increase button sizes and spacing for touch interactions
+- [x] Add swipe gestures for dismissing/accepting suggestions
+- [x] Optimize thumbnail sizes for mobile bandwidth
+- [x] Add loading states and skeleton screens for mobile
+- [x] Test on iPhone Safari and Android Chrome
+- [x] Ensure haptic feedback works with suggestion interactions

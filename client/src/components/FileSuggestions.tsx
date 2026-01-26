@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { triggerHaptic } from "@/lib/haptics";
 import { trpc } from "@/lib/trpc";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,8 @@ interface FileSuggestionsProps {
 export function FileSuggestions({ fileId, onJumpToTimestamp }: FileSuggestionsProps) {
   const [transcribing, setTranscribing] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [swipeStart, setSwipeStart] = useState<{ x: number; id: number } | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState<{ id: number; offset: number } | null>(null);
 
   const { data: transcript, refetch: refetchTranscript } =
     trpc.videoTranscription.getTranscript.useQuery({ fileId });
@@ -83,6 +86,7 @@ export function FileSuggestions({ fileId, onJumpToTimestamp }: FileSuggestionsPr
   };
 
   const handleDismiss = (suggestionId: number) => {
+    triggerHaptic('light');
     updateStatusMutation.mutate({
       suggestionId,
       status: "dismissed",
@@ -92,6 +96,7 @@ export function FileSuggestions({ fileId, onJumpToTimestamp }: FileSuggestionsPr
   };
 
   const handleAccept = (suggestionId: number) => {
+    triggerHaptic('medium');
     updateStatusMutation.mutate({
       suggestionId,
       status: "accepted",
@@ -129,17 +134,51 @@ export function FileSuggestions({ fileId, onJumpToTimestamp }: FileSuggestionsPr
     }
   };
 
+  const handleTouchStart = (e: React.TouchEvent, suggestionId: number) => {
+    const touch = e.touches[0];
+    setSwipeStart({ x: touch.clientX, id: suggestionId });
+  };
+
+  const handleTouchMove = (e: React.TouchEvent, suggestionId: number) => {
+    if (!swipeStart || swipeStart.id !== suggestionId) return;
+    const touch = e.touches[0];
+    const offset = touch.clientX - swipeStart.x;
+    setSwipeOffset({ id: suggestionId, offset });
+  };
+
+  const handleTouchEnd = (suggestionId: number) => {
+    if (!swipeOffset || swipeOffset.id !== suggestionId) {
+      setSwipeStart(null);
+      setSwipeOffset(null);
+      return;
+    }
+
+    // Swipe left to dismiss (threshold: -100px)
+    if (swipeOffset.offset < -100) {
+      triggerHaptic('light');
+      handleDismiss(suggestionId);
+    }
+    // Swipe right to accept (threshold: 100px)
+    else if (swipeOffset.offset > 100) {
+      triggerHaptic('medium');
+      handleAccept(suggestionId);
+    }
+
+    setSwipeStart(null);
+    setSwipeOffset(null);
+  };
+
   // Show initial setup if no transcript
   if (!transcript) {
     return (
-      <Card className="p-6">
+      <Card className="p-4 sm:p-6 max-w-full overflow-x-hidden">
         <div className="text-center space-y-4">
           <div className="flex justify-center">
-            <Sparkles className="h-12 w-12 text-primary" />
+            <Sparkles className="h-10 w-10 sm:h-12 sm:w-12 text-primary" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold mb-2">Intelligent File Suggestions</h3>
-            <p className="text-sm text-muted-foreground mb-4">
+            <h3 className="text-base sm:text-lg font-semibold mb-2">Intelligent File Suggestions</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground mb-4">
               Transcribe your video to get AI-powered file recommendations based on what you're
               saying. The system will analyze your speech and suggest relevant files from your
               library at specific timestamps.
@@ -148,7 +187,7 @@ export function FileSuggestions({ fileId, onJumpToTimestamp }: FileSuggestionsPr
           <Button
             onClick={handleTranscribe}
             disabled={transcribing}
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto min-h-[44px]"
           >
             {transcribing ? (
               <>
@@ -170,7 +209,7 @@ export function FileSuggestions({ fileId, onJumpToTimestamp }: FileSuggestionsPr
   // Show generate button if transcript exists but no suggestions
   if (transcript && (!suggestions || suggestions.length === 0) && !suggestionsLoading) {
     return (
-      <Card className="p-6">
+      <Card className="p-4 sm:p-6 max-w-full overflow-x-hidden">
         <div className="text-center space-y-4">
           <div className="flex justify-center">
             <Sparkles className="h-12 w-12 text-primary" />
@@ -185,7 +224,7 @@ export function FileSuggestions({ fileId, onJumpToTimestamp }: FileSuggestionsPr
           <Button
             onClick={handleGenerateSuggestions}
             disabled={generating}
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto min-h-[44px]"
           >
             {generating ? (
               <>
@@ -206,14 +245,14 @@ export function FileSuggestions({ fileId, onJumpToTimestamp }: FileSuggestionsPr
 
   // Show suggestions list
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-3 sm:space-y-4 max-w-full overflow-x-hidden">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
         <div>
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
+          <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
             Suggested Files ({suggestions?.length || 0})
           </h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Files relevant to your video content at specific timestamps
           </p>
         </div>
@@ -239,10 +278,36 @@ export function FileSuggestions({ fileId, onJumpToTimestamp }: FileSuggestionsPr
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="space-y-3">
-          {suggestions?.map((suggestion) => (
-            <Card key={suggestion.id} className="p-4 hover:border-primary/50 transition-colors">
-              <div className="flex items-start gap-4">
+        <div className="space-y-2 sm:space-y-3">
+          {suggestions?.map((suggestion) => {
+            const currentSwipe = swipeOffset?.id === suggestion.id ? swipeOffset.offset : 0;
+            const isSwipingLeft = currentSwipe < -20;
+            const isSwipingRight = currentSwipe > 20;
+            
+            return (
+            <Card 
+              key={suggestion.id} 
+              className="p-3 sm:p-4 hover:border-primary/50 transition-all max-w-full overflow-hidden relative"
+              style={{
+                transform: `translateX(${currentSwipe}px)`,
+                transition: swipeStart ? 'none' : 'transform 0.3s ease-out',
+              }}
+              onTouchStart={(e) => handleTouchStart(e, suggestion.id)}
+              onTouchMove={(e) => handleTouchMove(e, suggestion.id)}
+              onTouchEnd={() => handleTouchEnd(suggestion.id)}
+            >
+              {/* Swipe action indicators */}
+              {isSwipingLeft && (
+                <div className="absolute right-0 top-0 bottom-0 w-20 bg-destructive/20 flex items-center justify-center">
+                  <X className="h-6 w-6 text-destructive" />
+                </div>
+              )}
+              {isSwipingRight && (
+                <div className="absolute left-0 top-0 bottom-0 w-20 bg-green-500/20 flex items-center justify-center">
+                  <Check className="h-6 w-6 text-green-500" />
+                </div>
+              )}
+              <div className="flex items-start gap-2 sm:gap-4">
                 {/* File Thumbnail/Icon */}
                 <div className="flex-shrink-0">
                   {suggestion.suggestedFile?.url &&
@@ -251,20 +316,21 @@ export function FileSuggestions({ fileId, onJumpToTimestamp }: FileSuggestionsPr
                     <img
                       src={suggestion.suggestedFile.url}
                       alt={suggestion.suggestedFile.filename}
-                      className="w-16 h-16 object-cover rounded border border-border"
+                      className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded border border-border"
+                      loading="lazy"
                     />
                   ) : (
-                    <div className="w-16 h-16 bg-muted rounded border border-border flex items-center justify-center">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-muted rounded border border-border flex items-center justify-center">
                       {getFileIcon(suggestion.suggestedFile?.mimeType || "")}
                     </div>
                   )}
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 min-w-0 space-y-2">
+                <div className="flex-1 min-w-0 space-y-1 sm:space-y-2">
                   {/* File Info */}
                   <div>
-                    <h4 className="font-medium text-sm truncate">
+                    <h4 className="font-medium text-xs sm:text-sm truncate">
                       {suggestion.suggestedFile?.title || suggestion.suggestedFile?.filename}
                     </h4>
                     {suggestion.suggestedFile?.description && (
@@ -276,11 +342,11 @@ export function FileSuggestions({ fileId, onJumpToTimestamp }: FileSuggestionsPr
 
                   {/* Timestamp and Transcript Excerpt */}
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 px-2 text-xs"
+                        className="h-8 sm:h-6 px-2 text-xs min-h-[32px] sm:min-h-[24px]"
                         onClick={() => onJumpToTimestamp?.(suggestion.startTime)}
                       >
                         <Play className="h-3 w-3 mr-1" />
@@ -308,8 +374,8 @@ export function FileSuggestions({ fileId, onJumpToTimestamp }: FileSuggestionsPr
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="flex-shrink-0 flex gap-1">
+                {/* Actions - Hidden on mobile (use swipe), visible on desktop */}
+                <div className="hidden sm:flex flex-shrink-0 gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -331,7 +397,8 @@ export function FileSuggestions({ fileId, onJumpToTimestamp }: FileSuggestionsPr
                 </div>
               </div>
             </Card>
-          ))}
+          );
+          })}
         </div>
       )}
     </div>
