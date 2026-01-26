@@ -127,7 +127,21 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         .map(ann => ann.id);
       setVisibleAnnotationIds(visible);
     };
-    const handleLoadedMetadata = () => setDuration(video.duration);
+    const handleLoadedMetadata = () => {
+      const dur = video.duration;
+      // Only set duration if it's a valid finite number
+      if (isFinite(dur) && !isNaN(dur) && dur > 0) {
+        setDuration(dur);
+      } else {
+        // Fallback: try again after a short delay
+        setTimeout(() => {
+          const retryDur = video.duration;
+          if (isFinite(retryDur) && !isNaN(retryDur) && retryDur > 0) {
+            setDuration(retryDur);
+          }
+        }, 100);
+      }
+    };
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
 
@@ -359,6 +373,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   }, []);
 
   const formatTime = (seconds: number) => {
+    // Handle invalid values
+    if (!isFinite(seconds) || isNaN(seconds) || seconds < 0) {
+      return "0:00.0";
+    }
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     const decisecs = Math.floor((seconds % 1) * 10);

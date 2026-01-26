@@ -3385,3 +3385,9 @@ Note: The application already has extensive annotation features including voice 
 - [x] Test haptic feedback on mobile devices
 - [x] Test 2-column grid view layout
 - [x] Test pull-to-refresh functionality
+
+
+## Video Duration Display Fix
+- [x] Fix video duration showing "Infinity:NaN.NaN" instead of proper m:ss format
+- [x] Ensure video metadata loads properly before displaying duration
+- [x] Add fallback for videos without duration metadata
