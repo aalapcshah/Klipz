@@ -612,6 +612,7 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement> | TouchEvent) => {
     e.preventDefault();
+    console.log('[VideoDrawingCanvas] handleTouchStart called, touches:', e.touches.length, 'showCanvas:', showCanvas);
     
     // Handle pinch-to-zoom (two fingers)
     if (e.touches.length === 2) {
@@ -724,6 +725,7 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
 
   const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement> | TouchEvent) => {
     e.preventDefault();
+    console.log('[VideoDrawingCanvas] handleTouchMove called, isDrawing:', isDrawing, 'currentElement:', !!currentElement);
     const pos = getTouchPos(e);
     
     // Handle dragging an existing shape
@@ -1255,12 +1257,12 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
             {/* Color Picker */}
             <div className="space-y-0.5">
               <span className="text-sm font-medium">Color:</span>
-              <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex items-center gap-1">
                 {colors.map((c) => (
                   <button
                     key={c}
                     onClick={() => setColor(c)}
-                    className={`w-6 h-6 md:w-5 md:h-5 rounded border-2 transition-all ${
+                    className={`w-5 h-5 rounded border-2 transition-all flex-shrink-0 ${
                       color === c ? "border-primary scale-110" : "border-border"
                     }`}
                     style={{ backgroundColor: c }}

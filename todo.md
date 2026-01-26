@@ -3821,3 +3821,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix: Used forwardRef + useImperativeHandle to expose handlers via ref
 - [x] Canvas now uses React native event props that call ref methods directly
 - [ ] User needs to test with real mouse/touch input on production
+
+
+## UI and Mobile Fixes - January 26, 2026
+- [x] Color palette should fit in one row with smaller squares (reduced to w-5 h-5, removed flex-wrap)
+- [ ] Mobile touch drawing not working - added debugging to diagnose issue

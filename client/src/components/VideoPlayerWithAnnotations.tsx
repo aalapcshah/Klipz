@@ -625,9 +625,19 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             onMouseMove={(e) => drawingCanvasComponentRef.current?.handleMouseMove(e)}
             onMouseUp={() => drawingCanvasComponentRef.current?.handleMouseUp()}
             onMouseLeave={() => drawingCanvasComponentRef.current?.handleMouseUp()}
-            onTouchStart={(e) => drawingCanvasComponentRef.current?.handleTouchStart(e)}
-            onTouchMove={(e) => drawingCanvasComponentRef.current?.handleTouchMove(e)}
-            onTouchEnd={() => drawingCanvasComponentRef.current?.handleTouchEnd()}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              console.log('[Canvas] Touch start, ref exists:', !!drawingCanvasComponentRef.current);
+              drawingCanvasComponentRef.current?.handleTouchStart(e);
+            }}
+            onTouchMove={(e) => {
+              e.preventDefault();
+              drawingCanvasComponentRef.current?.handleTouchMove(e);
+            }}
+            onTouchEnd={() => {
+              console.log('[Canvas] Touch end');
+              drawingCanvasComponentRef.current?.handleTouchEnd();
+            }}
             onTouchCancel={() => drawingCanvasComponentRef.current?.handleTouchEnd()}
             style={{
               position: 'absolute',
