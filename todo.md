@@ -3586,3 +3586,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Remove all overlapping elements
 - [ ] Test layout on desktop (wide screen)
 - [ ] Test layout on mobile (narrow screen)
+
+## Voice Annotation Compact Layout (CRITICAL)
+- [x] Move audio player and status button (Approved/Pending/etc) to same horizontal row
+- [x] Move volume icon from top right to bottom right (next to delete icon)
+- [x] Reduce vertical spacing between transcript and audio player (mb-3 to mb-2)
+- [x] Remove extra vertical gaps throughout the tile (reduced padding from p-3 to p-2)
+- [x] Make layout more compact overall
+- [ ] Test compact layout on desktop and mobile

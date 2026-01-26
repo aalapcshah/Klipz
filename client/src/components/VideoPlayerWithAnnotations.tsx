@@ -1273,12 +1273,12 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 return (
               <div
                 key={annotation.id}
-                className={`p-3 rounded-lg transition-colors ${
+                className={`p-2 rounded-lg transition-colors ${
                   isSelected ? 'bg-primary/10 border-2 border-primary' : 'bg-muted/50 hover:bg-muted'
                 }`}
               >
                 {/* Top Row: Checkbox + Transcript */}
-                <div className="flex items-start gap-2 mb-3">
+                <div className="flex items-start gap-2 mb-2">
                   <Checkbox
                     checked={isSelected}
                     onCheckedChange={(checked) => {
@@ -1297,21 +1297,36 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                   )}
                 </div>
 
-                {/* Middle Row: Audio Player + Status Buttons */}
-                <div className="flex items-start gap-3">
+                {/* Middle Row: Audio Player + Status Button */}
+                <div className="flex items-center gap-2 mb-2">
                   {/* Left: Audio Player */}
-                  <div className="flex-1">
-                    <audio
-                      src={annotation.audioUrl}
-                      controls
-                      className="h-8 w-full max-w-md"
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
+                  <audio
+                    src={annotation.audioUrl}
+                    controls
+                    className="h-8 flex-1"
+                    onClick={(e) => e.stopPropagation()}
+                  />
 
-                  {/* Right: Status Buttons (Vertical Stack) */}
-                  <div className="flex flex-col gap-2 items-end">
-                    <ApprovalWorkflow
+                  {/* Right: Status Button */}
+                  <ApprovalWorkflow
+                    annotationId={annotation.id}
+                    annotationType="voice"
+                  />
+                </div>
+
+                {/* Bottom Row: Time + Duration + Icons */}
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => jumpToAnnotation(annotation.videoTimestamp)}
+                    className="flex items-center gap-2 text-left hover:underline"
+                  >
+                    <Badge variant="secondary" className="text-xs">{formatTime(annotation.videoTimestamp)}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {annotation.duration}s recording
+                    </span>
+                  </button>
+                  <div className="flex items-center gap-1">
+                    <AnnotationHistoryViewer
                       annotationId={annotation.id}
                       annotationType="voice"
                     />
@@ -1319,7 +1334,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                       size="sm"
                       variant="ghost"
                       onClick={() => handleSpeak(annotation.id, annotation.transcript!)}
-                      className="shrink-0"
+                      className="h-7 w-7 p-0"
                     >
                       {speakingAnnotationId === annotation.id ? (
                         <VolumeX className="h-4 w-4" />
@@ -1331,27 +1346,11 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                       size="sm"
                       variant="ghost"
                       onClick={() => handleDeleteAnnotation(annotation.id)}
+                      className="h-7 w-7 p-0"
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
-                </div>
-
-                {/* Bottom Row: Time + Duration (Horizontal) */}
-                <div className="flex items-center gap-3 mt-2">
-                  <button
-                    onClick={() => jumpToAnnotation(annotation.videoTimestamp)}
-                    className="flex items-center gap-2 text-left hover:underline"
-                  >
-                    <Badge variant="secondary" className="text-xs">{formatTime(annotation.videoTimestamp)}</Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {annotation.duration}s recording
-                    </span>
-                  </button>
-                  <AnnotationHistoryViewer
-                    annotationId={annotation.id}
-                    annotationType="voice"
-                  />
                 </div>
                 
                 {/* Comment Thread */}
