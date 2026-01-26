@@ -3556,3 +3556,9 @@ Note: The application already has extensive annotation features including voice 
 - [x] Replace native HTML checkboxes with shadcn Checkbox component in visual annotations
 - [x] Ensure checkboxes match Files section size (small and consistent) (h-3 w-3 on mobile, h-4 w-4 on desktop)
 - [ ] Test checkbox selection functionality after replacement
+
+## Video Player Layout Reorganization
+- [x] Move drawing tools (Display Duration slider, tool palette) directly under Voice Note/Draw buttons
+- [x] Move "Show Timeline" button to bottom of controls
+- [x] Move "Search annotation transcripts" to bottom of controls
+- [ ] Verify new layout order on mobile and desktop

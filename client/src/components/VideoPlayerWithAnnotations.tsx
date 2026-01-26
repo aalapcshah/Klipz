@@ -783,36 +783,20 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               <PenLine className="h-6 w-6" />
             </Button>
           </div>
-          
-          {/* Timeline Toggle */}
-          <div className="flex items-center gap-2">
-            <Button 
-              size="sm" 
-              variant="outline" 
-              onClick={() => setShowTimeline(!showTimeline)}
-              className="w-full"
-            >
-              <MessageSquare className="h-4 w-4 mr-2" />
-              {showTimeline ? 'Hide' : 'Show'} Timeline
-            </Button>
-          </div>
-
-
         </div>
       </Card>
 
-      {/* Annotation Search */}
-      {annotations.length > 0 && (
-        <Card className="p-4 max-w-full overflow-x-hidden">
-          <AnnotationSearch
-            annotations={annotations}
-            onJumpToTimestamp={jumpToAnnotation}
-            formatTime={formatTime}
-          />
-        </Card>
-      )}
+      {/* Drawing Canvas Controls - appears right after Voice Note/Draw buttons */}
+      <VideoDrawingCanvas
+        videoRef={videoRef}
+        currentTime={currentTime}
+        onSaveAnnotation={handleSaveVisualAnnotation}
+        onDrawingModeChange={setIsDrawingMode}
+        onToggleRequest={drawToggleRequest}
+        fileId={fileId}
+      />
 
-      {/* Voice Recorder - appears immediately below Show Timeline */}
+      {/* Voice Recorder */}
       {showRecorder && (
         <Card className="p-4 max-w-full overflow-x-hidden">
           <div className="space-y-3">
@@ -834,15 +818,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         </Card>
       )}
 
-      {/* Drawing Canvas Controls */}
-      <VideoDrawingCanvas
-        videoRef={videoRef}
-        currentTime={currentTime}
-        onSaveAnnotation={handleSaveVisualAnnotation}
-        onDrawingModeChange={setIsDrawingMode}
-        onToggleRequest={drawToggleRequest}
-        fileId={fileId}
-      />
+
 
       {/* Drawing Annotations List */}
       {visualAnnotations.length > 0 && (
@@ -1447,6 +1423,30 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           }}
         />
       )}
+
+      {/* Annotation Search - moved to bottom */}
+      {annotations.length > 0 && (
+        <Card className="p-4 max-w-full overflow-x-hidden">
+          <AnnotationSearch
+            annotations={annotations}
+            onJumpToTimestamp={jumpToAnnotation}
+            formatTime={formatTime}
+          />
+        </Card>
+      )}
+
+      {/* Timeline Toggle - moved to bottom */}
+      <Card className="p-4 max-w-full overflow-x-hidden">
+        <Button 
+          size="sm" 
+          variant="outline" 
+          onClick={() => setShowTimeline(!showTimeline)}
+          className="w-full"
+        >
+          <MessageSquare className="h-4 w-4 mr-2" />
+          {showTimeline ? 'Hide' : 'Show'} Timeline
+        </Button>
+      </Card>
 
       {/* Video Chapters Section */}
       <VideoChapters
