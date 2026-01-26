@@ -579,8 +579,9 @@ export const appRouter = router({
     create: protectedProcedure
       .input(
         z.object({
-          fileKey: z.string(),
-          url: z.string(),
+          fileKey: z.string().optional(),
+          url: z.string().optional(),
+          content: z.string().optional(), // base64 content
           filename: z.string(),
           mimeType: z.string(),
           fileSize: z.number(),
@@ -593,8 +594,43 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input, ctx }) => {
+        let fileKey = input.fileKey;
+        let url = input.url;
+        
+        // If content is provided, upload to S3
+        if (input.content) {
+          const timestamp = Date.now();
+          const sanitizedFilename = input.filename.replace(/[^a-zA-Z0-9.-]/g, "_");
+          fileKey = `uploads/${ctx.user.id}/${timestamp}-${sanitizedFilename}`;
+          
+          // Convert base64 to buffer
+          const base64Data = input.content.split(',')[1] || input.content;
+          const buffer = Buffer.from(base64Data, 'base64');
+          
+          // Upload to S3
+          const result = await storagePut(fileKey, buffer, input.mimeType);
+          url = result.url;
+        }
+        
+        if (!fileKey || !url) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Either fileKey+url or content must be provided",
+          });
+        }
+        
         const fileId = await db.createFile({
-          ...input,
+          fileKey,
+          url,
+          filename: input.filename,
+          mimeType: input.mimeType,
+          fileSize: input.fileSize,
+          title: input.title,
+          description: input.description,
+          voiceRecordingUrl: input.voiceRecordingUrl,
+          voiceTranscript: input.voiceTranscript,
+          extractedMetadata: input.extractedMetadata,
+          extractedKeywords: input.extractedKeywords,
           userId: ctx.user.id,
           enrichmentStatus: "pending",
         });

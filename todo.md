@@ -3518,3 +3518,20 @@ Note: The application already has extensive annotation features including voice 
 - [x] Handle chunk upload failures with retry logic
 - [x] Clear completed uploads from localStorage
 - [x] Test resume functionality with network interruptions
+
+
+## Upload Progress MB Display
+- [x] Add MB calculation to upload progress tracking
+- [x] Display "X of Y MB" alongside percentage in upload UI
+- [x] Format MB values with appropriate precision (e.g., 63.5 of 84.2 MB)
+- [x] Test MB display with various file sizes
+
+## Upload Freeze at 90% Bug Fix
+- [x] Investigate why upload freezes at 90% after S3 upload completes
+- [x] Add detailed logging to file creation step
+- [x] Fix database file record creation issue (updated backend to accept base64)
+- [x] Add timeout handling for file creation
+- [x] Test complete upload flow end-to-end
+
+## UI Font Size Adjustment
+- [x] Reduce font size of "Full AI Analysis" title in file details view

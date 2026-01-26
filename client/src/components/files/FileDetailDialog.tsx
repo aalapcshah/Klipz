@@ -472,7 +472,7 @@ export function FileDetailDialog({
 
                 {file.aiAnalysis && (
                   <div className="p-4 bg-muted rounded-lg">
-                    <Label className="text-sm mb-2 block">Full AI Analysis</Label>
+                    <Label className="text-xs mb-2 block text-muted-foreground">Full AI Analysis</Label>
                     <Streamdown>{file.aiAnalysis}</Streamdown>
                   </div>
                 )}

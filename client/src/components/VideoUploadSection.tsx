@@ -8,7 +8,6 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
 import { ChunkedUploader } from "@/lib/chunkedUpload";
-
 interface UploadingFile {
   file: File;
   progress: number;
@@ -19,6 +18,7 @@ interface UploadingFile {
   s3Key?: string;
   originalSize?: number;
   processedSize?: number;
+  uploadedBytes?: number;
 }
 
 type VideoQuality = "original" | "high" | "medium" | "low";
@@ -47,7 +47,7 @@ export function VideoUploadSection() {
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality>("high");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const getPresignedUrlMutation = trpc.s3Upload.generatePresignedUrl.useMutation();
+  // Removed unused presigned URL mutation
   const completeUploadMutation = trpc.s3Upload.completeUpload.useMutation();
   const createFileMutation = trpc.files.create.useMutation();
 
@@ -154,81 +154,58 @@ export function VideoUploadSection() {
         
         uploadingFile.processedSize = processedFile.size;
 
-        // Get presigned URL from backend
-        const { uploadUrl, fileKey } = await getPresignedUrlMutation.mutateAsync({
-          filename: file.name,
-          mimeType: file.type,
-          fileSize: processedFile.size,
-        });
+        // Convert to base64 for upload
+        const reader = new FileReader();
         
-        const s3Key = fileKey;
-        const presignedUrl = uploadUrl;
-
-        uploadingFile.s3Key = fileKey;
-
-        // Update progress to 10%
-        setUploadingFiles(prev =>
-          prev.map(f => (f.file === file ? { ...f, progress: 10 } : f))
-        );
-
-        // Upload to S3 with progress tracking
-        const xhr = new XMLHttpRequest();
-        
-        xhr.upload.addEventListener("progress", (e) => {
+        reader.onprogress = (e) => {
           if (e.lengthComputable) {
-            const percentComplete = 10 + (e.loaded / e.total) * 80; // 10-90%
+            const percentComplete = (e.loaded / e.total) * 80; // 0-80%
             setUploadingFiles(prev =>
-              prev.map(f => (f.file === file ? { ...f, progress: percentComplete } : f))
+              prev.map(f => (f.file === file ? { ...f, progress: percentComplete, uploadedBytes: e.loaded } : f))
             );
           }
-        });
-
-        xhr.addEventListener("load", async () => {
-          if (xhr.status === 200) {
-            try {
-              // Update progress to 90%
-              setUploadingFiles(prev =>
-                prev.map(f => (f.file === file ? { ...f, progress: 90 } : f))
-              );
-
-              // Complete upload (no backend call needed for S3 direct upload)
-
-              const fileRecord = await createFileMutation.mutateAsync({
-                fileKey: s3Key,
-                url: `https://storage.example.com/${s3Key}`, // This will be replaced by actual S3 URL
-                filename: file.name,
-                mimeType: file.type,
-                fileSize: processedFile.size,
-                title: file.name.replace(/\.[^/.]+$/, ""),
-                description: `Uploaded video - ${QUALITY_SETTINGS[selectedQuality].label}`,
-              });
-
-              // Success
-              setUploadingFiles(prev =>
-                prev.map(f =>
-                  f.file === file
-                    ? { ...f, progress: 100, status: "success", fileId: fileRecord.id }
-                    : f
-                )
-              );
-
-              toast.success(`${file.name} uploaded successfully!`);
-              triggerHaptic("success");
-            } catch (error) {
-              throw error;
-            }
-          } else {
-            throw new Error(`Upload failed with status ${xhr.status}`);
+        };
+        
+        reader.onload = async () => {
+          try {
+            const base64 = reader.result as string;
+            
+            // Update progress to 80%
+            setUploadingFiles(prev =>
+              prev.map(f => (f.file === file ? { ...f, progress: 80 } : f))
+            );
+            
+            // Upload to backend with S3 storage
+            const fileRecord = await createFileMutation.mutateAsync({
+              filename: file.name,
+              mimeType: file.type,
+              fileSize: processedFile.size,
+              content: base64,
+              title: file.name.replace(/\.[^/.]+$/, ""),
+              description: `Uploaded video - ${QUALITY_SETTINGS[selectedQuality].label}`,
+            });
+            
+            // Success
+            setUploadingFiles(prev =>
+              prev.map(f =>
+                f.file === file
+                  ? { ...f, progress: 100, status: "success", fileId: fileRecord.id }
+                  : f
+              )
+            );
+            
+            toast.success(`${file.name} uploaded successfully!`);
+            triggerHaptic("success");
+          } catch (error: any) {
+            throw new Error(`Upload failed: ${error.message}`);
           }
-        });
-
-        xhr.addEventListener("error", () => {
-          throw new Error("Network error during upload");
-        });
-
-        xhr.open("PUT", presignedUrl);
-        xhr.setRequestHeader("Content-Type", processedFile.type);
-        xhr.send(processedFile);
+        };
+        
+        reader.onerror = () => {
+          throw new Error("Failed to read file");
+        };
+        
+        reader.readAsDataURL(processedFile);
 
       } catch (error) {
         console.error("Upload error:", error);
@@ -398,6 +375,11 @@ export function VideoUploadSection() {
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">
                           {uploadingFile.progress.toFixed(0)}%
+                          {uploadingFile.uploadedBytes !== undefined && uploadingFile.processedSize && (
+                            <span className="ml-2 text-xs opacity-70">
+                              ({(uploadingFile.uploadedBytes / 1024 / 1024).toFixed(1)} of {(uploadingFile.processedSize / 1024 / 1024).toFixed(1)} MB)
+                            </span>
+                          )}
                         </span>
                         <Loader2 className="w-4 h-4 animate-spin" />
                       </div>
