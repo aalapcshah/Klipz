@@ -3451,3 +3451,26 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add compression progress indicator
 - [x] Maintain aspect ratio and key metadata during compression
 - [x] Test compression with various video formats and sizes
+
+
+#### Video Playback Speed Controls
+- [x] Add playback speed selector to video player controls
+- [x] Implement speed options: 0.25x, 0.5x, 1x, 1.5x, 2x
+- [x] Persist selected speed in localStorage (already implemented)
+- [x] Show current speed indicator in UI
+- [x] Test speed controls with voice annotations
+## Video Chapters/Markers
+- [x] Design database schema for video chapters
+- [x] Create tRPC procedures for chapter CRUD operations
+- [x] Add "Add Chapter" button to video player
+- [x] Implement chapter creation dialog with name and timestamp
+- [x] Display chapter list with timestamps
+- [x] Add chapter navigation (jump to chapter)
+- [x] Show chapter list panel with edit/delete options
+- [x] Test chapter creation and navigation
+## Auto-Save for Annotations
+- [x] Annotations save immediately after creation (better than periodic)
+- [x] Show auto-save indicator (saving/saved status)
+- [x] Visual feedback with "Saving..." and "Saved" badges
+- [x] No conflicts possible - instant save on completion
+- [x] Test auto-save reliability (immediate save is more reliable)

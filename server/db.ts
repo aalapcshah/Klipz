@@ -51,6 +51,8 @@ import {
   InsertVideoTranscript,
   fileSuggestions,
   InsertFileSuggestion,
+  videoChapters,
+  InsertVideoChapter,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -2382,4 +2384,40 @@ export async function updateFileSuggestionStatus(
     .update(fileSuggestions)
     .set(updates)
     .where(eq(fileSuggestions.id, suggestionId));
+}
+
+
+// ============= VIDEO CHAPTERS QUERIES =============
+
+export async function getVideoChapters(fileId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(videoChapters)
+    .where(eq(videoChapters.fileId, fileId))
+    .orderBy(videoChapters.sortOrder);
+}
+
+export async function createVideoChapter(data: InsertVideoChapter) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(videoChapters).values(data);
+  return result[0].insertId;
+}
+
+export async function updateVideoChapter(id: number, data: Partial<InsertVideoChapter>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(videoChapters).set(data).where(eq(videoChapters.id, id));
+}
+
+export async function deleteVideoChapter(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.delete(videoChapters).where(eq(videoChapters.id, id));
 }

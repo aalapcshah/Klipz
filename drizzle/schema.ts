@@ -178,6 +178,29 @@ export type InsertVideoTranscript = typeof videoTranscripts.$inferInsert;
 /**
  * File suggestions table - AI-suggested files based on video transcript analysis
  */
+/**
+ * Video chapters table - user-created chapter markers for videos
+ */
+export const videoChapters = mysqlTable("video_chapters", {
+  id: int("id").autoincrement().primaryKey(),
+  fileId: int("fileId").notNull(), // Foreign key to files table (video)
+  userId: int("userId").notNull(),
+  
+  // Chapter info
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  timestamp: float("timestamp").notNull(), // Timestamp in video (seconds, decimal)
+  
+  // Display order
+  sortOrder: int("sortOrder").notNull(), // Manual ordering
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type VideoChapter = typeof videoChapters.$inferSelect;
+export type InsertVideoChapter = typeof videoChapters.$inferInsert;
+
 export const fileSuggestions = mysqlTable("file_suggestions", {
   id: int("id").autoincrement().primaryKey(),
   videoFileId: int("videoFileId").notNull(), // Foreign key to files table (video)

@@ -22,6 +22,7 @@ import { VoiceAnnotationExport } from "./VoiceAnnotationExport";
 import { HighlightedText } from "./HighlightedText";
 import { AnnotationSearch } from "./videos/AnnotationSearch";
 import { FileSuggestions } from "./FileSuggestions";
+import { VideoChapters } from "./VideoChapters";
 
 interface VideoPlayerWithAnnotationsProps {
   fileId: number;
@@ -69,6 +70,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   // Collapsible sections state
   const [drawingAnnotationsCollapsed, setDrawingAnnotationsCollapsed] = useState(true);
   const [voiceFiltersCollapsed, setVoiceFiltersCollapsed] = useState(true);
+  
+  // Auto-save indicator
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   const { data: annotations = [], refetch: refetchAnnotations } = trpc.voiceAnnotations.getAnnotations.useQuery({ fileId });
   const exportAnnotationsMutation = trpc.annotationExport.exportAnnotations.useMutation();
@@ -293,6 +298,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       reader.onloadend = async () => {
         const audioDataUrl = reader.result as string;
         
+        setSaveStatus("saving");
         const newAnnotation = await saveAnnotation.mutateAsync({
           fileId,
           audioDataUrl,
@@ -300,6 +306,9 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           videoTimestamp: Math.floor(recordingTimestamp),
         });
 
+        setSaveStatus("saved");
+        setLastSaved(new Date());
+        setTimeout(() => setSaveStatus("idle"), 2000);
         toast.success("Voice annotation saved!");
         refetchAnnotations();
         
@@ -386,12 +395,17 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
 
   const handleSaveVisualAnnotation = async (imageDataUrl: string, timestamp: number, duration: number) => {
     try {
+      setSaveStatus("saving");
       const newAnnotation = await saveVisualAnnotation.mutateAsync({
         fileId,
         imageDataUrl,
         videoTimestamp: Math.floor(timestamp),
         duration,
       });
+      
+      setSaveStatus("saved");
+      setLastSaved(new Date());
+      setTimeout(() => setSaveStatus("idle"), 2000);
       toast.success(`Drawing saved (${duration}s duration)`);
       refetchVisualAnnotations();
       
@@ -555,6 +569,13 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
 
           {/* Controls */}
           <div className="flex items-center gap-2 flex-wrap video-controls max-w-full">
+            {/* Auto-save indicator */}
+            {saveStatus !== "idle" && (
+              <Badge variant={saveStatus === "saved" ? "default" : "secondary"} className="h-9 px-3">
+                {saveStatus === "saving" ? "Saving..." : "Saved"}
+              </Badge>
+            )}
+            
             <Button size="default" className="h-11 px-4 md:h-9 md:px-3" variant="outline" onClick={togglePlay}>
               {isPlaying ? <Pause className="h-5 w-5 md:h-4 md:w-4" /> : <Play className="h-5 w-5 md:h-4 md:w-4" />}
             </Button>
@@ -685,6 +706,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 <SelectValue>{playbackSpeed}x</SelectValue>
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="0.25">0.25x</SelectItem>
                 <SelectItem value="0.5">0.5x</SelectItem>
                 <SelectItem value="1">1x</SelectItem>
                 <SelectItem value="1.5">1.5x</SelectItem>
@@ -1401,6 +1423,17 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           }}
         />
       )}
+
+      {/* Video Chapters Section */}
+      <VideoChapters
+        fileId={fileId}
+        currentTime={currentTime}
+        onSeek={(time) => {
+          if (videoRef.current) {
+            videoRef.current.currentTime = time;
+          }
+        }}
+      />
 
       {/* File Suggestions Section */}
       <FileSuggestions
