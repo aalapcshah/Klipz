@@ -1,0 +1,40 @@
+{
+  "query": "SELECT id, videoTimestamp, transcript, LENGTH(transcript) as transcript_length FROM voice_annotations ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, videoTimestamp, transcript, LENGTH(transcript) as transcript_length FROM voice_annotations ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "5",
+      "videoTimestamp": "0",
+      "transcript": "A B C D E F G",
+      "transcript_length": "13"
+    },
+    {
+      "id": "4",
+      "videoTimestamp": "0",
+      "transcript": "A B C D E F G",
+      "transcript_length": "13"
+    },
+    {
+      "id": "3",
+      "videoTimestamp": "0",
+      "transcript": "A B C D E F G",
+      "transcript_length": "13"
+    },
+    {
+      "id": "2",
+      "videoTimestamp": "2",
+      "transcript": "I am annotating a record right here. Is this capturing anything from my mic?",
+      "transcript_length": "76"
+    },
+    {
+      "id": "1",
+      "videoTimestamp": "2",
+      "transcript": "I am annotating a record right here. Is this capturing anything from my mic?",
+      "transcript_length": "76"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tvideoTimestamp\ttranscript\ttranscript_length\n5\t0\tA B C D E F G\t13\n4\t0\tA B C D E F G\t13\n3\t0\tA B C D E F G\t13\n2\t2\tI am annotating a record right here. Is this capturing anything from my mic?\t76\n1\t2\tI am annotating a record right here. Is this capturing anything from my mic?\t76\n",
+  "stderr": "",
+  "execution_time_ms": 87
+}

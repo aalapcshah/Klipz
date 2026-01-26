@@ -1,0 +1,35 @@
+{
+  "query": "SELECT annotationId, annotationType, COUNT(*) as comment_count FROM annotation_comments GROUP BY annotationId, annotationType HAVING COUNT(*) > 10 ORDER BY comment_count DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT annotationId, annotationType, COUNT(*) as comment_count FROM annotation_comments GROUP BY annotationId, annotationType HAVING COUNT(*) > 10 ORDER BY comment_count DESC LIMIT 10;",
+  "rows": [
+    {
+      "annotationId": "1",
+      "annotationType": "visual",
+      "comment_count": "36"
+    },
+    {
+      "annotationId": "2",
+      "annotationType": "voice",
+      "comment_count": "36"
+    },
+    {
+      "annotationId": "5",
+      "annotationType": "voice",
+      "comment_count": "24"
+    },
+    {
+      "annotationId": "3",
+      "annotationType": "visual",
+      "comment_count": "12"
+    },
+    {
+      "annotationId": "6",
+      "annotationType": "visual",
+      "comment_count": "12"
+    }
+  ],
+  "messages": [],
+  "stdout": "annotationId\tannotationType\tcomment_count\n1\tvisual\t36\n2\tvoice\t36\n5\tvoice\t24\n3\tvisual\t12\n6\tvisual\t12\n",
+  "stderr": "",
+  "execution_time_ms": 49
+}

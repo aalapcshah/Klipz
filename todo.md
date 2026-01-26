@@ -3541,3 +3541,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Remove "24 blank comments" display issue from voice annotations (hide CommentThread when count is 0, filter empty comments in backend)
 - [ ] Test drawing on video with mouse/touch input
 - [ ] Verify voice annotation display shows correct content
+
+## Voice Annotation Display Fixes
+- [x] Fix vertical text stacking - transcript showing each letter on separate line (added whitespace-normal break-words)
+- [x] Delete empty comments from database (showing Comments 24/36 incorrectly) (deleted all test comments)
+- [x] Reduce checkbox sizes to match Files section (too large on mobile) (h-3 w-3 on mobile, h-4 w-4 on desktop)
+- [ ] Verify text displays horizontally in voice annotations
+- [ ] Confirm comment counts are accurate after cleanup

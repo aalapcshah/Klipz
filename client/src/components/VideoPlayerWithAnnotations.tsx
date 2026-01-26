@@ -869,7 +869,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                       setSelectedVisualIds([]);
                     }
                   }}
-                  className="w-4 h-4"
+                  className="h-3 w-3 md:h-4 md:w-4 cursor-pointer"
                 />
                 <span className="text-xs">Select All</span>
               </label>
@@ -1035,7 +1035,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                         setSelected(selectedIds.filter(id => id !== annotation.id));
                       }
                     }}
-                    className="h-4 w-4 cursor-pointer"
+                    className="h-3 w-3 md:h-4 md:w-4 cursor-pointer"
                   />
                   <div className="flex items-center justify-between flex-1">
                   <button
@@ -1117,7 +1117,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                         setSelectedVoiceIds([]);
                       }
                     }}
-                    className="w-4 h-4"
+                    className="h-3 w-3 md:h-4 md:w-4 cursor-pointer"
                   />
                   <span className="text-xs">Select All</span>
                 </label>
@@ -1314,7 +1314,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                         setSelected(selectedIds.filter(id => id !== annotation.id));
                       }
                     }}
-                    className="h-4 w-4 cursor-pointer"
+                    className="h-3 w-3 md:h-4 md:w-4 cursor-pointer"
                   />
                   <div className="flex items-center justify-between flex-1">
                   <button
@@ -1343,7 +1343,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 {annotation.transcript && (
                   <div className="pl-2 border-l-2 border-primary/30 space-y-2">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm text-foreground flex-1">
+                      <p className="text-sm text-foreground flex-1 whitespace-normal break-words">
                         <HighlightedText text={annotation.transcript} searchQuery={searchQuery} />
                       </p>
                       <Button
