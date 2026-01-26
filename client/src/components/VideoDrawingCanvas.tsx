@@ -1,5 +1,4 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -218,21 +217,40 @@ export function VideoDrawingCanvas({
   }, [onToggleRequest]);
 
   useEffect(() => {
-    if (!canvasRef.current || !videoRef.current) return;
+    // Get canvas by ID from video container
+    const canvas = document.getElementById('drawing-canvas') as HTMLCanvasElement;
+    if (!canvas || !videoRef.current) return;
     
-    const canvas = canvasRef.current;
+    // Set canvas ref for drawing operations
+    canvasRef.current = canvas;
+    
     const video = videoRef.current;
     
     // Add touch event listeners
-    const touchStart = (e: TouchEvent) => handleTouchStart(e as any);
-    const touchMove = (e: TouchEvent) => handleTouchMove(e as any);
+    const touchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      handleTouchStart(e as any);
+    };
+    const touchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      handleTouchMove(e as any);
+    };
     const touchEnd = () => handleTouchEnd();
+    
+    // Add mouse event listeners
+    const mouseDown = (e: MouseEvent) => handleMouseDown(e as any);
+    const mouseMove = (e: MouseEvent) => handleMouseMove(e as any);
+    const mouseUp = () => handleMouseUp();
     
     if (showCanvas) {
       canvas.addEventListener('touchstart', touchStart, { passive: false });
       canvas.addEventListener('touchmove', touchMove, { passive: false });
       canvas.addEventListener('touchend', touchEnd);
       canvas.addEventListener('touchcancel', touchEnd);
+      canvas.addEventListener('mousedown', mouseDown);
+      canvas.addEventListener('mousemove', mouseMove);
+      canvas.addEventListener('mouseup', mouseUp);
+      canvas.addEventListener('mouseleave', mouseUp);
     }
     
     // Match canvas size to video display size
@@ -255,6 +273,10 @@ export function VideoDrawingCanvas({
       canvas.removeEventListener('touchmove', touchMove);
       canvas.removeEventListener('touchend', touchEnd);
       canvas.removeEventListener('touchcancel', touchEnd);
+      canvas.removeEventListener('mousedown', mouseDown);
+      canvas.removeEventListener('mousemove', mouseMove);
+      canvas.removeEventListener('mouseup', mouseUp);
+      canvas.removeEventListener('mouseleave', mouseUp);
     };
   }, [showCanvas]);
 
@@ -1400,28 +1422,6 @@ export function VideoDrawingCanvas({
         </AlertDialogContent>
       </AlertDialog>
     </div>
-    {/* Render canvas into video container using portal */}
-    {showCanvas && videoRef.current?.parentElement && createPortal(
-      <canvas
-        ref={canvasRef}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          zIndex: 10,
-          cursor: 'crosshair',
-          touchAction: 'none',
-          pointerEvents: 'auto',
-        }}
-      />,
-      videoRef.current.parentElement
-    )}
     </>
   );
 }

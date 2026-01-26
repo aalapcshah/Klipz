@@ -484,6 +484,22 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             style={{ pointerEvents: isDrawingMode ? 'none' : 'auto' }}
           />
           
+          {/* Drawing canvas overlay - controlled by VideoDrawingCanvas */}
+          <canvas
+            id="drawing-canvas"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              pointerEvents: isDrawingMode ? 'auto' : 'none',
+              display: isDrawingMode ? 'block' : 'none',
+              zIndex: 15,
+              touchAction: 'none',
+            }}
+          />
+          
           {/* Visible annotation overlays */}
           {showAnnotationPreview && visualAnnotations
             .filter(ann => visibleAnnotationIds.includes(ann.id))

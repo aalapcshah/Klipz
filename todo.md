@@ -3635,3 +3635,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Remove Callout and Bubble quick templates (duplicates removed)
 - [x] Remove "Quick Templates:" header
 - [x] Keep only Save Template and Template Library buttons (AnnotationTemplatesLibrary component)
+
+## Canvas Touch Event Critical Issue
+- [x] Canvas not receiving ANY touch events on mobile (pen, rectangle, all tools fail)
+- [x] Portal rendering approach replaced - canvas now directly in VideoPlayerWithAnnotations
+- [x] Canvas rendered with ID 'drawing-canvas' in video container
+- [x] VideoDrawingCanvas finds canvas by ID and attaches event listeners
+- [x] Added e.preventDefault() to touch events to prevent scrolling interference
