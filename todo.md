@@ -3728,3 +3728,16 @@ Note: The application already has extensive annotation features including voice 
 - [ ] Test user interaction (mouse/touch drawing) on desktop
 - [ ] Test user interaction (touch drawing) on mobile after publish
 - [ ] Verify all annotation tools work properly
+
+
+## Support 4GB Video Uploads - January 26, 2026
+- [x] Diagnosed HTTP/2 protocol error (ERR_HTTP2_PROTOCOL_ERROR) for 41MB+ videos
+- [x] Reduced chunk size from 5MB to 1MB to avoid protocol limits
+- [x] Added retry logic for failed chunk uploads (3 attempts with exponential backoff)
+- [x] Updated UI to show 4GB max file size
+- [x] Improved error handling with detailed logging
+- [x] Tested with 21MB video - upload successful with no errors
+- [x] Verified video appears in library after upload
+- [ ] User needs to test with 41MB video on production
+- [ ] User needs to test with larger files (100MB+, 4GB) on production
+- [ ] Publish checkpoint to production for user testing

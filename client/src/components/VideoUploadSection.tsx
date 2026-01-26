@@ -27,8 +27,8 @@ const ACCEPTED_VIDEO_FORMATS = [
   "video/mpeg",
 ];
 
-const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+const MAX_FILE_SIZE = 4 * 1024 * 1024 * 1024; // 4GB
+const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks (safer for HTTP/2)
 
 const QUALITY_SETTINGS = {
   original: { label: "Original Quality", maxHeight: null, bitrate: null },
@@ -52,7 +52,7 @@ export function VideoUploadSection() {
       return `Invalid format. Accepted formats: MP4, MOV, AVI, WebM, MKV, MPEG`;
     }
     if (file.size > MAX_FILE_SIZE) {
-      return `File too large. Maximum size: 2GB`;
+      return `File too large. Maximum size: 4GB`;
     }
     return null;
   };
@@ -91,7 +91,7 @@ export function VideoUploadSection() {
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
       console.log(`[Upload] Starting upload of ${file.name}: ${totalChunks} chunks, ${file.size} bytes`);
 
-      // Upload chunks sequentially
+      // Upload chunks sequentially with retry logic
       for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, file.size);
@@ -99,13 +99,32 @@ export function VideoUploadSection() {
         // Read chunk
         const chunkData = await readChunk(file, start, end);
         
-        // Upload chunk
-        await uploadChunkMutation.mutateAsync({
-          sessionId,
-          chunkIndex: i,
-          chunkData,
-          totalChunks,
-        });
+        // Upload chunk with retry (max 3 attempts)
+        let retries = 0;
+        const maxRetries = 3;
+        let uploaded = false;
+        
+        while (!uploaded && retries < maxRetries) {
+          try {
+            await uploadChunkMutation.mutateAsync({
+              sessionId,
+              chunkIndex: i,
+              chunkData,
+              totalChunks,
+            });
+            uploaded = true;
+          } catch (error: any) {
+            retries++;
+            console.error(`[Upload] Chunk ${i} failed (attempt ${retries}/${maxRetries}):`, error.message);
+            
+            if (retries >= maxRetries) {
+              throw new Error(`Failed to upload chunk ${i} after ${maxRetries} attempts: ${error.message}`);
+            }
+            
+            // Wait before retry (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries - 1)));
+          }
+        }
 
         // Update progress (0-90% for chunks, 90-100% for finalization)
         const progress = ((i + 1) / totalChunks) * 90;
@@ -269,7 +288,7 @@ export function VideoUploadSection() {
             Choose Files
           </Button>
           <p className="text-xs text-muted-foreground">
-            Supported: MP4, MOV, AVI, WebM, MKV, MPEG (max 2GB)
+            Supported: MP4, MOV, AVI, WebM, MKV, MPEG (max 4GB)
           </p>
           <input
             ref={fileInputRef}
