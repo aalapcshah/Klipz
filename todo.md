@@ -3557,8 +3557,9 @@ Note: The application already has extensive annotation features including voice 
 - [x] Ensure checkboxes match Files section size (small and consistent) (h-3 w-3 on mobile, h-4 w-4 on desktop)
 - [ ] Test checkbox selection functionality after replacement
 
-## Video Player Layout Reorganization
-- [x] Move drawing tools (Display Duration slider, tool palette) directly under Voice Note/Draw buttons
-- [x] Move "Show Timeline" button to bottom of controls
-- [x] Move "Search annotation transcripts" to bottom of controls
-- [ ] Verify new layout order on mobile and desktop
+## CRITICAL MOBILE ANNOTATION FIXES (PRIORITY)
+- [x] Fix large checkboxes - removed hardcoded size-4 from Checkbox component
+- [x] Fix vertical text (A B C D E F G) - added explicit inline styles and newline replacement
+- [x] Fix text overlapping on mobile - made layout responsive with flex-col on mobile
+- [x] Enable drawing on video - fixed toggleCanvas with useCallback and functional state update
+- [ ] Test all four fixes on actual mobile view

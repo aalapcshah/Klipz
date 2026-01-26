@@ -1289,19 +1289,21 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                     }}
                     className="h-3 w-3 md:h-4 md:w-4"
                   />
-                  <div className="flex items-center justify-between flex-1">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between flex-1 gap-2">
                   <button
                     onClick={() => jumpToAnnotation(annotation.videoTimestamp)}
-                    className="flex items-center gap-3 flex-1 text-left"
+                    className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 flex-1 text-left"
                   >
-                    <Badge variant="secondary">{formatTime(annotation.videoTimestamp)}</Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {annotation.duration}s recording
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">{formatTime(annotation.videoTimestamp)}</Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {annotation.duration}s recording
+                      </span>
+                    </div>
                     <audio
                       src={annotation.audioUrl}
                       controls
-                      className="h-8 max-w-xs"
+                      className="h-8 w-full md:max-w-xs"
                       onClick={(e) => e.stopPropagation()}
                     />
                   </button>
@@ -1309,14 +1311,15 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                     size="sm"
                     variant="ghost"
                     onClick={() => handleDeleteAnnotation(annotation.id)}
+                    className="self-end md:self-auto"
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
                 {annotation.transcript && (
                   <div className="pl-2 border-l-2 border-primary/30 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="text-sm text-foreground flex-1">
+                     <div className="flex items-start justify-between gap-2">
+                      <div className="text-sm text-foreground flex-1" style={{ wordBreak: 'normal', whiteSpace: 'normal', display: 'block' }}>
                         <HighlightedText text={annotation.transcript.replace(/[\r\n]+/g, ' ')} searchQuery={searchQuery} />
                       </div>
                       <Button

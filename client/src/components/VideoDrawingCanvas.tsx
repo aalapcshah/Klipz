@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -206,7 +206,7 @@ export function VideoDrawingCanvas({
   // Handle external toggle request
   useEffect(() => {
     if (onToggleRequest !== undefined) {
-      toggleCanvas();
+      setShowCanvas(prev => !prev);
     }
   }, [onToggleRequest]);
 
@@ -797,23 +797,26 @@ export function VideoDrawingCanvas({
     toggleCanvas();
   };
 
-  const toggleCanvas = () => {
-    const newShowCanvas = !showCanvas;
-    setShowCanvas(newShowCanvas);
-    onDrawingModeChange?.(newShowCanvas);
-    
-    if (newShowCanvas) {
-      // Pause video when starting to draw
-      if (videoRef.current && !videoRef.current.paused) {
-        videoRef.current.pause();
+  const toggleCanvas = useCallback(() => {
+    setShowCanvas(prev => {
+      const newShowCanvas = !prev;
+      onDrawingModeChange?.(newShowCanvas);
+      
+      if (newShowCanvas) {
+        // Pause video when starting to draw
+        if (videoRef.current && !videoRef.current.paused) {
+          videoRef.current.pause();
+        }
+      } else {
+        // Clear draft when closing after save
+        if (!hasUnsavedChanges) {
+          clearDraft();
+        }
       }
-    } else {
-      // Clear draft when closing after save
-      if (!hasUnsavedChanges) {
-        clearDraft();
-      }
-    }
-  };
+      
+      return newShowCanvas;
+    });
+  }, [videoRef, onDrawingModeChange, hasUnsavedChanges, clearDraft]);
 
   const colors = [
     "#FF0000", // Red
