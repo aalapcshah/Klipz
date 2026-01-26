@@ -2,8 +2,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video, Pause, Play } from "lucide-react";
+import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
@@ -11,15 +10,10 @@ import { triggerHaptic } from "@/lib/haptics";
 interface UploadingFile {
   file: File;
   progress: number;
-  status: "uploading" | "paused" | "success" | "error";
+  status: "uploading" | "success" | "error";
   error?: string;
-  fileId?: number;
-  s3Key?: string;
-  originalSize?: number;
-  processedSize?: number;
+  sessionId?: string;
   uploadedBytes?: number;
-  chunks?: string[];
-  currentChunk?: number;
 }
 
 type VideoQuality = "original" | "high" | "medium" | "low";
@@ -49,9 +43,9 @@ export function VideoUploadSection() {
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality>("high");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const uploadChunkMutation = trpc.s3Upload.uploadChunk.useMutation();
-  const completeUploadMutation = trpc.s3Upload.completeUpload.useMutation();
-  const createFileMutation = trpc.files.create.useMutation();
+  const initUploadMutation = trpc.uploadChunk.initUpload.useMutation();
+  const uploadChunkMutation = trpc.uploadChunk.uploadChunk.useMutation();
+  const finalizeUploadMutation = trpc.uploadChunk.finalizeUpload.useMutation();
 
   const validateFile = (file: File): string | null => {
     if (!ACCEPTED_VIDEO_FORMATS.includes(file.type)) {
@@ -63,144 +57,81 @@ export function VideoUploadSection() {
     return null;
   };
 
-  const processVideoQuality = async (file: File, quality: VideoQuality): Promise<File> => {
-    if (quality === "original") {
-      return file;
-    }
-
-    const settings = QUALITY_SETTINGS[quality];
-    
+  const readChunk = (file: File, start: number, end: number): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const video = document.createElement("video");
-      video.preload = "metadata";
-      
-      video.onloadedmetadata = async () => {
-        try {
-          // Create canvas for processing
-          const canvas = document.createElement("canvas");
-          const ctx = canvas.getContext("2d");
-          
-          if (!ctx) {
-            resolve(file); // Fallback to original
-            return;
-          }
-
-          // Calculate new dimensions
-          const aspectRatio = video.videoWidth / video.videoHeight;
-          const targetHeight = settings.maxHeight!;
-          const targetWidth = Math.round(targetHeight * aspectRatio);
-          
-          canvas.width = targetWidth;
-          canvas.height = targetHeight;
-
-          // For now, return original file as quality processing requires MediaRecorder API
-          // which is complex for video transcoding
-          toast.info(`Quality: ${settings.label} selected. Processing will be done server-side.`);
-          resolve(file);
-        } catch (error) {
-          console.error("Video processing error:", error);
-          resolve(file); // Fallback to original
-        }
-      };
-
-      video.onerror = () => {
-        resolve(file); // Fallback to original
-      };
-
-      video.src = URL.createObjectURL(file);
-    });
-  };
-
-  const readChunkAsBase64 = (file: File, start: number, end: number): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const blob = file.slice(start, end);
       const reader = new FileReader();
+      const blob = file.slice(start, end);
       
       reader.onload = () => {
-        const result = reader.result as string;
-        // Remove data URL prefix to get base64
-        const base64 = result.split(",")[1] || result;
+        const base64 = (reader.result as string).split(",")[1]; // Remove data:... prefix
         resolve(base64);
       };
       
-      reader.onerror = () => reject(reader.error);
+      reader.onerror = () => reject(new Error("Failed to read chunk"));
       reader.readAsDataURL(blob);
     });
   };
 
-  const uploadFileInChunks = async (file: File, processedFile: File) => {
-    const totalChunks = Math.ceil(processedFile.size / CHUNK_SIZE);
-    const chunks: string[] = [];
-    const timestamp = Date.now();
-    const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-    const fileKey = `uploads/${timestamp}-${sanitizedFilename}`;
-
+  const uploadFileInChunks = async (file: File) => {
     try {
-      // Read and upload chunks
+      // Initialize upload session
+      const { sessionId } = await initUploadMutation.mutateAsync({
+        filename: file.name,
+        mimeType: file.type,
+        totalSize: file.size,
+        title: file.name.replace(/\.[^/.]+$/, ""),
+        description: `Uploaded video - ${QUALITY_SETTINGS[selectedQuality].label}`,
+      });
+
+      setUploadingFiles(prev =>
+        prev.map(f => (f.file === file ? { ...f, sessionId } : f))
+      );
+
+      // Calculate chunks
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      console.log(`[Upload] Starting upload of ${file.name}: ${totalChunks} chunks, ${file.size} bytes`);
+
+      // Upload chunks sequentially
       for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, processedFile.size);
+        const end = Math.min(start + CHUNK_SIZE, file.size);
         
-        // Update progress - reading chunk
-        setUploadingFiles(prev =>
-          prev.map(f => (f.file === file ? { 
-            ...f, 
-            progress: (i / totalChunks) * 90, // 0-90% for chunks
-            uploadedBytes: start,
-            currentChunk: i + 1
-          } : f))
-        );
+        // Read chunk
+        const chunkData = await readChunk(file, start, end);
+        
+        // Upload chunk
+        await uploadChunkMutation.mutateAsync({
+          sessionId,
+          chunkIndex: i,
+          chunkData,
+          totalChunks,
+        });
 
-        // Read chunk as base64
-        const chunkData = await readChunkAsBase64(processedFile, start, end);
-        chunks.push(chunkData);
-
-        // Update progress - chunk read
+        // Update progress (0-90% for chunks, 90-100% for finalization)
+        const progress = ((i + 1) / totalChunks) * 90;
+        const uploadedBytes = end;
+        
         setUploadingFiles(prev =>
-          prev.map(f => (f.file === file ? { 
-            ...f, 
-            progress: ((i + 0.5) / totalChunks) * 90,
-            uploadedBytes: end
-          } : f))
+          prev.map(f =>
+            f.file === file
+              ? { ...f, progress, uploadedBytes }
+              : f
+          )
         );
       }
 
-      // Update progress to 90%
-      setUploadingFiles(prev =>
-        prev.map(f => (f.file === file ? { ...f, progress: 90 } : f))
-      );
-
-      // Complete upload by sending all chunks to server
-      const uploadResult = await completeUploadMutation.mutateAsync({
-        fileKey,
-        filename: file.name,
-        mimeType: file.type,
-        fileSize: processedFile.size,
-        title: file.name.replace(/\.[^/.]+$/, ""),
-        chunks,
-      });
-
-      // Update progress to 95%
+      // Finalize upload
       setUploadingFiles(prev =>
         prev.map(f => (f.file === file ? { ...f, progress: 95 } : f))
       );
 
-      // Create file record in database
-      const fileRecord = await createFileMutation.mutateAsync({
-        fileKey: uploadResult.fileKey,
-        url: uploadResult.url,
-        filename: file.name,
-        mimeType: file.type,
-        fileSize: processedFile.size,
-        title: file.name.replace(/\.[^/.]+$/, ""),
-        description: `Uploaded video - ${QUALITY_SETTINGS[selectedQuality].label}`,
-      });
+      const result = await finalizeUploadMutation.mutateAsync({ sessionId });
 
       // Success
       setUploadingFiles(prev =>
         prev.map(f =>
           f.file === file
-            ? { ...f, progress: 100, status: "success", fileId: fileRecord.id }
+            ? { ...f, progress: 100, status: "success" }
             : f
         )
       );
@@ -209,7 +140,20 @@ export function VideoUploadSection() {
       triggerHaptic("success");
 
     } catch (error: any) {
-      throw new Error(`Upload failed: ${error.message}`);
+      console.error("Upload error:", error);
+      setUploadingFiles(prev =>
+        prev.map(f =>
+          f.file === file
+            ? {
+                ...f,
+                status: "error",
+                error: error.message || "Upload failed",
+              }
+            : f
+        )
+      );
+      toast.error(`Failed to upload ${file.name}: ${error.message}`);
+      triggerHaptic("error");
     }
   };
 
@@ -231,39 +175,14 @@ export function VideoUploadSection() {
         file,
         progress: 0,
         status: "uploading",
-        originalSize: file.size,
-        currentChunk: 0,
+        uploadedBytes: 0,
       };
 
       setUploadingFiles(prev => [...prev, uploadingFile]);
       triggerHaptic("light");
 
-      try {
-        // Process quality if needed
-        toast.info(`Processing ${file.name}...`);
-        const processedFile = await processVideoQuality(file, selectedQuality);
-        
-        uploadingFile.processedSize = processedFile.size;
-
-        // Upload file in chunks
-        await uploadFileInChunks(file, processedFile);
-
-      } catch (error) {
-        console.error("Upload error:", error);
-        setUploadingFiles(prev =>
-          prev.map(f =>
-            f.file === file
-              ? {
-                  ...f,
-                  status: "error",
-                  error: error instanceof Error ? error.message : "Upload failed",
-                }
-              : f
-          )
-        );
-        toast.error(`Failed to upload ${file.name}`);
-        triggerHaptic("error");
-      }
+      // Start upload
+      uploadFileInChunks(file);
     }
   };
 
@@ -289,12 +208,6 @@ export function VideoUploadSection() {
     const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
-  };
-
-  const getSizeReduction = (original?: number, processed?: number): string | null => {
-    if (!original || !processed || original === processed) return null;
-    const reduction = ((original - processed) / original) * 100;
-    return `${reduction.toFixed(1)}% smaller`;
   };
 
   return (
@@ -382,23 +295,8 @@ export function VideoUploadSection() {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{uploadingFile.file.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {formatFileSize(uploadingFile.originalSize || 0)}
-                        {uploadingFile.processedSize && uploadingFile.processedSize !== uploadingFile.originalSize && (
-                          <span className="ml-2 text-green-600">
-                            → {formatFileSize(uploadingFile.processedSize)}
-                            {getSizeReduction(uploadingFile.originalSize, uploadingFile.processedSize) && (
-                              <span className="ml-1">
-                                ({getSizeReduction(uploadingFile.originalSize, uploadingFile.processedSize)})
-                              </span>
-                            )}
-                          </span>
-                        )}
+                        {formatFileSize(uploadingFile.file.size)}
                       </p>
-                      {uploadingFile.status === "uploading" && uploadingFile.currentChunk && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Processing chunk {uploadingFile.currentChunk} of {Math.ceil((uploadingFile.processedSize || uploadingFile.originalSize || 0) / CHUNK_SIZE)}
-                        </p>
-                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {uploadingFile.status === "uploading" && (
@@ -433,9 +331,9 @@ export function VideoUploadSection() {
                       </div>
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>{uploadingFile.progress.toFixed(0)}%</span>
-                        {uploadingFile.uploadedBytes && (
+                        {uploadingFile.uploadedBytes !== undefined && (
                           <span>
-                            {formatFileSize(uploadingFile.uploadedBytes)} / {formatFileSize(uploadingFile.processedSize || uploadingFile.originalSize || 0)}
+                            {formatFileSize(uploadingFile.uploadedBytes)} / {formatFileSize(uploadingFile.file.size)}
                           </span>
                         )}
                       </div>
@@ -459,7 +357,7 @@ export function VideoUploadSection() {
                   {/* Success Message */}
                   {uploadingFile.status === "success" && (
                     <p className="text-sm text-green-600 mt-2">
-                      Upload complete! File ID: {uploadingFile.fileId}
+                      Upload complete!
                     </p>
                   )}
                 </div>

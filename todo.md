@@ -3685,3 +3685,15 @@ Note: The application already has extensive annotation features including voice 
 - [x] Added size validation (2GB limit) and error handling
 - [x] Created comprehensive test suite for chunked uploads
 - [x] Verified 30-second video upload simulation passes tests
+
+
+#### Video Upload Stuck at 90% & 1GB File Support - January 26, 2026
+- [x] Diagnose why upload hangs at 90% (sending all chunks in one request)
+- [x] Identified issue: base64 chunks too large for single tRPC request
+- [x] Implemented proper chunked upload API (uploadChunk router)
+- [x] Upload chunks sequentially (5MB each) to avoid memory issues
+- [x] Increased body size limit to 500MB for chunk handling
+- [x] Support for files up to 2GB with proper chunking
+- [ ] Test with real 30-second video file (333MB)
+- [ ] Test with 1GB file
+- [ ] Verify upload completes successfully without hanging
