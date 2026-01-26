@@ -3391,3 +3391,16 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix video duration showing "Infinity:NaN.NaN" instead of proper m:ss format
 - [x] Ensure video metadata loads properly before displaying duration
 - [x] Add fallback for videos without duration metadata
+
+
+## Intelligent File Suggestion System (Phase 1)
+- [x] Design database schema for video transcripts with word-level timestamps
+- [x] Design database schema for file suggestions linked to video timestamps
+- [x] Implement video transcription API integration with timestamp extraction
+- [x] Build semantic matching algorithm to compare transcript segments with file metadata
+- [x] Create tRPC procedure to generate file suggestions for a video
+- [x] Build UI component to display time-stamped file suggestions list
+- [x] Add click-to-jump functionality from suggestion to video timestamp
+- [x] Display file thumbnails and relevance scores in suggestion list
+- [ ] Test transcription accuracy and file matching quality
+- [ ] Write vitest tests for file suggestion logic

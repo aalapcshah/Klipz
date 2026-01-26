@@ -21,6 +21,7 @@ import { BatchActionsToolbar } from "./BatchActionsToolbar";
 import { VoiceAnnotationExport } from "./VoiceAnnotationExport";
 import { HighlightedText } from "./HighlightedText";
 import { AnnotationSearch } from "./videos/AnnotationSearch";
+import { FileSuggestions } from "./FileSuggestions";
 
 interface VideoPlayerWithAnnotationsProps {
   fileId: number;
@@ -1400,6 +1401,20 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           }}
         />
       )}
+
+      {/* File Suggestions Section */}
+      <FileSuggestions
+        fileId={fileId}
+        onJumpToTimestamp={(timestamp) => {
+          if (videoRef.current) {
+            videoRef.current.currentTime = timestamp;
+            setCurrentTime(timestamp);
+            if (!isPlaying) {
+              videoRef.current.play();
+            }
+          }
+        }}
+      />
     </div>
   );
 }

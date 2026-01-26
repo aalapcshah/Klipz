@@ -145,6 +145,71 @@ export type VisualAnnotation = typeof visualAnnotations.$inferSelect;
 export type InsertVisualAnnotation = typeof visualAnnotations.$inferInsert;
 
 /**
+ * Video transcripts table - stores full transcriptions with word-level timestamps
+ */
+export const videoTranscripts = mysqlTable("video_transcripts", {
+  id: int("id").autoincrement().primaryKey(),
+  fileId: int("fileId").notNull(), // Foreign key to files table (video)
+  userId: int("userId").notNull(),
+  
+  // Full transcript text
+  fullText: text("fullText").notNull(),
+  
+  // Word-level timestamps (JSON array of {word, start, end})
+  wordTimestamps: json("wordTimestamps").$type<Array<{word: string, start: number, end: number}>>(),
+  
+  // Transcript segments (sentences/phrases with timestamps)
+  segments: json("segments").$type<Array<{text: string, start: number, end: number}>>(),
+  
+  // Transcription metadata
+  language: varchar("language", { length: 10 }), // ISO language code
+  confidence: int("confidence"), // 0-100 confidence score
+  
+  // Processing status
+  status: mysqlEnum("status", ["pending", "processing", "completed", "failed"]).default("pending").notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type VideoTranscript = typeof videoTranscripts.$inferSelect;
+export type InsertVideoTranscript = typeof videoTranscripts.$inferInsert;
+
+/**
+ * File suggestions table - AI-suggested files based on video transcript analysis
+ */
+export const fileSuggestions = mysqlTable("file_suggestions", {
+  id: int("id").autoincrement().primaryKey(),
+  videoFileId: int("videoFileId").notNull(), // Foreign key to files table (video)
+  suggestedFileId: int("suggestedFileId").notNull(), // Foreign key to files table (suggested file)
+  userId: int("userId").notNull(),
+  
+  // Timestamp range where file is relevant
+  startTime: float("startTime").notNull(), // Start timestamp in video (seconds, decimal)
+  endTime: float("endTime").notNull(), // End timestamp in video (seconds, decimal)
+  
+  // Matching context
+  transcriptExcerpt: text("transcriptExcerpt").notNull(), // The speech that triggered this suggestion
+  matchedKeywords: json("matchedKeywords").$type<string[]>(), // Keywords that matched
+  
+  // Relevance scoring
+  relevanceScore: float("relevanceScore").notNull(), // 0.0-1.0 confidence score
+  matchType: mysqlEnum("matchType", ["keyword", "semantic", "entity", "topic"]).notNull(),
+  
+  // User feedback
+  userFeedback: mysqlEnum("userFeedback", ["helpful", "not_helpful", "irrelevant"]),
+  feedbackAt: timestamp("feedbackAt"),
+  
+  // Display status
+  status: mysqlEnum("status", ["active", "dismissed", "accepted"]).default("active").notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type FileSuggestion = typeof fileSuggestions.$inferSelect;
+export type InsertFileSuggestion = typeof fileSuggestions.$inferInsert;
+
+/**
  * Annotation history table - tracks all changes to annotations
  */
 export const annotationHistory = mysqlTable("annotation_history", {

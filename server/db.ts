@@ -47,6 +47,10 @@ import {
   InsertVideoTag,
   videoTagAssignments,
   InsertVideoTagAssignment,
+  videoTranscripts,
+  InsertVideoTranscript,
+  fileSuggestions,
+  InsertFileSuggestion,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -2265,4 +2269,117 @@ export async function getTagsForVideo(videoId: number, userId: number) {
     .where(eq(videoTagAssignments.videoId, videoId));
 
   return result;
+}
+
+// ==================== Video Transcripts ====================
+
+export async function createVideoTranscript(transcript: InsertVideoTranscript) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(videoTranscripts).values(transcript);
+  return result[0].insertId;
+}
+
+export async function getVideoTranscriptByFileId(fileId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .select()
+    .from(videoTranscripts)
+    .where(eq(videoTranscripts.fileId, fileId))
+    .limit(1);
+
+  return result[0] || null;
+}
+
+export async function updateVideoTranscript(
+  transcriptId: number,
+  updates: Partial<InsertVideoTranscript>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .update(videoTranscripts)
+    .set(updates)
+    .where(eq(videoTranscripts.id, transcriptId));
+}
+
+export async function updateVideoTranscriptStatus(
+  transcriptId: number,
+  status: "pending" | "processing" | "completed" | "failed"
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .update(videoTranscripts)
+    .set({ status })
+    .where(eq(videoTranscripts.id, transcriptId));
+}
+
+// ==================== File Suggestions ====================
+
+export async function createFileSuggestion(suggestion: InsertFileSuggestion) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(fileSuggestions).values(suggestion);
+  return result[0].insertId;
+}
+
+export async function getFileSuggestionsByVideoId(
+  videoFileId: number,
+  status?: "active" | "dismissed" | "accepted"
+) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const conditions = [eq(fileSuggestions.videoFileId, videoFileId)];
+  if (status) {
+    conditions.push(eq(fileSuggestions.status, status));
+  }
+
+  const result = await db
+    .select()
+    .from(fileSuggestions)
+    .where(and(...conditions))
+    .orderBy(fileSuggestions.startTime);
+    
+  return result;
+}
+
+export async function getFileSuggestionById(suggestionId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .select()
+    .from(fileSuggestions)
+    .where(eq(fileSuggestions.id, suggestionId))
+    .limit(1);
+
+  return result[0] || null;
+}
+
+export async function updateFileSuggestionStatus(
+  suggestionId: number,
+  status: "active" | "dismissed" | "accepted",
+  feedback?: "helpful" | "not_helpful" | "irrelevant"
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const updates: any = { status };
+  if (feedback) {
+    updates.userFeedback = feedback;
+    updates.feedbackAt = new Date();
+  }
+
+  await db
+    .update(fileSuggestions)
+    .set(updates)
+    .where(eq(fileSuggestions.id, suggestionId));
 }

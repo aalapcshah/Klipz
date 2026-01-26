@@ -302,6 +302,13 @@
       "when": 1769369593093,
       "tag": "0042_lowly_unus",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "5",
+      "when": 1769390016444,
+      "tag": "0043_parallel_daimon_hellstrom",
+      "breakpoints": true
     }
   ]
 }
