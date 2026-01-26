@@ -3613,3 +3613,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Reset zoom to 1 when canvas opens to prevent pan mode interference
 - [x] Added visual feedback to Draw buttons (purple when active, green when inactive)
 - [x] Draw button shows "Drawing..." text when canvas is active
+
+## Mobile Drawing Canvas Bug
+- [x] Fix canvas not responding to touch events on mobile devices
+- [x] Debug canvas positioning and z-index over video element
+- [x] Verify touch event listeners are properly attached on mobile
+- [x] Test canvas pointer-events and touch-action CSS properties
+- [x] Refactored canvas rendering to use React Portal for proper DOM positioning

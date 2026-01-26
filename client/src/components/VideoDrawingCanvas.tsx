@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -220,14 +221,6 @@ export function VideoDrawingCanvas({
     
     const canvas = canvasRef.current;
     const video = videoRef.current;
-    const videoContainer = video.parentElement;
-    
-    if (!videoContainer) return;
-    
-    // Append canvas to video container
-    if (showCanvas && !videoContainer.contains(canvas)) {
-      videoContainer.appendChild(canvas);
-    }
     
     // Add touch event listeners
     const touchStart = (e: TouchEvent) => handleTouchStart(e as any);
@@ -244,28 +237,11 @@ export function VideoDrawingCanvas({
     // Match canvas size to video display size
     const resizeCanvas = () => {
       const rect = video.getBoundingClientRect();
-      const containerRect = videoContainer.getBoundingClientRect();
       
       // Set canvas internal resolution
       canvas.width = rect.width;
       canvas.height = rect.height;
       
-      // Position canvas over video
-      canvas.style.display = 'block';
-      canvas.style.position = 'absolute';
-      // Calculate position relative to container
-      const topOffset = rect.top - containerRect.top;
-      const leftOffset = rect.left - containerRect.left;
-      canvas.style.top = topOffset + 'px';
-      canvas.style.left = leftOffset + 'px';
-      canvas.style.width = rect.width + 'px';
-      canvas.style.height = rect.height + 'px';
-      canvas.style.zIndex = '10';
-      canvas.style.pointerEvents = showCanvas ? 'auto' : 'none';
-      canvas.style.cursor = 'crosshair';
-      canvas.style.touchAction = 'none';
-      canvas.style.userSelect = 'none';
-      canvas.style.webkitUserSelect = 'none';
       redrawCanvas();
     };
     
@@ -278,9 +254,6 @@ export function VideoDrawingCanvas({
       canvas.removeEventListener('touchmove', touchMove);
       canvas.removeEventListener('touchend', touchEnd);
       canvas.removeEventListener('touchcancel', touchEnd);
-      if (videoContainer.contains(canvas)) {
-        videoContainer.removeChild(canvas);
-      }
     };
   }, [showCanvas]);
 
@@ -1005,6 +978,7 @@ export function VideoDrawingCanvas({
   const strokeWidths = [1, 2, 3, 5, 8];
 
   return (
+    <>
     <div className="space-y-3">
       {!showCanvas && (
         <Button
@@ -1442,15 +1416,7 @@ export function VideoDrawingCanvas({
             </div>
           )}
 
-          {/* Hidden canvas element that gets appended to video container */}
-          <canvas
-            ref={canvasRef}
-            className="hidden"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-          />
+
 
           <div className="text-xs text-muted-foreground space-y-1">
             <p>• Click and drag to draw on the video</p>
@@ -1478,5 +1444,28 @@ export function VideoDrawingCanvas({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    {/* Render canvas into video container using portal */}
+    {showCanvas && videoRef.current?.parentElement && createPortal(
+      <canvas
+        ref={canvasRef}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          zIndex: 10,
+          cursor: 'crosshair',
+          touchAction: 'none',
+          pointerEvents: 'auto',
+        }}
+      />,
+      videoRef.current.parentElement
+    )}
+    </>
   );
 }
