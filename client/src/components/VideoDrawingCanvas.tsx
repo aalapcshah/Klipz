@@ -243,11 +243,6 @@ export function VideoDrawingCanvas({
     canvas.height = rect.height;
     console.log('[VideoDrawingCanvas] Canvas sized to:', rect.width, 'x', rect.height);
     
-    // Show alert on mobile to confirm canvas size
-    if (showCanvas && /Mobi|Android/i.test(navigator.userAgent)) {
-      alert(`Canvas ready! Size: ${rect.width}x${rect.height}. Try drawing now.`);
-    }
-    
     // Add touch event listeners
     const touchStart = (e: TouchEvent) => {
       console.log('[VideoDrawingCanvas] touchStart fired!', e.touches.length, 'touches');
@@ -1049,13 +1044,7 @@ export function VideoDrawingCanvas({
       )}
 
       {showCanvas && (
-        <Card className="p-2 space-y-1.5" style={{ position: 'relative', zIndex: 20, backgroundColor: touchDetected ? '#ff0000' : undefined }}>
-          {/* Debug Touch Detection */}
-          <div className="bg-blue-500 text-white p-2 text-center font-bold text-lg">
-            {touchDetected ? 'TOUCH DETECTED!' : 'Waiting for touch...'}
-            {debugTouchPos && ` at (${debugTouchPos.x}, ${debugTouchPos.y})`}
-          </div>
-          
+        <Card className="p-2 space-y-1.5" style={{ position: 'relative', zIndex: 20 }}>
           {/* Duration Slider with Cancel button */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">

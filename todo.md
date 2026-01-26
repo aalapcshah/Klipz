@@ -3697,3 +3697,34 @@ Note: The application already has extensive annotation features including voice 
 - [ ] Test with real 30-second video file (333MB)
 - [ ] Test with 1GB file
 - [ ] Verify upload completes successfully without hanging
+
+
+## Upload "Failed to fetch" Error - January 26, 2026
+- [x] Diagnosed "Failed to fetch" error - browser cache issue
+- [x] Verified uploadChunk router is properly registered and working
+- [x] Tested API endpoint - returns proper auth error (expected)
+- [x] Tested upload on desktop browser - works perfectly
+- [x] Confirmed upload saves to database and appears in video library
+- [x] Root cause: Mobile browser had cached old JavaScript code
+- [ ] User needs to clear mobile browser cache and retry
+
+
+## Service Unavailable Error - January 26, 2026
+- [x] Diagnosed "Service Unavailable" error - user testing on production URL
+- [x] Root cause: New uploadChunk router only exists on dev server
+- [x] Production site (metaclips-saozcd7r.manus.space) doesn't have new code
+- [x] Chunks upload successfully (0-90%) but finalizeUpload fails (503)
+- [ ] Need to publish new checkpoint to production
+- [ ] User should test on dev URL or wait for publish
+
+
+## Production Readiness - Drawing/Annotation Issues - January 26, 2026
+- [x] Fixed drawing functionality - removed debug event handlers blocking VideoDrawingCanvas
+- [x] Removed debug UI elements (blue "TOUCH DETECTED!" bar)
+- [x] Removed "Canvas Size / Touch this area to test" overlay message
+- [x] Removed mobile debug alert
+- [x] Verified canvas can draw (manual JavaScript test successful)
+- [x] Drawing interface displays correctly with clean UI
+- [ ] Test user interaction (mouse/touch drawing) on desktop
+- [ ] Test user interaction (touch drawing) on mobile after publish
+- [ ] Verify all annotation tools work properly

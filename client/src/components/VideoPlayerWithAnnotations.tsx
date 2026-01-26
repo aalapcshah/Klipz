@@ -490,31 +490,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           />
           
           {/* Drawing canvas overlay - controlled by VideoDrawingCanvas */}
-          {isDrawingMode && (
-            <div style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              zIndex: 10000,
-              backgroundColor: 'rgba(0, 0, 0, 0.8)',
-              color: 'white',
-              padding: '20px',
-              borderRadius: '8px',
-              fontSize: '16px',
-              pointerEvents: 'none',
-            }}>
-              Canvas Size: {videoRef.current?.clientWidth || 0} x {videoRef.current?.clientHeight || 0}<br/>
-              Touch this area to test
-            </div>
-          )}
           <canvas
             id="drawing-canvas"
             width={videoRef.current?.clientWidth || 800}
             height={videoRef.current?.clientHeight || 600}
-            onTouchStart={(e) => { e.preventDefault(); alert('Touch detected on canvas!'); }}
-            onTouchMove={(e) => { e.preventDefault(); console.log('Canvas onTouchMove fired!'); }}
-            onTouchEnd={(e) => { e.preventDefault(); console.log('Canvas onTouchEnd fired!'); }}
             style={{
               position: 'absolute',
               top: 0,
