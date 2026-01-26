@@ -3628,3 +3628,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix pen tool not drawing on mobile (disabled shape selection during drawing)
 - [x] Reduce space above "Confirm & Save" button (pt-0.5)
 - [x] Reduce space between color/stroke sections (space-y-0.5)
+
+## Drawing Canvas UI Reorganization
+- [x] Remove cyan/teal color from palette (now 7 colors in one row)
+- [x] Move Highlight tool from quick templates to main drawing tools (added after Eraser)
+- [x] Remove Callout and Bubble quick templates (duplicates removed)
+- [x] Remove "Quick Templates:" header
+- [x] Keep only Save Template and Template Library buttons (AnnotationTemplatesLibrary component)

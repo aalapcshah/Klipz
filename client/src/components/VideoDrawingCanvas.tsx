@@ -16,6 +16,7 @@ import {
   Save,
   Trash2,
   Image as ImageIcon,
+  Highlighter,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnnotationTemplatesLibrary } from "./AnnotationTemplatesLibrary";
@@ -973,7 +974,6 @@ export function VideoDrawingCanvas({
     "#0000FF", // Blue
     "#FFFF00", // Yellow
     "#FF00FF", // Magenta
-    "#00FFFF", // Cyan
     "#FFFFFF", // White
     "#000000", // Black
   ];
@@ -1074,6 +1074,19 @@ export function VideoDrawingCanvas({
               >
                 <Eraser className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
+              <Button
+                size="default"
+                className="md:h-9 md:w-9 md:p-0"
+                variant={selectedTool === "highlight" ? "default" : "outline"}
+                onClick={() => {
+                  setSelectedTool("highlight");
+                  setColor("#FFFF00");
+                  setIsHighlightMode(true);
+                }}
+                title="Highlight"
+              >
+                <Highlighter className="h-5 w-5 md:h-4 md:w-4" />
+              </Button>
 
               <Separator orientation="vertical" className="h-8" />
 
@@ -1150,81 +1163,21 @@ export function VideoDrawingCanvas({
               </Button>
             </div>
 
-            {/* Annotation Templates */}
-            <div className="space-y-1">
-              <span className="text-sm font-medium">Quick Templates:</span>
-              <div className="flex items-center gap-2 flex-wrap">
-                <AnnotationTemplatesLibrary
-                  currentDrawingState={{
-                    tool: selectedTool === "eraser" || selectedTool === "highlight" || selectedTool === "select" ? "pen" : selectedTool,
-                    color,
-                    strokeWidth,
-                    text: textInput || undefined,
-                  }}
-                  onApplyTemplate={(templateData) => {
-                    setSelectedTool(templateData.tool as DrawingTool);
-                    setColor(templateData.color);
-                    setStrokeWidth(templateData.strokeWidth);
-                    if (templateData.text) setTextInput(templateData.text);
-                  }}
-                />
-                <Separator orientation="vertical" className="h-6" />
-                <Button
-                  size="sm"
-                  variant={selectedTool === "highlight" ? "default" : "outline"}
-                  onClick={() => {
-                    if (!showCanvas) {
-                      setShowCanvas(true);
-                      onDrawingModeChange?.(true);
-                    }
-                    setSelectedTool("highlight");
-                    setColor("#FFFF00"); // Yellow
-                    setIsHighlightMode(true);
-                    toast.info("Click and drag to highlight");
-                  }}
-                  className="text-xs"
-                >
-                  <Square className="h-3 w-3 mr-1" />
-                  Highlight (Drag)
-                </Button>
-                <Button
-                  size="sm"
-                  variant={selectedTool === "arrow" ? "default" : "outline"}
-                  onClick={() => {
-                    if (!showCanvas) {
-                      setShowCanvas(true);
-                      onDrawingModeChange?.(true);
-                    }
-                    insertTemplate('callout');
-                    setSelectedTool('arrow');
-                    setIsHighlightMode(false);
-                    toast.info("Callout added! Continue drawing arrows or move existing shapes");
-                  }}
-                  className="text-xs"
-                >
-                  <ArrowRight className="h-3 w-3 mr-1" />
-                  Callout
-                </Button>
-                <Button
-                  size="sm"
-                  variant={selectedTool === "circle" ? "default" : "outline"}
-                  onClick={() => {
-                    if (!showCanvas) {
-                      setShowCanvas(true);
-                      onDrawingModeChange?.(true);
-                    }
-                    insertTemplate('bubble');
-                    setSelectedTool('circle');
-                    setIsHighlightMode(false);
-                    toast.info("Bubble added! Continue drawing circles or move existing shapes");
-                  }}
-                  className="text-xs"
-                >
-                  <Circle className="h-3 w-3 mr-1" />
-                  Bubble
-                </Button>
-              </div>
-            </div>
+            {/* Template Management */}
+            <AnnotationTemplatesLibrary
+              currentDrawingState={{
+                tool: selectedTool === "eraser" || selectedTool === "highlight" || selectedTool === "select" ? "pen" : selectedTool,
+                color,
+                strokeWidth,
+                text: textInput || undefined,
+              }}
+              onApplyTemplate={(templateData) => {
+                setSelectedTool(templateData.tool as DrawingTool);
+                setColor(templateData.color);
+                setStrokeWidth(templateData.strokeWidth);
+                if (templateData.text) setTextInput(templateData.text);
+              }}
+            />
           </div>
 
           {/* Layer Management */}
