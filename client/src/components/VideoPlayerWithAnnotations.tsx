@@ -1273,11 +1273,12 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 return (
               <div
                 key={annotation.id}
-                className={`p-3 rounded-lg transition-colors space-y-2 ${
+                className={`p-3 rounded-lg transition-colors ${
                   isSelected ? 'bg-primary/10 border-2 border-primary' : 'bg-muted/50 hover:bg-muted'
                 }`}
               >
-                <div className="flex items-center gap-2">
+                {/* Top Row: Checkbox + Transcript */}
+                <div className="flex items-start gap-2 mb-3">
                   <Checkbox
                     checked={isSelected}
                     onCheckedChange={(checked) => {
@@ -1287,75 +1288,77 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                         setSelected(selectedIds.filter(id => id !== annotation.id));
                       }
                     }}
-                    className="h-3 w-3 md:h-4 md:w-4"
+                    className="h-3 w-3 md:h-4 md:w-4 mt-1"
                   />
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between flex-1 gap-2">
-                  <button
-                    onClick={() => jumpToAnnotation(annotation.videoTimestamp)}
-                    className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 flex-1 text-left"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{formatTime(annotation.videoTimestamp)}</Badge>
-                      <span className="text-sm text-muted-foreground">
-                        {annotation.duration}s recording
-                      </span>
+                  {annotation.transcript && (
+                    <div className="flex-1 text-sm text-foreground" style={{ wordBreak: 'normal', whiteSpace: 'normal', display: 'block' }}>
+                      <HighlightedText text={annotation.transcript.replace(/[\r\n]+/g, ' ')} searchQuery={searchQuery} />
                     </div>
+                  )}
+                </div>
+
+                {/* Middle Row: Audio Player + Status Buttons */}
+                <div className="flex items-start gap-3">
+                  {/* Left: Audio Player */}
+                  <div className="flex-1">
                     <audio
                       src={annotation.audioUrl}
                       controls
-                      className="h-8 w-full md:max-w-xs"
+                      className="h-8 w-full max-w-md"
                       onClick={(e) => e.stopPropagation()}
                     />
-                  </button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDeleteAnnotation(annotation.id)}
-                    className="self-end md:self-auto"
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-                {annotation.transcript && (
-                  <div className="pl-2 border-l-2 border-primary/30 space-y-2">
-                     <div className="flex items-start justify-between gap-2">
-                      <div className="text-sm text-foreground flex-1" style={{ wordBreak: 'normal', whiteSpace: 'normal', display: 'block' }}>
-                        <HighlightedText text={annotation.transcript.replace(/[\r\n]+/g, ' ')} searchQuery={searchQuery} />
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleSpeak(annotation.id, annotation.transcript!)}
-                        className="shrink-0"
-                      >
-                        {speakingAnnotationId === annotation.id ? (
-                          <VolumeX className="h-4 w-4" />
-                        ) : (
-                          <Volume2 className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
                   </div>
-                )}
+
+                  {/* Right: Status Buttons (Vertical Stack) */}
+                  <div className="flex flex-col gap-2 items-end">
+                    <ApprovalWorkflow
+                      annotationId={annotation.id}
+                      annotationType="voice"
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleSpeak(annotation.id, annotation.transcript!)}
+                      className="shrink-0"
+                    >
+                      {speakingAnnotationId === annotation.id ? (
+                        <VolumeX className="h-4 w-4" />
+                      ) : (
+                        <Volume2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDeleteAnnotation(annotation.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Bottom Row: Time + Duration (Horizontal) */}
+                <div className="flex items-center gap-3 mt-2">
+                  <button
+                    onClick={() => jumpToAnnotation(annotation.videoTimestamp)}
+                    className="flex items-center gap-2 text-left hover:underline"
+                  >
+                    <Badge variant="secondary" className="text-xs">{formatTime(annotation.videoTimestamp)}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {annotation.duration}s recording
+                    </span>
+                  </button>
+                  <AnnotationHistoryViewer
+                    annotationId={annotation.id}
+                    annotationType="voice"
+                  />
+                </div>
                 
                 {/* Comment Thread */}
                 <CommentThread
                   annotationId={annotation.id}
                   annotationType="voice"
                 />
-                
-                {/* Approval Workflow */}
-                <ApprovalWorkflow
-                  annotationId={annotation.id}
-                  annotationType="voice"
-                />
-                
-                {/* History Viewer */}
-                <AnnotationHistoryViewer
-                  annotationId={annotation.id}
-                  annotationType="voice"
-                />
-                </div>
               </div>
             );
               })}

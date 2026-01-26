@@ -3578,3 +3578,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Implement drag-to-move for selected shapes with touch
 - [x] Update shape coordinates during drag
 - [ ] Test shape movement on desktop and mobile
+
+## Voice Annotation Tile Layout Redesign (CRITICAL)
+- [x] Move transcript text to top of tile, display horizontally
+- [x] Move status buttons (Pending Review/Approve/Reject) to right side, vertically aligned
+- [x] Move timepoint and duration to bottom left, horizontal next to each other
+- [x] Remove all overlapping elements
+- [ ] Test layout on desktop (wide screen)
+- [ ] Test layout on mobile (narrow screen)
