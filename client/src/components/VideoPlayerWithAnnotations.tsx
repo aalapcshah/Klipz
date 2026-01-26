@@ -235,8 +235,11 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       const visible = visualAnnotations
         .filter(ann => {
           const startTime = ann.videoTimestamp;
-          const endTime = startTime + (ann.duration || 5);
-          return time >= startTime && time < endTime;
+          const duration = ann.duration || 5;
+          const endTime = startTime + duration;
+          const isVisible = time >= startTime && time < endTime;
+          console.log('[Annotation Visibility]', { id: ann.id, startTime, duration, endTime, currentTime: time, isVisible });
+          return isVisible;
         })
         .map(ann => ann.id);
       setVisibleAnnotationIds(visible);

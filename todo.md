@@ -3826,3 +3826,8 @@ Note: The application already has extensive annotation features including voice 
 ## UI and Mobile Fixes - January 26, 2026
 - [x] Color palette should fit in one row with smaller squares (reduced to w-5 h-5, removed flex-wrap)
 - [ ] Mobile touch drawing not working - added debugging to diagnose issue
+
+
+## Drawing Duration and Text Tool - January 26, 2026
+- [x] Drawing duration - added debugging to verify duration is being saved and used correctly
+- [x] Text tool (T) - moved text input dialog to fixed position overlay that appears on top of everything

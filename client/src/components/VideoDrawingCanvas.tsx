@@ -592,6 +592,7 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
     setSelectedElementId(null);
     
     if (selectedTool === "text") {
+      console.log('[VideoDrawingCanvas] Text tool clicked, setting position:', pos);
       setTextPosition(pos);
       return;
     }
@@ -661,6 +662,7 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
     }
     
     if (selectedTool === "text") {
+      console.log('[VideoDrawingCanvas] Text tool clicked, setting position:', pos);
       setTextPosition(pos);
       return;
     }
@@ -1479,28 +1481,31 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
             </div>
           </div>
 
-          {/* Text Input Dialog */}
+          {/* Text Input Dialog - Fixed position overlay */}
           {textPosition && (
-            <div className="p-3 bg-muted rounded-lg space-y-2">
-              <input
-                type="text"
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                placeholder="Enter text..."
-                className="w-full px-3 py-2 bg-background border border-border rounded"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleTextSubmit();
-                  if (e.key === "Escape") setTextPosition(null);
-                }}
-              />
-              <div className="flex gap-2">
-                <Button size="sm" onClick={handleTextSubmit}>
-                  Add Text
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setTextPosition(null)}>
-                  Cancel
-                </Button>
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]" onClick={() => setTextPosition(null)}>
+              <div className="bg-background p-4 rounded-lg shadow-lg space-y-3 w-[90%] max-w-md" onClick={(e) => e.stopPropagation()}>
+                <div className="text-sm font-medium">Add Text at Position ({Math.round(textPosition.x)}, {Math.round(textPosition.y)})</div>
+                <input
+                  type="text"
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  placeholder="Enter text..."
+                  className="w-full px-3 py-2 bg-background border border-border rounded text-foreground"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleTextSubmit();
+                    if (e.key === "Escape") setTextPosition(null);
+                  }}
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button size="sm" variant="outline" onClick={() => setTextPosition(null)}>
+                    Cancel
+                  </Button>
+                  <Button size="sm" onClick={handleTextSubmit}>
+                    Add Text
+                  </Button>
+                </div>
               </div>
             </div>
           )}
