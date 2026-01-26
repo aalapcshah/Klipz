@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine, Eye, EyeOff, Download } from "lucide-react";
 import { VoiceRecorder } from "./VoiceRecorder";
@@ -859,17 +860,16 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 </span>
               )}
               <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={visualAnnotations.length > 0 && selectedVisualIds.length === visualAnnotations.length}
-                  onChange={(e) => {
-                    if (e.target.checked) {
+                  onCheckedChange={(checked) => {
+                    if (checked) {
                       setSelectedVisualIds(visualAnnotations.map(a => a.id).filter((id): id is number => id !== undefined));
                     } else {
                       setSelectedVisualIds([]);
                     }
                   }}
-                  className="h-3 w-3 md:h-4 md:w-4 cursor-pointer"
+                  className="h-3 w-3 md:h-4 md:w-4"
                 />
                 <span className="text-xs">Select All</span>
               </label>
@@ -1025,17 +1025,16 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={isSelected}
-                    onChange={(e) => {
-                      if (e.target.checked) {
+                    onCheckedChange={(checked) => {
+                      if (checked) {
                         setSelected([...selectedIds, annotation.id]);
                       } else {
                         setSelected(selectedIds.filter(id => id !== annotation.id));
                       }
                     }}
-                    className="h-3 w-3 md:h-4 md:w-4 cursor-pointer"
+                    className="h-3 w-3 md:h-4 md:w-4"
                   />
                   <div className="flex items-center justify-between flex-1">
                   <button
@@ -1107,17 +1106,16 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                   </span>
                 )}
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={annotations.length > 0 && selectedVoiceIds.length === annotations.length}
-                    onChange={(e) => {
-                      if (e.target.checked) {
+                    onCheckedChange={(checked) => {
+                      if (checked) {
                         setSelectedVoiceIds(annotations.map(a => a.id).filter((id): id is number => id !== undefined));
                       } else {
                         setSelectedVoiceIds([]);
                       }
                     }}
-                    className="h-3 w-3 md:h-4 md:w-4 cursor-pointer"
+                    className="h-3 w-3 md:h-4 md:w-4"
                   />
                   <span className="text-xs">Select All</span>
                 </label>
@@ -1304,17 +1302,16 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={isSelected}
-                    onChange={(e) => {
-                      if (e.target.checked) {
+                    onCheckedChange={(checked) => {
+                      if (checked) {
                         setSelected([...selectedIds, annotation.id]);
                       } else {
                         setSelected(selectedIds.filter(id => id !== annotation.id));
                       }
                     }}
-                    className="h-3 w-3 md:h-4 md:w-4 cursor-pointer"
+                    className="h-3 w-3 md:h-4 md:w-4"
                   />
                   <div className="flex items-center justify-between flex-1">
                   <button
@@ -1343,9 +1340,9 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 {annotation.transcript && (
                   <div className="pl-2 border-l-2 border-primary/30 space-y-2">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm text-foreground flex-1 whitespace-normal break-words">
-                        <HighlightedText text={annotation.transcript} searchQuery={searchQuery} />
-                      </p>
+                      <div className="text-sm text-foreground flex-1">
+                        <HighlightedText text={annotation.transcript.replace(/[\r\n]+/g, ' ')} searchQuery={searchQuery} />
+                      </div>
                       <Button
                         size="sm"
                         variant="ghost"

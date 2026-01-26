@@ -3548,3 +3548,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Reduce checkbox sizes to match Files section (too large on mobile) (h-3 w-3 on mobile, h-4 w-4 on desktop)
 - [ ] Verify text displays horizontally in voice annotations
 - [ ] Confirm comment counts are accurate after cleanup
+
+## Checkbox Size Fix (Critical)
+- [x] Investigate why whitespace-normal break-words didn't fix vertical text (transcript had newlines)
+- [x] Find root cause of vertical text stacking (A, B, C, D, E, F, G) (newlines in transcript data)
+- [x] Replace native HTML checkboxes with shadcn Checkbox component in voice annotations
+- [x] Replace native HTML checkboxes with shadcn Checkbox component in visual annotations
+- [x] Ensure checkboxes match Files section size (small and consistent) (h-3 w-3 on mobile, h-4 w-4 on desktop)
+- [ ] Test checkbox selection functionality after replacement
