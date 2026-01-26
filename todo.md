@@ -3620,3 +3620,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Verify touch event listeners are properly attached on mobile
 - [x] Test canvas pointer-events and touch-action CSS properties
 - [x] Refactored canvas rendering to use React Portal for proper DOM positioning
+
+## Drawing Canvas UI Improvements
+- [x] Make color palette squares smaller (w-6 h-6 on mobile, w-5 h-5 on desktop)
+- [x] Fix layer checkbox sizes to match other small checkboxes (h-3 w-3 on mobile, h-4 w-4 on desktop)
+- [x] Reduce spacing between UI elements (reduced card padding and gaps)
+- [x] Fix pen tool not drawing on mobile (disabled shape selection during drawing)
+- [x] Reduce space above "Confirm & Save" button (pt-0.5)
+- [x] Reduce space between color/stroke sections (space-y-0.5)

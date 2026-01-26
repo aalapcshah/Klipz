@@ -534,22 +534,25 @@ export function VideoDrawingCanvas({
     
     const pos = getTouchPos(e);
     
-    // Check if tapping on an existing shape to select/move it
-    const tappedElement = [...elements].reverse().find(el => isPointInShape(pos, el));
-    
-    if (tappedElement) {
-      // Select the shape
-      setSelectedElementId(tappedElement.id);
-      setIsDraggingElement(true);
+    // Only allow shape selection/movement with select tool or when not actively drawing
+    if (selectedTool === "select" || selectedTool === "eraser") {
+      // Check if tapping on an existing shape to select/move it
+      const tappedElement = [...elements].reverse().find(el => isPointInShape(pos, el));
       
-      // Calculate offset from shape's first point
-      const shapeStart = tappedElement.points[0];
-      setDragOffset({ x: pos.x - shapeStart.x, y: pos.y - shapeStart.y });
-      return;
+      if (tappedElement) {
+        // Select the shape
+        setSelectedElementId(tappedElement.id);
+        setIsDraggingElement(true);
+        
+        // Calculate offset from shape's first point
+        const shapeStart = tappedElement.points[0];
+        setDragOffset({ x: pos.x - shapeStart.x, y: pos.y - shapeStart.y });
+        return;
+      }
+      
+      // Deselect if tapping on empty space
+      setSelectedElementId(null);
     }
-    
-    // Deselect if tapping on empty space
-    setSelectedElementId(null);
     
     if (selectedTool === "text") {
       setTextPosition(pos);
@@ -993,7 +996,7 @@ export function VideoDrawingCanvas({
       )}
 
       {showCanvas && (
-        <Card className="p-3 space-y-2">
+        <Card className="p-2 space-y-1.5">
           {/* Duration Slider with Cancel button */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">
@@ -1106,14 +1109,14 @@ export function VideoDrawingCanvas({
             </div>
 
             {/* Color Picker */}
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <span className="text-sm font-medium">Color:</span>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {colors.map((c) => (
                   <button
                     key={c}
                     onClick={() => setColor(c)}
-                    className={`w-8 h-8 rounded border-2 transition-all ${
+                    className={`w-6 h-6 md:w-5 md:h-5 rounded border-2 transition-all ${
                       color === c ? "border-primary scale-110" : "border-border"
                     }`}
                     style={{ backgroundColor: c }}
@@ -1123,9 +1126,9 @@ export function VideoDrawingCanvas({
             </div>
 
             {/* Stroke Width */}
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <span className="text-sm font-medium">Stroke Width:</span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 {strokeWidths.map((width) => (
                   <Button
                     key={width}
@@ -1140,7 +1143,7 @@ export function VideoDrawingCanvas({
             </div>
 
             {/* Save Button */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-0.5">
               <Button onClick={handleSave} className="flex-1" disabled={elements.length === 0}>
                 <Save className="h-4 w-4 mr-2" />
                 Confirm & Save
@@ -1285,7 +1288,7 @@ export function VideoDrawingCanvas({
                         setSelectedLayerIds(selectedLayerIds.filter(id => id !== layer.id));
                       }
                     }}
-                    className="h-4 w-4"
+                    className="h-3 w-3 md:h-4 md:w-4"
                     onClick={(e) => e.stopPropagation()}
                   />
                   <Button
