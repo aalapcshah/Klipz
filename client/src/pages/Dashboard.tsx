@@ -92,15 +92,36 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background">
       {/* Top Navigation */}
       <header className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="container flex items-center justify-between h-16 px-4">
-          <div className="flex items-center gap-2 md:gap-8">
-            <Link href="/" className="flex items-center gap-1.5 font-bold text-lg md:text-xl">
-              <Sparkles className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-              <span className="hidden sm:inline">MetaClips</span>
+        <div className="container flex items-center h-16 px-4">
+          {/* Mobile: Hamburger (left) + Logo (center) + Logout (right) */}
+          <div className="md:hidden flex items-center justify-between w-full">
+            {/* Mobile Menu Button - Far Left */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex items-center gap-1.5"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              <span className="text-sm">Menu</span>
+            </Button>
+            
+            {/* Logo - Centered */}
+            <Link href="/" className="flex items-center gap-1.5 font-bold text-lg absolute left-1/2 transform -translate-x-1/2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <span>MetaClips</span>
+            </Link>
+          </div>
+          
+          {/* Desktop: Logo (left) + Nav (center) + User Info (right) */}
+          <div className="hidden md:flex items-center gap-8 w-full">
+            <Link href="/" className="flex items-center gap-1.5 font-bold text-xl">
+              <Sparkles className="h-6 w-6 text-primary" />
+              <span>MetaClips</span>
             </Link>
             
             {/* Desktop Navigation with dropdown menus */}
-            <nav className="hidden md:flex items-center gap-2">
+            <nav className="flex items-center gap-2">
               {mainNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location === item.href;
@@ -190,20 +211,8 @@ export default function Dashboard() {
                 <span className="hidden lg:inline">Settings</span>
               </Link>
             </nav>
-            
-            {/* Mobile Menu Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="md:hidden flex items-center gap-1.5"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-              <span className="text-sm">Menu</span>
-            </Button>
-          </div>
-
-          <div className="flex items-center gap-2">
+          
+            <div className="flex items-center gap-2 ml-auto">
             <span className="text-sm text-muted-foreground hidden sm:inline">
               {user?.name || user?.email}
             </span>
@@ -222,6 +231,7 @@ export default function Dashboard() {
             <Button variant="ghost" size="icon" onClick={() => logout()}>
               <LogOutIcon className="h-4 w-4" />
             </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -264,6 +274,16 @@ export default function Dashboard() {
               <Mail className="h-5 w-5" />
               Contact Us
             </a>
+            <button
+              className="flex items-center gap-3 px-4 py-3 rounded-md transition-colors hover:bg-muted text-muted-foreground hover:text-foreground w-full text-left"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                logout();
+              }}
+            >
+              <LogOutIcon className="h-5 w-5" />
+              Sign Out
+            </button>
           </nav>
         </div>
         </>

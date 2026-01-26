@@ -3355,3 +3355,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Make voice annotation filters and controls collapsible (hidden by default)
 - [x] Add toggle button to show/hide filters section
 - [x] Test collapsible filters on mobile viewport
+
+
+## Mobile Header Reorganization
+- [x] Move hamburger menu to far left of mobile header
+- [x] Center MetaClips logo in mobile header
+- [x] Move Sign Out button into hamburger menu as submenu item
+- [x] Remove Sign Out button from mobile header
+- [x] Test mobile header layout on small screens
