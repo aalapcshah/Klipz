@@ -558,20 +558,20 @@ export function VideoList() {
               </div>
               
               {/* Duration, annotations, tags, and action buttons on same line */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <Badge variant="secondary" className="text-xs">
+              <div className="flex items-center gap-1 flex-nowrap">
+                <Badge variant="secondary" className="text-xs shrink-0">
                   {formatDuration(video.duration)}
                 </Badge>
                 {(video.voiceAnnotationCount > 0 || video.visualAnnotationCount > 0) && (
                   <>
                     {video.voiceAnnotationCount > 0 && (
-                      <Badge variant="outline" className="text-xs flex items-center gap-1">
+                      <Badge variant="outline" className="text-xs flex items-center gap-0.5 shrink-0">
                         <Mic className="h-3 w-3" />
                         {video.voiceAnnotationCount}
                       </Badge>
                     )}
                     {video.visualAnnotationCount > 0 && (
-                      <Badge variant="outline" className="text-xs flex items-center gap-1">
+                      <Badge variant="outline" className="text-xs flex items-center gap-0.5 shrink-0">
                         <PenLine className="h-3 w-3" />
                         {video.visualAnnotationCount}
                       </Badge>
@@ -581,10 +581,10 @@ export function VideoList() {
                 <VideoTagManager videoId={video.id} onTagsChange={refetch} />
                 
                 {/* Action buttons inline */}
-                <div className="flex items-center gap-1 ml-auto">
-                  <Button variant="ghost" size="sm" className="h-7 px-2" asChild>
+                <div className="flex items-center gap-1 ml-auto shrink-0">
+                  <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] text-green-600 hover:text-green-700 hover:bg-green-50" asChild>
                     <a href={video.url} target="_blank" rel="noopener noreferrer">
-                      <Play className="h-3 w-3 mr-1" />
+                      <Play className="h-2.5 w-2.5 mr-0.5" />
                       Play
                     </a>
                   </Button>
@@ -592,11 +592,11 @@ export function VideoList() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 px-2"
+                      className="h-6 px-1.5 text-[10px] text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                       onClick={() => setAnnotatingVideo({ id: video.id, fileId: video.fileId!, url: video.url, title: video.title || video.filename })}
                       title="Annotate (Voice, Drawing, Text)"
                     >
-                      <MessageSquare className="h-3 w-3 mr-1" />
+                      <MessageSquare className="h-2.5 w-2.5 mr-0.5" />
                       Annotate
                     </Button>
                   )}

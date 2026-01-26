@@ -3594,3 +3594,15 @@ Note: The application already has extensive annotation features including voice 
 - [x] Remove extra vertical gaps throughout the tile (reduced padding from p-3 to p-2)
 - [x] Make layout more compact overall
 - [ ] Test compact layout on desktop and mobile
+
+## Annotation Count Badge Fixes (CRITICAL)
+- [x] Make Play/Annotate text smaller to prevent line wrapping (text-[10px], h-6 buttons)
+- [x] Reduce vertical spacing in annotation badges (gap-1, gap-0.5, shrink-0)
+- [x] Color code: Play button in green, Annotate button in purple
+- [x] Remove extra space around badges (flex-nowrap, reduced padding)
+
+## Mobile Drawing and Canvas Improvements (CRITICAL)
+- [ ] Fix mobile drawing - canvas not responding to touch events
+- [ ] Add Clear All button to delete all drawings on canvas
+- [ ] Fix canvas positioning over video on mobile
+- [ ] Test drawing with finger on mobile device
