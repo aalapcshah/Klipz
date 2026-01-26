@@ -3773,3 +3773,35 @@ Note: The application already has extensive annotation features including voice 
 - [ ] Test mouse/touch drawing interaction on desktop browser
 - [ ] Test touch drawing on mobile browser after publish
 - [ ] Publish checkpoint to production for user testing
+
+
+## Drawing Canvas Event Listeners Not Working - January 26, 2026
+- [x] Canvas is now visible (yellow border shows)
+- [x] Drawing mode is active (button shows "Drawing..." in purple)
+- [x] Fixed React/Native event type mismatch in event handlers
+- [x] Added proper event conversion from native MouseEvent to React.MouseEvent
+- [ ] Console logs from VideoDrawingCanvas useEffect are not appearing
+- [ ] Need to verify if useEffect is running when showCanvas becomes true
+- [ ] Possible issue: useEffect dependencies or early return preventing execution
+- [ ] Test on production after fix
+
+
+## Background Video Upload with Cancel - January 26, 2026
+- [ ] Implement upload state persistence (localStorage or global state)
+- [ ] Allow users to navigate away during upload without canceling
+- [ ] Continue upload in background when user leaves upload page
+- [ ] Add Cancel button to stop ongoing upload
+- [ ] Show upload progress indicator in header/navbar when uploading
+- [ ] Clean up partial uploads when user clicks Cancel
+- [ ] Test navigation during upload
+- [ ] Test cancel functionality
+
+
+## Drawing Canvas Fix - January 26, 2026
+- [x] Canvas is now visible (lime green border shows)
+- [x] Drawing mode is active (button shows "Drawing..." in purple)
+- [x] Canvas is the topmost element (z-index 9999, pointer-events auto)
+- [x] Direct canvas drawing works (can draw programmatically)
+- [x] Added direct event handlers in VideoPlayerWithAnnotations
+- [ ] Browser automation clicks don't trigger real mouse events (limitation)
+- [ ] User needs to test with real mouse interaction on production

@@ -44,6 +44,105 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [showRecorder, setShowRecorder] = useState(false);
   const [recordingTimestamp, setRecordingTimestamp] = useState(0);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
+  // Simple drawing state for direct canvas interaction
+  const [isCanvasDrawing, setIsCanvasDrawing] = useState(false);
+  const [lastDrawPoint, setLastDrawPoint] = useState<{x: number, y: number} | null>(null);
+  const [drawingColor] = useState('#00ff00'); // Green for visibility
+  const [drawingStrokeWidth] = useState(5);
+
+  // Direct canvas drawing handlers
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDrawingMode) return;
+    const canvas = drawingCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setIsCanvasDrawing(true);
+    setLastDrawPoint({x, y});
+    
+    // Start drawing
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.strokeStyle = drawingColor;
+      ctx.lineWidth = drawingStrokeWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    }
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDrawingMode || !isCanvasDrawing) return;
+    const canvas = drawingCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const ctx = canvas.getContext('2d');
+    if (ctx && lastDrawPoint) {
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    }
+    setLastDrawPoint({x, y});
+  };
+
+  const handleCanvasMouseUp = () => {
+    setIsCanvasDrawing(false);
+    setLastDrawPoint(null);
+  };
+
+  const handleCanvasTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawingMode) return;
+    e.preventDefault();
+    const canvas = drawingCanvasRef.current;
+    if (!canvas || e.touches.length === 0) return;
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    setIsCanvasDrawing(true);
+    setLastDrawPoint({x, y});
+    
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.strokeStyle = drawingColor;
+      ctx.lineWidth = drawingStrokeWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    }
+  };
+
+  const handleCanvasTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawingMode || !isCanvasDrawing) return;
+    e.preventDefault();
+    const canvas = drawingCanvasRef.current;
+    if (!canvas || e.touches.length === 0) return;
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    
+    const ctx = canvas.getContext('2d');
+    if (ctx && lastDrawPoint) {
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    }
+    setLastDrawPoint({x, y});
+  };
+
+  const handleCanvasTouchEnd = () => {
+    setIsCanvasDrawing(false);
+    setLastDrawPoint(null);
+  };
   
   // Debug logging for drawing mode changes
   useEffect(() => {
@@ -490,12 +589,19 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             style={{ pointerEvents: isDrawingMode ? 'none' : 'auto' }}
           />
           
-          {/* Drawing canvas overlay - controlled by VideoDrawingCanvas */}
+          {/* Drawing canvas overlay - direct handlers for reliability */}
           <canvas
             ref={drawingCanvasRef}
             id="drawing-canvas"
             width={videoRef.current?.clientWidth || 800}
             height={videoRef.current?.clientHeight || 600}
+            onMouseDown={handleCanvasMouseDown}
+            onMouseMove={handleCanvasMouseMove}
+            onMouseUp={handleCanvasMouseUp}
+            onMouseLeave={handleCanvasMouseUp}
+            onTouchStart={handleCanvasTouchStart}
+            onTouchMove={handleCanvasTouchMove}
+            onTouchEnd={handleCanvasTouchEnd}
             style={{
               position: 'absolute',
               top: 0,
@@ -505,11 +611,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               pointerEvents: isDrawingMode ? 'auto' : 'none',
               display: isDrawingMode ? 'block' : 'none',
               zIndex: 9999,
-              touchAction: 'manipulation',
-              backgroundColor: isDrawingMode ? 'rgba(255, 0, 0, 0.15)' : 'transparent',
+              touchAction: 'none',
+              backgroundColor: isDrawingMode ? 'rgba(0, 255, 0, 0.1)' : 'transparent',
               cursor: isDrawingMode ? 'crosshair' : 'default',
-              border: isDrawingMode ? '5px solid yellow' : 'none',
-              boxShadow: isDrawingMode ? '0 0 20px rgba(255, 255, 0, 0.8)' : 'none',
+              border: isDrawingMode ? '3px solid lime' : 'none',
             }}
           />
           
@@ -824,6 +929,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         onDrawingModeChange={setIsDrawingMode}
         onToggleRequest={drawToggleRequest}
         fileId={fileId}
+        // onCanvasHandlersReady removed - using direct handlers in parent
       />
 
       {/* Voice Recorder */}

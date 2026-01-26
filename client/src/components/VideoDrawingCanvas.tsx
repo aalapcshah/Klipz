@@ -54,6 +54,15 @@ interface Layer {
   locked: boolean;
 }
 
+interface CanvasEventHandlers {
+  onMouseDown: (e: React.MouseEvent<HTMLCanvasElement>) => void;
+  onMouseMove: (e: React.MouseEvent<HTMLCanvasElement>) => void;
+  onMouseUp: () => void;
+  onTouchStart: (e: React.TouchEvent<HTMLCanvasElement>) => void;
+  onTouchMove: (e: React.TouchEvent<HTMLCanvasElement>) => void;
+  onTouchEnd: () => void;
+}
+
 interface VideoDrawingCanvasProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   currentTime: number;
@@ -62,6 +71,7 @@ interface VideoDrawingCanvasProps {
   onToggleRequest?: number; // External toggle trigger (counter)
   fileId?: number; // For auto-save draft identification
   canvasRef?: React.RefObject<HTMLCanvasElement | null>; // Direct canvas ref
+  onCanvasHandlersReady?: (handlers: CanvasEventHandlers) => void; // Callback to pass handlers to parent
 }
 
 export function VideoDrawingCanvas({
@@ -72,8 +82,18 @@ export function VideoDrawingCanvas({
   onToggleRequest,
   fileId,
   canvasRef: externalCanvasRef,
+  onCanvasHandlersReady,
 }: VideoDrawingCanvasProps) {
   console.log('[VideoDrawingCanvas] Component rendering, onToggleRequest:', onToggleRequest);
+  
+  // Check if component renders at all
+  if (typeof window !== 'undefined' && (window as any).__drawingRenderCount === undefined) {
+    (window as any).__drawingRenderCount = 0;
+  }
+  if (typeof window !== 'undefined') {
+    (window as any).__drawingRenderCount++;
+    console.log('[VideoDrawingCanvas] Render count:', (window as any).__drawingRenderCount);
+  }
   const localCanvasRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = externalCanvasRef || localCanvasRef; // Use external ref if provided
   const [isDrawing, setIsDrawing] = useState(false);
@@ -86,6 +106,7 @@ export function VideoDrawingCanvas({
   const [history, setHistory] = useState<DrawingElement[][]>([[]]);
   const [historyStep, setHistoryStep] = useState(0);
   const [showCanvas, setShowCanvas] = useState(false);
+  console.log('[VideoDrawingCanvas] Current showCanvas value:', showCanvas);
   const [textInput, setTextInput] = useState("");
   const [textPosition, setTextPosition] = useState<Point | null>(null);
   const [debugTouchPos, setDebugTouchPos] = useState<{x: number, y: number} | null>(null);
@@ -233,6 +254,13 @@ export function VideoDrawingCanvas({
   }, [onToggleRequest, onDrawingModeChange]);
 
   useEffect(() => {
+    // Only attach event listeners when drawing mode is active
+    if (!showCanvas) {
+      console.log('[VideoDrawingCanvas] showCanvas is false, skipping event listener setup');
+      return;
+    }
+    
+    alert('useEffect running! showCanvas=' + showCanvas);
     console.log('[VideoDrawingCanvas] useEffect running, looking for canvas...');
     
     // Use the shared canvas ref
@@ -243,7 +271,7 @@ export function VideoDrawingCanvas({
     
     if (!canvas || !video) {
       console.log('[VideoDrawingCanvas] Canvas or video not ready yet');
-      return; // Exit early, will retry when onToggleRequest changes
+      return; // Exit early, will retry when showCanvas changes
     }
     
     console.log('[VideoDrawingCanvas] Canvas and video found! Setting up...');
@@ -269,9 +297,24 @@ export function VideoDrawingCanvas({
     };
     const touchEnd = () => handleTouchEnd();
     
-    // Add mouse event listeners
-    const mouseDown = (e: MouseEvent) => handleMouseDown(e as any);
-    const mouseMove = (e: MouseEvent) => handleMouseMove(e as any);
+    // Add mouse event listeners with proper native event handling
+    const mouseDown = (e: MouseEvent) => {
+      // Convert native MouseEvent to React-like event
+      const reactEvent = {
+        ...e,
+        currentTarget: canvas,
+        nativeEvent: e,
+      } as unknown as React.MouseEvent<HTMLCanvasElement>;
+      handleMouseDown(reactEvent);
+    };
+    const mouseMove = (e: MouseEvent) => {
+      const reactEvent = {
+        ...e,
+        currentTarget: canvas,
+        nativeEvent: e,
+      } as unknown as React.MouseEvent<HTMLCanvasElement>;
+      handleMouseMove(reactEvent);
+    };
     const mouseUp = () => handleMouseUp();
     
     // Attach event listeners
@@ -308,7 +351,7 @@ export function VideoDrawingCanvas({
       canvas.removeEventListener('mouseup', mouseUp);
       canvas.removeEventListener('mouseleave', mouseUp);
     };
-  }, [onToggleRequest]); // Re-run when drawing mode is toggled
+  }, [showCanvas]); // Re-run when drawing mode is toggled
 
   const redrawCanvas = () => {
     const canvas = canvasRef.current;
@@ -772,6 +815,20 @@ export function VideoDrawingCanvas({
     
     redrawCanvas();
   };
+
+  // Pass handlers to parent immediately - they're always needed when drawing mode is active
+  useEffect(() => {
+    if (onCanvasHandlersReady) {
+      onCanvasHandlersReady({
+        onMouseDown: handleMouseDown,
+        onMouseMove: handleMouseMove,
+        onMouseUp: handleMouseUp,
+        onTouchStart: handleTouchStart as (e: React.TouchEvent<HTMLCanvasElement>) => void,
+        onTouchMove: handleTouchMove as (e: React.TouchEvent<HTMLCanvasElement>) => void,
+        onTouchEnd: handleTouchEnd,
+      });
+    }
+  }, [onCanvasHandlersReady]);
 
   const handleTextSubmit = () => {
     if (!textInput || !textPosition) return;
