@@ -3535,3 +3535,9 @@ Note: The application already has extensive annotation features including voice 
 
 ## UI Font Size Adjustment
 - [x] Reduce font size of "Full AI Analysis" title in file details view
+
+## Video Annotation Bug Fixes
+- [x] Fix drawing annotation functionality - buttons visible but drawing not working (removed inline display:none style)
+- [x] Remove "24 blank comments" display issue from voice annotations (hide CommentThread when count is 0, filter empty comments in backend)
+- [ ] Test drawing on video with mouse/touch input
+- [ ] Verify voice annotation display shows correct content

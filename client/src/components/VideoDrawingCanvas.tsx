@@ -1263,7 +1263,7 @@ export function VideoDrawingCanvas({
           {/* Hidden canvas element that gets appended to video container */}
           <canvas
             ref={canvasRef}
-            style={{ display: 'none' }}
+            className="hidden"
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}

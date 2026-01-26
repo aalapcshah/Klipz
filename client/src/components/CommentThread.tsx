@@ -300,6 +300,11 @@ export function CommentThread({ annotationId, annotationType }: CommentThreadPro
     );
   };
 
+  // Don't render if there are no comments and comments section is closed
+  if (!showComments && (!commentCount || commentCount.count === 0)) {
+    return null;
+  }
+
   return (
     <div className={`border-t pt-2 mt-2 transition-colors ${isHighlighted ? 'highlight-flash' : ''}`}>
       <Button

@@ -89,7 +89,7 @@ export const annotationCommentsRouter = router({
       if (!db) throw new Error("Database not available");
 
       // Get all comments for this annotation
-      const comments = await db
+      const allComments = await db
         .select()
         .from(annotationComments)
         .where(
@@ -99,6 +99,9 @@ export const annotationCommentsRouter = router({
           )
         )
         .orderBy(annotationComments.createdAt);
+
+      // Filter out comments with empty or whitespace-only content
+      const comments = allComments.filter(c => c.content && c.content.trim().length > 0);
 
       // Build threaded structure
       const commentMap = new Map();
@@ -257,6 +260,9 @@ export const annotationCommentsRouter = router({
           )
         );
 
-      return { count: comments.length };
+      // Filter out comments with empty or whitespace-only content
+      const validComments = comments.filter(c => c.content && c.content.trim().length > 0);
+
+      return { count: validComments.length };
     }),
 });
