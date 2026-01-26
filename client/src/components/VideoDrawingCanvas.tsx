@@ -61,6 +61,7 @@ interface VideoDrawingCanvasProps {
   onDrawingModeChange?: (isDrawing: boolean) => void;
   onToggleRequest?: number; // External toggle trigger (counter)
   fileId?: number; // For auto-save draft identification
+  canvasRef?: React.RefObject<HTMLCanvasElement | null>; // Direct canvas ref
 }
 
 export function VideoDrawingCanvas({
@@ -70,8 +71,11 @@ export function VideoDrawingCanvas({
   onDrawingModeChange,
   onToggleRequest,
   fileId,
+  canvasRef: externalCanvasRef,
 }: VideoDrawingCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  console.log('[VideoDrawingCanvas] Component rendering, onToggleRequest:', onToggleRequest);
+  const localCanvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = externalCanvasRef || localCanvasRef; // Use external ref if provided
   const [isDrawing, setIsDrawing] = useState(false);
   const [selectedTool, setSelectedTool] = useState<DrawingTool>("pen");
   const [isHighlightMode, setIsHighlightMode] = useState(false);
@@ -217,27 +221,35 @@ export function VideoDrawingCanvas({
     if (onToggleRequest !== undefined && onToggleRequest > 0) {
       console.log('[VideoDrawingCanvas] Toggling canvas');
       setShowCanvas(prev => {
-        console.log('[VideoDrawingCanvas] showCanvas changing from', prev, 'to', !prev);
-        return !prev;
+        const newValue = !prev;
+        console.log('[VideoDrawingCanvas] showCanvas changing from', prev, 'to', newValue);
+        // Notify parent component about drawing mode change
+        if (onDrawingModeChange) {
+          onDrawingModeChange(newValue);
+        }
+        return newValue;
       });
     }
-  }, [onToggleRequest]);
+  }, [onToggleRequest, onDrawingModeChange]);
 
   useEffect(() => {
-    // Get canvas by ID from video container
-    const canvas = document.getElementById('drawing-canvas') as HTMLCanvasElement;
-    console.log('[VideoDrawingCanvas] Canvas element found:', !!canvas, 'showCanvas:', showCanvas);
-    if (!canvas || !videoRef.current) {
-      console.log('[VideoDrawingCanvas] Canvas or video not found');
-      return;
+    console.log('[VideoDrawingCanvas] useEffect running, looking for canvas...');
+    
+    // Use the shared canvas ref
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    
+    console.log('[VideoDrawingCanvas] Checking - Canvas:', !!canvas, 'Video:', !!video);
+    
+    if (!canvas || !video) {
+      console.log('[VideoDrawingCanvas] Canvas or video not ready yet');
+      return; // Exit early, will retry when onToggleRequest changes
     }
     
-    // Set canvas ref for drawing operations
-    canvasRef.current = canvas;
-    console.log('[VideoDrawingCanvas] Canvas ref set, attaching event listeners');
+    console.log('[VideoDrawingCanvas] Canvas and video found! Setting up...');
+    console.log('[VideoDrawingCanvas] Attaching event listeners');
     
     // Immediately size the canvas to match video
-    const video = videoRef.current;
     const rect = video.getBoundingClientRect();
     canvas.width = rect.width;
     canvas.height = rect.height;
@@ -249,12 +261,10 @@ export function VideoDrawingCanvas({
       setTouchDetected(true);
       e.preventDefault();
       e.stopPropagation();
-      // Call handleTouchStart with native TouchEvent
       handleTouchStart(e);
     };
     const touchMove = (e: TouchEvent) => {
       e.preventDefault();
-      // Call handleTouchMove with native TouchEvent
       handleTouchMove(e);
     };
     const touchEnd = () => handleTouchEnd();
@@ -264,31 +274,29 @@ export function VideoDrawingCanvas({
     const mouseMove = (e: MouseEvent) => handleMouseMove(e as any);
     const mouseUp = () => handleMouseUp();
     
-    if (showCanvas) {
-      canvas.addEventListener('touchstart', touchStart, { passive: false });
-      canvas.addEventListener('touchmove', touchMove, { passive: false });
-      canvas.addEventListener('touchend', touchEnd, { passive: false });
-      canvas.addEventListener('touchcancel', touchEnd, { passive: false });
-      canvas.addEventListener('mousedown', mouseDown);
-      canvas.addEventListener('mousemove', mouseMove);
-      canvas.addEventListener('mouseup', mouseUp);
-      canvas.addEventListener('mouseleave', mouseUp);
-    }
+    // Attach event listeners
+    canvas.addEventListener('touchstart', touchStart, { passive: false });
+    canvas.addEventListener('touchmove', touchMove, { passive: false });
+    canvas.addEventListener('touchend', touchEnd, { passive: false });
+    canvas.addEventListener('touchcancel', touchEnd, { passive: false });
+    canvas.addEventListener('mousedown', mouseDown);
+    canvas.addEventListener('mousemove', mouseMove);
+    canvas.addEventListener('mouseup', mouseUp);
+    canvas.addEventListener('mouseleave', mouseUp);
+    console.log('[VideoDrawingCanvas] Event listeners attached');
     
     // Match canvas size to video display size
     const resizeCanvas = () => {
       const rect = video.getBoundingClientRect();
-      
-      // Set canvas internal resolution
       canvas.width = rect.width;
       canvas.height = rect.height;
-      
       redrawCanvas();
     };
     
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
     
+    // Cleanup function
     return () => {
       window.removeEventListener("resize", resizeCanvas);
       canvas.removeEventListener('touchstart', touchStart);
@@ -300,7 +308,7 @@ export function VideoDrawingCanvas({
       canvas.removeEventListener('mouseup', mouseUp);
       canvas.removeEventListener('mouseleave', mouseUp);
     };
-  }, [showCanvas]);
+  }, [onToggleRequest]); // Re-run when drawing mode is toggled
 
   const redrawCanvas = () => {
     const canvas = canvasRef.current;
@@ -973,7 +981,7 @@ export function VideoDrawingCanvas({
         toast.info(`Restored draft with ${draft.elements.length} drawing(s)`);
       }
     }
-  }, [showCanvas]);
+  }, []);
 
   const handleCancelClick = () => {
     if (hasUnsavedChanges && elements.length > 0) {

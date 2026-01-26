@@ -3741,3 +3741,35 @@ Note: The application already has extensive annotation features including voice 
 - [ ] User needs to test with 41MB video on production
 - [ ] User needs to test with larger files (100MB+, 4GB) on production
 - [ ] Publish checkpoint to production for user testing
+
+
+## Drawing Functionality Broken - January 26, 2026
+- [x] Diagnosed why drawing stopped working - event listeners only attached when showCanvas=true
+- [x] Fixed event listener attachment to always attach when canvas exists
+- [x] Removed showCanvas dependency from useEffect
+- [x] Event listeners now attach immediately on component mount
+- [ ] Test drawing functionality on desktop
+- [ ] Test drawing functionality on mobile
+- [ ] Verify all annotation tools work (pen, shapes, colors)
+
+## Drawing Functionality Fix - Shared Canvas Ref - January 26, 2026
+- [x] Diagnosed root cause: VideoDrawingCanvas couldn't find canvas element via getElementById
+- [x] Implemented shared canvas ref between VideoPlayerWithAnnotations and VideoDrawingCanvas
+- [x] Removed setInterval polling logic
+- [x] Event listeners now attach directly to shared canvas ref when drawing mode activates
+- [x] Fixed cleanup function to properly remove all event listeners
+- [ ] Test drawing functionality on desktop
+- [ ] Test drawing functionality on mobile
+- [ ] Verify all annotation tools work (pen, shapes, colors)
+
+
+## Drawing Functionality Fix - onDrawingModeChange Callback - January 26, 2026
+- [x] Diagnosed root cause: Canvas element hidden with display:none because isDrawingMode was false
+- [x] VideoDrawingCanvas was not calling onDrawingModeChange callback when toggling
+- [x] Fixed VideoDrawingCanvas to call onDrawingModeChange(newValue) in toggle useEffect
+- [x] Canvas now becomes visible (display:block) when drawing mode is activated
+- [x] Yellow border appears correctly indicating drawing mode is active
+- [x] Verified canvas can be drawn on programmatically (green test line visible)
+- [ ] Test mouse/touch drawing interaction on desktop browser
+- [ ] Test touch drawing on mobile browser after publish
+- [ ] Publish checkpoint to production for user testing

@@ -32,6 +32,7 @@ interface VideoPlayerWithAnnotationsProps {
 
 export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWithAnnotationsProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -491,6 +492,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           
           {/* Drawing canvas overlay - controlled by VideoDrawingCanvas */}
           <canvas
+            ref={drawingCanvasRef}
             id="drawing-canvas"
             width={videoRef.current?.clientWidth || 800}
             height={videoRef.current?.clientHeight || 600}
@@ -816,6 +818,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       {/* Drawing Canvas Controls - appears right after Voice Note/Draw buttons */}
       <VideoDrawingCanvas
         videoRef={videoRef}
+        canvasRef={drawingCanvasRef}
         currentTime={currentTime}
         onSaveAnnotation={handleSaveVisualAnnotation}
         onDrawingModeChange={setIsDrawingMode}
