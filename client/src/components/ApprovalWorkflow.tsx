@@ -227,14 +227,14 @@ export function ApprovalWorkflow({ annotationId, annotationType }: ApprovalWorkf
   }
 
   return (
-    <div className={`border-t pt-2 mt-2 transition-colors ${isHighlighted ? 'highlight-flash' : ''}`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+    <div className={`transition-colors ${isHighlighted ? 'highlight-flash' : ''}`}>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {approval ? (
             <>
               {getStatusBadge()}
               {approval.comment && (
-                <div className="text-xs text-gray-600 italic">"{approval.comment}"</div>
+                <div className="text-xs text-gray-600 italic truncate max-w-[200px]">"{approval.comment}"</div>
               )}
             </>
           ) : (
@@ -242,7 +242,7 @@ export function ApprovalWorkflow({ annotationId, annotationType }: ApprovalWorkf
           )}
         </div>
 
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap">
           {!approval && (
             <Button
               size="sm"

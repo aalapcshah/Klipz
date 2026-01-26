@@ -3642,3 +3642,22 @@ Note: The application already has extensive annotation features including voice 
 - [x] Canvas rendered with ID 'drawing-canvas' in video container
 - [x] VideoDrawingCanvas finds canvas by ID and attaches event listeners
 - [x] Added e.preventDefault() to touch events to prevent scrolling interference
+
+## Mobile Canvas Touch Event Issue - CRITICAL
+- [ ] Drawing panel DOES open (color palette and tools visible)
+- [ ] Canvas overlay IS displayed (isDrawingMode = true)
+- [ ] BUT: Touch events don't trigger drawing - touches pass through to video
+- [ ] Desktop mouse events work perfectly
+- [ ] Touch event listeners are attached but not firing
+- [ ] Possible: canvas dimensions are 0x0 or touch events blocked by CSS
+- [ ] Need to verify canvas.width and canvas.height are set correctly
+
+## Video Upload Issue
+- [ ] 30-second video upload fails - need to investigate file size limits and error handling
+
+## Annotation Card Layout Crowding
+- [x] Text overlapping in annotation cards (Duration, "No approval request", "Request Approval", "History")
+- [x] History button now right-aligned on the far right
+- [x] Request Approval buttons to the left of History in same row
+- [x] Proper horizontal spacing with flex layout
+- [x] ApprovalWorkflow and AnnotationHistoryViewer in same row with flex-wrap for mobile

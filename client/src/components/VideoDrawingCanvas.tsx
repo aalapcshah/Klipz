@@ -211,24 +211,46 @@ export function VideoDrawingCanvas({
 
   // Handle external toggle request
   useEffect(() => {
+    console.log('[VideoDrawingCanvas] Toggle request changed:', onToggleRequest);
     if (onToggleRequest !== undefined && onToggleRequest > 0) {
-      setShowCanvas(prev => !prev);
+      console.log('[VideoDrawingCanvas] Toggling canvas');
+      setShowCanvas(prev => {
+        console.log('[VideoDrawingCanvas] showCanvas changing from', prev, 'to', !prev);
+        return !prev;
+      });
     }
   }, [onToggleRequest]);
 
   useEffect(() => {
     // Get canvas by ID from video container
     const canvas = document.getElementById('drawing-canvas') as HTMLCanvasElement;
-    if (!canvas || !videoRef.current) return;
+    console.log('[VideoDrawingCanvas] Canvas element found:', !!canvas, 'showCanvas:', showCanvas);
+    if (!canvas || !videoRef.current) {
+      console.log('[VideoDrawingCanvas] Canvas or video not found');
+      return;
+    }
     
     // Set canvas ref for drawing operations
     canvasRef.current = canvas;
+    console.log('[VideoDrawingCanvas] Canvas ref set, attaching event listeners');
     
+    // Immediately size the canvas to match video
     const video = videoRef.current;
+    const rect = video.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    console.log('[VideoDrawingCanvas] Canvas sized to:', rect.width, 'x', rect.height);
+    
+    // Show alert on mobile to confirm canvas size
+    if (showCanvas && /Mobi|Android/i.test(navigator.userAgent)) {
+      alert(`Canvas ready! Size: ${rect.width}x${rect.height}. Try drawing now.`);
+    }
     
     // Add touch event listeners
     const touchStart = (e: TouchEvent) => {
+      console.log('[VideoDrawingCanvas] touchStart fired!', e.touches.length, 'touches');
       e.preventDefault();
+      e.stopPropagation();
       handleTouchStart(e as any);
     };
     const touchMove = (e: TouchEvent) => {
@@ -966,8 +988,10 @@ export function VideoDrawingCanvas({
   };
 
   const toggleCanvas = useCallback(() => {
+    console.log('[VideoDrawingCanvas] toggleCanvas called');
     setShowCanvas(prev => {
       const newShowCanvas = !prev;
+      console.log('[VideoDrawingCanvas] Calling onDrawingModeChange with:', newShowCanvas);
       onDrawingModeChange?.(newShowCanvas);
       
       if (newShowCanvas) {
@@ -1018,7 +1042,7 @@ export function VideoDrawingCanvas({
       )}
 
       {showCanvas && (
-        <Card className="p-2 space-y-1.5">
+        <Card className="p-2 space-y-1.5" style={{ position: 'relative', zIndex: 20 }}>
           {/* Duration Slider with Cancel button */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">

@@ -43,6 +43,11 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [showRecorder, setShowRecorder] = useState(false);
   const [recordingTimestamp, setRecordingTimestamp] = useState(0);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
+  
+  // Debug logging for drawing mode changes
+  useEffect(() => {
+    console.log('[VideoPlayerWithAnnotations] isDrawingMode changed to:', isDrawingMode);
+  }, [isDrawingMode]);
   const [showTimeline, setShowTimeline] = useState(false);
   const [showAnnotationPreview, setShowAnnotationPreview] = useState(true);
   const [visibleAnnotationIds, setVisibleAnnotationIds] = useState<number[]>([]);
@@ -497,6 +502,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               display: isDrawingMode ? 'block' : 'none',
               zIndex: 15,
               touchAction: 'none',
+              backgroundColor: isDrawingMode ? 'rgba(255, 0, 0, 0.15)' : 'transparent',
+              cursor: isDrawingMode ? 'crosshair' : 'default',
+              border: isDrawingMode ? '5px solid yellow' : 'none',
+              boxShadow: isDrawingMode ? '0 0 20px rgba(255, 255, 0, 0.8)' : 'none',
             }}
           />
           
@@ -782,7 +791,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           </div>
           
           {/* Mobile Floating Action Buttons for Annotation Tools */}
-          <div className={`md:hidden fixed right-4 z-50 flex flex-col gap-3 transition-all duration-300 ${showRecorder ? 'bottom-64' : 'bottom-20'}`}>
+          <div className={`md:hidden fixed right-4 flex flex-col gap-3 transition-all duration-300 ${showRecorder ? 'bottom-64' : 'bottom-20'}`} style={{ zIndex: 9999, pointerEvents: 'auto' }}>
             <Button 
               size="lg"
               className="h-14 w-14 rounded-full shadow-lg bg-green-600 hover:bg-green-700 text-white p-0"
@@ -1058,17 +1067,21 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                   annotationType="visual"
                 />
                 
-                {/* Approval Workflow */}
-                <ApprovalWorkflow
-                  annotationId={annotation.id}
-                  annotationType="visual"
-                />
-                
-                {/* History Viewer */}
-                <AnnotationHistoryViewer
-                  annotationId={annotation.id}
-                  annotationType="visual"
-                />
+                {/* Approval Workflow and History Viewer in same row */}
+                <div className="flex items-start justify-between gap-2 border-t pt-2 mt-2">
+                  <div className="flex-1 min-w-0">
+                    <ApprovalWorkflow
+                      annotationId={annotation.id}
+                      annotationType="visual"
+                    />
+                  </div>
+                  <div className="flex-shrink-0">
+                    <AnnotationHistoryViewer
+                      annotationId={annotation.id}
+                      annotationType="visual"
+                    />
+                  </div>
+                </div>
                 </div>
               </div>
             );
