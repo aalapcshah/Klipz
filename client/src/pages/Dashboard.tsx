@@ -37,10 +37,35 @@ export default function Dashboard() {
   const { user, loading, isAuthenticated, logout } = useAuth();
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const { data: stats } = trpc.activity.getStats.useQuery(undefined, {
     enabled: isAuthenticated,
   });
   const storageLimit = 10 * 1024 * 1024 * 1024; // 10GB limit
+
+  // Swipe gesture handlers
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isRightSwipe = distance < -minSwipeDistance;
+    if (isRightSwipe && mobileMenuOpen) {
+      setMobileMenuOpen(false);
+    }
+    setTouchStart(null);
+    setTouchEnd(null);
+  };
 
   if (loading) {
     return (
@@ -111,6 +136,31 @@ export default function Dashboard() {
               <Sparkles className="h-5 w-5 text-primary" />
               <span>MetaClips</span>
             </Link>
+            
+            {/* Quick Action Buttons - Right */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                asChild
+                className="h-9 w-9"
+              >
+                <Link href="/search">
+                  <SearchIcon className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  // Trigger upload - will be handled by Files page
+                  window.location.href = '/?upload=true';
+                }}
+                className="h-9 w-9"
+              >
+                <Upload className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           
           {/* Desktop: Logo (left) + Nav (center) + User Info (right) */}
@@ -243,9 +293,25 @@ export default function Dashboard() {
           <div 
             className="md:hidden fixed inset-0 bg-black/50 z-30" 
             onClick={() => setMobileMenuOpen(false)}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
           />
           {/* Menu Panel */}
           <div className="md:hidden fixed top-16 left-0 right-0 bottom-0 bg-card z-40 overflow-y-auto border-t border-border">
+            {/* User Profile Section */}
+            <div className="border-b border-border px-4 py-4 bg-muted/30">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-lg">
+                  {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-foreground truncate">{user?.name || 'User'}</p>
+                  <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
+                </div>
+              </div>
+            </div>
+            
             <nav className="container py-4 flex flex-col gap-2">
             {allNavItems.map((item) => {
               const Icon = item.icon;
