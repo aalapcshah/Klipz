@@ -81,11 +81,12 @@ export const strictRateLimit = rateLimit({
 
 /**
  * Moderate rate limit for API endpoints
- * 100 requests per 15 minutes
+ * 1000 requests per 15 minutes (increased to support chunked uploads)
+ * A 4GB file with 1MB chunks = ~4000 chunks, so we need higher limits
  */
 export const apiRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 1000,
 });
 
 /**

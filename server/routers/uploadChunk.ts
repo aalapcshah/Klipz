@@ -4,7 +4,10 @@ import { storagePut } from "../storage";
 import * as db from "../db";
 
 // Temporary storage for chunks during upload
-const uploadSessions = new Map<string, {
+// Sessions expire after 30 minutes of inactivity
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+interface UploadSession {
   chunks: Buffer[];
   metadata: {
     filename: string;
@@ -13,7 +16,28 @@ const uploadSessions = new Map<string, {
     title?: string;
     description?: string;
   };
-}>();
+  lastActivity: number;
+  userId: string;
+}
+
+const uploadSessions = new Map<string, UploadSession>();
+
+// Cleanup expired sessions every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  let cleaned = 0;
+  const entries = Array.from(uploadSessions.entries());
+  for (const [sessionId, session] of entries) {
+    if (now - session.lastActivity > SESSION_TIMEOUT_MS) {
+      uploadSessions.delete(sessionId);
+      cleaned++;
+      console.log(`[UploadSession] Cleaned up expired session ${sessionId}`);
+    }
+  }
+  if (cleaned > 0) {
+    console.log(`[UploadSession] Cleaned up ${cleaned} expired sessions. Active sessions: ${uploadSessions.size}`);
+  }
+}, 5 * 60 * 1000);
 
 export const uploadChunkRouter = router({
   // Initialize upload session
@@ -39,6 +63,8 @@ export const uploadChunkRouter = router({
           title: input.title,
           description: input.description,
         },
+        lastActivity: Date.now(),
+        userId: String(ctx.user.id),
       });
 
       console.log(`[UploadSession] Initialized session ${sessionId} for ${input.filename} (${input.totalSize} bytes)`);
@@ -60,8 +86,11 @@ export const uploadChunkRouter = router({
       const session = uploadSessions.get(input.sessionId);
       
       if (!session) {
-        throw new Error("Upload session not found or expired");
+        throw new Error("Upload session not found or expired. Please start a new upload.");
       }
+
+      // Update last activity timestamp
+      session.lastActivity = Date.now();
 
       // Decode base64 chunk
       const chunkBuffer = Buffer.from(input.chunkData, "base64");
