@@ -289,8 +289,21 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
     if (video.readyState >= 1 && isFinite(video.duration) && video.duration > 0) {
       setDuration(video.duration);
     }
+    
+    // Fallback polling for duration if events don't fire
+    const pollDuration = setInterval(() => {
+      if (video && isFinite(video.duration) && video.duration > 0) {
+        setDuration(prev => prev === 0 ? video.duration : prev);
+        clearInterval(pollDuration);
+      }
+    }, 500);
+    
+    // Clear polling after 10 seconds
+    const clearPolling = setTimeout(() => clearInterval(pollDuration), 10000);
 
     return () => {
+      clearInterval(pollDuration);
+      clearTimeout(clearPolling);
       video.removeEventListener("timeupdate", handleTimeUpdate);
       video.removeEventListener("loadedmetadata", handleLoadedMetadata);
       video.removeEventListener("durationchange", handleDurationChange);
@@ -299,6 +312,19 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       video.removeEventListener("pause", handlePause);
     };
   }, [visualAnnotations]);
+
+  // Calculate visible annotations whenever currentTime or visualAnnotations change
+  useEffect(() => {
+    const visible = visualAnnotations
+      .filter(ann => {
+        const startTime = ann.videoTimestamp;
+        const annDuration = ann.duration || 5;
+        const endTime = startTime + annDuration;
+        return currentTime >= startTime && currentTime < endTime;
+      })
+      .map(ann => ann.id);
+    setVisibleAnnotationIds(visible);
+  }, [currentTime, visualAnnotations]);
 
   // Keyboard shortcuts for video navigation
   useEffect(() => {

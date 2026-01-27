@@ -3844,3 +3844,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Trash icon already on same line as other tools (undo, redo)
 - [x] Put Color palette and Stroke Width on the same line
 - [x] Moved Save button and Template Library to same line below Color/Width
+
+
+## Video Time and Duration Fixes - January 26, 2026
+- [x] Fix annotation duration - added separate useEffect to calculate visibility based on currentTime
+- [x] Fix video time markers - added fallback polling mechanism to get duration if events don't fire
