@@ -73,7 +73,7 @@ export function FeedbackForm({ trigger }: FeedbackFormProps) {
         <DialogHeader>
           <DialogTitle>Send Feedback</DialogTitle>
           <DialogDescription>
-            Help us improve MetaClips by sharing your thoughts, suggestions, or reporting issues.
+            Help us improve Synclips by sharing your thoughts, suggestions, or reporting issues.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

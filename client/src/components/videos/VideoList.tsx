@@ -52,6 +52,7 @@ export function VideoList() {
   const [selectedVideoIds, setSelectedVideoIds] = useState<number[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [tagFilterMode, setTagFilterMode] = useState<'AND' | 'OR'>('OR');
+  const [playingVideoIds, setPlayingVideoIds] = useState<Set<number>>(new Set());
   
   const searchParams = useSearch();
   const [, setLocation] = useLocation();
@@ -600,51 +601,20 @@ export function VideoList() {
             </div>
 
             {/* Video Thumbnail/Player - Click to play/pause */}
-            <div className="relative aspect-video bg-black rounded-lg overflow-hidden cursor-pointer" onClick={(e) => {
-              const videoEl = e.currentTarget.querySelector('video');
-              if (videoEl) {
-                if (videoEl.paused) {
-                  videoEl.play();
-                } else {
-                  videoEl.pause();
-                }
-              }
-            }}>
-              {/* Show thumbnail if available, otherwise show video */}
-              {(video as any).thumbnailUrl ? (
-                <>
-                  <img
-                    src={(video as any).thumbnailUrl}
-                    alt={video.title || video.filename}
-                    className="w-full h-full object-cover video-thumbnail"
-                    onError={(e) => {
-                      // Hide thumbnail on error, video element will show
-                      (e.target as HTMLImageElement).style.display = 'none';
-                      const videoEl = e.currentTarget.parentElement?.querySelector('video');
-                      if (videoEl) (videoEl as HTMLVideoElement).style.display = 'block';
-                    }}
-                  />
-                  <video
-                    src={video.url}
-                    className="w-full h-full object-contain hidden"
-                    preload="metadata"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </>
-              ) : (
-                <video
-                  src={video.url}
-                  className="w-full h-full object-contain"
-                  preload="metadata"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              )}
-              <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-100 hover:opacity-0 transition-opacity pointer-events-none">
-                <Play className="h-12 w-12 text-white/80" />
-              </div>
+            <div 
+              className="relative aspect-video bg-black rounded-lg overflow-hidden"
+            >
+              {/* Always show video element with native controls */}
+              <video
+                src={video.url}
+                className="w-full h-full object-contain"
+                controls
+                preload="metadata"
+                poster={(video as any).thumbnailUrl || undefined}
+              />
               {/* Duration badge */}
               {video.duration > 0 && (
-                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
+                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded pointer-events-none">
                   {formatDuration(video.duration)}
                 </div>
               )}

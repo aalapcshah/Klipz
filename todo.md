@@ -3999,3 +3999,14 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix React error #185 (Maximum update depth exceeded) when opening annotation dialog - Removed duplicate useEffect that calculated visible annotations
 - [x] Remove duplicate blue duration badge from video cards (duration already shown on thumbnail) - Removed Badge from info row in VideoList.tsx
 - [x] Remove empty space to the left of Annotate button in video cards - Fixed VideoTagManager flex-wrap causing extra spacing
+
+
+## Bug Fixes - Video Library Issues - January 27, 2026
+- [x] Fix uploaded videos missing Annotate button (linked existing videos to file records via SQL)
+- [x] Fix recorded video thumbnail play button not working (replaced custom click handler with native HTML5 video controls)
+
+
+## App Rebranding - January 27, 2026
+- [x] Rename app from MetaClips to Synclips
+- [x] Update page title in index.html
+- [x] Update all UI references to MetaClips (Dashboard, Footer, Onboarding, etc.)

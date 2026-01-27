@@ -1,0 +1,17 @@
+{
+  "query": "SELECT v.id as videoId, v.filename as videoFilename, v.fileId, f.id as matchingFileId, f.filename as fileFilename FROM videos v LEFT JOIN files f ON v.url = f.url WHERE v.fileId IS NULL;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT v.id as videoId, v.filename as videoFilename, v.fileId, f.id as matchingFileId, f.filename as fileFilename FROM videos v LEFT JOIN files f ON v.url = f.url WHERE v.fileId IS NULL;",
+  "rows": [
+    {
+      "videoId": "120001",
+      "videoFilename": "snaptik_7326699507276631328_v2.mp4",
+      "fileId": "NULL",
+      "matchingFileId": "750002",
+      "fileFilename": "snaptik_7326699507276631328_v2.mp4"
+    }
+  ],
+  "messages": [],
+  "stdout": "videoId\tvideoFilename\tfileId\tmatchingFileId\tfileFilename\n120001\tsnaptik_7326699507276631328_v2.mp4\tNULL\t750002\tsnaptik_7326699507276631328_v2.mp4\n",
+  "stderr": "",
+  "execution_time_ms": 66
+}

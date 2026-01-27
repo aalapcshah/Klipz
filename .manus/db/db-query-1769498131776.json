@@ -1,0 +1,38 @@
+{
+  "query": "SELECT id, title, filename, fileId, createdAt FROM videos ORDER BY createdAt DESC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, title, filename, fileId, createdAt FROM videos ORDER BY createdAt DESC;",
+  "rows": [
+    {
+      "id": "120001",
+      "title": "snaptik_7326699507276631328_v2.mp4",
+      "filename": "snaptik_7326699507276631328_v2.mp4",
+      "fileId": "NULL",
+      "createdAt": "2026-01-27 06:37:07"
+    },
+    {
+      "id": "90001",
+      "title": "Recording 1/26/2026, 12:53:35 AM",
+      "filename": "recording-1769417601528.webm",
+      "fileId": "690001",
+      "createdAt": "2026-01-26 08:53:35"
+    },
+    {
+      "id": "60013",
+      "title": "Recording 1/24/2026, 11:30:21 PM",
+      "filename": "recording-1769326193192.webm",
+      "fileId": "630010",
+      "createdAt": "2026-01-25 07:30:21"
+    },
+    {
+      "id": "60012",
+      "title": "Recording 1/24/2026, 11:30:20 PM",
+      "filename": "recording-1769326126038.webm",
+      "fileId": "630009",
+      "createdAt": "2026-01-25 07:30:20"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitle\tfilename\tfileId\tcreatedAt\n120001\tsnaptik_7326699507276631328_v2.mp4\tsnaptik_7326699507276631328_v2.mp4\tNULL\t2026-01-27 06:37:07\n90001\tRecording 1/26/2026, 12:53:35 AM\trecording-1769417601528.webm\t690001\t2026-01-26 08:53:35\n60013\tRecording 1/24/2026, 11:30:21 PM\trecording-1769326193192.webm\t630010\t2026-01-25 07:30:21\n60012\tRecording 1/24/2026, 11:30:20 PM\trecording-1769326126038.webm\t630009\t2026-01-25 07:30:20\n",
+  "stderr": "",
+  "execution_time_ms": 50
+}

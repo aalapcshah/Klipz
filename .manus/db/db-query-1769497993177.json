@@ -1,0 +1,42 @@
+{
+  "query": "SELECT id, title, filename, fileId, url, createdAt FROM videos ORDER BY createdAt DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, title, filename, fileId, url, createdAt FROM videos ORDER BY createdAt DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "120001",
+      "title": "snaptik_7326699507276631328_v2.mp4",
+      "filename": "snaptik_7326699507276631328_v2.mp4",
+      "fileId": "NULL",
+      "url": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/1769495826007-iw81p8-snaptik_7326699507276631328_v2.mp4",
+      "createdAt": "2026-01-27 06:37:07"
+    },
+    {
+      "id": "90001",
+      "title": "Recording 1/26/2026, 12:53:35 AM",
+      "filename": "recording-1769417601528.webm",
+      "fileId": "690001",
+      "url": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769417614441-qjgkvn-recording-1769417601528.webm",
+      "createdAt": "2026-01-26 08:53:35"
+    },
+    {
+      "id": "60013",
+      "title": "Recording 1/24/2026, 11:30:21 PM",
+      "filename": "recording-1769326193192.webm",
+      "fileId": "630010",
+      "url": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769326221075-5nwekr-recording-1769326193192.webm",
+      "createdAt": "2026-01-25 07:30:21"
+    },
+    {
+      "id": "60012",
+      "title": "Recording 1/24/2026, 11:30:20 PM",
+      "filename": "recording-1769326126038.webm",
+      "fileId": "630009",
+      "url": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769326218478-hfncz-recording-1769326126038.webm",
+      "createdAt": "2026-01-25 07:30:20"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitle\tfilename\tfileId\turl\tcreatedAt\n120001\tsnaptik_7326699507276631328_v2.mp4\tsnaptik_7326699507276631328_v2.mp4\tNULL\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/1769495826007-iw81p8-snaptik_7326699507276631328_v2.mp4\t2026-01-27 06:37:07\n90001\tRecording 1/26/2026, 12:53:35 AM\trecording-1769417601528.webm\t690001\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769417614441-qjgkvn-recording-1769417601528.webm\t2026-01-26 08:53:35\n60013\tRecording 1/24/2026, 11:30:21 PM\trecording-1769326193192.webm\t630010\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769326221075-5nwekr-recording-1769326193192.webm\t2026-01-25 07:30:21\n60012\tRecording 1/24/2026, 11:30:20 PM\trecording-1769326126038.webm\t630009\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769326218478-hfncz-recording-1769326126038.webm\t2026-01-25 07:30:20\n",
+  "stderr": "",
+  "execution_time_ms": 87
+}

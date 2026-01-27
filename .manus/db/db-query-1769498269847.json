@@ -1,0 +1,9 @@
+{
+  "query": "UPDATE videos v JOIN files f ON v.url = f.url SET v.fileId = f.id WHERE v.fileId IS NULL;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute UPDATE videos v JOIN files f ON v.url = f.url SET v.fileId = f.id WHERE v.fileId IS NULL;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 67
+}

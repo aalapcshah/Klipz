@@ -102,7 +102,7 @@ export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
       <DialogContent className="sm:max-w-[600px]" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>
-            {step === 1 && "Welcome to MetaClips!"}
+            {step === 1 && "Welcome to Synclips!"}
             {step === 2 && "Terms & Consent"}
             {step === 3 && "Device Permissions"}
             {step === 4 && "Tell us about yourself"}
@@ -217,7 +217,7 @@ export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
           {step === 3 && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                MetaClips works best with access to your device features. You can skip this step and grant permissions later from Settings.
+                Synclips works best with access to your device features. You can skip this step and grant permissions later from Settings.
               </p>
               <Button 
                 onClick={() => setShowPermissions(true)}
@@ -255,7 +255,7 @@ export function OnboardingWizard({ open, onComplete }: OnboardingWizardProps) {
               </div>
 
               <div>
-                <Label htmlFor="reasonForUse">What will you use MetaClips for?</Label>
+                <Label htmlFor="reasonForUse">What will you use Synclips for?</Label>
                 <Textarea
                   id="reasonForUse"
                   value={reasonForUse}

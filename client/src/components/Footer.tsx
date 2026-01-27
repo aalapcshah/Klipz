@@ -9,7 +9,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* About Section */}
           <div>
-            <h3 className="font-semibold text-lg mb-4">MetaClips</h3>
+            <h3 className="font-semibold text-lg mb-4">Synclips</h3>
             <p className="text-sm text-muted-foreground">
               AI-powered media management platform for organizing, enriching, and exporting your visual content.
             </p>
@@ -107,7 +107,7 @@ export function Footer() {
 
         {/* Copyright */}
         <div className="mt-8 pt-8 border-t border-border text-center text-sm text-muted-foreground">
-          <p>&copy; {currentYear} MetaClips. All rights reserved.</p>
+          <p>&copy; {currentYear} Synclips. All rights reserved.</p>
         </div>
       </div>
     </footer>
