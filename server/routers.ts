@@ -34,6 +34,7 @@ import { videoTranscriptionRouter } from "./routers/videoTranscription";
 import { videoChaptersRouter } from "./routers/videoChapters";
 import { s3UploadRouter } from "./routers/s3Upload";
 import { uploadChunkRouter } from "./routers/uploadChunk";
+import { largeFileUploadRouter } from "./routers/largeFileUpload";
 import { uploadHistoryRouter } from "./routers/uploadHistory";
 import { duplicateCheckRouter } from "./routers/duplicateCheck";
 import { storageStatsRouter } from "./routers/storageStats";
@@ -384,6 +385,7 @@ export const appRouter = router({
   videoChapters: videoChaptersRouter,
   s3Upload: s3UploadRouter,
   uploadChunk: uploadChunkRouter,
+  largeFileUpload: largeFileUploadRouter,
   uploadHistory: uploadHistoryRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),

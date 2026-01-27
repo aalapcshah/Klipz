@@ -30,8 +30,9 @@ const ACCEPTED_VIDEO_FORMATS = [
   "video/mpeg",
 ];
 
-const MAX_FILE_SIZE = 4 * 1024 * 1024 * 1024; // 4GB
-const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks (safer for HTTP/2)
+const MAX_FILE_SIZE = 6 * 1024 * 1024 * 1024; // 6GB - supports large video files
+const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks for better performance with large files
+const LARGE_FILE_THRESHOLD = 500 * 1024 * 1024; // 500MB - use large file upload for files above this
 
 const QUALITY_SETTINGS = {
   original: { label: "Original Quality", maxHeight: null, bitrate: null },
@@ -82,6 +83,11 @@ export function VideoUploadSection() {
   const initUploadMutation = trpc.uploadChunk.initUpload.useMutation();
   const uploadChunkMutation = trpc.uploadChunk.uploadChunk.useMutation();
   const finalizeUploadMutation = trpc.uploadChunk.finalizeUpload.useMutation();
+  
+  // Large file upload mutations (for files > 500MB)
+  const initLargeUploadMutation = trpc.largeFileUpload.initLargeUpload.useMutation();
+  const uploadLargeChunkMutation = trpc.largeFileUpload.uploadLargeChunk.useMutation();
+  const finalizeLargeUploadMutation = trpc.largeFileUpload.finalizeLargeUpload.useMutation();
   const checkDuplicatesMutation = trpc.duplicateCheck.checkBatch.useMutation();
   const updateVideoMutation = trpc.videos.update.useMutation();
   const uploadThumbnailMutation = trpc.files.uploadThumbnail.useMutation();
@@ -94,7 +100,7 @@ export function VideoUploadSection() {
       return `Invalid format. Accepted formats: MP4, MOV, AVI, WebM, MKV, MPEG`;
     }
     if (file.size > MAX_FILE_SIZE) {
-      return `File too large. Maximum size: 4GB`;
+      return `File too large. Maximum size: 6GB`;
     }
     return null;
   };
@@ -117,6 +123,7 @@ export function VideoUploadSection() {
   // Video upload processor - registered with UploadManager
   const processVideoUpload = useCallback(async (uploadId: string, file: File, resumeFromChunk?: number) => {
     const abortController = getAbortController(uploadId);
+    const isLargeFile = file.size > LARGE_FILE_THRESHOLD;
     
     try {
       // Check if already cancelled
@@ -131,18 +138,32 @@ export function VideoUploadSection() {
       // Initialize upload session (or reuse existing)
       let sessionId = upload?.sessionId;
       let startChunk = resumeFromChunk || 0;
+      let totalChunks: number;
       
       if (!sessionId) {
-        const initResult = await initUploadMutation.mutateAsync({
-          filename: file.name,
-          totalSize: file.size,
-          mimeType: file.type,
-        });
-        sessionId = initResult.sessionId;
+        if (isLargeFile) {
+          // Use large file upload for files > 500MB
+          console.log(`[Upload] Using large file upload for ${file.name} (${(file.size / (1024 * 1024 * 1024)).toFixed(2)} GB)`);
+          const initResult = await initLargeUploadMutation.mutateAsync({
+            filename: file.name,
+            totalSize: file.size,
+            mimeType: file.type,
+          });
+          sessionId = initResult.sessionId;
+          totalChunks = initResult.totalChunks;
+        } else {
+          const initResult = await initUploadMutation.mutateAsync({
+            filename: file.name,
+            totalSize: file.size,
+            mimeType: file.type,
+          });
+          sessionId = initResult.sessionId;
+          totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        }
         updateUploadSessionId(uploadId, sessionId);
+      } else {
+        totalChunks = Math.ceil(file.size / CHUNK_SIZE);
       }
-
-      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
       
       // Upload chunks
       for (let i = startChunk; i < totalChunks; i++) {
@@ -161,12 +182,20 @@ export function VideoUploadSection() {
         
         while (retries < maxRetries) {
           try {
-            await uploadChunkMutation.mutateAsync({
-              sessionId,
-              chunkIndex: i,
-              chunkData,
-              totalChunks,
-            });
+            if (isLargeFile) {
+              await uploadLargeChunkMutation.mutateAsync({
+                sessionId,
+                chunkIndex: i,
+                chunkData,
+              });
+            } else {
+              await uploadChunkMutation.mutateAsync({
+                sessionId,
+                chunkIndex: i,
+                chunkData,
+                totalChunks,
+              });
+            }
             break;
           } catch (error: any) {
             retries++;
@@ -185,9 +214,9 @@ export function VideoUploadSection() {
       }
 
       // Finalize upload
-      const result = await finalizeUploadMutation.mutateAsync({
-        sessionId,
-      });
+      const result = isLargeFile 
+        ? await finalizeLargeUploadMutation.mutateAsync({ sessionId })
+        : await finalizeUploadMutation.mutateAsync({ sessionId });
 
       // Extract duration, resolution and generate thumbnail in background
       try {
@@ -252,6 +281,9 @@ export function VideoUploadSection() {
     initUploadMutation,
     uploadChunkMutation,
     finalizeUploadMutation,
+    initLargeUploadMutation,
+    uploadLargeChunkMutation,
+    finalizeLargeUploadMutation,
     uploadThumbnailMutation,
     updateVideoMutation,
     updateUploadSessionId,

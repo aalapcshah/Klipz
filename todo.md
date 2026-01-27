@@ -4015,3 +4015,11 @@ Note: The application already has extensive annotation features including voice 
 ## New Features - January 27, 2026
 - [x] Batch video export with annotations for multiple selected videos (ZIP download with FFmpeg processing)
 - [x] Add "Recently Recorded" quick access section on Videos page (shows last 7 days)
+
+
+## Large File Upload Support - January 27, 2026
+- [x] Update chunked upload to support 4-6 GB files (created largeFileUpload router with temp file storage)
+- [x] Increase chunk size for better performance with large files (10MB chunks)
+- [x] Update file size limits in server configuration (6GB max)
+- [x] Add progress tracking for large file uploads (progress percentage in upload response)
+- [x] Test with large video files (12 unit tests passing)
