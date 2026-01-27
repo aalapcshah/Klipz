@@ -2563,3 +2563,125 @@ export async function getUploadHistoryStats(userId: number) {
     recentUploads,
   };
 }
+
+
+// ============= DUPLICATE DETECTION QUERIES =============
+
+export interface DuplicateCheckResult {
+  isDuplicate: boolean;
+  existingFile?: {
+    id: number;
+    filename: string;
+    fileSize: number;
+    url: string;
+    createdAt: Date;
+    type: 'video' | 'file';
+  };
+}
+
+export interface DuplicateCheckInput {
+  filename: string;
+  fileSize: number;
+  type: 'video' | 'file';
+}
+
+/**
+ * Check for duplicate files by filename and size
+ * Returns the existing file if a duplicate is found
+ */
+export async function checkForDuplicateFile(
+  userId: number,
+  input: DuplicateCheckInput
+): Promise<DuplicateCheckResult> {
+  const db = await getDb();
+  if (!db) return { isDuplicate: false };
+
+  if (input.type === 'video') {
+    // Check videos table
+    const existingVideo = await db
+      .select({
+        id: videos.id,
+        filename: videos.filename,
+        url: videos.url,
+        createdAt: videos.createdAt,
+      })
+      .from(videos)
+      .where(
+        and(
+          eq(videos.userId, userId),
+          eq(videos.filename, input.filename)
+        )
+      )
+      .limit(1);
+
+    if (existingVideo.length > 0) {
+      return {
+        isDuplicate: true,
+        existingFile: {
+          id: existingVideo[0].id,
+          filename: existingVideo[0].filename,
+          fileSize: input.fileSize, // Videos table doesn't store fileSize, use input
+          url: existingVideo[0].url,
+          createdAt: existingVideo[0].createdAt,
+          type: 'video',
+        },
+      };
+    }
+  } else {
+    // Check files table
+    const existingFile = await db
+      .select({
+        id: files.id,
+        filename: files.filename,
+        fileSize: files.fileSize,
+        url: files.url,
+        createdAt: files.createdAt,
+      })
+      .from(files)
+      .where(
+        and(
+          eq(files.userId, userId),
+          eq(files.filename, input.filename),
+          eq(files.fileSize, input.fileSize)
+        )
+      )
+      .limit(1);
+
+    if (existingFile.length > 0) {
+      return {
+        isDuplicate: true,
+        existingFile: {
+          id: existingFile[0].id,
+          filename: existingFile[0].filename,
+          fileSize: existingFile[0].fileSize,
+          url: existingFile[0].url,
+          createdAt: existingFile[0].createdAt,
+          type: 'file',
+        },
+      };
+    }
+  }
+
+  return { isDuplicate: false };
+}
+
+/**
+ * Check for multiple duplicate files at once
+ * Returns a map of filename to duplicate check result
+ */
+export async function checkForDuplicateFiles(
+  userId: number,
+  inputs: DuplicateCheckInput[]
+): Promise<Map<string, DuplicateCheckResult>> {
+  const results = new Map<string, DuplicateCheckResult>();
+  
+  // Process in batches to avoid overwhelming the database
+  for (const input of inputs) {
+    const result = await checkForDuplicateFile(userId, input);
+    // Use filename + size as key to handle same filename with different sizes
+    const key = `${input.filename}:${input.fileSize}`;
+    results.set(key, result);
+  }
+
+  return results;
+}

@@ -12,6 +12,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video, Clock, Pause, Play, RefreshCw, Calendar, FolderOpen } from "lucide-react";
+import { DuplicateWarningDialog, DuplicateFile, DuplicateAction } from "@/components/DuplicateWarningDialog";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
@@ -47,6 +48,12 @@ export function VideoUploadSection() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   
+  // Duplicate detection state
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [duplicateFiles, setDuplicateFiles] = useState<DuplicateFile[]>([]);
+  const [nonDuplicateFiles, setNonDuplicateFiles] = useState<File[]>([]);
+  
   const {
     uploads,
     addUpload,
@@ -74,6 +81,7 @@ export function VideoUploadSection() {
   const initUploadMutation = trpc.uploadChunk.initUpload.useMutation();
   const uploadChunkMutation = trpc.uploadChunk.uploadChunk.useMutation();
   const finalizeUploadMutation = trpc.uploadChunk.finalizeUpload.useMutation();
+  const checkDuplicatesMutation = trpc.duplicateCheck.checkBatch.useMutation();
 
   // Filter uploads to show only video uploads
   const videoUploads = uploads.filter(u => u.uploadType === 'video');
@@ -215,29 +223,123 @@ export function VideoUploadSection() {
     };
   }, [registerProcessor, unregisterProcessor, processVideoUpload]);
 
-  const handleFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
+  // Helper to add files to upload queue
+  const addFilesToQueue = (filesToAdd: File[]) => {
+    for (const file of filesToAdd) {
+      addUpload(file, 'video', {
+        quality: selectedQuality,
+      });
+    }
+    if (filesToAdd.length > 0) {
+      toast.success(`Added ${filesToAdd.length} video${filesToAdd.length !== 1 ? 's' : ''} to queue`);
+      triggerHaptic("success");
+    }
+  };
 
-    const fileArray = Array.from(files);
-    
-    for (const file of fileArray) {
+  // Check files for duplicates before adding to queue
+  const checkAndAddFiles = async (filesToCheck: File[]) => {
+    if (filesToCheck.length === 0) return;
+
+    // Validate files first
+    const validFiles: File[] = [];
+    for (const file of filesToCheck) {
       const error = validateFile(file);
       if (error) {
         toast.error(error);
         triggerHaptic("error");
-        continue;
+      } else {
+        validFiles.push(file);
       }
+    }
 
-      // Add to global upload manager with video type
-      addUpload(file, 'video', {
-        quality: selectedQuality,
+    if (validFiles.length === 0) return;
+
+    // Check for duplicates
+    try {
+      const result = await checkDuplicatesMutation.mutateAsync({
+        files: validFiles.map(f => ({
+          filename: f.name,
+          fileSize: f.size,
+          type: 'video' as const,
+        })),
       });
-      
-      triggerHaptic("light");
+
+      if (result.hasDuplicates) {
+        // Separate duplicates from non-duplicates
+        const duplicates: DuplicateFile[] = [];
+        const nonDuplicates: File[] = [];
+
+        for (let i = 0; i < validFiles.length; i++) {
+          const checkResult = result.results[i];
+          if (checkResult.isDuplicate && checkResult.existingFile) {
+            duplicates.push({
+              filename: validFiles[i].name,
+              fileSize: validFiles[i].size,
+              type: 'video',
+              existingFile: checkResult.existingFile,
+            });
+          } else {
+            nonDuplicates.push(validFiles[i]);
+          }
+        }
+
+        // Store state and show dialog
+        setPendingFiles(validFiles);
+        setDuplicateFiles(duplicates);
+        setNonDuplicateFiles(nonDuplicates);
+        setDuplicateDialogOpen(true);
+      } else {
+        // No duplicates, add all files
+        addFilesToQueue(validFiles);
+      }
+    } catch (error) {
+      console.error('Error checking for duplicates:', error);
+      // On error, proceed with upload anyway
+      addFilesToQueue(validFiles);
     }
   };
 
-  const handleFolderSelect = (files: FileList | null) => {
+  // Handle duplicate dialog confirmation
+  const handleDuplicateConfirm = (action: DuplicateAction, applyToAll: boolean) => {
+    const filesToUpload: File[] = [];
+
+    if (action === 'skip') {
+      // Only upload non-duplicates
+      filesToUpload.push(...nonDuplicateFiles);
+      if (duplicateFiles.length > 0) {
+        toast.info(`Skipped ${duplicateFiles.length} duplicate file${duplicateFiles.length !== 1 ? 's' : ''}`);
+      }
+    } else if (action === 'replace' || action === 'keep_both') {
+      // Upload all files (for now, both actions upload the new file)
+      // TODO: Implement actual replace logic (delete existing file first)
+      filesToUpload.push(...pendingFiles);
+      if (action === 'keep_both') {
+        toast.info('Files will be uploaded with the same name. Consider renaming to avoid confusion.');
+      }
+    }
+
+    addFilesToQueue(filesToUpload);
+
+    // Reset state
+    setPendingFiles([]);
+    setDuplicateFiles([]);
+    setNonDuplicateFiles([]);
+  };
+
+  // Handle duplicate dialog cancel
+  const handleDuplicateCancel = () => {
+    toast.info('Upload cancelled');
+    setPendingFiles([]);
+    setDuplicateFiles([]);
+    setNonDuplicateFiles([]);
+  };
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    await checkAndAddFiles(Array.from(files));
+  };
+
+  const handleFolderSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     
     // Filter for video files from the folder
@@ -249,12 +351,7 @@ export function VideoUploadSection() {
       // Check if it's a video file
       if (ACCEPTED_VIDEO_FORMATS.includes(file.type) || 
           file.name.match(/\.(mp4|mov|avi|webm|mkv|mpeg|mpg|m4v)$/i)) {
-        const error = validateFile(file);
-        if (!error) {
-          videoFiles.push(file);
-        } else {
-          skippedCount++;
-        }
+        videoFiles.push(file);
       } else {
         skippedCount++;
       }
@@ -266,19 +363,12 @@ export function VideoUploadSection() {
       return;
     }
     
-    // Add all video files to upload queue
-    for (const file of videoFiles) {
-      addUpload(file, 'video', {
-        quality: selectedQuality,
-      });
+    if (skippedCount > 0) {
+      toast.info(`${skippedCount} non-video file${skippedCount !== 1 ? 's' : ''} skipped`);
     }
     
-    const message = skippedCount > 0 
-      ? `Added ${videoFiles.length} video${videoFiles.length !== 1 ? 's' : ''} to queue (${skippedCount} non-video files skipped)`
-      : `Added ${videoFiles.length} video${videoFiles.length !== 1 ? 's' : ''} to queue`;
-    
-    toast.success(message);
-    triggerHaptic("success");
+    // Check for duplicates
+    await checkAndAddFiles(videoFiles);
     
     // Reset the input
     if (folderInputRef.current) {
@@ -675,6 +765,15 @@ export function VideoUploadSection() {
           ))}
         </div>
       )}
+
+      {/* Duplicate Warning Dialog */}
+      <DuplicateWarningDialog
+        open={duplicateDialogOpen}
+        onOpenChange={setDuplicateDialogOpen}
+        duplicates={duplicateFiles}
+        onConfirm={handleDuplicateConfirm}
+        onCancel={handleDuplicateCancel}
+      />
 
       {/* Schedule Dialog */}
       <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>

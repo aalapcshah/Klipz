@@ -35,6 +35,7 @@ import { videoChaptersRouter } from "./routers/videoChapters";
 import { s3UploadRouter } from "./routers/s3Upload";
 import { uploadChunkRouter } from "./routers/uploadChunk";
 import { uploadHistoryRouter } from "./routers/uploadHistory";
+import { duplicateCheckRouter } from "./routers/duplicateCheck";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { sendUploadEmail, sendEditEmail, sendDeleteEmail, sendEnrichEmail } from "./_core/activityEmailNotifications";
 import { TRPCError } from "@trpc/server";
@@ -50,6 +51,7 @@ import { voiceAnnotations, visualAnnotations, files } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 
 export const appRouter = router({
+  duplicateCheck: duplicateCheckRouter,
   metadataTemplates: router({
     list: protectedProcedure.query(({ ctx }) => db.getMetadataTemplatesByUser(ctx.user.id)),
     

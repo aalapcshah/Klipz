@@ -3928,3 +3928,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Show folder upload progress with file count
 - [x] Handle nested folders recursively
 - [x] Add folder upload option to GlobalDropZone
+
+## Duplicate File Detection - January 26, 2026
+- [x] Add server-side endpoint to check for duplicate files by name and size
+- [x] Create duplicate detection query in database
+- [x] Show warning dialog when duplicate files are detected before upload
+- [x] Allow users to skip, replace, or keep both versions
+- [x] Display existing file details (upload date, size) in warning dialog
+- [x] Handle batch duplicates (multiple files at once)
+- [x] Add "Skip all duplicates" option for batch uploads
