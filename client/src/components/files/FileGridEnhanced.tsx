@@ -1309,7 +1309,7 @@ export default function FileGridEnhanced({
           </Card>
         ) : (
           <div 
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4"
+            className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3"
             role="grid"
             aria-label="File grid"
           >
@@ -1318,7 +1318,7 @@ export default function FileGridEnhanced({
               return (
                       <Card
                         key={file.id}
-                        className={`group p-4 md:p-4 sm:p-6 hover:border-primary/50 transition-colors cursor-pointer relative ${
+                        className={`group p-2 md:p-3 hover:border-primary/50 transition-colors cursor-pointer relative ${
                           draggedFileId === file.id ? "opacity-50" : ""
                         }`}
                         draggable
