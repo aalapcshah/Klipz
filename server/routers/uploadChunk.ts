@@ -149,6 +149,25 @@ export const uploadChunkRouter = router({
         description: session.metadata.description,
       });
 
+      // Also create a video record if this is a video file
+      const isVideo = session.metadata.mimeType.startsWith('video/');
+      let videoId: number | undefined;
+      
+      if (isVideo) {
+        videoId = await db.createVideo({
+          userId: ctx.user.id,
+          fileId: fileRecord.id,
+          fileKey,
+          url,
+          filename: session.metadata.filename,
+          title: session.metadata.title || session.metadata.filename,
+          description: session.metadata.description,
+          duration: 0, // Duration will be extracted on client or updated later
+          exportStatus: 'draft',
+        });
+        console.log(`[FinalizeUpload] Created video record, video ID: ${videoId}`);
+      }
+
       // Clean up session
       uploadSessions.delete(input.sessionId);
       console.log(`[FinalizeUpload] Upload complete, file ID: ${fileRecord.id}`);
@@ -156,6 +175,7 @@ export const uploadChunkRouter = router({
       return {
         success: true,
         fileId: fileRecord.id,
+        videoId,
         url,
         fileKey,
       };

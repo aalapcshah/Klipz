@@ -3957,3 +3957,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Block uploads when quota exceeded (with override option)
 - [x] Add quota status to Settings > Storage page
 - [x] Store quota settings in localStorage
+
+## Bug Fix: Uploaded Videos Not Showing in Saved Videos Tab - January 27, 2026
+- [x] Investigate where uploaded videos are stored in database (only files table, not videos table)
+- [x] Ensure uploaded videos appear in Saved Videos tab (fixed finalizeUpload to create video record)
+- [x] Verify video upload flow saves to correct table (now saves to both files and videos tables)
