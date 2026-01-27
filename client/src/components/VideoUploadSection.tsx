@@ -1,8 +1,17 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video, Clock, Pause, Play } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video, Clock, Pause, Play, RefreshCw, Calendar } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
@@ -32,6 +41,9 @@ const QUALITY_SETTINGS = {
 export function VideoUploadSection() {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality>("high");
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [scheduleUploadId, setScheduleUploadId] = useState<string | null>(null);
+  const [scheduleTime, setScheduleTime] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const {
@@ -41,6 +53,9 @@ export function VideoUploadSection() {
     pauseUpload,
     resumeUpload,
     removeUpload,
+    retryUpload,
+    scheduleUpload,
+    cancelSchedule,
     updateUploadProgress,
     updateUploadStatus,
     updateUploadSessionId,
@@ -51,6 +66,8 @@ export function VideoUploadSection() {
     queuedCount,
     uploadingCount,
     pausedCount,
+    scheduledCount,
+    retryingCount,
   } = useUploadManager();
 
   const initUploadMutation = trpc.uploadChunk.initUpload.useMutation();
@@ -98,62 +115,39 @@ export function VideoUploadSection() {
       // Get quality from upload metadata
       const upload = uploads.find(u => u.id === uploadId);
       const quality = (upload?.metadata?.quality as VideoQuality) || 'high';
-      const startChunk = resumeFromChunk || 0;
 
       // Initialize upload session (or reuse existing)
       let sessionId = upload?.sessionId;
+      let startChunk = resumeFromChunk || 0;
       
       if (!sessionId) {
-        const result = await initUploadMutation.mutateAsync({
+        const initResult = await initUploadMutation.mutateAsync({
           filename: file.name,
-          mimeType: file.type,
           totalSize: file.size,
-          title: file.name.replace(/\.[^/.]+$/, ""),
-          description: `Uploaded video - ${QUALITY_SETTINGS[quality].label}`,
+          mimeType: file.type,
         });
-        sessionId = result.sessionId;
+        sessionId = initResult.sessionId;
         updateUploadSessionId(uploadId, sessionId);
       }
 
-      // Calculate chunks
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-      console.log(`[Upload] Starting upload of ${file.name}: ${totalChunks} chunks, ${file.size} bytes, starting from chunk ${startChunk}`);
-
-      // Upload chunks sequentially with retry logic
+      
+      // Upload chunks
       for (let i = startChunk; i < totalChunks; i++) {
-        // Check if cancelled/paused before each chunk
+        // Check if paused or cancelled
         if (abortController?.signal.aborted) {
-          console.log(`[Upload] Upload paused/cancelled for ${file.name} at chunk ${i}`);
           updatePausedChunk(uploadId, i);
           return;
         }
 
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, file.size);
-        
-        // Read chunk
         const chunkData = await readChunk(file, start, end);
-        
-        // Check again after reading
-        if (abortController?.signal.aborted) {
-          console.log(`[Upload] Upload paused/cancelled for ${file.name} at chunk ${i}`);
-          updatePausedChunk(uploadId, i);
-          return;
-        }
-        
-        // Upload chunk with retry (max 3 attempts)
+
         let retries = 0;
         const maxRetries = 3;
-        let uploaded = false;
         
-        while (!uploaded && retries < maxRetries) {
-          // Check before each retry attempt
-          if (abortController?.signal.aborted) {
-            console.log(`[Upload] Upload paused/cancelled for ${file.name} at chunk ${i}`);
-            updatePausedChunk(uploadId, i);
-            return;
-          }
-          
+        while (retries < maxRetries) {
           try {
             await uploadChunkMutation.mutateAsync({
               sessionId,
@@ -161,39 +155,28 @@ export function VideoUploadSection() {
               chunkData,
               totalChunks,
             });
-            uploaded = true;
+            break;
           } catch (error: any) {
             retries++;
-            console.error(`[Upload] Chunk ${i} failed (attempt ${retries}/${maxRetries}):`, error.message);
-            
             if (retries >= maxRetries) {
               throw new Error(`Failed to upload chunk ${i} after ${maxRetries} attempts: ${error.message}`);
             }
-            
-            // Wait before retry (exponential backoff)
-            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries - 1)));
+            // Wait before retry with exponential backoff
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
           }
         }
 
-        // Update progress with uploaded bytes for speed calculation
-        const uploadedBytes = end;
-        const progress = ((i + 1) / totalChunks) * 90;
+        // Update progress
+        const progress = ((i + 1) / totalChunks) * 100;
+        const uploadedBytes = Math.min((i + 1) * CHUNK_SIZE, file.size);
         updateUploadProgress(uploadId, progress, uploadedBytes);
       }
 
-      // Check before finalization
-      if (abortController?.signal.aborted) {
-        console.log(`[Upload] Upload paused/cancelled for ${file.name}`);
-        return;
-      }
-
       // Finalize upload
-      updateUploadProgress(uploadId, 95, file.size);
+      const result = await finalizeUploadMutation.mutateAsync({
+        sessionId,
+      });
 
-      const result = await finalizeUploadMutation.mutateAsync({ sessionId });
-
-      // Success
-      updateUploadProgress(uploadId, 100, file.size);
       updateUploadStatus(uploadId, 'completed', {
         fileId: result.fileId,
         url: result.url,
@@ -268,11 +251,36 @@ export function VideoUploadSection() {
     triggerHaptic("light");
   };
 
-  const retryUpload = async (upload: UploadItem) => {
-    removeUpload(upload.id);
-    const dataTransfer = new DataTransfer();
-    dataTransfer.items.add(upload.file);
-    await handleFiles(dataTransfer.files);
+  const handleRetryUpload = (uploadId: string) => {
+    retryUpload(uploadId);
+    triggerHaptic("light");
+  };
+
+  const openScheduleDialog = (uploadId: string) => {
+    setScheduleUploadId(uploadId);
+    // Default to 1 hour from now
+    const defaultTime = new Date(Date.now() + 60 * 60 * 1000);
+    setScheduleTime(defaultTime.toISOString().slice(0, 16));
+    setScheduleDialogOpen(true);
+  };
+
+  const handleScheduleConfirm = () => {
+    if (scheduleUploadId && scheduleTime) {
+      const scheduledTimestamp = new Date(scheduleTime).getTime();
+      if (scheduledTimestamp > Date.now()) {
+        scheduleUpload(scheduleUploadId, scheduledTimestamp);
+        triggerHaptic("success");
+      } else {
+        toast.error("Please select a future time");
+      }
+    }
+    setScheduleDialogOpen(false);
+    setScheduleUploadId(null);
+  };
+
+  const handleCancelSchedule = (uploadId: string) => {
+    cancelSchedule(uploadId);
+    triggerHaptic("light");
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -281,6 +289,45 @@ export function VideoUploadSection() {
     const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+  };
+
+  const formatScheduledTime = (timestamp: number): string => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    
+    if (isToday) {
+      return `Today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    return date.toLocaleString([], { 
+      month: 'short', 
+      day: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'uploading':
+        return <Loader2 className="w-5 h-5 animate-spin text-primary" />;
+      case 'pending':
+        return <Clock className="w-5 h-5 text-muted-foreground" />;
+      case 'paused':
+        return <Pause className="w-5 h-5 text-yellow-500" />;
+      case 'completed':
+        return <CheckCircle2 className="w-5 h-5 text-green-600" />;
+      case 'error':
+        return <AlertCircle className="w-5 h-5 text-red-600" />;
+      case 'cancelled':
+        return <X className="w-5 h-5 text-muted-foreground" />;
+      case 'retrying':
+        return <RefreshCw className="w-5 h-5 animate-spin text-orange-500" />;
+      case 'scheduled':
+        return <Calendar className="w-5 h-5 text-blue-500" />;
+      default:
+        return null;
+    }
   };
 
   return (
@@ -356,13 +403,15 @@ export function VideoUploadSection() {
       </Card>
 
       {/* Queue Status */}
-      {(queuedCount > 0 || pausedCount > 0) && (
+      {(queuedCount > 0 || pausedCount > 0 || scheduledCount > 0 || retryingCount > 0) && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
           <Clock className="w-4 h-4" />
           <span>
-            {uploadingCount} uploading
-            {queuedCount > 0 && `, ${queuedCount} in queue`}
+            {uploadingCount > 0 && `${uploadingCount} uploading`}
+            {queuedCount > 0 && `${uploadingCount > 0 ? ', ' : ''}${queuedCount} in queue`}
             {pausedCount > 0 && `, ${pausedCount} paused`}
+            {retryingCount > 0 && `, ${retryingCount} retrying`}
+            {scheduledCount > 0 && `, ${scheduledCount} scheduled`}
             {" "}(max 3 concurrent uploads)
           </span>
         </div>
@@ -385,24 +434,7 @@ export function VideoUploadSection() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
-                      {upload.status === "uploading" && (
-                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                      )}
-                      {upload.status === "pending" && (
-                        <Clock className="w-5 h-5 text-muted-foreground" />
-                      )}
-                      {upload.status === "paused" && (
-                        <Pause className="w-5 h-5 text-yellow-500" />
-                      )}
-                      {upload.status === "completed" && (
-                        <CheckCircle2 className="w-5 h-5 text-green-600" />
-                      )}
-                      {upload.status === "error" && (
-                        <AlertCircle className="w-5 h-5 text-red-600" />
-                      )}
-                      {upload.status === "cancelled" && (
-                        <span className="text-xs text-muted-foreground">Cancelled</span>
-                      )}
+                      {getStatusIcon(upload.status)}
                       
                       {/* Pause button for uploading */}
                       {upload.status === "uploading" && (
@@ -428,8 +460,44 @@ export function VideoUploadSection() {
                         </Button>
                       )}
                       
+                      {/* Retry button for errors */}
+                      {upload.status === "error" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRetryUpload(upload.id)}
+                          title="Retry upload"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                        </Button>
+                      )}
+                      
+                      {/* Schedule button for pending/paused/error */}
+                      {(upload.status === "pending" || upload.status === "paused" || upload.status === "error") && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openScheduleDialog(upload.id)}
+                          title="Schedule upload"
+                        >
+                          <Calendar className="w-4 h-4" />
+                        </Button>
+                      )}
+                      
+                      {/* Start now button for scheduled */}
+                      {upload.status === "scheduled" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCancelSchedule(upload.id)}
+                          title="Start now"
+                        >
+                          <Play className="w-4 h-4" />
+                        </Button>
+                      )}
+                      
                       {/* Cancel button for active uploads */}
-                      {(upload.status === "pending" || upload.status === "uploading" || upload.status === "paused") && (
+                      {(upload.status === "pending" || upload.status === "uploading" || upload.status === "paused" || upload.status === "retrying" || upload.status === "scheduled") && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -485,17 +553,38 @@ export function VideoUploadSection() {
                     </div>
                   )}
 
+                  {/* Retry countdown */}
+                  {upload.status === "retrying" && (
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-orange-500">
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>
+                          Retrying in {upload.retryCountdown}s... (Attempt {upload.retryCount}/3)
+                        </span>
+                      </div>
+                      {upload.error && (
+                        <p className="text-sm text-muted-foreground">{upload.error}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Scheduled time */}
+                  {upload.status === "scheduled" && upload.scheduledFor && (
+                    <div className="mt-2">
+                      <div className="flex items-center gap-2 text-sm text-blue-500">
+                        <Calendar className="w-4 h-4" />
+                        <span>Scheduled for {formatScheduledTime(upload.scheduledFor)}</span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Error Message */}
                   {upload.status === "error" && upload.error && (
                     <div className="mt-2 space-y-2">
                       <p className="text-sm text-red-600">{upload.error}</p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => retryUpload(upload)}
-                      >
-                        Retry Upload
-                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        Max retries exceeded. Click retry to try again.
+                      </p>
                     </div>
                   )}
 
@@ -510,13 +599,6 @@ export function VideoUploadSection() {
                   {upload.status === "cancelled" && (
                     <div className="mt-2 space-y-2">
                       <p className="text-sm text-muted-foreground">Upload was cancelled</p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => retryUpload(upload)}
-                      >
-                        Retry Upload
-                      </Button>
                     </div>
                   )}
                 </div>
@@ -525,6 +607,38 @@ export function VideoUploadSection() {
           ))}
         </div>
       )}
+
+      {/* Schedule Dialog */}
+      <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule Upload</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="schedule-time">Start upload at</Label>
+              <Input
+                id="schedule-time"
+                type="datetime-local"
+                value={scheduleTime}
+                onChange={(e) => setScheduleTime(e.target.value)}
+                min={new Date().toISOString().slice(0, 16)}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              The upload will automatically start at the scheduled time. This is useful for uploading large files during off-peak hours when network bandwidth is typically better.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScheduleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleScheduleConfirm}>
+              Schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

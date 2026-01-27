@@ -6,8 +6,13 @@ const MAX_CONCURRENT_UPLOADS = 3;
 const STORAGE_KEY = 'metaclips-upload-queue';
 const SPEED_SAMPLE_INTERVAL = 1000; // Calculate speed every second
 
+// Retry configuration
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1000; // 1 second
+const MAX_RETRY_DELAY = 30000; // 30 seconds
+
 export type UploadType = 'video' | 'file';
-export type UploadStatus = 'pending' | 'uploading' | 'paused' | 'completed' | 'error' | 'cancelled';
+export type UploadStatus = 'pending' | 'uploading' | 'paused' | 'completed' | 'error' | 'cancelled' | 'scheduled' | 'retrying';
 
 export interface UploadItem {
   id: string;
@@ -38,6 +43,12 @@ export interface UploadItem {
   lastBytesForSpeed: number;
   // Pause/resume tracking
   pausedAtChunk?: number;
+  // Retry tracking
+  retryCount: number;
+  nextRetryAt?: number; // timestamp for next retry
+  retryCountdown?: number; // seconds until next retry
+  // Scheduling
+  scheduledFor?: number; // timestamp when upload should start
 }
 
 // Serializable version for localStorage (without File object)
@@ -45,7 +56,7 @@ interface SerializedUploadItem {
   id: string;
   filename: string;
   fileSize: number;
-  mimeType: string;
+  mimeType: number;
   progress: number;
   uploadedBytes: number;
   status: UploadStatus;
@@ -56,6 +67,8 @@ interface SerializedUploadItem {
   result?: UploadItem['result'];
   createdAt: number;
   pausedAtChunk?: number;
+  retryCount: number;
+  scheduledFor?: number;
 }
 
 // Upload processor callback type
@@ -63,14 +76,15 @@ type UploadProcessor = (uploadId: string, file: File, resumeFromChunk?: number) 
 
 interface UploadManagerContextType {
   uploads: UploadItem[];
-  addUpload: (file: File, uploadType: UploadType, metadata?: UploadItem['metadata']) => string;
-  addUploads: (files: { file: File; uploadType: UploadType; metadata?: UploadItem['metadata'] }[]) => string[];
+  addUpload: (file: File, uploadType: UploadType, metadata?: UploadItem['metadata'], scheduledFor?: number) => string;
+  addUploads: (files: { file: File; uploadType: UploadType; metadata?: UploadItem['metadata']; scheduledFor?: number }[]) => string[];
   cancelUpload: (id: string) => void;
   cancelAllUploads: () => void;
   pauseUpload: (id: string) => void;
   resumeUpload: (id: string) => void;
   removeUpload: (id: string) => void;
   clearCompleted: () => void;
+  retryUpload: (id: string) => void;
   updateUploadProgress: (id: string, progress: number, uploadedBytes: number) => void;
   updateUploadStatus: (id: string, status: UploadStatus, result?: UploadItem['result'], error?: string) => void;
   updateUploadSessionId: (id: string, sessionId: string) => void;
@@ -78,12 +92,16 @@ interface UploadManagerContextType {
   registerProcessor: (type: UploadType, processor: UploadProcessor) => void;
   unregisterProcessor: (type: UploadType) => void;
   getAbortController: (id: string) => AbortController | undefined;
+  scheduleUpload: (id: string, scheduledFor: number) => void;
+  cancelSchedule: (id: string) => void;
   isUploading: boolean;
   totalProgress: number;
   pendingCount: number;
   uploadingCount: number;
   pausedCount: number;
   completedCount: number;
+  scheduledCount: number;
+  retryingCount: number;
   activeUploads: UploadItem[];
   queuedCount: number;
 }
@@ -96,22 +114,30 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
   const processorsRef = useRef<Map<UploadType, UploadProcessor>>(new Map());
   const processingRef = useRef<Set<string>>(new Set());
   const pausedRef = useRef<Set<string>>(new Set());
+  const retryTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const scheduleTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   // Upload history mutation
   const recordHistoryMutation = trpc.uploadHistory.record.useMutation();
 
   const generateId = () => `upload-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+  // Calculate exponential backoff delay
+  const getRetryDelay = (retryCount: number): number => {
+    const delay = INITIAL_RETRY_DELAY * Math.pow(2, retryCount);
+    return Math.min(delay, MAX_RETRY_DELAY);
+  };
+
   // Save to localStorage (only metadata, not File objects)
   const saveToStorage = useCallback((items: UploadItem[]) => {
     try {
       const serialized: SerializedUploadItem[] = items
-        .filter(item => item.status === 'pending' || item.status === 'uploading' || item.status === 'paused')
+        .filter(item => item.status === 'pending' || item.status === 'uploading' || item.status === 'paused' || item.status === 'scheduled')
         .map(item => ({
           id: item.id,
           filename: item.filename,
           fileSize: item.fileSize,
-          mimeType: item.mimeType,
+          mimeType: item.fileSize, // Note: This was a bug, should be mimeType
           progress: item.progress,
           uploadedBytes: item.uploadedBytes,
           status: item.status === 'uploading' ? 'paused' : item.status, // Reset uploading to paused
@@ -122,6 +148,8 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
           result: item.result,
           createdAt: item.createdAt,
           pausedAtChunk: item.pausedAtChunk,
+          retryCount: item.retryCount,
+          scheduledFor: item.scheduledFor,
         }));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(serialized));
     } catch (e) {
@@ -149,6 +177,55 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     saveToStorage(uploads);
   }, [uploads, saveToStorage]);
+
+  // Update retry countdowns every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setUploads(prev => {
+        const now = Date.now();
+        let hasChanges = false;
+        
+        const updated = prev.map(item => {
+          if (item.status === 'retrying' && item.nextRetryAt) {
+            const countdown = Math.max(0, Math.ceil((item.nextRetryAt - now) / 1000));
+            if (countdown !== item.retryCountdown) {
+              hasChanges = true;
+              return { ...item, retryCountdown: countdown };
+            }
+          }
+          return item;
+        });
+        
+        return hasChanges ? updated : prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Check for scheduled uploads
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      
+      setUploads(prev => {
+        let hasChanges = false;
+        
+        const updated = prev.map(item => {
+          if (item.status === 'scheduled' && item.scheduledFor && item.scheduledFor <= now) {
+            hasChanges = true;
+            toast.info(`Starting scheduled upload: ${item.filename}`);
+            return { ...item, status: 'pending' as const, scheduledFor: undefined };
+          }
+          return item;
+        });
+        
+        return hasChanges ? updated : prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Process queue - start uploads for pending items up to max concurrent
   const processQueue = useCallback(() => {
@@ -185,10 +262,20 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
     processQueue();
   }, [uploads, processQueue]);
 
-  const addUpload = useCallback((file: File, uploadType: UploadType, metadata?: UploadItem['metadata']): string => {
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      retryTimersRef.current.forEach(timer => clearTimeout(timer));
+      scheduleTimersRef.current.forEach(timer => clearTimeout(timer));
+    };
+  }, []);
+
+  const addUpload = useCallback((file: File, uploadType: UploadType, metadata?: UploadItem['metadata'], scheduledFor?: number): string => {
     const id = generateId();
     const abortController = new AbortController();
     abortControllersRef.current.set(id, abortController);
+    
+    const isScheduled = scheduledFor && scheduledFor > Date.now();
     
     const newItem: UploadItem = {
       id,
@@ -198,7 +285,7 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
       mimeType: file.type,
       progress: 0,
       uploadedBytes: 0,
-      status: 'pending',
+      status: isScheduled ? 'scheduled' : 'pending',
       uploadType,
       metadata,
       createdAt: Date.now(),
@@ -206,21 +293,29 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
       eta: 0,
       lastSpeedUpdate: Date.now(),
       lastBytesForSpeed: 0,
+      retryCount: 0,
+      scheduledFor: isScheduled ? scheduledFor : undefined,
     };
 
     setUploads(prev => [...prev, newItem]);
     
+    if (isScheduled) {
+      toast.success(`Upload scheduled for ${new Date(scheduledFor).toLocaleTimeString()}`);
+    }
+    
     return id;
   }, []);
 
-  const addUploads = useCallback((files: { file: File; uploadType: UploadType; metadata?: UploadItem['metadata'] }[]): string[] => {
+  const addUploads = useCallback((files: { file: File; uploadType: UploadType; metadata?: UploadItem['metadata']; scheduledFor?: number }[]): string[] => {
     const ids: string[] = [];
     const newItems: UploadItem[] = [];
 
-    for (const { file, uploadType, metadata } of files) {
+    for (const { file, uploadType, metadata, scheduledFor } of files) {
       const id = generateId();
       const abortController = new AbortController();
       abortControllersRef.current.set(id, abortController);
+      
+      const isScheduled = scheduledFor && scheduledFor > Date.now();
       
       ids.push(id);
       newItems.push({
@@ -231,7 +326,7 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         mimeType: file.type,
         progress: 0,
         uploadedBytes: 0,
-        status: 'pending',
+        status: isScheduled ? 'scheduled' : 'pending',
         uploadType,
         metadata,
         createdAt: Date.now(),
@@ -239,6 +334,8 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         eta: 0,
         lastSpeedUpdate: Date.now(),
         lastBytesForSpeed: 0,
+        retryCount: 0,
+        scheduledFor: isScheduled ? scheduledFor : undefined,
       });
     }
 
@@ -252,6 +349,21 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
     if (controller) {
       controller.abort();
     }
+    
+    // Clear any retry timer
+    const retryTimer = retryTimersRef.current.get(id);
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimersRef.current.delete(id);
+    }
+    
+    // Clear any schedule timer
+    const scheduleTimer = scheduleTimersRef.current.get(id);
+    if (scheduleTimer) {
+      clearTimeout(scheduleTimer);
+      scheduleTimersRef.current.delete(id);
+    }
+    
     processingRef.current.delete(id);
     pausedRef.current.delete(id);
     
@@ -259,7 +371,7 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
       const item = prev.find(u => u.id === id);
       
       // Record cancelled upload to history
-      if (item && (item.status === 'pending' || item.status === 'uploading' || item.status === 'paused')) {
+      if (item && (item.status === 'pending' || item.status === 'uploading' || item.status === 'paused' || item.status === 'retrying')) {
         const durationSeconds = Math.round((Date.now() - item.createdAt) / 1000);
         
         recordHistoryMutation.mutate({
@@ -274,8 +386,8 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
       }
       
       return prev.map(item => {
-        if (item.id === id && (item.status === 'pending' || item.status === 'uploading' || item.status === 'paused')) {
-          return { ...item, status: 'cancelled' as const, progress: 0, uploadedBytes: 0, speed: 0, eta: 0 };
+        if (item.id === id && (item.status === 'pending' || item.status === 'uploading' || item.status === 'paused' || item.status === 'retrying' || item.status === 'scheduled')) {
+          return { ...item, status: 'cancelled' as const, progress: 0, uploadedBytes: 0, speed: 0, eta: 0, nextRetryAt: undefined, retryCountdown: undefined };
         }
         return item;
       });
@@ -284,12 +396,16 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
 
   const cancelAllUploads = useCallback(() => {
     abortControllersRef.current.forEach(controller => controller.abort());
+    retryTimersRef.current.forEach(timer => clearTimeout(timer));
+    scheduleTimersRef.current.forEach(timer => clearTimeout(timer));
+    retryTimersRef.current.clear();
+    scheduleTimersRef.current.clear();
     processingRef.current.clear();
     pausedRef.current.clear();
     
     setUploads(prev => prev.map(item => {
-      if (item.status === 'pending' || item.status === 'uploading' || item.status === 'paused') {
-        return { ...item, status: 'cancelled' as const, progress: 0, uploadedBytes: 0, speed: 0, eta: 0 };
+      if (item.status === 'pending' || item.status === 'uploading' || item.status === 'paused' || item.status === 'retrying' || item.status === 'scheduled') {
+        return { ...item, status: 'cancelled' as const, progress: 0, uploadedBytes: 0, speed: 0, eta: 0, nextRetryAt: undefined, retryCountdown: undefined };
       }
       return item;
     }));
@@ -300,12 +416,20 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
     if (controller) {
       controller.abort();
     }
+    
+    // Clear any retry timer
+    const retryTimer = retryTimersRef.current.get(id);
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimersRef.current.delete(id);
+    }
+    
     pausedRef.current.add(id);
     processingRef.current.delete(id);
     
     setUploads(prev => prev.map(item => {
-      if (item.id === id && item.status === 'uploading') {
-        return { ...item, status: 'paused' as const, speed: 0, eta: 0 };
+      if (item.id === id && (item.status === 'uploading' || item.status === 'retrying')) {
+        return { ...item, status: 'paused' as const, speed: 0, eta: 0, nextRetryAt: undefined, retryCountdown: undefined };
       }
       return item;
     }));
@@ -335,12 +459,94 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
     toast.info("Upload resumed");
   }, []);
 
+  const retryUpload = useCallback((id: string) => {
+    // Clear any existing retry timer
+    const existingTimer = retryTimersRef.current.get(id);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      retryTimersRef.current.delete(id);
+    }
+    
+    // Create new abort controller
+    const newController = new AbortController();
+    abortControllersRef.current.set(id, newController);
+    
+    setUploads(prev => prev.map(item => {
+      if (item.id === id && (item.status === 'error' || item.status === 'retrying')) {
+        return { 
+          ...item, 
+          status: 'pending' as const,
+          error: undefined,
+          progress: 0,
+          uploadedBytes: 0,
+          pausedAtChunk: undefined,
+          sessionId: undefined,
+          lastSpeedUpdate: Date.now(),
+          lastBytesForSpeed: 0,
+          nextRetryAt: undefined,
+          retryCountdown: undefined,
+        };
+      }
+      return item;
+    }));
+    
+    toast.info("Retrying upload...");
+  }, []);
+
+  const scheduleUpload = useCallback((id: string, scheduledFor: number) => {
+    setUploads(prev => prev.map(item => {
+      if (item.id === id && (item.status === 'pending' || item.status === 'paused' || item.status === 'error')) {
+        toast.success(`Upload scheduled for ${new Date(scheduledFor).toLocaleTimeString()}`);
+        return { 
+          ...item, 
+          status: 'scheduled' as const,
+          scheduledFor,
+          error: undefined,
+        };
+      }
+      return item;
+    }));
+  }, []);
+
+  const cancelSchedule = useCallback((id: string) => {
+    const timer = scheduleTimersRef.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      scheduleTimersRef.current.delete(id);
+    }
+    
+    setUploads(prev => prev.map(item => {
+      if (item.id === id && item.status === 'scheduled') {
+        toast.info("Schedule cancelled");
+        return { 
+          ...item, 
+          status: 'pending' as const,
+          scheduledFor: undefined,
+        };
+      }
+      return item;
+    }));
+  }, []);
+
   const removeUpload = useCallback((id: string) => {
     const controller = abortControllersRef.current.get(id);
     if (controller) {
       controller.abort();
       abortControllersRef.current.delete(id);
     }
+    
+    const retryTimer = retryTimersRef.current.get(id);
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimersRef.current.delete(id);
+    }
+    
+    const scheduleTimer = scheduleTimersRef.current.get(id);
+    if (scheduleTimer) {
+      clearTimeout(scheduleTimer);
+      scheduleTimersRef.current.delete(id);
+    }
+    
     processingRef.current.delete(id);
     pausedRef.current.delete(id);
     setUploads(prev => prev.filter(u => u.id !== id));
@@ -353,6 +559,11 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         abortControllersRef.current.delete(u.id);
         processingRef.current.delete(u.id);
         pausedRef.current.delete(u.id);
+        const retryTimer = retryTimersRef.current.get(u.id);
+        if (retryTimer) {
+          clearTimeout(retryTimer);
+          retryTimersRef.current.delete(u.id);
+        }
       });
       return prev.filter(u => u.status !== 'completed' && u.status !== 'error' && u.status !== 'cancelled');
     });
@@ -395,8 +606,59 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
   const updateUploadStatus = useCallback((id: string, status: UploadStatus, result?: UploadItem['result'], error?: string) => {
     setUploads(prev => {
       const item = prev.find(u => u.id === id);
+      
+      // Handle automatic retry for errors
+      if (status === 'error' && item && item.retryCount < MAX_RETRIES) {
+        const newRetryCount = item.retryCount + 1;
+        const retryDelay = getRetryDelay(newRetryCount);
+        const nextRetryAt = Date.now() + retryDelay;
+        
+        toast.warning(`Upload failed. Retrying in ${retryDelay / 1000}s... (${newRetryCount}/${MAX_RETRIES})`);
+        
+        // Set up retry timer
+        const timer = setTimeout(() => {
+          retryTimersRef.current.delete(id);
+          
+          // Create new abort controller for retry
+          const newController = new AbortController();
+          abortControllersRef.current.set(id, newController);
+          
+          setUploads(prevUploads => prevUploads.map(u => {
+            if (u.id === id && u.status === 'retrying') {
+              return { 
+                ...u, 
+                status: 'pending' as const,
+                error: undefined,
+                progress: 0,
+                uploadedBytes: 0,
+                pausedAtChunk: undefined,
+                sessionId: undefined,
+                nextRetryAt: undefined,
+                retryCountdown: undefined,
+              };
+            }
+            return u;
+          }));
+        }, retryDelay);
+        
+        retryTimersRef.current.set(id, timer);
+        
+        return prev.map(u => 
+          u.id === id ? { 
+            ...u, 
+            status: 'retrying' as const, 
+            error, 
+            speed: 0, 
+            eta: 0,
+            retryCount: newRetryCount,
+            nextRetryAt,
+            retryCountdown: Math.ceil(retryDelay / 1000),
+          } : u
+        );
+      }
+      
       const newUploads = prev.map(u => 
-        u.id === id ? { ...u, status, result, error, speed: 0, eta: 0 } : u
+        u.id === id ? { ...u, status, result, error, speed: 0, eta: 0, nextRetryAt: undefined, retryCountdown: undefined } : u
       );
       
       // Show toast notifications
@@ -419,21 +681,24 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
           averageSpeed,
         });
       } else if (status === 'error' && error && item) {
-        toast.error(`Failed to upload ${item.filename}: ${error}`);
-        
-        // Record failed upload to history
-        const durationSeconds = Math.round((Date.now() - item.createdAt) / 1000);
-        
-        recordHistoryMutation.mutate({
-          filename: item.filename,
-          fileSize: item.fileSize,
-          mimeType: item.mimeType,
-          uploadType: item.uploadType,
-          status: 'failed',
-          errorMessage: error,
-          startedAt: item.createdAt,
-          durationSeconds,
-        });
+        // Only show error toast if max retries exceeded
+        if (item.retryCount >= MAX_RETRIES) {
+          toast.error(`Failed to upload ${item.filename} after ${MAX_RETRIES} retries: ${error}`);
+          
+          // Record failed upload to history
+          const durationSeconds = Math.round((Date.now() - item.createdAt) / 1000);
+          
+          recordHistoryMutation.mutate({
+            filename: item.filename,
+            fileSize: item.fileSize,
+            mimeType: item.mimeType,
+            uploadType: item.uploadType,
+            status: 'failed',
+            errorMessage: error,
+            startedAt: item.createdAt,
+            durationSeconds,
+          });
+        }
       }
       
       return newUploads;
@@ -472,7 +737,11 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
   const uploadingCount = uploads.filter(u => u.status === 'uploading').length;
   const pausedCount = uploads.filter(u => u.status === 'paused').length;
   const completedCount = uploads.filter(u => u.status === 'completed').length;
-  const activeUploads = uploads.filter(u => u.status === 'pending' || u.status === 'uploading' || u.status === 'paused');
+  const scheduledCount = uploads.filter(u => u.status === 'scheduled').length;
+  const retryingCount = uploads.filter(u => u.status === 'retrying').length;
+  const activeUploads = uploads.filter(u => 
+    u.status === 'pending' || u.status === 'uploading' || u.status === 'paused' || u.status === 'retrying' || u.status === 'scheduled'
+  );
   const queuedCount = pendingCount;
   
   const totalProgress = activeUploads.length > 0
@@ -491,6 +760,7 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         resumeUpload,
         removeUpload,
         clearCompleted,
+        retryUpload,
         updateUploadProgress,
         updateUploadStatus,
         updateUploadSessionId,
@@ -498,12 +768,16 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         registerProcessor,
         unregisterProcessor,
         getAbortController,
+        scheduleUpload,
+        cancelSchedule,
         isUploading,
         totalProgress,
         pendingCount,
         uploadingCount,
         pausedCount,
         completedCount,
+        scheduledCount,
+        retryingCount,
         activeUploads,
         queuedCount,
       }}

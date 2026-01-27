@@ -3894,3 +3894,16 @@ Note: The application already has extensive annotation features including voice 
 - [x] Create upload history page/section
 - [x] Store completed uploads in history with timestamps
 - [x] Show upload history with filtering and search
+
+## Upload Retry Queue & Scheduling - January 26, 2026
+- [x] Implement automatic retry queue for failed uploads
+- [x] Add exponential backoff (1s, 2s, 4s, 8s, max 30s)
+- [x] Track retry count and max retries (default 3)
+- [x] Show retry status and countdown in upload UI
+- [x] Add manual retry button for failed uploads
+- [x] Implement upload scheduling feature
+- [x] Add schedule upload dialog with time picker
+- [x] Create scheduled uploads queue
+- [x] Show scheduled uploads in upload progress panel
+- [x] Allow cancelling scheduled uploads
+- [x] Auto-start scheduled uploads at specified time
