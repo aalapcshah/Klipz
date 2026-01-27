@@ -1,0 +1,90 @@
+{
+  "query": "SELECT id, userId, title, description, fileType, usageCount FROM metadata_history ORDER BY lastUsedAt DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, userId, title, description, fileType, usageCount FROM metadata_history ORDER BY lastUsedAt DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "180028",
+      "userId": "1",
+      "title": "visual infographic from Physician Side Gigs summarizes the multifaceted impact of the 2025 Reconciliation Bill on physicians and independent medical professionals. The graphic breaks down changes across four key domains: healthcare (Medicaid cuts, tempora",
+      "description": "visual infographic from Physician Side Gigs summarizes the multifaceted impact of the 2025 Reconciliation Bill on physicians and independent medical professionals. The graphic breaks down changes across four key domains: healthcare (Medicaid cuts, temporary fee updates, rural funding), personal taxes (deductions, AMT thresholds), student loans (consolidation and phase-outs), and business/side gig regulations (QBI deduction, 1099 thresholds). It provides a succinct but impactful summary of anticipated changes affecting not only practice revenues and loan obligations but also the structural viability of diversified income streams in medicine.",
+      "fileType": "image",
+      "usageCount": "1"
+    },
+    {
+      "id": "180027",
+      "userId": "1",
+      "title": "How the 2025 federal reconciliation bill alters financial and regulatory conditions for physicians. It highlights upcoming Medicaid cuts, changes to eligibility requirements, a temporary 2026 physician fee schedule adjustment, and renewed funding mechanis",
+      "description": "How the 2025 federal reconciliation bill alters financial and regulatory conditions for physicians. It highlights upcoming Medicaid cuts, changes to eligibility requirements, a temporary 2026 physician fee schedule adjustment, and renewed funding mechanisms for rural hospitals, all of which shift safety-net pressures onto clinical practices. It also outlines major personal tax modifications, including permanent bracket changes, expanded mortgage and estate tax rules, updated AMT thresholds, and changes to 529 plans. The graphic further details student loan restructuring through the phase-out of SAVE, PAYE, and ICR, increases in borrowing caps, and new consolidation requirements, together with business-oriented provisions such as continuation of the QBI deduction and restoration of 100% bonus depreciation. This file is valuable for TMPI because it synthesizes how broad fiscal policy reforms simultaneously influence physician take-home pay, loan obligations, reimbursement stability, and long-term planning.",
+      "fileType": "image",
+      "usageCount": "1"
+    },
+    {
+      "id": "180026",
+      "userId": "1",
+      "title": "2025 Policy Risks and Tech Frontiers_2025_04_24",
+      "description": "NULL",
+      "fileType": "image",
+      "usageCount": "1"
+    },
+    {
+      "id": "180025",
+      "userId": "1",
+      "title": "2024 End of Year Pay Report",
+      "description": "NULL",
+      "fileType": "image",
+      "usageCount": "1"
+    },
+    {
+      "id": "180024",
+      "userId": "1",
+      "title": "document details a high-profile Medicare fraud case involving Sophia Shaklian and Alex Alexsanian, who allegedly submitted over $54 million in fraudulent Medicare claims for diagnostic tests and hospice care that were never provided. The case includes mul",
+      "description": "document details a high-profile Medicare fraud case involving Sophia Shaklian and Alex Alexsanian, who allegedly submitted over $54 million in fraudulent Medicare claims for diagnostic tests and hospice care that were never provided. The case includes multiple charges of healthcare fraud, money laundering, and conspiracy, demonstrating the severe legal consequences of unethical billing practices. For the Transparent Medical Practice Institute Curriculum, this case study can be used to educate medical professionals on compliance audits, fraud detection, and ethical medical billing practices to prevent legal and financial liabilities in their practices.",
+      "fileType": "image",
+      "usageCount": "1"
+    },
+    {
+      "id": "180023",
+      "userId": "1",
+      "title": "infographic visually represents the shift in vote counts during the 2020 U.S. presidential election in key swing states. It highlights how Joe Biden gained significant votes after election night due to mail-in ballot processing timelines. This data is use",
+      "description": "infographic visually represents the shift in vote counts during the 2020 U.S. presidential election in key swing states. It highlights how Joe Biden gained significant votes after election night due to mail-in ballot processing timelines. This data is useful for political science discussions on election processes, media narratives, and voter turnout patterns. While not directly related to medical practice, it can be an example in curriculum discussions about data interpretation and the impact of statistical representation in public discourse.",
+      "fileType": "image",
+      "usageCount": "1"
+    },
+    {
+      "id": "180022",
+      "userId": "1",
+      "title": "1099 Disclosure Form 2025_04_16",
+      "description": "NULL",
+      "fileType": "image",
+      "usageCount": "1"
+    },
+    {
+      "id": "180021",
+      "userId": "1",
+      "title": "tax strategies; estate planning; financial management; life insurance",
+      "description": "tax strategies; estate planning; financial management; life insurance",
+      "fileType": "image",
+      "usageCount": "1"
+    },
+    {
+      "id": "180020",
+      "userId": "1",
+      "title": "article from Becker’s Hospital Review highlights financial vulnerabilities affecting over 700 rural U.S. hospitals, with more than half facing immediate closure risks. The analysis, based on CMS financial data, discusses the financial reserves of hospital",
+      "description": "article from Becker’s Hospital Review highlights financial vulnerabilities affecting over 700 rural U.S. hospitals, with more than half facing immediate closure risks. The analysis, based on CMS financial data, discusses the financial reserves of hospitals and their ability to sustain patient services. This is relevant for discussions on healthcare funding, hospital sustainability, and policy decisions impacting medical practice settings. It can be used in the Transparent Medical Practice Institute Curriculum to explore financial management in healthcare and strategies to prevent hospital shutdowns.",
+      "fileType": "image",
+      "usageCount": "1"
+    },
+    {
+      "id": "180019",
+      "userId": "1",
+      "title": "article from Becker’s Hospital Review detailing a crisis in rural healthcare, with over 705 hospitals facing potential closure due to financial instability. More than half of these hospitals are categorized as being at \"immediate risk,\" meaning they lack ",
+      "description": "article from Becker’s Hospital Review detailing a crisis in rural healthcare, with over 705 hospitals facing potential closure due to financial instability. More than half of these hospitals are categorized as being at \"immediate risk,\" meaning they lack financial reserves to sustain operations beyond two to three years. The report, based on data from the Center for Healthcare Quality and Payment Reform (CHQPR) and CMS hospital financial data (October 2024), underscores disparities in rural healthcare funding and the growing financial burden on small hospitals. This resource is critical for discussions in the Transparent Medical Practice Institute Curriculum, particularly in modules focused on healthcare economics, hospital administration, and rural healthcare policy reform. It highlights the importance of sustainable funding models and strategic financial planning for hospitals.",
+      "fileType": "image",
+      "usageCount": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tuserId\ttitle\tdescription\tfileType\tusageCount\n180028\t1\tvisual infographic from Physician Side Gigs summarizes the multifaceted impact of the 2025 Reconciliation Bill on physicians and independent medical professionals. The graphic breaks down changes across four key domains: healthcare (Medicaid cuts, tempora\tvisual infographic from Physician Side Gigs summarizes the multifaceted impact of the 2025 Reconciliation Bill on physicians and independent medical professionals. The graphic breaks down changes across four key domains: healthcare (Medicaid cuts, temporary fee updates, rural funding), personal taxes (deductions, AMT thresholds), student loans (consolidation and phase-outs), and business/side gig regulations (QBI deduction, 1099 thresholds). It provides a succinct but impactful summary of anticipated changes affecting not only practice revenues and loan obligations but also the structural viability of diversified income streams in medicine.\timage\t1\n180027\t1\tHow the 2025 federal reconciliation bill alters financial and regulatory conditions for physicians. It highlights upcoming Medicaid cuts, changes to eligibility requirements, a temporary 2026 physician fee schedule adjustment, and renewed funding mechanis\tHow the 2025 federal reconciliation bill alters financial and regulatory conditions for physicians. It highlights upcoming Medicaid cuts, changes to eligibility requirements, a temporary 2026 physician fee schedule adjustment, and renewed funding mechanisms for rural hospitals, all of which shift safety-net pressures onto clinical practices. It also outlines major personal tax modifications, including permanent bracket changes, expanded mortgage and estate tax rules, updated AMT thresholds, and changes to 529 plans. The graphic further details student loan restructuring through the phase-out of SAVE, PAYE, and ICR, increases in borrowing caps, and new consolidation requirements, together with business-oriented provisions such as continuation of the QBI deduction and restoration of 100% bonus depreciation. This file is valuable for TMPI because it synthesizes how broad fiscal policy reforms simultaneously influence physician take-home pay, loan obligations, reimbursement stability, and long-term planning.\timage\t1\n180026\t1\t2025 Policy Risks and Tech Frontiers_2025_04_24\tNULL\timage\t1\n180025\t1\t2024 End of Year Pay Report\tNULL\timage\t1\n180024\t1\tdocument details a high-profile Medicare fraud case involving Sophia Shaklian and Alex Alexsanian, who allegedly submitted over $54 million in fraudulent Medicare claims for diagnostic tests and hospice care that were never provided. The case includes mul\tdocument details a high-profile Medicare fraud case involving Sophia Shaklian and Alex Alexsanian, who allegedly submitted over $54 million in fraudulent Medicare claims for diagnostic tests and hospice care that were never provided. The case includes multiple charges of healthcare fraud, money laundering, and conspiracy, demonstrating the severe legal consequences of unethical billing practices. For the Transparent Medical Practice Institute Curriculum, this case study can be used to educate medical professionals on compliance audits, fraud detection, and ethical medical billing practices to prevent legal and financial liabilities in their practices.\timage\t1\n180023\t1\tinfographic visually represents the shift in vote counts during the 2020 U.S. presidential election in key swing states. It highlights how Joe Biden gained significant votes after election night due to mail-in ballot processing timelines. This data is use\tinfographic visually represents the shift in vote counts during the 2020 U.S. presidential election in key swing states. It highlights how Joe Biden gained significant votes after election night due to mail-in ballot processing timelines. This data is useful for political science discussions on election processes, media narratives, and voter turnout patterns. While not directly related to medical practice, it can be an example in curriculum discussions about data interpretation and the impact of statistical representation in public discourse.\timage\t1\n180022\t1\t1099 Disclosure Form 2025_04_16\tNULL\timage\t1\n180021\t1\ttax strategies; estate planning; financial management; life insurance\ttax strategies; estate planning; financial management; life insurance\timage\t1\n180020\t1\tarticle from Becker’s Hospital Review highlights financial vulnerabilities affecting over 700 rural U.S. hospitals, with more than half facing immediate closure risks. The analysis, based on CMS financial data, discusses the financial reserves of hospital\tarticle from Becker’s Hospital Review highlights financial vulnerabilities affecting over 700 rural U.S. hospitals, with more than half facing immediate closure risks. The analysis, based on CMS financial data, discusses the financial reserves of hospitals and their ability to sustain patient services. This is relevant for discussions on healthcare funding, hospital sustainability, and policy decisions impacting medical practice settings. It can be used in the Transparent Medical Practice Institute Curriculum to explore financial management in healthcare and strategies to prevent hospital shutdowns.\timage\t1\n180019\t1\tarticle from Becker’s Hospital Review detailing a crisis in rural healthcare, with over 705 hospitals facing potential closure due to financial instability. More than half of these hospitals are categorized as being at \"immediate risk,\" meaning they lack \tarticle from Becker’s Hospital Review detailing a crisis in rural healthcare, with over 705 hospitals facing potential closure due to financial instability. More than half of these hospitals are categorized as being at \"immediate risk,\" meaning they lack financial reserves to sustain operations beyond two to three years. The report, based on data from the Center for Healthcare Quality and Payment Reform (CHQPR) and CMS hospital financial data (October 2024), underscores disparities in rural healthcare funding and the growing financial burden on small hospitals. This resource is critical for discussions in the Transparent Medical Practice Institute Curriculum, particularly in modules focused on healthcare economics, hospital administration, and rural healthcare policy reform. It highlights the importance of sustainable funding models and strategic financial planning for hospitals.\timage\t1\n",
+  "stderr": "",
+  "execution_time_ms": 144
+}

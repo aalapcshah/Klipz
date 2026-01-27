@@ -842,7 +842,7 @@ export function FileUploadDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>Upload & Tag Files</DialogTitle>
           <DialogDescription>
@@ -885,14 +885,14 @@ export function FileUploadDialog({
         {/* Uploaded Files List */}
         {files.length > 0 && (
           <div className="space-y-4 mt-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h3 className="font-medium">Uploaded Files ({files.length})</h3>
-                <span className="text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <h3 className="font-medium whitespace-nowrap">Uploaded Files ({files.length})</h3>
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
                   {(files.reduce((sum, f) => sum + f.file.size, 0) / 1024 / 1024).toFixed(2)} MB total
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -905,7 +905,7 @@ export function FileUploadDialog({
                 </Button>
                 <FileText className="h-4 w-4 text-muted-foreground" />
                 <Select value={selectedTemplate} onValueChange={(value) => { setSelectedTemplate(value); applyTemplate(value); }}>
-                  <SelectTrigger className="w-[200px]">
+                  <SelectTrigger className="w-[140px] sm:w-[180px]">
                     <SelectValue placeholder="Apply template..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -1016,9 +1016,9 @@ export function FileUploadDialog({
             
             {/* Metadata Suggestions from History */}
             {metadataSuggestions.length > 0 && (
-              <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 space-y-3 border border-blue-200 dark:border-blue-800">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-blue-600" />
+              <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 space-y-3 border border-blue-200 dark:border-blue-800 overflow-hidden">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-blue-600 flex-shrink-0" />
                   <h4 className="font-semibold text-blue-900 dark:text-blue-100">Suggested Metadata</h4>
                   <span className="text-xs text-blue-600 dark:text-blue-400">Based on your previous uploads</span>
                 </div>
@@ -1036,12 +1036,12 @@ export function FileUploadDialog({
                         );
                         toast.success("Applied suggested metadata");
                       }}
-                      className="w-full text-left p-3 rounded-md bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-gray-200 dark:border-gray-700 transition-colors"
+                      className="w-full text-left p-3 rounded-md bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-gray-200 dark:border-gray-700 transition-colors overflow-hidden"
                     >
-                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                         {suggestion.title || "(No title)"}
                       </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+                      <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 break-words">
                         {suggestion.description || "(No description)"}
                       </div>
                       <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
@@ -1100,13 +1100,24 @@ export function FileUploadDialog({
                   </Button>
                 </div>
 
-                {/* Progress Bar */}
-                {fileData.uploadStatus === 'uploading' && (
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div
-                      className="bg-primary h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${fileData.uploadProgress}%` }}
-                    />
+                {/* Progress Bar - Enhanced to match Video upload style */}
+                {(fileData.uploadStatus === 'uploading' || fileData.uploadStatus === 'pending') && (
+                  <div className="space-y-1">
+                    <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-primary h-full transition-all duration-300"
+                        style={{ width: `${fileData.uploadProgress || 0}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>
+                        {fileData.uploadStatus === 'pending' && 'Queued...'}
+                        {fileData.uploadStatus === 'uploading' && `${(fileData.uploadProgress || 0).toFixed(0)}%`}
+                      </span>
+                      <span>
+                        {((fileData.file.size * (fileData.uploadProgress || 0)) / 100 / 1024 / 1024).toFixed(1)} MB / {(fileData.file.size / 1024 / 1024).toFixed(1)} MB
+                      </span>
+                    </div>
                   </div>
                 )}
 

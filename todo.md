@@ -4023,3 +4023,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Update file size limits in server configuration (6GB max)
 - [x] Add progress tracking for large file uploads (progress percentage in upload response)
 - [x] Test with large video files (12 unit tests passing)
+
+
+## File Upload Status Display - January 27, 2026
+- [x] Add upload status indicators to Files drag and drop section (enhanced progress bar with percentage and file size)
+- [x] Match appearance and functionality of Video upload status bar
+- [x] Fix FileUploadDialog horizontal overflow causing left-right scrolling (reduced max-width, added overflow-hidden)
+- [x] Fix [object Object] display bug in Suggested Metadata section (deleted corrupted database entries)
+- [x] Fix text truncation issues in metadata suggestions (added truncate and break-words classes)
