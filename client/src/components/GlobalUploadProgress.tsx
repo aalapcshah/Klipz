@@ -142,7 +142,7 @@ export function GlobalUploadProgress() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{upload.filename}</p>
                             <p className="text-xs text-muted-foreground">
-                              {formatFileSize(upload.file.size)}
+                              {formatFileSize(upload.fileSize)}
                             </p>
                           </div>
                           <div className="flex items-center gap-1">

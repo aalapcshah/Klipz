@@ -8,6 +8,7 @@ import App from "./App";
 import { getLoginUrl } from "./const";
 import { FontSizeProvider } from "./contexts/FontSizeContext";
 import { UploadManagerProvider } from "./contexts/UploadManagerContext";
+import { GlobalDropZone } from "./components/GlobalDropZone";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -59,7 +60,9 @@ createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <FontSizeProvider>
         <UploadManagerProvider>
-          <App />
+          <GlobalDropZone>
+            <App />
+          </GlobalDropZone>
         </UploadManagerProvider>
       </FontSizeProvider>
     </QueryClientProvider>

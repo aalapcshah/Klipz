@@ -3873,3 +3873,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add global upload progress indicator in header/navbar
 - [x] Integrate UploadManager with VideoUploadSection
 - [x] Show toast notifications for upload completion/errors
+
+## Upload Queue Enhancements - January 26, 2026
+- [x] Add concurrent upload limit (max 3 simultaneous uploads)
+- [x] Implement upload queue processing logic
+- [x] Add localStorage persistence for upload queue (notifies user to re-add files after refresh)
+- [x] Resume pending uploads after page refresh (notification system implemented)
+- [x] Create global drag-and-drop overlay component
+- [x] Show drop zone overlay when dragging files over any page
+- [x] Route dropped files to appropriate upload handler (video vs general files)

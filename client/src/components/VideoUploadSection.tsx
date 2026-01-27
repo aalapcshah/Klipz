@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video } from "lucide-react";
+import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video, Clock } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
@@ -29,9 +29,6 @@ const QUALITY_SETTINGS = {
   low: { label: "Low (480p)", maxHeight: 480, bitrate: 1000 },
 };
 
-// Store abort controllers outside component to persist across re-renders
-const abortControllers = new Map<string, AbortController>();
-
 export function VideoUploadSection() {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality>("high");
@@ -45,16 +42,19 @@ export function VideoUploadSection() {
     updateUploadProgress,
     updateUploadStatus,
     updateUploadSessionId,
+    registerProcessor,
+    unregisterProcessor,
+    getAbortController,
+    queuedCount,
+    uploadingCount,
   } = useUploadManager();
 
   const initUploadMutation = trpc.uploadChunk.initUpload.useMutation();
   const uploadChunkMutation = trpc.uploadChunk.uploadChunk.useMutation();
   const finalizeUploadMutation = trpc.uploadChunk.finalizeUpload.useMutation();
 
-  // Filter uploads to show only video uploads (pending, uploading, or recent)
-  const videoUploads = uploads.filter(u => 
-    ACCEPTED_VIDEO_FORMATS.includes(u.file.type)
-  );
+  // Filter uploads to show only video uploads
+  const videoUploads = uploads.filter(u => u.uploadType === 'video');
 
   const validateFile = (file: File): string | null => {
     if (!ACCEPTED_VIDEO_FORMATS.includes(file.type)) {
@@ -81,16 +81,19 @@ export function VideoUploadSection() {
     });
   };
 
-  const uploadFileInChunks = async (uploadId: string, file: File) => {
-    // Create abort controller for this upload
-    const abortController = new AbortController();
-    abortControllers.set(uploadId, abortController);
+  // Video upload processor - registered with UploadManager
+  const processVideoUpload = useCallback(async (uploadId: string, file: File) => {
+    const abortController = getAbortController(uploadId);
     
     try {
       // Check if already cancelled
-      if (abortController.signal.aborted) {
+      if (abortController?.signal.aborted) {
         return;
       }
+
+      // Get quality from upload metadata
+      const upload = uploads.find(u => u.id === uploadId);
+      const quality = (upload?.metadata?.quality as VideoQuality) || 'high';
 
       // Initialize upload session
       const { sessionId } = await initUploadMutation.mutateAsync({
@@ -98,11 +101,10 @@ export function VideoUploadSection() {
         mimeType: file.type,
         totalSize: file.size,
         title: file.name.replace(/\.[^/.]+$/, ""),
-        description: `Uploaded video - ${QUALITY_SETTINGS[selectedQuality].label}`,
+        description: `Uploaded video - ${QUALITY_SETTINGS[quality].label}`,
       });
 
       updateUploadSessionId(uploadId, sessionId);
-      updateUploadStatus(uploadId, 'uploading');
 
       // Calculate chunks
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
@@ -111,7 +113,7 @@ export function VideoUploadSection() {
       // Upload chunks sequentially with retry logic
       for (let i = 0; i < totalChunks; i++) {
         // Check if cancelled before each chunk
-        if (abortController.signal.aborted) {
+        if (abortController?.signal.aborted) {
           console.log(`[Upload] Upload cancelled for ${file.name}`);
           return;
         }
@@ -123,7 +125,7 @@ export function VideoUploadSection() {
         const chunkData = await readChunk(file, start, end);
         
         // Check again after reading
-        if (abortController.signal.aborted) {
+        if (abortController?.signal.aborted) {
           console.log(`[Upload] Upload cancelled for ${file.name}`);
           return;
         }
@@ -135,7 +137,7 @@ export function VideoUploadSection() {
         
         while (!uploaded && retries < maxRetries) {
           // Check before each retry attempt
-          if (abortController.signal.aborted) {
+          if (abortController?.signal.aborted) {
             console.log(`[Upload] Upload cancelled for ${file.name}`);
             return;
           }
@@ -167,7 +169,7 @@ export function VideoUploadSection() {
       }
 
       // Check before finalization
-      if (abortController.signal.aborted) {
+      if (abortController?.signal.aborted) {
         console.log(`[Upload] Upload cancelled for ${file.name}`);
         return;
       }
@@ -188,18 +190,32 @@ export function VideoUploadSection() {
 
     } catch (error: any) {
       // Don't show error if cancelled
-      if (abortController.signal.aborted) {
+      if (abortController?.signal.aborted) {
         return;
       }
       
       console.error("Upload error:", error);
       updateUploadStatus(uploadId, 'error', undefined, error.message || "Upload failed");
       triggerHaptic("error");
-    } finally {
-      // Clean up abort controller
-      abortControllers.delete(uploadId);
     }
-  };
+  }, [
+    getAbortController,
+    uploads,
+    initUploadMutation,
+    uploadChunkMutation,
+    finalizeUploadMutation,
+    updateUploadSessionId,
+    updateUploadProgress,
+    updateUploadStatus,
+  ]);
+
+  // Register video processor on mount
+  useEffect(() => {
+    registerProcessor('video', processVideoUpload);
+    return () => {
+      unregisterProcessor('video');
+    };
+  }, [registerProcessor, unregisterProcessor, processVideoUpload]);
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -214,26 +230,16 @@ export function VideoUploadSection() {
         continue;
       }
 
-      // Add to global upload manager
-      const uploadId = addUpload(file, {
+      // Add to global upload manager with video type
+      addUpload(file, 'video', {
         quality: selectedQuality,
       });
       
       triggerHaptic("light");
-
-      // Start upload (runs in background)
-      uploadFileInChunks(uploadId, file);
     }
   };
 
   const handleCancelUpload = (uploadId: string) => {
-    // Abort the upload
-    const controller = abortControllers.get(uploadId);
-    if (controller) {
-      controller.abort();
-    }
-    
-    // Update state
     cancelUpload(uploadId);
     triggerHaptic("light");
     toast.info("Upload cancelled");
@@ -241,13 +247,9 @@ export function VideoUploadSection() {
 
   const retryUpload = async (upload: UploadItem) => {
     removeUpload(upload.id);
-    await handleFiles(createFileList([upload.file]));
-  };
-
-  const createFileList = (files: File[]): FileList => {
     const dataTransfer = new DataTransfer();
-    files.forEach(file => dataTransfer.items.add(file));
-    return dataTransfer.files;
+    dataTransfer.items.add(upload.file);
+    await handleFiles(dataTransfer.files);
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -330,10 +332,20 @@ export function VideoUploadSection() {
         </div>
       </Card>
 
+      {/* Queue Status */}
+      {queuedCount > 0 && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
+          <Clock className="w-4 h-4" />
+          <span>
+            {uploadingCount} uploading, {queuedCount} in queue (max 3 concurrent uploads)
+          </span>
+        </div>
+      )}
+
       {/* Uploading Files List */}
       {videoUploads.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-lg font-semibold">Uploading ({videoUploads.length})</h3>
+          <h3 className="text-lg font-semibold">Uploads ({videoUploads.length})</h3>
           {videoUploads.map((upload) => (
             <Card key={upload.id} className="p-4">
               <div className="flex items-start gap-3">
@@ -343,7 +355,7 @@ export function VideoUploadSection() {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{upload.filename}</p>
                       <p className="text-sm text-muted-foreground">
-                        {formatFileSize(upload.file.size)}
+                        {formatFileSize(upload.fileSize)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -351,7 +363,7 @@ export function VideoUploadSection() {
                         <Loader2 className="w-5 h-5 animate-spin text-primary" />
                       )}
                       {upload.status === "pending" && (
-                        <span className="text-xs text-muted-foreground">Waiting...</span>
+                        <Clock className="w-5 h-5 text-muted-foreground" />
                       )}
                       {upload.status === "completed" && (
                         <CheckCircle2 className="w-5 h-5 text-green-600" />
@@ -398,9 +410,11 @@ export function VideoUploadSection() {
                         />
                       </div>
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{upload.status === "pending" ? "Waiting..." : `${upload.progress.toFixed(0)}%`}</span>
                         <span>
-                          {formatFileSize(Math.round(upload.file.size * upload.progress / 100))} / {formatFileSize(upload.file.size)}
+                          {upload.status === "pending" ? "Queued..." : `${upload.progress.toFixed(0)}%`}
+                        </span>
+                        <span>
+                          {formatFileSize(Math.round(upload.fileSize * upload.progress / 100))} / {formatFileSize(upload.fileSize)}
                         </span>
                       </div>
                     </div>
