@@ -3907,3 +3907,14 @@ Note: The application already has extensive annotation features including voice 
 - [x] Show scheduled uploads in upload progress panel
 - [x] Allow cancelling scheduled uploads
 - [x] Auto-start scheduled uploads at specified time
+
+## Upload Push Notifications - January 26, 2026
+- [x] Create notification service utility for browser notifications
+- [x] Request notification permission from user
+- [x] Add notification settings toggle in Settings page
+- [x] Send notification when upload completes in background
+- [x] Send notification when upload fails after max retries
+- [x] Send notification when scheduled upload starts
+- [x] Add notification sound option
+- [x] Store notification preferences in localStorage
+- [x] Test notifications across different browsers

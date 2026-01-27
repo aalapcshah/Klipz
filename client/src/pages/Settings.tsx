@@ -26,6 +26,7 @@ import { Loader2, Plus, Trash2, Edit2, CheckCircle2, XCircle, Network } from "lu
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AccountSettings } from "@/components/AccountSettings";
 import { NotificationPreferencesSettings } from "@/components/NotificationPreferencesSettings";
+import { BrowserNotificationSettings } from "@/components/BrowserNotificationSettings";
 
 type KnowledgeGraphType = "dbpedia" | "wikidata" | "schema_org" | "custom";
 
@@ -269,6 +270,7 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-6 mt-6">
+          <BrowserNotificationSettings />
           <NotificationPreferencesSettings />
         </TabsContent>
 

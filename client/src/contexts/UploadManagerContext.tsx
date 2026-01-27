@@ -1,6 +1,13 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect, ReactNode } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import {
+  notifyUploadComplete,
+  notifyUploadFailed,
+  notifyScheduledUploadStarted,
+  notifyAllUploadsComplete,
+  getNotificationSettings,
+} from "@/lib/notifications";
 
 const MAX_CONCURRENT_UPLOADS = 3;
 const STORAGE_KEY = 'metaclips-upload-queue';
@@ -215,6 +222,14 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
           if (item.status === 'scheduled' && item.scheduledFor && item.scheduledFor <= now) {
             hasChanges = true;
             toast.info(`Starting scheduled upload: ${item.filename}`);
+            
+            // Send browser notification if page is not focused
+            if (document.hidden) {
+              notifyScheduledUploadStarted(item.filename, () => {
+                window.focus();
+              });
+            }
+            
             return { ...item, status: 'pending' as const, scheduledFor: undefined };
           }
           return item;
@@ -661,9 +676,16 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         u.id === id ? { ...u, status, result, error, speed: 0, eta: 0, nextRetryAt: undefined, retryCountdown: undefined } : u
       );
       
-      // Show toast notifications
+      // Show toast notifications and browser notifications
       if (status === 'completed' && item) {
         toast.success(`Uploaded: ${item.filename}`);
+        
+        // Send browser notification if page is not focused
+        if (document.hidden) {
+          notifyUploadComplete(item.filename, () => {
+            window.focus();
+          });
+        }
         
         // Record to upload history
         const durationSeconds = Math.round((Date.now() - item.createdAt) / 1000);
@@ -684,6 +706,13 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         // Only show error toast if max retries exceeded
         if (item.retryCount >= MAX_RETRIES) {
           toast.error(`Failed to upload ${item.filename} after ${MAX_RETRIES} retries: ${error}`);
+          
+          // Send browser notification if page is not focused
+          if (document.hidden) {
+            notifyUploadFailed(item.filename, error, () => {
+              window.focus();
+            });
+          }
           
           // Record failed upload to history
           const durationSeconds = Math.round((Date.now() - item.createdAt) / 1000);
