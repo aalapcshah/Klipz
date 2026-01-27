@@ -1318,3 +1318,81 @@ export const uploadHistory = mysqlTable("upload_history", {
 
 export type UploadHistoryRecord = typeof uploadHistory.$inferSelect;
 export type InsertUploadHistory = typeof uploadHistory.$inferInsert;
+
+
+/**
+ * Share links table - stores public share links for files and videos
+ */
+export const shareLinks = mysqlTable("share_links", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(), // Owner who created the share
+  
+  // What is being shared (one of these will be set)
+  fileId: int("fileId"),
+  videoId: int("videoId"),
+  
+  // Share token (unique identifier for the public link)
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  
+  // Access control
+  passwordHash: varchar("passwordHash", { length: 255 }), // bcrypt hash, null = no password
+  expiresAt: timestamp("expiresAt"), // null = never expires
+  
+  // Share settings
+  allowDownload: boolean("allowDownload").default(true).notNull(),
+  maxViews: int("maxViews"), // null = unlimited
+  viewCount: int("viewCount").default(0).notNull(),
+  
+  // Status
+  isActive: boolean("isActive").default(true).notNull(),
+  
+  // Timestamps
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  lastAccessedAt: timestamp("lastAccessedAt"),
+}, (table) => ({
+  userIdIndex: index("share_links_user_id_idx").on(table.userId),
+  tokenIndex: index("share_links_token_idx").on(table.token),
+  fileIdIndex: index("share_links_file_id_idx").on(table.fileId),
+  videoIdIndex: index("share_links_video_id_idx").on(table.videoId),
+}));
+
+export type ShareLink = typeof shareLinks.$inferSelect;
+export type InsertShareLink = typeof shareLinks.$inferInsert;
+
+export const shareLinksRelations = relations(shareLinks, ({ one }) => ({
+  user: one(users, {
+    fields: [shareLinks.userId],
+    references: [users.id],
+  }),
+  file: one(files, {
+    fields: [shareLinks.fileId],
+    references: [files.id],
+  }),
+  video: one(videos, {
+    fields: [shareLinks.videoId],
+    references: [videos.id],
+  }),
+}));
+
+/**
+ * Share access log - tracks who accessed shared links
+ */
+export const shareAccessLog = mysqlTable("share_access_log", {
+  id: int("id").autoincrement().primaryKey(),
+  shareLinkId: int("shareLinkId").notNull(),
+  
+  // Access info
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: text("userAgent"),
+  
+  // Action
+  action: mysqlEnum("action", ["view", "download"]).notNull(),
+  
+  accessedAt: timestamp("accessedAt").defaultNow().notNull(),
+}, (table) => ({
+  shareLinkIdIndex: index("share_access_log_share_link_id_idx").on(table.shareLinkId),
+  accessedAtIndex: index("share_access_log_accessed_at_idx").on(table.accessedAt),
+}));
+
+export type ShareAccessLog = typeof shareAccessLog.$inferSelect;
+export type InsertShareAccessLog = typeof shareAccessLog.$inferInsert;

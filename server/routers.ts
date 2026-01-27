@@ -38,6 +38,7 @@ import { largeFileUploadRouter } from "./routers/largeFileUpload";
 import { uploadHistoryRouter } from "./routers/uploadHistory";
 import { duplicateCheckRouter } from "./routers/duplicateCheck";
 import { storageStatsRouter } from "./routers/storageStats";
+import { shareLinksRouter } from "./routers/shareLinks";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { sendUploadEmail, sendEditEmail, sendDeleteEmail, sendEnrichEmail } from "./_core/activityEmailNotifications";
 import { TRPCError } from "@trpc/server";
@@ -55,6 +56,7 @@ import { eq, and } from "drizzle-orm";
 export const appRouter = router({
   duplicateCheck: duplicateCheckRouter,
   storageStats: storageStatsRouter,
+  shareLinks: shareLinksRouter,
   metadataTemplates: router({
     list: protectedProcedure.query(({ ctx }) => db.getMetadataTemplatesByUser(ctx.user.id)),
     

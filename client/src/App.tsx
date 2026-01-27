@@ -26,6 +26,7 @@ import { AdminAlerts } from "./pages/AdminAlerts";
 import { AdminCohorts } from "./pages/AdminCohorts";
 import { AdminAlertHistory } from "./pages/AdminAlertHistory";
 import AdminReports from "./pages/AdminReports";
+import ShareView from "./pages/ShareView";
 import { trpc } from "./lib/trpc";
 import { useState, useEffect } from "react";
 import { CookieConsent } from "./components/CookieConsent";
@@ -61,6 +62,7 @@ function Router() {
       <Route path="/admin/cohorts" component={AdminCohorts} />
       <Route path="/admin/alert-history" component={AdminAlertHistory} />
       <Route path="/admin/reports" component={AdminReports} />
+      <Route path="/share/:token" component={ShareView} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

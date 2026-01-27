@@ -22,10 +22,12 @@ import {
   Trash2,
   History,
   GitCompare,
+  Share2,
 } from "lucide-react";
 import { FileVersionHistory } from "./FileVersionHistory";
 import { VideoPlayerWithAnnotations } from "../VideoPlayerWithAnnotations";
 import { QualityImprovementPanel } from "../QualityImprovementPanel";
+import { ShareDialog } from "../ShareDialog";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
@@ -55,6 +57,7 @@ export function FileDetailDialog({
   const [newTagName, setNewTagName] = useState("");
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [tagSuggestions, setTagSuggestions] = useState<any[]>([]);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const deletedFileRef = useRef<DeletedFile | null>(null);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMobile = useIsMobile();
@@ -689,6 +692,13 @@ export function FileDetailDialog({
                   </Button>
                   <Button
                     variant="outline"
+                    onClick={() => setShareDialogOpen(true)}
+                  >
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Share
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={handleDelete}
                     disabled={deleteMutation.isPending}
                     className="text-destructive hover:text-destructive"
@@ -703,6 +713,15 @@ export function FileDetailDialog({
                 </div>
                 <Button onClick={() => onOpenChange(false)}>Close</Button>
               </div>
+
+              {/* Share Dialog */}
+              <ShareDialog
+                open={shareDialogOpen}
+                onOpenChange={setShareDialogOpen}
+                itemType="file"
+                itemId={fileId!}
+                itemName={file.title || file.filename}
+              />
 
               {/* Quality Improvement Panel - Moved to bottom */}
               {file.mimeType.startsWith("image/") && (

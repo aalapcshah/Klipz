@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
 import { useUploadManager, UploadItem, formatSpeed, formatEta } from "@/contexts/UploadManagerContext";
 import { extractVideoMetadata, generateVideoThumbnail, formatDuration } from "@/lib/videoUtils";
+import { compressVideo, estimateCompressedSize, getVideoMetadata, isCompressionSupported, formatFileSize, COMPRESSION_PRESETS, CompressionProgress } from "@/lib/videoCompression";
 
 type VideoQuality = "original" | "high" | "medium" | "low";
 
@@ -55,6 +56,10 @@ export function VideoUploadSection() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [duplicateFiles, setDuplicateFiles] = useState<DuplicateFile[]>([]);
   const [nonDuplicateFiles, setNonDuplicateFiles] = useState<File[]>([]);
+  
+  // Compression state
+  const [compressionProgress, setCompressionProgress] = useState<Map<string, CompressionProgress>>(new Map());
+  const [estimatedSizes, setEstimatedSizes] = useState<Map<string, { original: number; compressed: number }>>(new Map());
   
   const {
     uploads,
@@ -123,7 +128,6 @@ export function VideoUploadSection() {
   // Video upload processor - registered with UploadManager
   const processVideoUpload = useCallback(async (uploadId: string, file: File, resumeFromChunk?: number) => {
     const abortController = getAbortController(uploadId);
-    const isLargeFile = file.size > LARGE_FILE_THRESHOLD;
     
     try {
       // Check if already cancelled
@@ -134,6 +138,46 @@ export function VideoUploadSection() {
       // Get quality from upload metadata
       const upload = uploads.find(u => u.id === uploadId);
       const quality = (upload?.metadata?.quality as VideoQuality) || 'high';
+      
+      // Compress video if quality is not original and compression is supported
+      let fileToUpload = file;
+      if (quality !== 'original' && isCompressionSupported() && !resumeFromChunk) {
+        updateUploadStatus(uploadId, 'uploading'); // Show as active
+        toast.info(`Compressing ${file.name}...`, { duration: 3000 });
+        
+        const compressionSettings = COMPRESSION_PRESETS[quality];
+        try {
+          fileToUpload = await compressVideo(file, compressionSettings, (progress) => {
+            setCompressionProgress(prev => {
+              const newMap = new Map(prev);
+              newMap.set(uploadId, progress);
+              return newMap;
+            });
+            // Update progress during compression (0-30%)
+            if (progress.stage === 'encoding') {
+              updateUploadProgress(uploadId, progress.progress * 0.3, 0);
+            }
+          });
+          
+          // Clear compression progress
+          setCompressionProgress(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(uploadId);
+            return newMap;
+          });
+          
+          const savings = ((file.size - fileToUpload.size) / file.size * 100).toFixed(1);
+          if (fileToUpload.size < file.size) {
+            toast.success(`Compressed ${file.name}: ${formatFileSize(file.size)} → ${formatFileSize(fileToUpload.size)} (${savings}% smaller)`);
+          }
+        } catch (compressError) {
+          console.warn('Compression failed, uploading original:', compressError);
+          toast.warning(`Compression failed for ${file.name}, uploading original`);
+          fileToUpload = file;
+        }
+      }
+      
+      const isLargeFile = fileToUpload.size > LARGE_FILE_THRESHOLD;
 
       // Initialize upload session (or reuse existing)
       let sessionId = upload?.sessionId;
@@ -143,29 +187,30 @@ export function VideoUploadSection() {
       if (!sessionId) {
         if (isLargeFile) {
           // Use large file upload for files > 500MB
-          console.log(`[Upload] Using large file upload for ${file.name} (${(file.size / (1024 * 1024 * 1024)).toFixed(2)} GB)`);
+          console.log(`[Upload] Using large file upload for ${fileToUpload.name} (${(fileToUpload.size / (1024 * 1024 * 1024)).toFixed(2)} GB)`);
           const initResult = await initLargeUploadMutation.mutateAsync({
-            filename: file.name,
-            totalSize: file.size,
-            mimeType: file.type,
+            filename: file.name, // Keep original filename
+            totalSize: fileToUpload.size,
+            mimeType: fileToUpload.type,
           });
           sessionId = initResult.sessionId;
           totalChunks = initResult.totalChunks;
         } else {
           const initResult = await initUploadMutation.mutateAsync({
-            filename: file.name,
-            totalSize: file.size,
-            mimeType: file.type,
+            filename: file.name, // Keep original filename
+            totalSize: fileToUpload.size,
+            mimeType: fileToUpload.type,
           });
           sessionId = initResult.sessionId;
-          totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+          totalChunks = Math.ceil(fileToUpload.size / CHUNK_SIZE);
         }
         updateUploadSessionId(uploadId, sessionId);
       } else {
-        totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        totalChunks = Math.ceil(fileToUpload.size / CHUNK_SIZE);
       }
       
-      // Upload chunks
+      // Upload chunks (progress starts at 30% after compression)
+      const progressOffset = quality !== 'original' && isCompressionSupported() ? 30 : 0;
       for (let i = startChunk; i < totalChunks; i++) {
         // Check if paused or cancelled
         if (abortController?.signal.aborted) {
@@ -174,8 +219,8 @@ export function VideoUploadSection() {
         }
 
         const start = i * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, file.size);
-        const chunkData = await readChunk(file, start, end);
+        const end = Math.min(start + CHUNK_SIZE, fileToUpload.size);
+        const chunkData = await readChunk(fileToUpload, start, end);
 
         let retries = 0;
         const maxRetries = 3;
@@ -207,9 +252,10 @@ export function VideoUploadSection() {
           }
         }
 
-        // Update progress
-        const progress = ((i + 1) / totalChunks) * 100;
-        const uploadedBytes = Math.min((i + 1) * CHUNK_SIZE, file.size);
+        // Update progress (account for compression phase if applicable)
+        const uploadProgress = ((i + 1) / totalChunks) * (100 - progressOffset);
+        const progress = progressOffset + uploadProgress;
+        const uploadedBytes = Math.min((i + 1) * CHUNK_SIZE, fileToUpload.size);
         updateUploadProgress(uploadId, progress, uploadedBytes);
       }
 
@@ -570,8 +616,28 @@ export function VideoUploadSection() {
             <p className="text-sm text-muted-foreground mt-2">
               {selectedQuality === "original"
                 ? "Upload without any compression or quality reduction"
-                : `Video will be optimized to ${QUALITY_SETTINGS[selectedQuality].label}`}
+                : `Video will be compressed to ${QUALITY_SETTINGS[selectedQuality].label} before upload`}
             </p>
+            {selectedQuality !== "original" && (
+              <div className="mt-3 p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-2 text-sm">
+                  {isCompressionSupported() ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      <span className="text-green-600">Browser compression supported</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="w-4 h-4 text-yellow-500" />
+                      <span className="text-yellow-600">Compression not supported - original file will be uploaded</span>
+                    </>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Compression reduces file size by re-encoding at {QUALITY_SETTINGS[selectedQuality].bitrate} kbps
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </Card>

@@ -21,6 +21,7 @@ import {
   Plus,
   Tag,
   Package,
+  Share2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -38,6 +39,7 @@ import { AnnotationEditor } from "./AnnotationEditor";
 import { CloudExportDialog } from "./CloudExportDialog";
 import { VideoPlayerWithAnnotations } from "../VideoPlayerWithAnnotations";
 import { VideoTagManager } from "./VideoTagManager";
+import { ShareDialog } from "../ShareDialog";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +56,7 @@ export function VideoList() {
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [tagFilterMode, setTagFilterMode] = useState<'AND' | 'OR'>('OR');
   const [playingVideoIds, setPlayingVideoIds] = useState<Set<number>>(new Set());
+  const [shareVideo, setShareVideo] = useState<{ id: number; title: string } | null>(null);
   
   const searchParams = useSearch();
   const [, setLocation] = useLocation();
@@ -787,6 +790,15 @@ export function VideoList() {
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="h-6 px-1.5"
+                    onClick={() => setShareVideo({ id: video.id, title: video.title || video.filename })}
+                    title="Share video"
+                  >
+                    <Share2 className="h-2.5 w-2.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="h-6 px-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
                     onClick={() => handleDelete(video.id)}
                     disabled={deleteMutation.isPending}
@@ -947,6 +959,17 @@ export function VideoList() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Share Dialog */}
+      {shareVideo && (
+        <ShareDialog
+          open={!!shareVideo}
+          onOpenChange={(open) => !open && setShareVideo(null)}
+          itemType="video"
+          itemId={shareVideo.id}
+          itemName={shareVideo.title}
+        />
+      )}
     </>
   );
 }

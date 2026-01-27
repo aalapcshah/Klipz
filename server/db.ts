@@ -53,6 +53,10 @@ import {
   InsertFileSuggestion,
   videoChapters,
   InsertVideoChapter,
+  shareLinks,
+  InsertShareLink,
+  shareAccessLog,
+  InsertShareAccessLog,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -2928,4 +2932,107 @@ export async function getStorageStats(userId: number): Promise<StorageStats> {
     largestFiles,
     recentUploads,
   };
+}
+
+
+// ============= SHARE LINK QUERIES =============
+
+export async function createShareLink(data: InsertShareLink) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(shareLinks).values(data);
+  return result[0].insertId;
+}
+
+export async function getShareLinkByToken(token: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select()
+    .from(shareLinks)
+    .where(eq(shareLinks.token, token))
+    .limit(1);
+  return result[0] || null;
+}
+
+export async function getShareLinkById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select()
+    .from(shareLinks)
+    .where(eq(shareLinks.id, id))
+    .limit(1);
+  return result[0] || null;
+}
+
+export async function getShareLinksByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(shareLinks)
+    .where(eq(shareLinks.userId, userId))
+    .orderBy(desc(shareLinks.createdAt));
+}
+
+export async function getShareLinksForFile(fileId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(shareLinks)
+    .where(eq(shareLinks.fileId, fileId))
+    .orderBy(desc(shareLinks.createdAt));
+}
+
+export async function getShareLinksForVideo(videoId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(shareLinks)
+    .where(eq(shareLinks.videoId, videoId))
+    .orderBy(desc(shareLinks.createdAt));
+}
+
+export async function updateShareLink(id: number, updates: Partial<InsertShareLink>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(shareLinks).set(updates).where(eq(shareLinks.id, id));
+}
+
+export async function deleteShareLink(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(shareLinks).where(eq(shareLinks.id, id));
+}
+
+export async function incrementShareLinkViewCount(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .update(shareLinks)
+    .set({
+      viewCount: sql`${shareLinks.viewCount} + 1`,
+      lastAccessedAt: new Date(),
+    })
+    .where(eq(shareLinks.id, id));
+}
+
+export async function logShareAccess(data: InsertShareAccessLog) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(shareAccessLog).values(data);
+}
+
+export async function getShareAccessLogs(shareLinkId: number, limit: number = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(shareAccessLog)
+    .where(eq(shareAccessLog.shareLinkId, shareLinkId))
+    .orderBy(desc(shareAccessLog.accessedAt))
+    .limit(limit);
 }

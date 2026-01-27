@@ -4046,3 +4046,23 @@ Note: The application already has extensive annotation features including voice 
 - [x] Integrate search functionality with file/video results (real-time search)
 - [x] Add quick actions (Upload Files, Record Video, View Collections)
 - [x] Test keyboard shortcut from all pages
+
+
+## Video Compression Options - January 27, 2026
+- [ ] Add compression quality selector (Original, High, Medium, Low) during upload
+- [ ] Implement client-side video compression using browser APIs
+- [ ] Show estimated file size reduction before compression
+- [ ] Display compression progress indicator
+
+## File/Video Sharing via Public Links - January 27, 2026
+- [x] Create shares table in database schema
+- [x] Add share creation API with password and expiration options
+- [x] Build share dialog UI in file/video detail views
+- [x] Create public share viewing page (/share/:token)
+- [x] Add share management (view, revoke, update) functionality
+- [x] Add share button to FileDetailDialog
+- [x] Add share button to VideoList video cards
+- [x] Implement password protection for share links
+- [x] Implement expiration dates for share links
+- [x] Track view and download counts for share links
+- [x] Write unit tests for share links feature (12 tests passing)
