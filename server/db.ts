@@ -2685,3 +2685,196 @@ export async function checkForDuplicateFiles(
 
   return results;
 }
+
+
+// ============= STORAGE STATISTICS QUERIES =============
+
+export interface StorageStats {
+  totalBytes: number;
+  fileCount: number;
+  videoCount: number;
+  breakdown: {
+    type: string;
+    bytes: number;
+    count: number;
+  }[];
+  largestFiles: {
+    id: number;
+    filename: string;
+    fileSize: number;
+    mimeType: string;
+    createdAt: Date;
+    type: 'file' | 'video';
+  }[];
+  recentUploads: {
+    date: string;
+    bytes: number;
+    count: number;
+  }[];
+}
+
+/**
+ * Get storage statistics for a user
+ */
+export async function getStorageStats(userId: number): Promise<StorageStats> {
+  const db = await getDb();
+  if (!db) {
+    return {
+      totalBytes: 0,
+      fileCount: 0,
+      videoCount: 0,
+      breakdown: [],
+      largestFiles: [],
+      recentUploads: [],
+    };
+  }
+
+  // Get file statistics
+  const fileStats = await db
+    .select({
+      totalBytes: sql<number>`COALESCE(SUM(${files.fileSize}), 0)`,
+      count: sql<number>`COUNT(*)`,
+    })
+    .from(files)
+    .where(eq(files.userId, userId));
+
+  // Get video count (videos don't store fileSize in DB, we'll estimate from upload history)
+  const videoStats = await db
+    .select({
+      count: sql<number>`COUNT(*)`,
+    })
+    .from(videos)
+    .where(eq(videos.userId, userId));
+
+  // Get video storage from upload history
+  const { uploadHistory } = await import("../drizzle/schema");
+  const videoStorageStats = await db
+    .select({
+      totalBytes: sql<number>`COALESCE(SUM(${uploadHistory.fileSize}), 0)`,
+    })
+    .from(uploadHistory)
+    .where(
+      and(
+        eq(uploadHistory.userId, userId),
+        eq(uploadHistory.uploadType, 'video'),
+        eq(uploadHistory.status, 'completed')
+      )
+    );
+
+  // Get breakdown by file type (for files table)
+  const fileBreakdown = await db
+    .select({
+      mimeType: files.mimeType,
+      bytes: sql<number>`COALESCE(SUM(${files.fileSize}), 0)`,
+      count: sql<number>`COUNT(*)`,
+    })
+    .from(files)
+    .where(eq(files.userId, userId))
+    .groupBy(files.mimeType);
+
+  // Categorize mime types
+  const breakdown: StorageStats['breakdown'] = [];
+  const categories: Record<string, { bytes: number; count: number }> = {
+    'Images': { bytes: 0, count: 0 },
+    'Documents': { bytes: 0, count: 0 },
+    'Videos': { bytes: Number(videoStorageStats[0]?.totalBytes || 0), count: Number(videoStats[0]?.count || 0) },
+    'Audio': { bytes: 0, count: 0 },
+    'Other': { bytes: 0, count: 0 },
+  };
+
+  for (const row of fileBreakdown) {
+    const mime = row.mimeType || '';
+    const bytes = Number(row.bytes);
+    const count = Number(row.count);
+
+    if (mime.startsWith('image/')) {
+      categories['Images'].bytes += bytes;
+      categories['Images'].count += count;
+    } else if (mime.startsWith('video/')) {
+      categories['Videos'].bytes += bytes;
+      categories['Videos'].count += count;
+    } else if (mime.startsWith('audio/')) {
+      categories['Audio'].bytes += bytes;
+      categories['Audio'].count += count;
+    } else if (
+      mime.includes('pdf') ||
+      mime.includes('document') ||
+      mime.includes('text') ||
+      mime.includes('spreadsheet') ||
+      mime.includes('presentation')
+    ) {
+      categories['Documents'].bytes += bytes;
+      categories['Documents'].count += count;
+    } else {
+      categories['Other'].bytes += bytes;
+      categories['Other'].count += count;
+    }
+  }
+
+  for (const [type, data] of Object.entries(categories)) {
+    if (data.count > 0 || type === 'Videos') {
+      breakdown.push({ type, bytes: data.bytes, count: data.count });
+    }
+  }
+
+  // Get largest files
+  const largestFilesResult = await db
+    .select({
+      id: files.id,
+      filename: files.filename,
+      fileSize: files.fileSize,
+      mimeType: files.mimeType,
+      createdAt: files.createdAt,
+    })
+    .from(files)
+    .where(eq(files.userId, userId))
+    .orderBy(desc(files.fileSize))
+    .limit(10);
+
+  const largestFiles: StorageStats['largestFiles'] = largestFilesResult.map(f => ({
+    id: f.id,
+    filename: f.filename,
+    fileSize: f.fileSize,
+    mimeType: f.mimeType || 'application/octet-stream',
+    createdAt: f.createdAt,
+    type: 'file' as const,
+  }));
+
+  // Get recent upload trends (last 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const recentUploadsResult = await db
+    .select({
+      date: sql<string>`DATE(${files.createdAt})`,
+      bytes: sql<number>`COALESCE(SUM(${files.fileSize}), 0)`,
+      count: sql<number>`COUNT(*)`,
+    })
+    .from(files)
+    .where(
+      and(
+        eq(files.userId, userId),
+        gte(files.createdAt, thirtyDaysAgo)
+      )
+    )
+    .groupBy(sql`DATE(${files.createdAt})`)
+    .orderBy(sql`DATE(${files.createdAt})`);
+
+  const recentUploads = recentUploadsResult.map(r => ({
+    date: String(r.date),
+    bytes: Number(r.bytes),
+    count: Number(r.count),
+  }));
+
+  const totalFileBytes = Number(fileStats[0]?.totalBytes || 0);
+  const totalVideoBytes = Number(videoStorageStats[0]?.totalBytes || 0);
+
+  return {
+    totalBytes: totalFileBytes + totalVideoBytes,
+    fileCount: Number(fileStats[0]?.count || 0),
+    videoCount: Number(videoStats[0]?.count || 0),
+    breakdown: breakdown.sort((a, b) => b.bytes - a.bytes),
+    largestFiles,
+    recentUploads,
+  };
+}

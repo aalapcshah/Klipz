@@ -27,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AccountSettings } from "@/components/AccountSettings";
 import { NotificationPreferencesSettings } from "@/components/NotificationPreferencesSettings";
 import { BrowserNotificationSettings } from "@/components/BrowserNotificationSettings";
+import { StorageUsageDashboard } from "@/components/StorageUsageDashboard";
 
 type KnowledgeGraphType = "dbpedia" | "wikidata" | "schema_org" | "custom";
 
@@ -262,6 +263,7 @@ export default function Settings() {
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="keyboard">Keyboard Shortcuts</TabsTrigger>
+          <TabsTrigger value="storage">Storage</TabsTrigger>
           <TabsTrigger value="knowledge-graphs">Knowledge Graphs</TabsTrigger>
         </TabsList>
 
@@ -337,6 +339,10 @@ export default function Settings() {
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="storage" className="space-y-6 mt-6">
+          <StorageUsageDashboard />
         </TabsContent>
 
         <TabsContent value="knowledge-graphs" className="space-y-6 mt-6">

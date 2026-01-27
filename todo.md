@@ -3937,3 +3937,13 @@ Note: The application already has extensive annotation features including voice 
 - [x] Display existing file details (upload date, size) in warning dialog
 - [x] Handle batch duplicates (multiple files at once)
 - [x] Add "Skip all duplicates" option for batch uploads
+
+## Storage Usage Dashboard - January 26, 2026
+- [x] Create storage statistics API endpoint (calculate total storage from files + videos)
+- [x] Calculate storage breakdown by file type (videos, images, documents, other)
+- [x] Add storage usage card to Settings page (new Storage tab)
+- [x] Show total storage used with summary cards
+- [x] Display breakdown by file type with progress bars
+- [x] Add largest files list for cleanup recommendations
+- [x] Show storage trend over time (last 30 days upload activity)
+- [x] Add storage tips for cleanup recommendations
