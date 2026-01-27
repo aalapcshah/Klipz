@@ -34,6 +34,7 @@ import { Loader2 } from "lucide-react";
 import { StorageAlert } from "@/components/StorageAlert";
 import { triggerHaptic } from "@/lib/haptics";
 import { GlobalUploadProgress } from "@/components/GlobalUploadProgress";
+import { StorageAlertBanner } from "@/components/StorageAlertBanner";
 
 export default function Dashboard() {
   const { user, loading, isAuthenticated, logout } = useAuth();
@@ -118,6 +119,9 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Storage Alert Banner */}
+      <StorageAlertBanner />
+      
       {/* Top Navigation */}
       <header className="border-b border-border bg-card sticky top-0 z-50">
         <div className="container flex items-center h-16 px-4">

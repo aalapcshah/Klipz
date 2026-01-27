@@ -3947,3 +3947,13 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add largest files list for cleanup recommendations
 - [x] Show storage trend over time (last 30 days upload activity)
 - [x] Add storage tips for cleanup recommendations
+
+## Storage Quota Alerts - January 26, 2026
+- [x] Add storage quota setting (configurable limit in GB)
+- [x] Add alert threshold settings (e.g., 80%, 90%, 95%)
+- [x] Create storage quota progress bar in dashboard
+- [x] Show warning banner when approaching quota
+- [x] Send browser notification when quota threshold reached
+- [x] Block uploads when quota exceeded (with override option)
+- [x] Add quota status to Settings > Storage page
+- [x] Store quota settings in localStorage

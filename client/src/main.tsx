@@ -8,6 +8,7 @@ import App from "./App";
 import { getLoginUrl } from "./const";
 import { FontSizeProvider } from "./contexts/FontSizeContext";
 import { UploadManagerProvider } from "./contexts/UploadManagerContext";
+import { StorageQuotaProvider } from "./contexts/StorageQuotaContext";
 import { GlobalDropZone } from "./components/GlobalDropZone";
 import "./index.css";
 
@@ -59,11 +60,13 @@ createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>
     <QueryClientProvider client={queryClient}>
       <FontSizeProvider>
-        <UploadManagerProvider>
-          <GlobalDropZone>
-            <App />
-          </GlobalDropZone>
-        </UploadManagerProvider>
+        <StorageQuotaProvider>
+          <UploadManagerProvider>
+            <GlobalDropZone>
+              <App />
+            </GlobalDropZone>
+          </UploadManagerProvider>
+        </StorageQuotaProvider>
       </FontSizeProvider>
     </QueryClientProvider>
   </trpc.Provider>

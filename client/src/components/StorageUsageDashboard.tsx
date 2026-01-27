@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { StorageQuotaSettings } from "./StorageQuotaSettings";
 
 // Format bytes to human readable
 function formatBytes(bytes: number): string {
@@ -302,6 +303,9 @@ export function StorageUsageDashboard({ className }: StorageUsageDashboardProps)
           </CardContent>
         </Card>
       )}
+
+      {/* Quota Settings */}
+      <StorageQuotaSettings />
 
       {/* Storage Tips */}
       <Card className="border-yellow-500/50 bg-yellow-500/5">
