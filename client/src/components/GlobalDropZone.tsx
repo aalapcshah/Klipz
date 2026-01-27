@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, ReactNode } from "react";
-import { Upload, Video, FileImage } from "lucide-react";
+import { Upload, Video, FileImage, FolderOpen } from "lucide-react";
 import { useUploadManager } from "@/contexts/UploadManagerContext";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
+import { extractFilesFromDataTransfer, isVideoFile, FolderFile } from "@/lib/folderUpload";
 
 const VIDEO_FORMATS = [
   "video/mp4",
@@ -42,8 +43,9 @@ interface GlobalDropZoneProps {
 
 export function GlobalDropZone({ children }: GlobalDropZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isFolder, setIsFolder] = useState(false);
   const [dragCounter, setDragCounter] = useState(0);
-  const { addUpload, addUploads } = useUploadManager();
+  const { addUploads } = useUploadManager();
 
   const handleDragEnter = useCallback((e: DragEvent) => {
     e.preventDefault();
@@ -52,6 +54,17 @@ export function GlobalDropZone({ children }: GlobalDropZoneProps) {
     
     if (e.dataTransfer?.types.includes('Files')) {
       setIsDragging(true);
+      
+      // Try to detect if it's a folder
+      const items = e.dataTransfer.items;
+      if (items && items.length > 0) {
+        const entry = items[0].webkitGetAsEntry?.();
+        if (entry?.isDirectory) {
+          setIsFolder(true);
+        } else {
+          setIsFolder(false);
+        }
+      }
     }
   }, []);
 
@@ -62,6 +75,7 @@ export function GlobalDropZone({ children }: GlobalDropZoneProps) {
       const newCount = prev - 1;
       if (newCount === 0) {
         setIsDragging(false);
+        setIsFolder(false);
       }
       return newCount;
     });
@@ -72,28 +86,24 @@ export function GlobalDropZone({ children }: GlobalDropZoneProps) {
     e.stopPropagation();
   }, []);
 
-  const handleDrop = useCallback((e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    setDragCounter(0);
-
-    const files = e.dataTransfer?.files;
-    if (!files || files.length === 0) return;
-
-    const fileArray = Array.from(files);
+  const processFiles = useCallback((files: File[] | FolderFile[]) => {
     const validFiles: { file: File; uploadType: 'video' | 'file' }[] = [];
     const errors: string[] = [];
 
-    for (const file of fileArray) {
+    for (const item of files) {
+      const file = 'file' in item ? item.file : item;
+      
       // Check if format is supported
-      if (!ALL_SUPPORTED_FORMATS.includes(file.type)) {
-        errors.push(`${file.name}: Unsupported format`);
+      const isVideo = VIDEO_FORMATS.includes(file.type) || isVideoFile(file);
+      const isImage = IMAGE_FORMATS.includes(file.type);
+      const isDocument = DOCUMENT_FORMATS.includes(file.type);
+      
+      if (!isVideo && !isImage && !isDocument) {
+        // Skip unsupported files silently for folders
         continue;
       }
 
       // Check size limits
-      const isVideo = VIDEO_FORMATS.includes(file.type);
       const maxSize = isVideo ? MAX_VIDEO_SIZE : MAX_FILE_SIZE;
       
       if (file.size > maxSize) {
@@ -108,9 +118,12 @@ export function GlobalDropZone({ children }: GlobalDropZoneProps) {
       });
     }
 
-    // Show errors
+    // Show errors (limit to first 3)
     if (errors.length > 0) {
-      errors.forEach(error => toast.error(error));
+      errors.slice(0, 3).forEach(error => toast.error(error));
+      if (errors.length > 3) {
+        toast.error(`...and ${errors.length - 3} more files with errors`);
+      }
       triggerHaptic("error");
     }
 
@@ -137,8 +150,55 @@ export function GlobalDropZone({ children }: GlobalDropZoneProps) {
       }
 
       triggerHaptic("success");
+    } else if (errors.length === 0) {
+      toast.info("No supported files found");
     }
   }, [addUploads]);
+
+  const handleDrop = useCallback(async (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    setIsFolder(false);
+    setDragCounter(0);
+
+    const items = e.dataTransfer?.items;
+    const files = e.dataTransfer?.files;
+    
+    if (!items && !files) return;
+
+    // Check if any item is a directory
+    let hasDirectory = false;
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        const entry = items[i].webkitGetAsEntry?.();
+        if (entry?.isDirectory) {
+          hasDirectory = true;
+          break;
+        }
+      }
+    }
+
+    if (hasDirectory && items) {
+      // Use File System Access API for folder traversal
+      toast.info("Processing folder contents...");
+      try {
+        const folderFiles = await extractFilesFromDataTransfer(items);
+        if (folderFiles.length === 0) {
+          toast.info("No files found in the folder");
+          return;
+        }
+        processFiles(folderFiles);
+      } catch (error) {
+        console.error("Error processing folder:", error);
+        toast.error("Failed to process folder contents");
+        triggerHaptic("error");
+      }
+    } else if (files && files.length > 0) {
+      // Regular file drop
+      processFiles(Array.from(files));
+    }
+  }, [processFiles]);
 
   useEffect(() => {
     document.addEventListener('dragenter', handleDragEnter);
@@ -163,20 +223,33 @@ export function GlobalDropZone({ children }: GlobalDropZoneProps) {
         <div className="fixed inset-0 z-[100] bg-background/80 backdrop-blur-sm flex items-center justify-center">
           <div className="bg-card border-2 border-dashed border-primary rounded-2xl p-12 max-w-lg mx-4 text-center shadow-2xl">
             <div className="flex justify-center gap-4 mb-6">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <Video className="w-8 h-8 text-primary" />
-              </div>
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <FileImage className="w-8 h-8 text-primary" />
-              </div>
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <Upload className="w-8 h-8 text-primary" />
-              </div>
+              {isFolder ? (
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                  <FolderOpen className="w-10 h-10 text-primary" />
+                </div>
+              ) : (
+                <>
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Video className="w-8 h-8 text-primary" />
+                  </div>
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <FileImage className="w-8 h-8 text-primary" />
+                  </div>
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Upload className="w-8 h-8 text-primary" />
+                  </div>
+                </>
+              )}
             </div>
             
-            <h2 className="text-2xl font-bold mb-2">Drop files to upload</h2>
+            <h2 className="text-2xl font-bold mb-2">
+              {isFolder ? "Drop folder to upload" : "Drop files to upload"}
+            </h2>
             <p className="text-muted-foreground mb-4">
-              Videos, images, and documents will be automatically sorted
+              {isFolder 
+                ? "All supported files in the folder will be uploaded"
+                : "Videos, images, and documents will be automatically sorted"
+              }
             </p>
             
             <div className="flex flex-wrap justify-center gap-2 text-xs text-muted-foreground">

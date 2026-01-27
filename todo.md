@@ -3918,3 +3918,13 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add notification sound option
 - [x] Store notification preferences in localStorage
 - [x] Test notifications across different browsers
+
+## Batch Folder Upload - January 26, 2026
+- [x] Add folder selection button to upload UI
+- [x] Implement recursive file extraction from folder using webkitdirectory
+- [x] Support drag-and-drop of folders onto the drop zone
+- [x] Preserve folder structure in file names/paths
+- [x] Filter files by type (videos vs general files) from folder contents
+- [x] Show folder upload progress with file count
+- [x] Handle nested folders recursively
+- [x] Add folder upload option to GlobalDropZone

@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video, Clock, Pause, Play, RefreshCw, Calendar } from "lucide-react";
+import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video, Clock, Pause, Play, RefreshCw, Calendar, FolderOpen } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
@@ -45,6 +45,7 @@ export function VideoUploadSection() {
   const [scheduleUploadId, setScheduleUploadId] = useState<string | null>(null);
   const [scheduleTime, setScheduleTime] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   
   const {
     uploads,
@@ -236,6 +237,55 @@ export function VideoUploadSection() {
     }
   };
 
+  const handleFolderSelect = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    
+    // Filter for video files from the folder
+    const videoFiles: File[] = [];
+    let skippedCount = 0;
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      // Check if it's a video file
+      if (ACCEPTED_VIDEO_FORMATS.includes(file.type) || 
+          file.name.match(/\.(mp4|mov|avi|webm|mkv|mpeg|mpg|m4v)$/i)) {
+        const error = validateFile(file);
+        if (!error) {
+          videoFiles.push(file);
+        } else {
+          skippedCount++;
+        }
+      } else {
+        skippedCount++;
+      }
+    }
+    
+    if (videoFiles.length === 0) {
+      toast.error("No valid video files found in the selected folder");
+      triggerHaptic("error");
+      return;
+    }
+    
+    // Add all video files to upload queue
+    for (const file of videoFiles) {
+      addUpload(file, 'video', {
+        quality: selectedQuality,
+      });
+    }
+    
+    const message = skippedCount > 0 
+      ? `Added ${videoFiles.length} video${videoFiles.length !== 1 ? 's' : ''} to queue (${skippedCount} non-video files skipped)`
+      : `Added ${videoFiles.length} video${videoFiles.length !== 1 ? 's' : ''} to queue`;
+    
+    toast.success(message);
+    triggerHaptic("success");
+    
+    // Reset the input
+    if (folderInputRef.current) {
+      folderInputRef.current.value = '';
+    }
+  };
+
   const handleCancelUpload = (uploadId: string) => {
     cancelUpload(uploadId);
     triggerHaptic("light");
@@ -381,13 +431,21 @@ export function VideoUploadSection() {
           <p className="text-sm text-muted-foreground mb-4">
             Drag and drop video files here, or click to browse
           </p>
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            className="mb-2"
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            Choose Files
-          </Button>
+          <div className="flex gap-2 justify-center mb-2">
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Choose Files
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => folderInputRef.current?.click()}
+            >
+              <FolderOpen className="w-4 h-4 mr-2" />
+              Choose Folder
+            </Button>
+          </div>
           <p className="text-xs text-muted-foreground">
             Supported: MP4, MOV, AVI, WebM, MKV, MPEG (max 4GB)
           </p>
@@ -398,6 +456,16 @@ export function VideoUploadSection() {
             multiple
             className="hidden"
             onChange={(e) => handleFiles(e.target.files)}
+          />
+          <input
+            ref={folderInputRef}
+            type="file"
+            // @ts-ignore - webkitdirectory is not in the type definitions
+            webkitdirectory=""
+            directory=""
+            multiple
+            className="hidden"
+            onChange={(e) => handleFolderSelect(e.target.files)}
           />
         </div>
       </Card>
