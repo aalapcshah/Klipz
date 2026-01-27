@@ -29,6 +29,8 @@ import AdminReports from "./pages/AdminReports";
 import { trpc } from "./lib/trpc";
 import { useState, useEffect } from "react";
 import { CookieConsent } from "./components/CookieConsent";
+import { GlobalSearchModal } from "./components/GlobalSearchModal";
+import { useCallback } from "react";
 // SearchWithSaved is now rendered inside Dashboard
 
 function Router() {
@@ -73,6 +75,19 @@ function Router() {
 function App() {
   const { data: user } = trpc.auth.me.useQuery();
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+
+  // Global keyboard shortcut for Cmd/Ctrl+K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setShowGlobalSearch(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     if (user && !user.profileCompleted) {
@@ -101,6 +116,10 @@ function App() {
             <OnboardingTutorial />
             <NotificationPrompt />
             <NotificationListener />
+            <GlobalSearchModal
+              open={showGlobalSearch}
+              onOpenChange={setShowGlobalSearch}
+            />
           </div>
         </TooltipProvider>
       </ThemeProvider>

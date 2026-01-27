@@ -4038,3 +4038,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix upload dialog horizontal overflow (reduced max-width to 90vw)
 - [x] Fix [object Object] bug in Suggested Metadata (cleaned database entries)
 - [x] Fix file selection in drag & drop not working when selecting multiple files (skip duplicate detection for batch uploads)
+
+
+## Global Search Shortcut - January 27, 2026
+- [x] Create global search modal component (GlobalSearchModal.tsx)
+- [x] Add keyboard shortcut listener for Cmd/Ctrl+K (in App.tsx)
+- [x] Integrate search functionality with file/video results (real-time search)
+- [x] Add quick actions (Upload Files, Record Video, View Collections)
+- [x] Test keyboard shortcut from all pages
