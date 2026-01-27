@@ -4031,3 +4031,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix FileUploadDialog horizontal overflow causing left-right scrolling (reduced max-width, added overflow-hidden)
 - [x] Fix [object Object] display bug in Suggested Metadata section (deleted corrupted database entries)
 - [x] Fix text truncation issues in metadata suggestions (added truncate and break-words classes)
+
+
+## UI Fixes and Dark Mode - January 27, 2026
+- [x] Add dark/light mode toggle to Settings page (Theme section in Appearance tab)
+- [x] Fix upload dialog horizontal overflow (reduced max-width to 90vw)
+- [x] Fix [object Object] bug in Suggested Metadata (cleaned database entries)
+- [x] Fix file selection in drag & drop not working when selecting multiple files (skip duplicate detection for batch uploads)

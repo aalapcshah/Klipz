@@ -463,8 +463,9 @@ export function FileUploadDialog({
       
       console.log('[addFiles] Final values for', file.name, '- Title:', finalTitle, 'Description:', finalDescription, 'Keywords:', extractedKeywords);
       
-      // Check for duplicates if it's an image
-      if (file.type.startsWith('image/')) {
+      // Check for duplicates if it's an image (only for single file uploads)
+      // For batch uploads, skip duplicate detection to avoid blocking
+      if (file.type.startsWith('image/') && newFiles.length === 1) {
         try {
           // Convert file to base64 for duplicate check
           const reader = new FileReader();
@@ -842,7 +843,7 @@ export function FileUploadDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto overflow-x-hidden">
+      <DialogContent className="max-w-3xl w-[90vw] max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>Upload & Tag Files</DialogTitle>
           <DialogDescription>
