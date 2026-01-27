@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode, useRef } from "react";
+import { createContext, useContext, useState, useCallback, ReactNode, useRef, useEffect } from "react";
 import { toast } from "sonner";
 
 export interface UploadItem {
@@ -8,15 +8,11 @@ export interface UploadItem {
   progress: number;
   status: 'pending' | 'uploading' | 'completed' | 'error' | 'cancelled';
   error?: string;
-  abortController?: AbortController;
+  sessionId?: string;
   metadata?: {
     title?: string;
     description?: string;
-    voiceRecording?: Blob;
-    voiceTranscript?: string;
-    extractedMetadata?: Record<string, any>;
-    extractedKeywords?: string[];
-    enrichWithAI?: boolean;
+    quality?: string;
   };
   result?: {
     fileId: number;
@@ -32,32 +28,29 @@ interface UploadManagerContextType {
   cancelAllUploads: () => void;
   removeUpload: (id: string) => void;
   clearCompleted: () => void;
+  updateUploadProgress: (id: string, progress: number) => void;
+  updateUploadStatus: (id: string, status: UploadItem['status'], result?: UploadItem['result'], error?: string) => void;
+  updateUploadSessionId: (id: string, sessionId: string) => void;
   isUploading: boolean;
   totalProgress: number;
   pendingCount: number;
   uploadingCount: number;
   completedCount: number;
-  startProcessing: (processor: UploadProcessor) => void;
+  activeUploads: UploadItem[];
 }
-
-export type UploadProcessor = (
-  item: UploadItem,
-  updateProgress: (progress: number) => void,
-  signal: AbortSignal
-) => Promise<{ fileId: number; url: string }>;
 
 const UploadManagerContext = createContext<UploadManagerContextType | null>(null);
 
 export function UploadManagerProvider({ children }: { children: ReactNode }) {
   const [uploads, setUploads] = useState<UploadItem[]>([]);
-  const processorRef = useRef<UploadProcessor | null>(null);
-  const processingRef = useRef<boolean>(false);
+  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
 
   const generateId = () => `upload-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
   const addUpload = useCallback((file: File, metadata?: UploadItem['metadata']): string => {
     const id = generateId();
     const abortController = new AbortController();
+    abortControllersRef.current.set(id, abortController);
     
     const newItem: UploadItem = {
       id,
@@ -65,14 +58,10 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
       filename: file.name,
       progress: 0,
       status: 'pending',
-      abortController,
       metadata,
     };
 
     setUploads(prev => [...prev, newItem]);
-    
-    // Trigger processing if we have a processor
-    setTimeout(() => processQueue(), 0);
     
     return id;
   }, []);
@@ -84,6 +73,7 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
     for (const { file, metadata } of files) {
       const id = generateId();
       const abortController = new AbortController();
+      abortControllersRef.current.set(id, abortController);
       
       ids.push(id);
       newItems.push({
@@ -92,23 +82,23 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         filename: file.name,
         progress: 0,
         status: 'pending',
-        abortController,
         metadata,
       });
     }
 
     setUploads(prev => [...prev, ...newItems]);
     
-    // Trigger processing if we have a processor
-    setTimeout(() => processQueue(), 0);
-    
     return ids;
   }, []);
 
   const cancelUpload = useCallback((id: string) => {
+    const controller = abortControllersRef.current.get(id);
+    if (controller) {
+      controller.abort();
+    }
+    
     setUploads(prev => prev.map(item => {
       if (item.id === id && (item.status === 'pending' || item.status === 'uploading')) {
-        item.abortController?.abort();
         return { ...item, status: 'cancelled' as const, progress: 0 };
       }
       return item;
@@ -116,9 +106,10 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const cancelAllUploads = useCallback(() => {
+    abortControllersRef.current.forEach(controller => controller.abort());
+    
     setUploads(prev => prev.map(item => {
       if (item.status === 'pending' || item.status === 'uploading') {
-        item.abortController?.abort();
         return { ...item, status: 'cancelled' as const, progress: 0 };
       }
       return item;
@@ -126,17 +117,20 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const removeUpload = useCallback((id: string) => {
-    setUploads(prev => {
-      const item = prev.find(u => u.id === id);
-      if (item && (item.status === 'pending' || item.status === 'uploading')) {
-        item.abortController?.abort();
-      }
-      return prev.filter(u => u.id !== id);
-    });
+    const controller = abortControllersRef.current.get(id);
+    if (controller) {
+      controller.abort();
+      abortControllersRef.current.delete(id);
+    }
+    setUploads(prev => prev.filter(u => u.id !== id));
   }, []);
 
   const clearCompleted = useCallback(() => {
-    setUploads(prev => prev.filter(u => u.status !== 'completed' && u.status !== 'error' && u.status !== 'cancelled'));
+    setUploads(prev => {
+      const toRemove = prev.filter(u => u.status === 'completed' || u.status === 'error' || u.status === 'cancelled');
+      toRemove.forEach(u => abortControllersRef.current.delete(u.id));
+      return prev.filter(u => u.status !== 'completed' && u.status !== 'error' && u.status !== 'cancelled');
+    });
   }, []);
 
   const updateUploadProgress = useCallback((id: string, progress: number) => {
@@ -149,65 +143,42 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
     setUploads(prev => prev.map(item => 
       item.id === id ? { ...item, status, result, error } : item
     ));
-  }, []);
-
-  const processQueue = useCallback(async () => {
-    if (processingRef.current || !processorRef.current) return;
     
-    processingRef.current = true;
-
-    while (true) {
-      // Find next pending item
-      let nextItem: UploadItem | undefined;
-      setUploads(prev => {
-        nextItem = prev.find(u => u.status === 'pending');
-        if (nextItem) {
-          return prev.map(u => u.id === nextItem!.id ? { ...u, status: 'uploading' as const } : u);
-        }
-        return prev;
-      });
-
-      if (!nextItem) break;
-
-      const itemId = nextItem.id;
-      const processor = processorRef.current;
-
-      try {
-        const result = await processor(
-          nextItem,
-          (progress) => updateUploadProgress(itemId, progress),
-          nextItem.abortController!.signal
-        );
-        
-        updateUploadStatus(itemId, 'completed', result);
-        toast.success(`Uploaded: ${nextItem.filename}`);
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          // Already marked as cancelled
-        } else {
-          const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-          updateUploadStatus(itemId, 'error', undefined, errorMessage);
-          toast.error(`Failed to upload ${nextItem.filename}: ${errorMessage}`);
-        }
+    // Show toast notifications
+    if (status === 'completed') {
+      const item = uploads.find(u => u.id === id);
+      if (item) {
+        toast.success(`Uploaded: ${item.filename}`);
+      }
+    } else if (status === 'error' && error) {
+      const item = uploads.find(u => u.id === id);
+      if (item) {
+        toast.error(`Failed to upload ${item.filename}: ${error}`);
       }
     }
+  }, [uploads]);
 
-    processingRef.current = false;
-  }, [updateUploadProgress, updateUploadStatus]);
+  const updateUploadSessionId = useCallback((id: string, sessionId: string) => {
+    setUploads(prev => prev.map(item => 
+      item.id === id ? { ...item, sessionId } : item
+    ));
+  }, []);
 
-  const startProcessing = useCallback((processor: UploadProcessor) => {
-    processorRef.current = processor;
-    processQueue();
-  }, [processQueue]);
+  // Check if upload was cancelled
+  const isUploadCancelled = useCallback((id: string): boolean => {
+    const controller = abortControllersRef.current.get(id);
+    return controller?.signal.aborted ?? false;
+  }, []);
 
   // Computed values
   const isUploading = uploads.some(u => u.status === 'uploading');
   const pendingCount = uploads.filter(u => u.status === 'pending').length;
   const uploadingCount = uploads.filter(u => u.status === 'uploading').length;
   const completedCount = uploads.filter(u => u.status === 'completed').length;
+  const activeUploads = uploads.filter(u => u.status === 'pending' || u.status === 'uploading');
   
-  const totalProgress = uploads.length > 0
-    ? uploads.reduce((sum, u) => sum + (u.status === 'completed' ? 100 : u.progress), 0) / uploads.length
+  const totalProgress = activeUploads.length > 0
+    ? activeUploads.reduce((sum, u) => sum + u.progress, 0) / activeUploads.length
     : 0;
 
   return (
@@ -220,12 +191,15 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         cancelAllUploads,
         removeUpload,
         clearCompleted,
+        updateUploadProgress,
+        updateUploadStatus,
+        updateUploadSessionId,
         isUploading,
         totalProgress,
         pendingCount,
         uploadingCount,
         completedCount,
-        startProcessing,
+        activeUploads,
       }}
     >
       {children}
@@ -239,4 +213,10 @@ export function useUploadManager() {
     throw new Error("useUploadManager must be used within UploadManagerProvider");
   }
   return context;
+}
+
+// Hook to get abort signal for a specific upload
+export function useUploadAbortSignal(uploadId: string): AbortSignal | undefined {
+  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  return abortControllersRef.current.get(uploadId)?.signal;
 }

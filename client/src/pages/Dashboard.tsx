@@ -33,6 +33,7 @@ import { trpc } from "@/lib/trpc";
 import { Loader2 } from "lucide-react";
 import { StorageAlert } from "@/components/StorageAlert";
 import { triggerHaptic } from "@/lib/haptics";
+import { GlobalUploadProgress } from "@/components/GlobalUploadProgress";
 
 export default function Dashboard() {
   const { user, loading, isAuthenticated, logout } = useAuth();
@@ -272,6 +273,10 @@ export default function Dashboard() {
             <span className="text-sm text-muted-foreground hidden sm:inline">
               {user?.name || user?.email}
             </span>
+            
+            {/* Global Upload Progress Indicator */}
+            <GlobalUploadProgress />
+            
             <Button 
               variant="ghost" 
               size="sm"

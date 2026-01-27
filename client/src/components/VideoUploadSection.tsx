@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -6,15 +6,7 @@ import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video } from "lucide-rea
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
-
-interface UploadingFile {
-  file: File;
-  progress: number;
-  status: "uploading" | "success" | "error";
-  error?: string;
-  sessionId?: string;
-  uploadedBytes?: number;
-}
+import { useUploadManager, UploadItem } from "@/contexts/UploadManagerContext";
 
 type VideoQuality = "original" | "high" | "medium" | "low";
 
@@ -37,15 +29,32 @@ const QUALITY_SETTINGS = {
   low: { label: "Low (480p)", maxHeight: 480, bitrate: 1000 },
 };
 
+// Store abort controllers outside component to persist across re-renders
+const abortControllers = new Map<string, AbortController>();
+
 export function VideoUploadSection() {
-  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality>("high");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const {
+    uploads,
+    addUpload,
+    cancelUpload,
+    removeUpload,
+    updateUploadProgress,
+    updateUploadStatus,
+    updateUploadSessionId,
+  } = useUploadManager();
 
   const initUploadMutation = trpc.uploadChunk.initUpload.useMutation();
   const uploadChunkMutation = trpc.uploadChunk.uploadChunk.useMutation();
   const finalizeUploadMutation = trpc.uploadChunk.finalizeUpload.useMutation();
+
+  // Filter uploads to show only video uploads (pending, uploading, or recent)
+  const videoUploads = uploads.filter(u => 
+    ACCEPTED_VIDEO_FORMATS.includes(u.file.type)
+  );
 
   const validateFile = (file: File): string | null => {
     if (!ACCEPTED_VIDEO_FORMATS.includes(file.type)) {
@@ -72,8 +81,17 @@ export function VideoUploadSection() {
     });
   };
 
-  const uploadFileInChunks = async (file: File) => {
+  const uploadFileInChunks = async (uploadId: string, file: File) => {
+    // Create abort controller for this upload
+    const abortController = new AbortController();
+    abortControllers.set(uploadId, abortController);
+    
     try {
+      // Check if already cancelled
+      if (abortController.signal.aborted) {
+        return;
+      }
+
       // Initialize upload session
       const { sessionId } = await initUploadMutation.mutateAsync({
         filename: file.name,
@@ -83,9 +101,8 @@ export function VideoUploadSection() {
         description: `Uploaded video - ${QUALITY_SETTINGS[selectedQuality].label}`,
       });
 
-      setUploadingFiles(prev =>
-        prev.map(f => (f.file === file ? { ...f, sessionId } : f))
-      );
+      updateUploadSessionId(uploadId, sessionId);
+      updateUploadStatus(uploadId, 'uploading');
 
       // Calculate chunks
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
@@ -93,11 +110,23 @@ export function VideoUploadSection() {
 
       // Upload chunks sequentially with retry logic
       for (let i = 0; i < totalChunks; i++) {
+        // Check if cancelled before each chunk
+        if (abortController.signal.aborted) {
+          console.log(`[Upload] Upload cancelled for ${file.name}`);
+          return;
+        }
+
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, file.size);
         
         // Read chunk
         const chunkData = await readChunk(file, start, end);
+        
+        // Check again after reading
+        if (abortController.signal.aborted) {
+          console.log(`[Upload] Upload cancelled for ${file.name}`);
+          return;
+        }
         
         // Upload chunk with retry (max 3 attempts)
         let retries = 0;
@@ -105,6 +134,12 @@ export function VideoUploadSection() {
         let uploaded = false;
         
         while (!uploaded && retries < maxRetries) {
+          // Check before each retry attempt
+          if (abortController.signal.aborted) {
+            console.log(`[Upload] Upload cancelled for ${file.name}`);
+            return;
+          }
+          
           try {
             await uploadChunkMutation.mutateAsync({
               sessionId,
@@ -128,51 +163,41 @@ export function VideoUploadSection() {
 
         // Update progress (0-90% for chunks, 90-100% for finalization)
         const progress = ((i + 1) / totalChunks) * 90;
-        const uploadedBytes = end;
-        
-        setUploadingFiles(prev =>
-          prev.map(f =>
-            f.file === file
-              ? { ...f, progress, uploadedBytes }
-              : f
-          )
-        );
+        updateUploadProgress(uploadId, progress);
+      }
+
+      // Check before finalization
+      if (abortController.signal.aborted) {
+        console.log(`[Upload] Upload cancelled for ${file.name}`);
+        return;
       }
 
       // Finalize upload
-      setUploadingFiles(prev =>
-        prev.map(f => (f.file === file ? { ...f, progress: 95 } : f))
-      );
+      updateUploadProgress(uploadId, 95);
 
       const result = await finalizeUploadMutation.mutateAsync({ sessionId });
 
       // Success
-      setUploadingFiles(prev =>
-        prev.map(f =>
-          f.file === file
-            ? { ...f, progress: 100, status: "success" }
-            : f
-        )
-      );
+      updateUploadProgress(uploadId, 100);
+      updateUploadStatus(uploadId, 'completed', {
+        fileId: result.fileId,
+        url: result.url,
+      });
 
-      toast.success(`${file.name} uploaded successfully!`);
       triggerHaptic("success");
 
     } catch (error: any) {
+      // Don't show error if cancelled
+      if (abortController.signal.aborted) {
+        return;
+      }
+      
       console.error("Upload error:", error);
-      setUploadingFiles(prev =>
-        prev.map(f =>
-          f.file === file
-            ? {
-                ...f,
-                status: "error",
-                error: error.message || "Upload failed",
-              }
-            : f
-        )
-      );
-      toast.error(`Failed to upload ${file.name}: ${error.message}`);
+      updateUploadStatus(uploadId, 'error', undefined, error.message || "Upload failed");
       triggerHaptic("error");
+    } finally {
+      // Clean up abort controller
+      abortControllers.delete(uploadId);
     }
   };
 
@@ -189,30 +214,34 @@ export function VideoUploadSection() {
         continue;
       }
 
-      // Add to uploading list
-      const uploadingFile: UploadingFile = {
-        file,
-        progress: 0,
-        status: "uploading",
-        uploadedBytes: 0,
-      };
-
-      setUploadingFiles(prev => [...prev, uploadingFile]);
+      // Add to global upload manager
+      const uploadId = addUpload(file, {
+        quality: selectedQuality,
+      });
+      
       triggerHaptic("light");
 
-      // Start upload
-      uploadFileInChunks(file);
+      // Start upload (runs in background)
+      uploadFileInChunks(uploadId, file);
     }
   };
 
-  const removeFile = (file: File) => {
-    setUploadingFiles(prev => prev.filter(f => f.file !== file));
+  const handleCancelUpload = (uploadId: string) => {
+    // Abort the upload
+    const controller = abortControllers.get(uploadId);
+    if (controller) {
+      controller.abort();
+    }
+    
+    // Update state
+    cancelUpload(uploadId);
     triggerHaptic("light");
+    toast.info("Upload cancelled");
   };
 
-  const retryUpload = async (uploadingFile: UploadingFile) => {
-    removeFile(uploadingFile.file);
-    await handleFiles(createFileList([uploadingFile.file]));
+  const retryUpload = async (upload: UploadItem) => {
+    removeUpload(upload.id);
+    await handleFiles(createFileList([upload.file]));
   };
 
   const createFileList = (files: File[]): FileList => {
@@ -302,36 +331,56 @@ export function VideoUploadSection() {
       </Card>
 
       {/* Uploading Files List */}
-      {uploadingFiles.length > 0 && (
+      {videoUploads.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-lg font-semibold">Uploading ({uploadingFiles.length})</h3>
-          {uploadingFiles.map((uploadingFile, index) => (
-            <Card key={index} className="p-4">
+          <h3 className="text-lg font-semibold">Uploading ({videoUploads.length})</h3>
+          {videoUploads.map((upload) => (
+            <Card key={upload.id} className="p-4">
               <div className="flex items-start gap-3">
                 <Video className="w-10 h-10 text-muted-foreground flex-shrink-0 mt-1" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{uploadingFile.file.name}</p>
+                      <p className="font-medium truncate">{upload.filename}</p>
                       <p className="text-sm text-muted-foreground">
-                        {formatFileSize(uploadingFile.file.size)}
+                        {formatFileSize(upload.file.size)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {uploadingFile.status === "uploading" && (
+                      {upload.status === "uploading" && (
                         <Loader2 className="w-5 h-5 animate-spin text-primary" />
                       )}
-                      {uploadingFile.status === "success" && (
+                      {upload.status === "pending" && (
+                        <span className="text-xs text-muted-foreground">Waiting...</span>
+                      )}
+                      {upload.status === "completed" && (
                         <CheckCircle2 className="w-5 h-5 text-green-600" />
                       )}
-                      {uploadingFile.status === "error" && (
+                      {upload.status === "error" && (
                         <AlertCircle className="w-5 h-5 text-red-600" />
                       )}
-                      {(uploadingFile.status === "error" || uploadingFile.status === "success") && (
+                      {upload.status === "cancelled" && (
+                        <span className="text-xs text-muted-foreground">Cancelled</span>
+                      )}
+                      
+                      {/* Cancel button for active uploads */}
+                      {(upload.status === "pending" || upload.status === "uploading") && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => removeFile(uploadingFile.file)}
+                          onClick={() => handleCancelUpload(upload.id)}
+                          title="Cancel upload"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
+                      
+                      {/* Remove button for finished uploads */}
+                      {(upload.status === "error" || upload.status === "completed" || upload.status === "cancelled") && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeUpload(upload.id)}
                         >
                           <X className="w-4 h-4" />
                         </Button>
@@ -340,33 +389,31 @@ export function VideoUploadSection() {
                   </div>
 
                   {/* Progress Bar */}
-                  {uploadingFile.status === "uploading" && (
+                  {(upload.status === "uploading" || upload.status === "pending") && (
                     <div className="space-y-1">
                       <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
                         <div
                           className="bg-primary h-full transition-all duration-300"
-                          style={{ width: `${uploadingFile.progress}%` }}
+                          style={{ width: `${upload.progress}%` }}
                         />
                       </div>
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{uploadingFile.progress.toFixed(0)}%</span>
-                        {uploadingFile.uploadedBytes !== undefined && (
-                          <span>
-                            {formatFileSize(uploadingFile.uploadedBytes)} / {formatFileSize(uploadingFile.file.size)}
-                          </span>
-                        )}
+                        <span>{upload.status === "pending" ? "Waiting..." : `${upload.progress.toFixed(0)}%`}</span>
+                        <span>
+                          {formatFileSize(Math.round(upload.file.size * upload.progress / 100))} / {formatFileSize(upload.file.size)}
+                        </span>
                       </div>
                     </div>
                   )}
 
                   {/* Error Message */}
-                  {uploadingFile.status === "error" && uploadingFile.error && (
+                  {upload.status === "error" && upload.error && (
                     <div className="mt-2 space-y-2">
-                      <p className="text-sm text-red-600">{uploadingFile.error}</p>
+                      <p className="text-sm text-red-600">{upload.error}</p>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => retryUpload(uploadingFile)}
+                        onClick={() => retryUpload(upload)}
                       >
                         Retry Upload
                       </Button>
@@ -374,10 +421,24 @@ export function VideoUploadSection() {
                   )}
 
                   {/* Success Message */}
-                  {uploadingFile.status === "success" && (
+                  {upload.status === "completed" && (
                     <p className="text-sm text-green-600 mt-2">
                       Upload complete!
                     </p>
+                  )}
+                  
+                  {/* Cancelled Message */}
+                  {upload.status === "cancelled" && (
+                    <div className="mt-2 space-y-2">
+                      <p className="text-sm text-muted-foreground">Upload was cancelled</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => retryUpload(upload)}
+                      >
+                        Retry Upload
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
