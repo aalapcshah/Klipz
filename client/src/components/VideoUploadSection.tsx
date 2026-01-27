@@ -17,6 +17,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
 import { useUploadManager, UploadItem, formatSpeed, formatEta } from "@/contexts/UploadManagerContext";
+import { extractVideoDuration, generateVideoThumbnail, formatDuration } from "@/lib/videoUtils";
 
 type VideoQuality = "original" | "high" | "medium" | "low";
 
@@ -82,6 +83,8 @@ export function VideoUploadSection() {
   const uploadChunkMutation = trpc.uploadChunk.uploadChunk.useMutation();
   const finalizeUploadMutation = trpc.uploadChunk.finalizeUpload.useMutation();
   const checkDuplicatesMutation = trpc.duplicateCheck.checkBatch.useMutation();
+  const updateVideoMutation = trpc.videos.update.useMutation();
+  const uploadThumbnailMutation = trpc.files.uploadThumbnail.useMutation();
 
   // Filter uploads to show only video uploads
   const videoUploads = uploads.filter(u => u.uploadType === 'video');
@@ -186,6 +189,44 @@ export function VideoUploadSection() {
         sessionId,
       });
 
+      // Extract duration and generate thumbnail in background
+      try {
+        // Extract video duration
+        const duration = await extractVideoDuration(file);
+        
+        // Generate thumbnail
+        const thumbnailBlob = await generateVideoThumbnail(file);
+        
+        // Convert thumbnail to base64
+        const thumbnailBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(thumbnailBlob);
+        });
+        
+        // Upload thumbnail to S3
+        const thumbnailFilename = `${file.name.replace(/\.[^/.]+$/, '')}_thumb.jpg`;
+        const thumbnailResult = await uploadThumbnailMutation.mutateAsync({
+          content: thumbnailBase64,
+          filename: thumbnailFilename,
+          mimeType: 'image/jpeg',
+        });
+        
+        // Update video with duration and thumbnail
+        if (result.videoId) {
+          await updateVideoMutation.mutateAsync({
+            id: result.videoId,
+            duration,
+            thumbnailUrl: thumbnailResult.url,
+            thumbnailKey: thumbnailResult.key,
+          });
+        }
+      } catch (metadataError) {
+        console.warn('Failed to extract video metadata:', metadataError);
+        // Don't fail the upload if metadata extraction fails
+      }
+
       updateUploadStatus(uploadId, 'completed', {
         fileId: result.fileId,
         url: result.url,
@@ -209,6 +250,8 @@ export function VideoUploadSection() {
     initUploadMutation,
     uploadChunkMutation,
     finalizeUploadMutation,
+    uploadThumbnailMutation,
+    updateVideoMutation,
     updateUploadSessionId,
     updateUploadProgress,
     updateUploadStatus,

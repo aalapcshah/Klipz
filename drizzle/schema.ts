@@ -451,6 +451,10 @@ export const videos = mysqlTable("videos", {
   exportStatus: mysqlEnum("exportStatus", ["draft", "processing", "completed", "failed"]).default("draft").notNull(),
   exportedUrl: text("exportedUrl"), // URL of exported video with overlays
   
+  // Thumbnail
+  thumbnailUrl: text("thumbnailUrl"), // S3 URL for video thumbnail
+  thumbnailKey: varchar("thumbnailKey", { length: 512 }), // S3 key for thumbnail
+  
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

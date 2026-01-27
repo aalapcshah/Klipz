@@ -3962,3 +3962,28 @@ Note: The application already has extensive annotation features including voice 
 - [x] Investigate where uploaded videos are stored in database (only files table, not videos table)
 - [x] Ensure uploaded videos appear in Saved Videos tab (fixed finalizeUpload to create video record)
 - [x] Verify video upload flow saves to correct table (now saves to both files and videos tables)
+
+## Video Enhancement Features - January 27, 2026
+- [ ] Extract video duration on client-side before/after upload
+- [ ] Update video record with actual duration
+- [ ] Display duration in Video Library cards
+- [ ] Generate video thumbnail on client-side using canvas
+- [ ] Upload thumbnail to S3 storage
+- [ ] Store thumbnail URL in video record
+- [ ] Display thumbnails in Video Library
+- [ ] Add multi-select checkboxes to video cards
+- [ ] Create bulk action toolbar for videos
+- [ ] Implement bulk delete for videos
+- [ ] Implement bulk tag assignment for videos
+- [ ] Implement bulk export for videos
+- [ ] Add select all/none functionality for videos
+
+## Video Duration, Thumbnail & Bulk Operations - January 27, 2026 (Completed)
+- [x] Extract video duration on upload using HTML5 video element
+- [x] Generate video thumbnail from first frame on upload
+- [x] Add thumbnailUrl and thumbnailKey fields to videos table
+- [x] Display duration badge on video cards
+- [x] Show thumbnail instead of video element in video list
+- [x] Add batch tag assignment for selected videos
+- [x] Add batch tag removal for selected videos
+- [x] Existing bulk operations: export, transcribe, delete

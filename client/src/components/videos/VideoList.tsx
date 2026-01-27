@@ -19,6 +19,7 @@ import {
   Search,
   X,
   Plus,
+  Tag,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -112,7 +113,10 @@ export function VideoList() {
   const createTagMutation = trpc.videoTags.create.useMutation();
   const assignTagMutation = trpc.videoTags.assignToVideo.useMutation();
   const removeTagMutation = trpc.videoTags.removeFromVideo.useMutation();
+  const batchAssignTagMutation = trpc.videoTags.batchAssignToVideos.useMutation();
+  const batchRemoveTagMutation = trpc.videoTags.batchRemoveFromVideos.useMutation();
   const [managingTagsForVideo, setManagingTagsForVideo] = useState<number | null>(null);
+  const [showBatchTagDialog, setShowBatchTagDialog] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [selectedTagFilter, setSelectedTagFilter] = useState<number | null>(null);
 
@@ -473,6 +477,86 @@ export function VideoList() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+              {/* Batch Tag Button */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={batchAssignTagMutation.isPending}
+                  >
+                    {batchAssignTagMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Tag className="h-4 w-4 mr-2" />
+                    )}
+                    Tag
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="max-h-64 overflow-y-auto">
+                  <DropdownMenuLabel>Add Tag to Selected</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {allTags.length === 0 ? (
+                    <DropdownMenuItem disabled>
+                      No tags available
+                    </DropdownMenuItem>
+                  ) : (
+                    allTags.map((tag) => (
+                      <DropdownMenuItem
+                        key={tag.id}
+                        onClick={async () => {
+                          try {
+                            await batchAssignTagMutation.mutateAsync({
+                              videoIds: selectedVideoIds,
+                              tagId: tag.id,
+                            });
+                            toast.success(`Added "${tag.name}" to ${selectedVideoIds.length} video(s)`);
+                            refetch();
+                          } catch (error) {
+                            toast.error("Failed to add tag");
+                          }
+                        }}
+                      >
+                        <div
+                          className="w-3 h-3 rounded-full mr-2"
+                          style={{ backgroundColor: tag.color || '#3b82f6' }}
+                        />
+                        {tag.name}
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Remove Tag from Selected</DropdownMenuLabel>
+                  {allTags.length === 0 ? (
+                    <DropdownMenuItem disabled>
+                      No tags available
+                    </DropdownMenuItem>
+                  ) : (
+                    allTags.map((tag) => (
+                      <DropdownMenuItem
+                        key={`remove-${tag.id}`}
+                        onClick={async () => {
+                          try {
+                            await batchRemoveTagMutation.mutateAsync({
+                              videoIds: selectedVideoIds,
+                              tagId: tag.id,
+                            });
+                            toast.success(`Removed "${tag.name}" from ${selectedVideoIds.length} video(s)`);
+                            refetch();
+                          } catch (error) {
+                            toast.error("Failed to remove tag");
+                          }
+                        }}
+                        className="text-destructive"
+                      >
+                        <X className="h-3 w-3 mr-2" />
+                        {tag.name}
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 size="sm"
                 variant="default"
@@ -529,15 +613,44 @@ export function VideoList() {
                 }
               }
             }}>
-              <video
-                src={video.url}
-                className="w-full h-full object-contain"
-                preload="metadata"
-                onClick={(e) => e.stopPropagation()}
-              />
+              {/* Show thumbnail if available, otherwise show video */}
+              {(video as any).thumbnailUrl ? (
+                <>
+                  <img
+                    src={(video as any).thumbnailUrl}
+                    alt={video.title || video.filename}
+                    className="w-full h-full object-cover video-thumbnail"
+                    onError={(e) => {
+                      // Hide thumbnail on error, video element will show
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      const videoEl = e.currentTarget.parentElement?.querySelector('video');
+                      if (videoEl) (videoEl as HTMLVideoElement).style.display = 'block';
+                    }}
+                  />
+                  <video
+                    src={video.url}
+                    className="w-full h-full object-contain hidden"
+                    preload="metadata"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </>
+              ) : (
+                <video
+                  src={video.url}
+                  className="w-full h-full object-contain"
+                  preload="metadata"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              )}
               <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-100 hover:opacity-0 transition-opacity pointer-events-none">
                 <Play className="h-12 w-12 text-white/80" />
               </div>
+              {/* Duration badge */}
+              {video.duration > 0 && (
+                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
+                  {formatDuration(video.duration)}
+                </div>
+              )}
             </div>
 
             {/* Video Info */}

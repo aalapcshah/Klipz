@@ -651,6 +651,30 @@ export const appRouter = router({
         return { id: fileId };
       }),
 
+    // Upload thumbnail for video
+    uploadThumbnail: protectedProcedure
+      .input(
+        z.object({
+          content: z.string(), // base64 content
+          filename: z.string(),
+          mimeType: z.string(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const timestamp = Date.now();
+        const sanitizedFilename = input.filename.replace(/[^a-zA-Z0-9.-]/g, "_");
+        const fileKey = `thumbnails/${ctx.user.id}/${timestamp}-${sanitizedFilename}`;
+        
+        // Convert base64 to buffer
+        const base64Data = input.content.split(',')[1] || input.content;
+        const buffer = Buffer.from(base64Data, 'base64');
+        
+        // Upload to S3
+        const result = await storagePut(fileKey, buffer, input.mimeType);
+        
+        return { url: result.url, key: fileKey };
+      }),
+
     // Update file metadata
     update: protectedProcedure
       .input(
@@ -1368,6 +1392,9 @@ export const appRouter = router({
           title: z.string().optional(),
           description: z.string().optional(),
           transcript: z.string().optional(),
+          duration: z.number().optional(),
+          thumbnailUrl: z.string().optional(),
+          thumbnailKey: z.string().optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -2564,6 +2591,36 @@ For each suggestion, provide:
       .input(z.object({ videoId: z.number() }))
       .query(async ({ ctx, input }) => {
         return await db.getTagsForVideo(input.videoId, ctx.user.id);
+      }),
+
+    // Batch assign tag to multiple videos
+    batchAssignToVideos: protectedProcedure
+      .input(z.object({
+        videoIds: z.array(z.number()),
+        tagId: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        for (const videoId of input.videoIds) {
+          try {
+            await db.assignTagToVideo(videoId, input.tagId, ctx.user.id);
+          } catch (e) {
+            // Ignore duplicate assignment errors
+          }
+        }
+        return { success: true, count: input.videoIds.length };
+      }),
+
+    // Batch remove tag from multiple videos
+    batchRemoveFromVideos: protectedProcedure
+      .input(z.object({
+        videoIds: z.array(z.number()),
+        tagId: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        for (const videoId of input.videoIds) {
+          await db.removeTagFromVideo(videoId, input.tagId, ctx.user.id);
+        }
+        return { success: true, count: input.videoIds.length };
       }),
   }),
 
