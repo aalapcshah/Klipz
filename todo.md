@@ -3849,3 +3849,7 @@ Note: The application already has extensive annotation features including voice 
 ## Video Time and Duration Fixes - January 26, 2026
 - [x] Fix annotation duration - added separate useEffect to calculate visibility based on currentTime
 - [x] Fix video time markers - added fallback polling mechanism to get duration if events don't fire
+
+## Video Card UI Cleanup - January 26, 2026
+- [x] Remove Play button from video cards (users click video to play/pause)
+- [x] Move download/delete buttons up to same row as Tag/Annotate buttons

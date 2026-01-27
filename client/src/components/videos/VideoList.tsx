@@ -518,19 +518,25 @@ export function VideoList() {
               />
             </div>
 
-            {/* Video Thumbnail/Player */}
-            <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+            {/* Video Thumbnail/Player - Click to play/pause */}
+            <div className="relative aspect-video bg-black rounded-lg overflow-hidden cursor-pointer" onClick={(e) => {
+              const videoEl = e.currentTarget.querySelector('video');
+              if (videoEl) {
+                if (videoEl.paused) {
+                  videoEl.play();
+                } else {
+                  videoEl.pause();
+                }
+              }
+            }}>
               <video
                 src={video.url}
                 className="w-full h-full object-contain"
                 preload="metadata"
+                onClick={(e) => e.stopPropagation()}
               />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button size="icon" variant="secondary" asChild>
-                  <a href={video.url} target="_blank" rel="noopener noreferrer">
-                    <Play className="h-6 w-6" />
-                  </a>
-                </Button>
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-100 hover:opacity-0 transition-opacity pointer-events-none">
+                <Play className="h-12 w-12 text-white/80" />
               </div>
             </div>
 
@@ -580,14 +586,8 @@ export function VideoList() {
                 )}
                 <VideoTagManager videoId={video.id} onTagsChange={refetch} />
                 
-                {/* Action buttons inline */}
+                {/* Action buttons inline - removed Play button, added download/delete */}
                 <div className="flex items-center gap-1 ml-auto shrink-0">
-                  <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] text-green-600 hover:text-green-700 hover:bg-green-50" asChild>
-                    <a href={video.url} target="_blank" rel="noopener noreferrer">
-                      <Play className="h-2.5 w-2.5 mr-0.5" />
-                      Play
-                    </a>
-                  </Button>
                   {video.fileId && (
                     <Button
                       variant="ghost"
@@ -600,6 +600,72 @@ export function VideoList() {
                       Annotate
                     </Button>
                   )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-1.5"
+                        disabled={
+                          exportingVideoId === video.id ||
+                          video.exportStatus === "processing"
+                        }
+                        title="Export video with presets"
+                      >
+                        {exportingVideoId === video.id ? (
+                          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                        ) : (
+                          <>
+                            <Download className="h-2.5 w-2.5" />
+                            <ChevronDown className="h-2 w-2" />
+                          </>
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Export Presets</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleExport(video.id, 'tutorial')}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">Tutorial Mode</span>
+                          <span className="text-xs text-muted-foreground">Sequential with auto-pause</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleExport(video.id, 'review')}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">Review Mode</span>
+                          <span className="text-xs text-muted-foreground">All annotations visible</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleExport(video.id, 'clean')}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">Clean Export</span>
+                          <span className="text-xs text-muted-foreground">No annotations</span>
+                        </div>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  {video.exportStatus === "completed" && video.exportedUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-1.5"
+                      onClick={() => setCloudExportVideo({ id: video.id, title: video.title || "video" })}
+                      title="Upload to cloud storage"
+                    >
+                      <Cloud className="h-2.5 w-2.5" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDelete(video.id)}
+                    disabled={deleteMutation.isPending}
+                    title="Delete video"
+                  >
+                    <Trash2 className="h-2.5 w-2.5" />
+                  </Button>
                 </div>
               </div>
 
@@ -624,71 +690,7 @@ export function VideoList() {
               )}
             </div>
 
-            {/* Export and Delete Actions */}
-            <div className="flex flex-wrap gap-2 mt-3">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={
-                      exportingVideoId === video.id ||
-                      video.exportStatus === "processing"
-                    }
-                    title="Export video with presets"
-                  >
-                    {exportingVideoId === video.id ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <>
-                        <Download className="h-3 w-3 mr-1" />
-                        <ChevronDown className="h-2 w-2" />
-                      </>
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Export Presets</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => handleExport(video.id, 'tutorial')}>
-                    <div className="flex flex-col">
-                      <span className="font-medium">Tutorial Mode</span>
-                      <span className="text-xs text-muted-foreground">Sequential with auto-pause</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExport(video.id, 'review')}>
-                    <div className="flex flex-col">
-                      <span className="font-medium">Review Mode</span>
-                      <span className="text-xs text-muted-foreground">All annotations visible</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExport(video.id, 'clean')}>
-                    <div className="flex flex-col">
-                      <span className="font-medium">Clean Export</span>
-                      <span className="text-xs text-muted-foreground">No annotations</span>
-                    </div>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {video.exportStatus === "completed" && video.exportedUrl && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCloudExportVideo({ id: video.id, title: video.title || "video" })}
-                  title="Upload to cloud storage"
-                >
-                  <Cloud className="h-3 w-3" />
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleDelete(video.id)}
-                disabled={deleteMutation.isPending}
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </div>
+
           </Card>
         ))}
       </div>
