@@ -20,6 +20,7 @@ import {
   X,
   Plus,
   Tag,
+  Package,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -106,6 +107,7 @@ export function VideoList() {
   const batchDeleteMutation = trpc.videos.batchDelete.useMutation();
   const exportMutation = trpc.videoExport.export.useMutation();
   const batchExportMutation = trpc.videoExport.batchExport.useMutation();
+  const batchExportWithAnnotationsMutation = trpc.videoExport.batchExportWithAnnotations.useMutation();
   const transcribeMutation = trpc.videoTranscription.transcribeVideo.useMutation();
   const [transcribingVideos, setTranscribingVideos] = useState<Set<number>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -162,6 +164,37 @@ export function VideoList() {
       setSelectedVideoIds([]);
     } catch (error) {
       toast.error("Failed to export annotations");
+    }
+  };
+
+  const handleBatchExportWithAnnotations = async () => {
+    if (selectedVideoIds.length === 0) {
+      toast.error("Please select at least one video");
+      return;
+    }
+
+    toast.info(`Processing ${selectedVideoIds.length} video(s) with annotations. This may take a few minutes...`);
+
+    try {
+      const result = await batchExportWithAnnotationsMutation.mutateAsync({
+        videoIds: selectedVideoIds,
+      });
+
+      // Trigger download
+      const link = document.createElement('a');
+      link.href = result.url!;
+      link.download = result.filename || 'exported-videos.zip';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success(
+        `Exported ${result.processedCount} video(s) with annotations` +
+        (result.failedCount ? ` (${result.failedCount} failed)` : '')
+      );
+      setSelectedVideoIds([]);
+    } catch (error) {
+      toast.error("Failed to export videos with annotations");
     }
   };
 
@@ -472,6 +505,19 @@ export function VideoList() {
                 <DropdownMenuItem onClick={() => handleBatchExport('json')}>
                   <Download className="h-4 w-4 mr-2" />
                   JSON Format
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Export Videos</DropdownMenuLabel>
+                <DropdownMenuItem 
+                  onClick={handleBatchExportWithAnnotations}
+                  disabled={batchExportWithAnnotationsMutation.isPending}
+                >
+                  {batchExportWithAnnotationsMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Package className="h-4 w-4 mr-2" />
+                  )}
+                  Videos with Annotations (ZIP)
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

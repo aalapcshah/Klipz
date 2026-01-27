@@ -4010,3 +4010,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Rename app from MetaClips to Synclips
 - [x] Update page title in index.html
 - [x] Update all UI references to MetaClips (Dashboard, Footer, Onboarding, etc.)
+
+
+## New Features - January 27, 2026
+- [x] Batch video export with annotations for multiple selected videos (ZIP download with FFmpeg processing)
+- [x] Add "Recently Recorded" quick access section on Videos page (shows last 7 days)

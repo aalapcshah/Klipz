@@ -410,6 +410,7 @@ function SearchView() {
 import { VideoRecorderWithTranscription } from "@/components/videos/VideoRecorderWithTranscription";
 import { VideoList } from "@/components/videos/VideoList";
 import { VideoUploadSection } from "@/components/VideoUploadSection";
+import { RecentlyRecorded } from "@/components/videos/RecentlyRecorded";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 function VideosView() {
@@ -421,6 +422,9 @@ function VideosView() {
           Record and annotate videos with AI assistance
         </p>
       </div>
+
+      {/* Recently Recorded Section */}
+      <RecentlyRecorded />
 
       <Tabs defaultValue="record" className="w-full">
         <TabsList>

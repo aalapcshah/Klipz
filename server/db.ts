@@ -678,6 +678,51 @@ export async function getVideosByUserId(userId: number, limit?: number, offset?:
   return videosWithCounts;
 }
 
+export async function getRecentlyRecordedVideos(userId: number, since: Date, limit: number = 6) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const videoList = await db
+    .select()
+    .from(videos)
+    .where(
+      and(
+        eq(videos.userId, userId),
+        sql`${videos.createdAt} >= ${since}`
+      )
+    )
+    .orderBy(desc(videos.createdAt))
+    .limit(limit);
+
+  // Get annotation counts for each video
+  const videosWithCounts = await Promise.all(
+    videoList.map(async (video) => {
+      if (!video.fileId) {
+        return { ...video, voiceAnnotationCount: 0, visualAnnotationCount: 0, totalAnnotationCount: 0 };
+      }
+
+      const voiceNotes = await db
+        .select()
+        .from(voiceAnnotations)
+        .where(eq(voiceAnnotations.fileId, video.fileId));
+
+      const drawings = await db
+        .select()
+        .from(visualAnnotations)
+        .where(eq(visualAnnotations.fileId, video.fileId));
+
+      return {
+        ...video,
+        voiceAnnotationCount: voiceNotes.length,
+        visualAnnotationCount: drawings.length,
+        totalAnnotationCount: voiceNotes.length + drawings.length,
+      };
+    })
+  );
+
+  return videosWithCounts;
+}
+
 export async function getVideoById(videoId: number) {
   const db = await getDb();
   if (!db) return undefined;

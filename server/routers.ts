@@ -47,7 +47,7 @@ import { storagePut } from "./storage";
 import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
 import { nanoid } from "nanoid";
-import { exportVideoWithAnnotations } from "./videoExport";
+import { exportVideoWithAnnotations, batchExportVideosWithAnnotations } from "./videoExport";
 import { voiceAnnotations, visualAnnotations, files } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 
@@ -1296,6 +1296,16 @@ export const appRouter = router({
 
   // ============= VIDEOS ROUTER =============
   videos: router({
+    // Get recently recorded videos (last 7 days)
+    recentlyRecorded: protectedProcedure
+      .query(async ({ ctx }) => {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        const videos = await db.getRecentlyRecordedVideos(ctx.user.id, sevenDaysAgo, 6);
+        return videos;
+      }),
+
     // List all videos
     list: protectedProcedure
       .input(z.object({ 
@@ -1738,6 +1748,76 @@ For each suggestion, provide:
         );
 
         return { url, filename };
+      }),
+
+    // Batch export videos with burned-in annotations as ZIP
+    batchExportWithAnnotations: protectedProcedure
+      .input(
+        z.object({
+          videoIds: z.array(z.number()),
+          preset: z.enum(['tutorial', 'review', 'clean']).optional().default('review'),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const dbInstance = await db.getDb();
+        if (!dbInstance) throw new Error("Database not available");
+
+        // Gather video data and annotations
+        const videosToExport: Array<{
+          videoId: number;
+          videoUrl: string;
+          title: string;
+          annotations: Array<{
+            id: number;
+            startTime: number;
+            endTime: number;
+            position: "left" | "right" | "center";
+            keyword: string | null;
+            fileUrl?: string;
+          }>;
+        }> = [];
+
+        for (const videoId of input.videoIds) {
+          const video = await db.getVideoById(videoId);
+          if (!video || video.userId !== ctx.user.id) continue;
+
+          // Get annotations for this video
+          const annotations = await db.getAnnotationsByVideoId(videoId);
+
+          videosToExport.push({
+            videoId: video.id,
+            videoUrl: video.url,
+            title: video.title || video.filename || `video-${video.id}`,
+            annotations: annotations.map((ann: any) => ({
+              id: ann.id,
+              startTime: ann.startTime,
+              endTime: ann.endTime,
+              position: ann.position || 'right',
+              keyword: ann.keyword,
+              fileUrl: ann.file?.url,
+            })),
+          });
+        }
+
+        if (videosToExport.length === 0) {
+          throw new Error("No valid videos found to export");
+        }
+
+        // Export videos with annotations
+        const result = await batchExportVideosWithAnnotations({
+          videos: videosToExport,
+        });
+
+        if (!result.success) {
+          throw new Error(result.error || "Batch export failed");
+        }
+
+        return {
+          url: result.url,
+          filename: result.filename,
+          processedCount: result.processedCount,
+          failedCount: result.failedCount,
+        };
       }),
   }),
 

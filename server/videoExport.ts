@@ -236,3 +236,156 @@ async function cleanup(tempDir: string): Promise<void> {
     console.warn("[VideoExport] Cleanup failed:", error);
   }
 }
+
+
+interface BatchExportOptions {
+  videos: Array<{
+    videoId: number;
+    videoUrl: string;
+    title: string;
+    annotations: Annotation[];
+  }>;
+}
+
+interface BatchExportResult {
+  success: boolean;
+  url?: string;
+  filename?: string;
+  processedCount?: number;
+  failedCount?: number;
+  error?: string;
+}
+
+/**
+ * Export multiple videos with burned-in annotations as a ZIP file
+ */
+export async function batchExportVideosWithAnnotations(
+  options: BatchExportOptions
+): Promise<BatchExportResult> {
+  const tempDir = `/tmp/batch-export-${nanoid()}`;
+  const outputDir = path.join(tempDir, "videos");
+  const zipPath = path.join(tempDir, "exported-videos.zip");
+
+  let processedCount = 0;
+  let failedCount = 0;
+
+  try {
+    // Create temp directories
+    await mkdir(outputDir, { recursive: true });
+
+    // Process each video
+    for (const video of options.videos) {
+      try {
+        console.log(`[BatchExport] Processing video: ${video.title}`);
+        
+        const videoPath = path.join(tempDir, `input-${video.videoId}.mp4`);
+        const outputPath = path.join(outputDir, `${sanitizeFilename(video.title)}.mp4`);
+
+        // Download source video
+        const videoResponse = await axios.get(video.videoUrl, {
+          responseType: "arraybuffer",
+        });
+        await writeFile(videoPath, Buffer.from(videoResponse.data));
+
+        // Download overlay images
+        const overlayPaths: Map<number, string> = new Map();
+        for (const ann of video.annotations) {
+          if (ann.fileUrl) {
+            const overlayPath = path.join(tempDir, `overlay-${video.videoId}-${ann.id}.jpg`);
+            try {
+              const imgResponse = await axios.get(ann.fileUrl, {
+                responseType: "arraybuffer",
+              });
+              await writeFile(overlayPath, Buffer.from(imgResponse.data));
+              overlayPaths.set(ann.id, overlayPath);
+            } catch (error) {
+              console.warn(`[BatchExport] Failed to download overlay for annotation ${ann.id}`);
+            }
+          }
+        }
+
+        // Generate FFmpeg filter complex
+        const filterComplex = generateFilterComplex(video.annotations, overlayPaths);
+
+        // Build FFmpeg command
+        const ffmpegCommand = [
+          "ffmpeg",
+          "-i", videoPath,
+          ...Array.from(overlayPaths.values()).flatMap(p => ["-i", p]),
+          "-filter_complex", filterComplex,
+          "-map", "[out]",
+          "-map", "0:a?",
+          "-c:v", "libx264",
+          "-preset", "fast",
+          "-crf", "23",
+          "-c:a", "copy",
+          "-y",
+          outputPath
+        ].join(" ");
+
+        // Execute FFmpeg
+        await execAsync(ffmpegCommand, {
+          maxBuffer: 50 * 1024 * 1024,
+        });
+
+        if (existsSync(outputPath)) {
+          processedCount++;
+        } else {
+          failedCount++;
+        }
+      } catch (error) {
+        console.error(`[BatchExport] Failed to process video ${video.videoId}:`, error);
+        failedCount++;
+      }
+    }
+
+    if (processedCount === 0) {
+      throw new Error("No videos were successfully processed");
+    }
+
+    // Create ZIP file
+    console.log("[BatchExport] Creating ZIP archive...");
+    await execAsync(`cd ${outputDir} && zip -r ${zipPath} .`);
+
+    if (!existsSync(zipPath)) {
+      throw new Error("Failed to create ZIP file");
+    }
+
+    // Upload to S3
+    console.log("[BatchExport] Uploading ZIP file...");
+    const zipBuffer = await import("fs/promises").then(fs => fs.readFile(zipPath));
+    const filename = `exported-videos-${Date.now()}.zip`;
+    const fileKey = `exports/${nanoid()}-${filename}`;
+    const { url } = await storagePut(fileKey, zipBuffer, "application/zip");
+
+    // Cleanup
+    await cleanup(tempDir);
+
+    return {
+      success: true,
+      url,
+      filename,
+      processedCount,
+      failedCount,
+    };
+  } catch (error) {
+    console.error("[BatchExport] Batch export failed:", error);
+    await cleanup(tempDir);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+      processedCount,
+      failedCount,
+    };
+  }
+}
+
+/**
+ * Sanitize filename for safe file system usage
+ */
+function sanitizeFilename(filename: string): string {
+  return filename
+    .replace(/[<>:"/\\|?*]/g, "_")
+    .replace(/\s+/g, "_")
+    .substring(0, 100);
+}
