@@ -3831,3 +3831,9 @@ Note: The application already has extensive annotation features including voice 
 ## Drawing Duration and Text Tool - January 26, 2026
 - [x] Drawing duration - added debugging to verify duration is being saved and used correctly
 - [x] Text tool (T) - moved text input dialog to fixed position overlay that appears on top of everything
+
+
+## Grid and Margin Fixes - January 26, 2026
+- [x] Make grid auto-fit columns using CSS grid auto-fit with minmax(200px, 1fr)
+- [x] Reduce page margins by 30% (mobile: 12px, tablet: 16px, desktop: 24px)
+- [x] Increased max-width from 1280px to 1400px

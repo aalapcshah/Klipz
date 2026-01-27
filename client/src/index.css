@@ -196,8 +196,8 @@
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 1rem; /* 16px - mobile padding */
-    padding-right: 1rem;
+    padding-left: 0.75rem; /* 12px - mobile padding (reduced 30%) */
+    padding-right: 0.75rem;
   }
 
   .flex {
@@ -207,16 +207,16 @@
 
   @media (min-width: 640px) {
     .container {
-      padding-left: 1.5rem; /* 24px - tablet padding */
-      padding-right: 1.5rem;
+      padding-left: 1rem; /* 16px - tablet padding (reduced 30%) */
+      padding-right: 1rem;
     }
   }
 
   @media (min-width: 1024px) {
     .container {
-      padding-left: 2rem; /* 32px - desktop padding */
-      padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
+      padding-left: 1.5rem; /* 24px - desktop padding (reduced 30%) */
+      padding-right: 1.5rem;
+      max-width: 1400px; /* Increased content width */
     }
   }
 
