@@ -1209,20 +1209,6 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
               >
                 <Eraser className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
-              <Button
-                size="default"
-                className="md:h-9 md:w-9 md:p-0"
-                variant={selectedTool === "highlight" ? "default" : "outline"}
-                onClick={() => {
-                  setSelectedTool("highlight");
-                  setColor("#FFFF00");
-                  setIsHighlightMode(true);
-                }}
-                title="Highlight"
-              >
-                <Highlighter className="h-5 w-5 md:h-4 md:w-4" />
-              </Button>
-
               <Separator orientation="vertical" className="h-8" />
 
               <Button
@@ -1256,50 +1242,48 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
               </Button>
             </div>
 
-            {/* Color Picker */}
-            <div className="space-y-0.5">
-              <span className="text-sm font-medium">Color:</span>
-              <div className="flex items-center gap-1">
-                {colors.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setColor(c)}
-                    className={`w-5 h-5 rounded border-2 transition-all flex-shrink-0 ${
-                      color === c ? "border-primary scale-110" : "border-border"
-                    }`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
+            {/* Color Picker and Stroke Width on same line */}
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium">Color:</span>
+                <div className="flex items-center gap-0.5">
+                  {colors.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setColor(c)}
+                      className={`w-4 h-4 rounded border-2 transition-all flex-shrink-0 ${
+                        color === c ? "border-primary scale-110" : "border-border"
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium">Width:</span>
+                <div className="flex items-center gap-1">
+                  {strokeWidths.map((width) => (
+                    <Button
+                      key={width}
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      variant={strokeWidth === width ? "default" : "outline"}
+                      onClick={() => setStrokeWidth(width)}
+                    >
+                      {width}
+                    </Button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Stroke Width */}
-            <div className="space-y-0.5">
-              <span className="text-sm font-medium">Stroke Width:</span>
-              <div className="flex items-center gap-1.5">
-                {strokeWidths.map((width) => (
-                  <Button
-                    key={width}
-                    size="sm"
-                    variant={strokeWidth === width ? "default" : "outline"}
-                    onClick={() => setStrokeWidth(width)}
-                  >
-                    {width}px
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Save Button */}
-            <div className="flex gap-2 pt-0.5">
-              <Button onClick={handleSave} className="flex-1" disabled={elements.length === 0}>
-                <Save className="h-4 w-4 mr-2" />
-                Confirm & Save
+            {/* Save Button and Template Management on same line */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button onClick={handleSave} size="sm" disabled={elements.length === 0}>
+                <Save className="h-3 w-3 mr-1" />
+                Save
               </Button>
-            </div>
-
-            {/* Template Management */}
-            <AnnotationTemplatesLibrary
+              <AnnotationTemplatesLibrary
               currentDrawingState={{
                 tool: selectedTool === "eraser" || selectedTool === "highlight" || selectedTool === "select" ? "pen" : selectedTool,
                 color,
@@ -1313,6 +1297,7 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
                 if (templateData.text) setTextInput(templateData.text);
               }}
             />
+            </div>
           </div>
 
           {/* Layer Management */}

@@ -3837,3 +3837,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Make grid auto-fit columns using CSS grid auto-fit with minmax(200px, 1fr)
 - [x] Reduce page margins by 30% (mobile: 12px, tablet: 16px, desktop: 24px)
 - [x] Increased max-width from 1280px to 1400px
+
+
+## Drawing Tools Layout Reorganization - January 26, 2026
+- [x] Remove duplicate highlighter icon (kept first pencil icon)
+- [x] Trash icon already on same line as other tools (undo, redo)
+- [x] Put Color palette and Stroke Width on the same line
+- [x] Moved Save button and Template Library to same line below Color/Width
