@@ -330,6 +330,13 @@
       "when": 1769493965672,
       "tag": "0046_military_princess_powerful",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "5",
+      "when": 1769495514881,
+      "tag": "0047_superb_talkback",
+      "breakpoints": true
     }
   ]
 }

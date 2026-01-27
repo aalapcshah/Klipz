@@ -211,6 +211,104 @@ export function generateVideoThumbnailFromUrl(
 }
 
 /**
+ * Video resolution info
+ */
+export interface VideoResolution {
+  width: number;
+  height: number;
+}
+
+/**
+ * Extract video resolution from a File object
+ * @param file Video file
+ * @returns Promise with resolution (width, height)
+ */
+export function extractVideoResolution(file: File): Promise<VideoResolution> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    
+    video.onloadedmetadata = () => {
+      window.URL.revokeObjectURL(video.src);
+      resolve({
+        width: video.videoWidth,
+        height: video.videoHeight
+      });
+    };
+    
+    video.onerror = () => {
+      window.URL.revokeObjectURL(video.src);
+      reject(new Error('Failed to load video metadata'));
+    };
+    
+    video.src = URL.createObjectURL(file);
+  });
+}
+
+/**
+ * Extract video metadata (duration and resolution) from a File object
+ * @param file Video file
+ * @returns Promise with duration and resolution
+ */
+export function extractVideoMetadata(file: File): Promise<{ duration: number; width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    
+    video.onloadedmetadata = () => {
+      window.URL.revokeObjectURL(video.src);
+      resolve({
+        duration: Math.round(video.duration),
+        width: video.videoWidth,
+        height: video.videoHeight
+      });
+    };
+    
+    video.onerror = () => {
+      window.URL.revokeObjectURL(video.src);
+      reject(new Error('Failed to load video metadata'));
+    };
+    
+    video.src = URL.createObjectURL(file);
+  });
+}
+
+/**
+ * Get resolution label from dimensions (e.g., "1080p", "4K", "720p")
+ * @param width Video width in pixels
+ * @param height Video height in pixels
+ * @returns Resolution label string
+ */
+export function getResolutionLabel(width: number | null | undefined, height: number | null | undefined): string {
+  if (!width || !height) return '';
+  
+  // Use the smaller dimension to determine quality (handles both landscape and portrait)
+  const minDim = Math.min(width, height);
+  const maxDim = Math.max(width, height);
+  
+  // Check for common resolutions based on height (for landscape) or width (for portrait)
+  if (maxDim >= 7680) return '8K';
+  if (maxDim >= 3840) return '4K';
+  if (maxDim >= 2560) return '1440p';
+  if (maxDim >= 1920 || minDim >= 1080) return '1080p';
+  if (maxDim >= 1280 || minDim >= 720) return '720p';
+  if (maxDim >= 854 || minDim >= 480) return '480p';
+  if (maxDim >= 640 || minDim >= 360) return '360p';
+  return `${minDim}p`;
+}
+
+/**
+ * Get full resolution string (e.g., "1920×1080")
+ * @param width Video width in pixels
+ * @param height Video height in pixels
+ * @returns Full resolution string
+ */
+export function getFullResolution(width: number | null | undefined, height: number | null | undefined): string {
+  if (!width || !height) return '';
+  return `${width}×${height}`;
+}
+
+/**
  * Format duration in seconds to MM:SS or HH:MM:SS
  * @param seconds Duration in seconds
  * @returns Formatted duration string

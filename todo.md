@@ -3987,3 +3987,15 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add batch tag assignment for selected videos
 - [x] Add batch tag removal for selected videos
 - [x] Existing bulk operations: export, transcribe, delete
+
+## Video Quality/Resolution Detection - January 27, 2026
+- [x] Add resolution fields (width, height) to videos table schema (already implemented)
+- [x] Extract video resolution during upload using HTML5 video element (already implemented)
+- [x] Create resolution label helper (720p, 1080p, 4K, etc.) (already implemented in videoUtils.ts)
+- [x] Display resolution badge on video cards alongside duration (already implemented)
+- [x] Update video detail view to show full resolution info (already implemented)
+
+## Bug Fixes - Video Card UI & Annotation Error - January 27, 2026
+- [x] Fix React error #185 (Maximum update depth exceeded) when opening annotation dialog - Removed duplicate useEffect that calculated visible annotations
+- [x] Remove duplicate blue duration badge from video cards (duration already shown on thumbnail) - Removed Badge from info row in VideoList.tsx
+- [x] Remove empty space to the left of Annotate button in video cards - Fixed VideoTagManager flex-wrap causing extra spacing

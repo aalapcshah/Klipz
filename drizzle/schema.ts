@@ -440,6 +440,10 @@ export const videos = mysqlTable("videos", {
   filename: varchar("filename", { length: 255 }).notNull(),
   duration: int("duration").notNull(), // seconds
   
+  // Resolution
+  width: int("width"), // Video width in pixels
+  height: int("height"), // Video height in pixels
+  
   // Metadata
   title: varchar("title", { length: 255 }),
   description: text("description"),

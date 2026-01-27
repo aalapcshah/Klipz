@@ -1393,6 +1393,8 @@ export const appRouter = router({
           description: z.string().optional(),
           transcript: z.string().optional(),
           duration: z.number().optional(),
+          width: z.number().optional(),
+          height: z.number().optional(),
           thumbnailUrl: z.string().optional(),
           thumbnailKey: z.string().optional(),
         })

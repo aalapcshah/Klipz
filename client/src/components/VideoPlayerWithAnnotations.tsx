@@ -313,19 +313,6 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
     };
   }, [visualAnnotations]);
 
-  // Calculate visible annotations whenever currentTime or visualAnnotations change
-  useEffect(() => {
-    const visible = visualAnnotations
-      .filter(ann => {
-        const startTime = ann.videoTimestamp;
-        const annDuration = ann.duration || 5;
-        const endTime = startTime + annDuration;
-        return currentTime >= startTime && currentTime < endTime;
-      })
-      .map(ann => ann.id);
-    setVisibleAnnotationIds(visible);
-  }, [currentTime, visualAnnotations]);
-
   // Keyboard shortcuts for video navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

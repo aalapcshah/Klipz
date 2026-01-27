@@ -17,7 +17,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
 import { useUploadManager, UploadItem, formatSpeed, formatEta } from "@/contexts/UploadManagerContext";
-import { extractVideoDuration, generateVideoThumbnail, formatDuration } from "@/lib/videoUtils";
+import { extractVideoMetadata, generateVideoThumbnail, formatDuration } from "@/lib/videoUtils";
 
 type VideoQuality = "original" | "high" | "medium" | "low";
 
@@ -189,10 +189,10 @@ export function VideoUploadSection() {
         sessionId,
       });
 
-      // Extract duration and generate thumbnail in background
+      // Extract duration, resolution and generate thumbnail in background
       try {
-        // Extract video duration
-        const duration = await extractVideoDuration(file);
+        // Extract video metadata (duration and resolution)
+        const metadata = await extractVideoMetadata(file);
         
         // Generate thumbnail
         const thumbnailBlob = await generateVideoThumbnail(file);
@@ -213,11 +213,13 @@ export function VideoUploadSection() {
           mimeType: 'image/jpeg',
         });
         
-        // Update video with duration and thumbnail
+        // Update video with duration, resolution and thumbnail
         if (result.videoId) {
           await updateVideoMutation.mutateAsync({
             id: result.videoId,
-            duration,
+            duration: metadata.duration,
+            width: metadata.width,
+            height: metadata.height,
             thumbnailUrl: thumbnailResult.url,
             thumbnailKey: thumbnailResult.key,
           });

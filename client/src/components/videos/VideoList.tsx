@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
+import { getResolutionLabel, formatDuration } from "@/lib/videoUtils";
 import { useLocation, useSearch } from "wouter";
 import { AnnotationEditor } from "./AnnotationEditor";
 import { CloudExportDialog } from "./CloudExportDialog";
@@ -257,11 +258,7 @@ export function VideoList() {
     }
   };
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
+  // Using formatDuration from @/lib/videoUtils
 
   if (isLoading) {
     return (
@@ -676,11 +673,13 @@ export function VideoList() {
                 )}
               </div>
               
-              {/* Duration, annotations, tags, and action buttons on same line */}
+              {/* Resolution, annotations, tags, and action buttons on same line */}
               <div className="flex items-center gap-1 flex-nowrap">
-                <Badge variant="secondary" className="text-xs shrink-0">
-                  {formatDuration(video.duration)}
-                </Badge>
+                {getResolutionLabel(video.width, video.height) && (
+                  <Badge variant="outline" className="text-xs shrink-0 text-blue-600 border-blue-300">
+                    {getResolutionLabel(video.width, video.height)}
+                  </Badge>
+                )}
                 {(video.voiceAnnotationCount > 0 || video.visualAnnotationCount > 0) && (
                   <>
                     {video.voiceAnnotationCount > 0 && (

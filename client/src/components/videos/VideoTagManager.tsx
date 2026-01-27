@@ -75,7 +75,7 @@ export function VideoTagManager({ videoId, onTagsChange }: VideoTagManagerProps)
   };
   
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-1 shrink-0">
       {/* Display assigned tags */}
       {videoTags.map((tag) => (
         <Badge
