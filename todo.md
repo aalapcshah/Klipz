@@ -3882,3 +3882,15 @@ Note: The application already has extensive annotation features including voice 
 - [x] Create global drag-and-drop overlay component
 - [x] Show drop zone overlay when dragging files over any page
 - [x] Route dropped files to appropriate upload handler (video vs general files)
+
+## Upload Speed, Pause/Resume & History - January 26, 2026
+- [x] Add upload speed tracking (MB/s calculation)
+- [x] Add estimated time remaining (ETA) for uploads
+- [x] Display speed and ETA in upload progress UI
+- [x] Implement pause functionality for active uploads
+- [x] Implement resume functionality for paused uploads
+- [x] Add pause/resume buttons to upload items
+- [x] Create upload_history database table
+- [x] Create upload history page/section
+- [x] Store completed uploads in history with timestamps
+- [x] Show upload history with filtering and search

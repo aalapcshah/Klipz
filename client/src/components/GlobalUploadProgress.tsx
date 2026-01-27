@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { useUploadManager } from "@/contexts/UploadManagerContext";
+import { useUploadManager, formatSpeed, formatEta } from "@/contexts/UploadManagerContext";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
-import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video, ChevronDown, ChevronUp } from "lucide-react";
+import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video, ChevronDown, ChevronUp, Pause, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function GlobalUploadProgress() {
@@ -18,11 +17,14 @@ export function GlobalUploadProgress() {
     isUploading,
     totalProgress,
     cancelUpload,
+    pauseUpload,
+    resumeUpload,
     removeUpload,
     clearCompleted,
     completedCount,
     uploadingCount,
     pendingCount,
+    pausedCount,
   } = useUploadManager();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -56,8 +58,10 @@ export function GlobalUploadProgress() {
             hasActiveUploads && "text-primary"
           )}
         >
-          {hasActiveUploads ? (
+          {isUploading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
+          ) : pausedCount > 0 ? (
+            <Pause className="h-4 w-4 text-yellow-500" />
           ) : completedCount > 0 ? (
             <CheckCircle2 className="h-4 w-4 text-green-500" />
           ) : (
@@ -95,7 +99,7 @@ export function GlobalUploadProgress() {
             <span className="font-semibold">Uploads</span>
             {hasActiveUploads && (
               <span className="text-xs text-muted-foreground">
-                ({uploadingCount} uploading, {pendingCount} pending)
+                ({uploadingCount} uploading{pendingCount > 0 && `, ${pendingCount} pending`}{pausedCount > 0 && `, ${pausedCount} paused`})
               </span>
             )}
           </div>
@@ -149,6 +153,9 @@ export function GlobalUploadProgress() {
                             {upload.status === 'uploading' && (
                               <Loader2 className="h-4 w-4 animate-spin text-primary" />
                             )}
+                            {upload.status === 'paused' && (
+                              <Pause className="h-4 w-4 text-yellow-500" />
+                            )}
                             {upload.status === 'completed' && (
                               <CheckCircle2 className="h-4 w-4 text-green-500" />
                             )}
@@ -159,8 +166,34 @@ export function GlobalUploadProgress() {
                               <X className="h-4 w-4 text-muted-foreground" />
                             )}
                             
+                            {/* Pause button for uploading */}
+                            {upload.status === 'uploading' && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => pauseUpload(upload.id)}
+                                title="Pause upload"
+                              >
+                                <Pause className="h-3 w-3" />
+                              </Button>
+                            )}
+                            
+                            {/* Resume button for paused */}
+                            {upload.status === 'paused' && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => resumeUpload(upload.id)}
+                                title="Resume upload"
+                              >
+                                <Play className="h-3 w-3" />
+                              </Button>
+                            )}
+                            
                             {/* Cancel button for active uploads */}
-                            {(upload.status === 'pending' || upload.status === 'uploading') && (
+                            {(upload.status === 'pending' || upload.status === 'uploading' || upload.status === 'paused') && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -188,12 +221,22 @@ export function GlobalUploadProgress() {
                         </div>
                         
                         {/* Progress bar for active uploads */}
-                        {(upload.status === 'uploading' || upload.status === 'pending') && (
+                        {(upload.status === 'uploading' || upload.status === 'pending' || upload.status === 'paused') && (
                           <div className="mt-2">
-                            <Progress value={upload.progress} className="h-1.5" />
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {upload.status === 'pending' ? 'Waiting...' : `${Math.round(upload.progress)}%`}
-                            </p>
+                            <Progress 
+                              value={upload.progress} 
+                              className={cn("h-1.5", upload.status === 'paused' && "[&>div]:bg-yellow-500")} 
+                            />
+                            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                              <span>
+                                {upload.status === 'pending' && 'Waiting...'}
+                                {upload.status === 'paused' && 'Paused'}
+                                {upload.status === 'uploading' && `${Math.round(upload.progress)}%`}
+                              </span>
+                              {upload.status === 'uploading' && upload.speed > 0 && (
+                                <span>{formatSpeed(upload.speed)} • ETA: {formatEta(upload.eta)}</span>
+                              )}
+                            </div>
                           </div>
                         )}
                         
@@ -224,7 +267,7 @@ export function GlobalUploadProgress() {
           <div className="p-3 border-t">
             <Progress value={totalProgress} className="h-2" />
             <p className="text-xs text-muted-foreground mt-2 text-center">
-              {uploadingCount} uploading, {pendingCount} pending
+              {uploadingCount} uploading{pendingCount > 0 && `, ${pendingCount} pending`}{pausedCount > 0 && `, ${pausedCount} paused`}
             </p>
           </div>
         )}

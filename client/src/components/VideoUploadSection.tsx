@@ -2,11 +2,11 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video, Clock } from "lucide-react";
+import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video, Clock, Pause, Play } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
-import { useUploadManager, UploadItem } from "@/contexts/UploadManagerContext";
+import { useUploadManager, UploadItem, formatSpeed, formatEta } from "@/contexts/UploadManagerContext";
 
 type VideoQuality = "original" | "high" | "medium" | "low";
 
@@ -38,15 +38,19 @@ export function VideoUploadSection() {
     uploads,
     addUpload,
     cancelUpload,
+    pauseUpload,
+    resumeUpload,
     removeUpload,
     updateUploadProgress,
     updateUploadStatus,
     updateUploadSessionId,
+    updatePausedChunk,
     registerProcessor,
     unregisterProcessor,
     getAbortController,
     queuedCount,
     uploadingCount,
+    pausedCount,
   } = useUploadManager();
 
   const initUploadMutation = trpc.uploadChunk.initUpload.useMutation();
@@ -82,7 +86,7 @@ export function VideoUploadSection() {
   };
 
   // Video upload processor - registered with UploadManager
-  const processVideoUpload = useCallback(async (uploadId: string, file: File) => {
+  const processVideoUpload = useCallback(async (uploadId: string, file: File, resumeFromChunk?: number) => {
     const abortController = getAbortController(uploadId);
     
     try {
@@ -94,27 +98,33 @@ export function VideoUploadSection() {
       // Get quality from upload metadata
       const upload = uploads.find(u => u.id === uploadId);
       const quality = (upload?.metadata?.quality as VideoQuality) || 'high';
+      const startChunk = resumeFromChunk || 0;
 
-      // Initialize upload session
-      const { sessionId } = await initUploadMutation.mutateAsync({
-        filename: file.name,
-        mimeType: file.type,
-        totalSize: file.size,
-        title: file.name.replace(/\.[^/.]+$/, ""),
-        description: `Uploaded video - ${QUALITY_SETTINGS[quality].label}`,
-      });
-
-      updateUploadSessionId(uploadId, sessionId);
+      // Initialize upload session (or reuse existing)
+      let sessionId = upload?.sessionId;
+      
+      if (!sessionId) {
+        const result = await initUploadMutation.mutateAsync({
+          filename: file.name,
+          mimeType: file.type,
+          totalSize: file.size,
+          title: file.name.replace(/\.[^/.]+$/, ""),
+          description: `Uploaded video - ${QUALITY_SETTINGS[quality].label}`,
+        });
+        sessionId = result.sessionId;
+        updateUploadSessionId(uploadId, sessionId);
+      }
 
       // Calculate chunks
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-      console.log(`[Upload] Starting upload of ${file.name}: ${totalChunks} chunks, ${file.size} bytes`);
+      console.log(`[Upload] Starting upload of ${file.name}: ${totalChunks} chunks, ${file.size} bytes, starting from chunk ${startChunk}`);
 
       // Upload chunks sequentially with retry logic
-      for (let i = 0; i < totalChunks; i++) {
-        // Check if cancelled before each chunk
+      for (let i = startChunk; i < totalChunks; i++) {
+        // Check if cancelled/paused before each chunk
         if (abortController?.signal.aborted) {
-          console.log(`[Upload] Upload cancelled for ${file.name}`);
+          console.log(`[Upload] Upload paused/cancelled for ${file.name} at chunk ${i}`);
+          updatePausedChunk(uploadId, i);
           return;
         }
 
@@ -126,7 +136,8 @@ export function VideoUploadSection() {
         
         // Check again after reading
         if (abortController?.signal.aborted) {
-          console.log(`[Upload] Upload cancelled for ${file.name}`);
+          console.log(`[Upload] Upload paused/cancelled for ${file.name} at chunk ${i}`);
+          updatePausedChunk(uploadId, i);
           return;
         }
         
@@ -138,7 +149,8 @@ export function VideoUploadSection() {
         while (!uploaded && retries < maxRetries) {
           // Check before each retry attempt
           if (abortController?.signal.aborted) {
-            console.log(`[Upload] Upload cancelled for ${file.name}`);
+            console.log(`[Upload] Upload paused/cancelled for ${file.name} at chunk ${i}`);
+            updatePausedChunk(uploadId, i);
             return;
           }
           
@@ -163,24 +175,25 @@ export function VideoUploadSection() {
           }
         }
 
-        // Update progress (0-90% for chunks, 90-100% for finalization)
+        // Update progress with uploaded bytes for speed calculation
+        const uploadedBytes = end;
         const progress = ((i + 1) / totalChunks) * 90;
-        updateUploadProgress(uploadId, progress);
+        updateUploadProgress(uploadId, progress, uploadedBytes);
       }
 
       // Check before finalization
       if (abortController?.signal.aborted) {
-        console.log(`[Upload] Upload cancelled for ${file.name}`);
+        console.log(`[Upload] Upload paused/cancelled for ${file.name}`);
         return;
       }
 
       // Finalize upload
-      updateUploadProgress(uploadId, 95);
+      updateUploadProgress(uploadId, 95, file.size);
 
       const result = await finalizeUploadMutation.mutateAsync({ sessionId });
 
       // Success
-      updateUploadProgress(uploadId, 100);
+      updateUploadProgress(uploadId, 100, file.size);
       updateUploadStatus(uploadId, 'completed', {
         fileId: result.fileId,
         url: result.url,
@@ -189,7 +202,7 @@ export function VideoUploadSection() {
       triggerHaptic("success");
 
     } catch (error: any) {
-      // Don't show error if cancelled
+      // Don't show error if cancelled/paused
       if (abortController?.signal.aborted) {
         return;
       }
@@ -207,6 +220,7 @@ export function VideoUploadSection() {
     updateUploadSessionId,
     updateUploadProgress,
     updateUploadStatus,
+    updatePausedChunk,
   ]);
 
   // Register video processor on mount
@@ -242,7 +256,16 @@ export function VideoUploadSection() {
   const handleCancelUpload = (uploadId: string) => {
     cancelUpload(uploadId);
     triggerHaptic("light");
-    toast.info("Upload cancelled");
+  };
+
+  const handlePauseUpload = (uploadId: string) => {
+    pauseUpload(uploadId);
+    triggerHaptic("light");
+  };
+
+  const handleResumeUpload = (uploadId: string) => {
+    resumeUpload(uploadId);
+    triggerHaptic("light");
   };
 
   const retryUpload = async (upload: UploadItem) => {
@@ -333,11 +356,14 @@ export function VideoUploadSection() {
       </Card>
 
       {/* Queue Status */}
-      {queuedCount > 0 && (
+      {(queuedCount > 0 || pausedCount > 0) && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
           <Clock className="w-4 h-4" />
           <span>
-            {uploadingCount} uploading, {queuedCount} in queue (max 3 concurrent uploads)
+            {uploadingCount} uploading
+            {queuedCount > 0 && `, ${queuedCount} in queue`}
+            {pausedCount > 0 && `, ${pausedCount} paused`}
+            {" "}(max 3 concurrent uploads)
           </span>
         </div>
       )}
@@ -358,12 +384,15 @@ export function VideoUploadSection() {
                         {formatFileSize(upload.fileSize)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
                       {upload.status === "uploading" && (
                         <Loader2 className="w-5 h-5 animate-spin text-primary" />
                       )}
                       {upload.status === "pending" && (
                         <Clock className="w-5 h-5 text-muted-foreground" />
+                      )}
+                      {upload.status === "paused" && (
+                        <Pause className="w-5 h-5 text-yellow-500" />
                       )}
                       {upload.status === "completed" && (
                         <CheckCircle2 className="w-5 h-5 text-green-600" />
@@ -375,8 +404,32 @@ export function VideoUploadSection() {
                         <span className="text-xs text-muted-foreground">Cancelled</span>
                       )}
                       
+                      {/* Pause button for uploading */}
+                      {upload.status === "uploading" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handlePauseUpload(upload.id)}
+                          title="Pause upload"
+                        >
+                          <Pause className="w-4 h-4" />
+                        </Button>
+                      )}
+                      
+                      {/* Resume button for paused */}
+                      {upload.status === "paused" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleResumeUpload(upload.id)}
+                          title="Resume upload"
+                        >
+                          <Play className="w-4 h-4" />
+                        </Button>
+                      )}
+                      
                       {/* Cancel button for active uploads */}
-                      {(upload.status === "pending" || upload.status === "uploading") && (
+                      {(upload.status === "pending" || upload.status === "uploading" || upload.status === "paused") && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -401,21 +454,33 @@ export function VideoUploadSection() {
                   </div>
 
                   {/* Progress Bar */}
-                  {(upload.status === "uploading" || upload.status === "pending") && (
+                  {(upload.status === "uploading" || upload.status === "pending" || upload.status === "paused") && (
                     <div className="space-y-1">
                       <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
                         <div
-                          className="bg-primary h-full transition-all duration-300"
+                          className={`h-full transition-all duration-300 ${
+                            upload.status === "paused" ? "bg-yellow-500" : "bg-primary"
+                          }`}
                           style={{ width: `${upload.progress}%` }}
                         />
                       </div>
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>
-                          {upload.status === "pending" ? "Queued..." : `${upload.progress.toFixed(0)}%`}
+                          {upload.status === "pending" && "Queued..."}
+                          {upload.status === "paused" && "Paused"}
+                          {upload.status === "uploading" && `${upload.progress.toFixed(0)}%`}
                         </span>
-                        <span>
-                          {formatFileSize(Math.round(upload.fileSize * upload.progress / 100))} / {formatFileSize(upload.fileSize)}
-                        </span>
+                        <div className="flex gap-3">
+                          {upload.status === "uploading" && upload.speed > 0 && (
+                            <>
+                              <span>{formatSpeed(upload.speed)}</span>
+                              <span>ETA: {formatEta(upload.eta)}</span>
+                            </>
+                          )}
+                          <span>
+                            {formatFileSize(upload.uploadedBytes)} / {formatFileSize(upload.fileSize)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )}

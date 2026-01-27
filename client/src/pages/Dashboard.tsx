@@ -388,6 +388,7 @@ export default function Dashboard() {
         {location === "/analytics" && <AnalyticsView />}
         {location === "/scheduled-exports" && <ScheduledExportsView />}
         {location === "/settings" && <SettingsView />}
+        {location === "/upload-history" && <UploadHistoryView />}
       </main>
     </div>
   );
@@ -444,6 +445,11 @@ import { Analytics as AnalyticsPage } from "./Analytics";
 import CollectionsPage from "./Collections";
 import { ScheduledExportsManager } from "@/components/ScheduledExportsManager";
 import EnrichmentQueuePage from "./EnrichmentQueue";
+import UploadHistory from "./UploadHistory";
+
+function UploadHistoryView() {
+  return <UploadHistory />;
+}
 
 function KnowledgeGraphView() {
   const [showExternalSources, setShowExternalSources] = useState(false);

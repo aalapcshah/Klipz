@@ -2421,3 +2421,145 @@ export async function deleteVideoChapter(id: number) {
 
   await db.delete(videoChapters).where(eq(videoChapters.id, id));
 }
+
+
+// ============= UPLOAD HISTORY QUERIES =============
+
+export async function createUploadHistoryRecord(data: {
+  userId: number;
+  fileId?: number;
+  filename: string;
+  fileSize: number;
+  mimeType: string;
+  uploadType: 'video' | 'file';
+  status: 'completed' | 'failed' | 'cancelled';
+  errorMessage?: string;
+  startedAt: Date;
+  durationSeconds?: number;
+  averageSpeed?: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const { uploadHistory } = await import("../drizzle/schema");
+
+  const result = await db.insert(uploadHistory).values({
+    userId: data.userId,
+    fileId: data.fileId,
+    filename: data.filename,
+    fileSize: data.fileSize,
+    mimeType: data.mimeType,
+    uploadType: data.uploadType,
+    status: data.status,
+    errorMessage: data.errorMessage,
+    startedAt: data.startedAt,
+    durationSeconds: data.durationSeconds,
+    averageSpeed: data.averageSpeed,
+  });
+
+  return result[0].insertId;
+}
+
+export async function getUploadHistory(params: {
+  userId: number;
+  limit?: number;
+  offset?: number;
+  status?: 'completed' | 'failed' | 'cancelled';
+  uploadType?: 'video' | 'file';
+  startDate?: Date;
+  endDate?: Date;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const { uploadHistory } = await import("../drizzle/schema");
+
+  const conditions: any[] = [eq(uploadHistory.userId, params.userId)];
+
+  if (params.status) {
+    conditions.push(eq(uploadHistory.status, params.status));
+  }
+
+  if (params.uploadType) {
+    conditions.push(eq(uploadHistory.uploadType, params.uploadType));
+  }
+
+  if (params.startDate) {
+    conditions.push(gte(uploadHistory.completedAt, params.startDate));
+  }
+
+  if (params.endDate) {
+    conditions.push(lte(uploadHistory.completedAt, params.endDate));
+  }
+
+  let query = db
+    .select()
+    .from(uploadHistory)
+    .where(and(...conditions))
+    .orderBy(desc(uploadHistory.completedAt))
+    .$dynamic();
+
+  if (params.limit) {
+    query = query.limit(params.limit);
+  }
+
+  if (params.offset) {
+    query = query.offset(params.offset);
+  }
+
+  return await query;
+}
+
+export async function getUploadHistoryStats(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const { uploadHistory } = await import("../drizzle/schema");
+
+  // Total uploads by status
+  const statusCounts = await db
+    .select({
+      status: uploadHistory.status,
+      count: sql<number>`count(*)`,
+      totalSize: sql<number>`sum(${uploadHistory.fileSize})`,
+    })
+    .from(uploadHistory)
+    .where(eq(uploadHistory.userId, userId))
+    .groupBy(uploadHistory.status);
+
+  // Total uploads by type
+  const typeCounts = await db
+    .select({
+      uploadType: uploadHistory.uploadType,
+      count: sql<number>`count(*)`,
+      totalSize: sql<number>`sum(${uploadHistory.fileSize})`,
+    })
+    .from(uploadHistory)
+    .where(eq(uploadHistory.userId, userId))
+    .groupBy(uploadHistory.uploadType);
+
+  // Recent uploads (last 7 days)
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const recentUploads = await db
+    .select({
+      date: sql<string>`DATE(${uploadHistory.completedAt})`,
+      count: sql<number>`count(*)`,
+      totalSize: sql<number>`sum(${uploadHistory.fileSize})`,
+    })
+    .from(uploadHistory)
+    .where(
+      and(
+        eq(uploadHistory.userId, userId),
+        gte(uploadHistory.completedAt, sevenDaysAgo)
+      )
+    )
+    .groupBy(sql`DATE(${uploadHistory.completedAt})`);
+
+  return {
+    statusCounts,
+    typeCounts,
+    recentUploads,
+  };
+}

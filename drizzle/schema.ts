@@ -1271,3 +1271,42 @@ export const cloudStorageTokens = mysqlTable("cloud_storage_tokens", {
 
 export type CloudStorageToken = typeof cloudStorageTokens.$inferSelect;
 export type InsertCloudStorageToken = typeof cloudStorageTokens.$inferInsert;
+
+
+/**
+ * Upload history table - tracks all completed uploads for history view
+ */
+export const uploadHistory = mysqlTable("upload_history", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  
+  // File reference (may be null if file was deleted)
+  fileId: int("fileId"),
+  
+  // Upload details
+  filename: varchar("filename", { length: 255 }).notNull(),
+  fileSize: int("fileSize").notNull(), // bytes
+  mimeType: varchar("mimeType", { length: 100 }).notNull(),
+  uploadType: mysqlEnum("uploadType", ["video", "file"]).notNull(),
+  
+  // Upload result
+  status: mysqlEnum("status", ["completed", "failed", "cancelled"]).notNull(),
+  errorMessage: text("errorMessage"),
+  
+  // Timing
+  startedAt: timestamp("startedAt").notNull(),
+  completedAt: timestamp("completedAt").defaultNow().notNull(),
+  durationSeconds: int("durationSeconds"), // How long the upload took
+  
+  // Speed metrics
+  averageSpeed: int("averageSpeed"), // bytes per second
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  userIdIndex: index("upload_history_user_id_idx").on(table.userId),
+  statusIndex: index("upload_history_status_idx").on(table.status),
+  completedAtIndex: index("upload_history_completed_at_idx").on(table.completedAt),
+}));
+
+export type UploadHistoryRecord = typeof uploadHistory.$inferSelect;
+export type InsertUploadHistory = typeof uploadHistory.$inferInsert;

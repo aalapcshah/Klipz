@@ -42,6 +42,7 @@ function Router() {
       <Route path="/enrichment-queue" component={Dashboard} />
       <Route path="/scheduled-exports" component={Dashboard} />
       <Route path="/settings" component={Dashboard} />
+      <Route path="/upload-history" component={Dashboard} />
       <Route path="/knowledge-graph" component={Dashboard} />
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />

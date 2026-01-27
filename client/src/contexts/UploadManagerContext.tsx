@@ -1,10 +1,13 @@
-import { createContext, useContext, useState, useCallback, ReactNode, useRef, useEffect } from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect, ReactNode } from "react";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
 
 const MAX_CONCURRENT_UPLOADS = 3;
 const STORAGE_KEY = 'metaclips-upload-queue';
+const SPEED_SAMPLE_INTERVAL = 1000; // Calculate speed every second
 
 export type UploadType = 'video' | 'file';
+export type UploadStatus = 'pending' | 'uploading' | 'paused' | 'completed' | 'error' | 'cancelled';
 
 export interface UploadItem {
   id: string;
@@ -13,7 +16,8 @@ export interface UploadItem {
   fileSize: number;
   mimeType: string;
   progress: number;
-  status: 'pending' | 'uploading' | 'completed' | 'error' | 'cancelled';
+  uploadedBytes: number;
+  status: UploadStatus;
   error?: string;
   sessionId?: string;
   uploadType: UploadType;
@@ -27,6 +31,13 @@ export interface UploadItem {
     url: string;
   };
   createdAt: number;
+  // Speed tracking
+  speed: number; // bytes per second
+  eta: number; // seconds remaining
+  lastSpeedUpdate: number;
+  lastBytesForSpeed: number;
+  // Pause/resume tracking
+  pausedAtChunk?: number;
 }
 
 // Serializable version for localStorage (without File object)
@@ -36,17 +47,19 @@ interface SerializedUploadItem {
   fileSize: number;
   mimeType: string;
   progress: number;
-  status: UploadItem['status'];
+  uploadedBytes: number;
+  status: UploadStatus;
   error?: string;
   sessionId?: string;
   uploadType: UploadType;
   metadata?: UploadItem['metadata'];
   result?: UploadItem['result'];
   createdAt: number;
+  pausedAtChunk?: number;
 }
 
 // Upload processor callback type
-type UploadProcessor = (uploadId: string, file: File) => Promise<void>;
+type UploadProcessor = (uploadId: string, file: File, resumeFromChunk?: number) => Promise<void>;
 
 interface UploadManagerContextType {
   uploads: UploadItem[];
@@ -54,11 +67,14 @@ interface UploadManagerContextType {
   addUploads: (files: { file: File; uploadType: UploadType; metadata?: UploadItem['metadata'] }[]) => string[];
   cancelUpload: (id: string) => void;
   cancelAllUploads: () => void;
+  pauseUpload: (id: string) => void;
+  resumeUpload: (id: string) => void;
   removeUpload: (id: string) => void;
   clearCompleted: () => void;
-  updateUploadProgress: (id: string, progress: number) => void;
-  updateUploadStatus: (id: string, status: UploadItem['status'], result?: UploadItem['result'], error?: string) => void;
+  updateUploadProgress: (id: string, progress: number, uploadedBytes: number) => void;
+  updateUploadStatus: (id: string, status: UploadStatus, result?: UploadItem['result'], error?: string) => void;
   updateUploadSessionId: (id: string, sessionId: string) => void;
+  updatePausedChunk: (id: string, chunkIndex: number) => void;
   registerProcessor: (type: UploadType, processor: UploadProcessor) => void;
   unregisterProcessor: (type: UploadType) => void;
   getAbortController: (id: string) => AbortController | undefined;
@@ -66,6 +82,7 @@ interface UploadManagerContextType {
   totalProgress: number;
   pendingCount: number;
   uploadingCount: number;
+  pausedCount: number;
   completedCount: number;
   activeUploads: UploadItem[];
   queuedCount: number;
@@ -78,6 +95,10 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const processorsRef = useRef<Map<UploadType, UploadProcessor>>(new Map());
   const processingRef = useRef<Set<string>>(new Set());
+  const pausedRef = useRef<Set<string>>(new Set());
+
+  // Upload history mutation
+  const recordHistoryMutation = trpc.uploadHistory.record.useMutation();
 
   const generateId = () => `upload-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -85,20 +106,22 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
   const saveToStorage = useCallback((items: UploadItem[]) => {
     try {
       const serialized: SerializedUploadItem[] = items
-        .filter(item => item.status === 'pending' || item.status === 'uploading')
+        .filter(item => item.status === 'pending' || item.status === 'uploading' || item.status === 'paused')
         .map(item => ({
           id: item.id,
           filename: item.filename,
           fileSize: item.fileSize,
           mimeType: item.mimeType,
           progress: item.progress,
-          status: item.status === 'uploading' ? 'pending' : item.status, // Reset uploading to pending
+          uploadedBytes: item.uploadedBytes,
+          status: item.status === 'uploading' ? 'paused' : item.status, // Reset uploading to paused
           error: item.error,
           sessionId: item.sessionId,
           uploadType: item.uploadType,
           metadata: item.metadata,
           result: item.result,
           createdAt: item.createdAt,
+          pausedAtChunk: item.pausedAtChunk,
         }));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(serialized));
     } catch (e) {
@@ -112,8 +135,6 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const serialized: SerializedUploadItem[] = JSON.parse(stored);
-        // We can't restore File objects, but we can show the user what was pending
-        // They'll need to re-add the files
         if (serialized.length > 0) {
           toast.info(`${serialized.length} upload(s) were interrupted. Please re-add the files to continue.`);
           localStorage.removeItem(STORAGE_KEY);
@@ -151,7 +172,7 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         ));
         
         // Start the upload
-        processor(upload.id, upload.file)
+        processor(upload.id, upload.file, upload.pausedAtChunk)
           .finally(() => {
             processingRef.current.delete(upload.id);
           });
@@ -176,10 +197,15 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
       fileSize: file.size,
       mimeType: file.type,
       progress: 0,
+      uploadedBytes: 0,
       status: 'pending',
       uploadType,
       metadata,
       createdAt: Date.now(),
+      speed: 0,
+      eta: 0,
+      lastSpeedUpdate: Date.now(),
+      lastBytesForSpeed: 0,
     };
 
     setUploads(prev => [...prev, newItem]);
@@ -204,10 +230,15 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         fileSize: file.size,
         mimeType: file.type,
         progress: 0,
+        uploadedBytes: 0,
         status: 'pending',
         uploadType,
         metadata,
         createdAt: Date.now(),
+        speed: 0,
+        eta: 0,
+        lastSpeedUpdate: Date.now(),
+        lastBytesForSpeed: 0,
       });
     }
 
@@ -222,25 +253,86 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
       controller.abort();
     }
     processingRef.current.delete(id);
+    pausedRef.current.delete(id);
+    
+    setUploads(prev => {
+      const item = prev.find(u => u.id === id);
+      
+      // Record cancelled upload to history
+      if (item && (item.status === 'pending' || item.status === 'uploading' || item.status === 'paused')) {
+        const durationSeconds = Math.round((Date.now() - item.createdAt) / 1000);
+        
+        recordHistoryMutation.mutate({
+          filename: item.filename,
+          fileSize: item.fileSize,
+          mimeType: item.mimeType,
+          uploadType: item.uploadType,
+          status: 'cancelled',
+          startedAt: item.createdAt,
+          durationSeconds,
+        });
+      }
+      
+      return prev.map(item => {
+        if (item.id === id && (item.status === 'pending' || item.status === 'uploading' || item.status === 'paused')) {
+          return { ...item, status: 'cancelled' as const, progress: 0, uploadedBytes: 0, speed: 0, eta: 0 };
+        }
+        return item;
+      });
+    });
+  }, [recordHistoryMutation]);
+
+  const cancelAllUploads = useCallback(() => {
+    abortControllersRef.current.forEach(controller => controller.abort());
+    processingRef.current.clear();
+    pausedRef.current.clear();
     
     setUploads(prev => prev.map(item => {
-      if (item.id === id && (item.status === 'pending' || item.status === 'uploading')) {
-        return { ...item, status: 'cancelled' as const, progress: 0 };
+      if (item.status === 'pending' || item.status === 'uploading' || item.status === 'paused') {
+        return { ...item, status: 'cancelled' as const, progress: 0, uploadedBytes: 0, speed: 0, eta: 0 };
       }
       return item;
     }));
   }, []);
 
-  const cancelAllUploads = useCallback(() => {
-    abortControllersRef.current.forEach(controller => controller.abort());
-    processingRef.current.clear();
+  const pauseUpload = useCallback((id: string) => {
+    const controller = abortControllersRef.current.get(id);
+    if (controller) {
+      controller.abort();
+    }
+    pausedRef.current.add(id);
+    processingRef.current.delete(id);
     
     setUploads(prev => prev.map(item => {
-      if (item.status === 'pending' || item.status === 'uploading') {
-        return { ...item, status: 'cancelled' as const, progress: 0 };
+      if (item.id === id && item.status === 'uploading') {
+        return { ...item, status: 'paused' as const, speed: 0, eta: 0 };
       }
       return item;
     }));
+    
+    toast.info("Upload paused");
+  }, []);
+
+  const resumeUpload = useCallback((id: string) => {
+    pausedRef.current.delete(id);
+    
+    // Create new abort controller for resumed upload
+    const newController = new AbortController();
+    abortControllersRef.current.set(id, newController);
+    
+    setUploads(prev => prev.map(item => {
+      if (item.id === id && item.status === 'paused') {
+        return { 
+          ...item, 
+          status: 'pending' as const,
+          lastSpeedUpdate: Date.now(),
+          lastBytesForSpeed: item.uploadedBytes,
+        };
+      }
+      return item;
+    }));
+    
+    toast.info("Upload resumed");
   }, []);
 
   const removeUpload = useCallback((id: string) => {
@@ -250,6 +342,7 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
       abortControllersRef.current.delete(id);
     }
     processingRef.current.delete(id);
+    pausedRef.current.delete(id);
     setUploads(prev => prev.filter(u => u.id !== id));
   }, []);
 
@@ -259,38 +352,103 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
       toRemove.forEach(u => {
         abortControllersRef.current.delete(u.id);
         processingRef.current.delete(u.id);
+        pausedRef.current.delete(u.id);
       });
       return prev.filter(u => u.status !== 'completed' && u.status !== 'error' && u.status !== 'cancelled');
     });
   }, []);
 
-  const updateUploadProgress = useCallback((id: string, progress: number) => {
-    setUploads(prev => prev.map(item => 
-      item.id === id ? { ...item, progress } : item
-    ));
+  const updateUploadProgress = useCallback((id: string, progress: number, uploadedBytes: number) => {
+    setUploads(prev => prev.map(item => {
+      if (item.id !== id) return item;
+      
+      const now = Date.now();
+      const timeDiff = (now - item.lastSpeedUpdate) / 1000; // seconds
+      
+      let speed = item.speed;
+      let eta = item.eta;
+      
+      // Update speed calculation every second
+      if (timeDiff >= 1) {
+        const bytesDiff = uploadedBytes - item.lastBytesForSpeed;
+        speed = bytesDiff / timeDiff;
+        
+        // Calculate ETA
+        const remainingBytes = item.fileSize - uploadedBytes;
+        eta = speed > 0 ? remainingBytes / speed : 0;
+        
+        return {
+          ...item,
+          progress,
+          uploadedBytes,
+          speed,
+          eta,
+          lastSpeedUpdate: now,
+          lastBytesForSpeed: uploadedBytes,
+        };
+      }
+      
+      return { ...item, progress, uploadedBytes };
+    }));
   }, []);
 
-  const updateUploadStatus = useCallback((id: string, status: UploadItem['status'], result?: UploadItem['result'], error?: string) => {
+  const updateUploadStatus = useCallback((id: string, status: UploadStatus, result?: UploadItem['result'], error?: string) => {
     setUploads(prev => {
       const item = prev.find(u => u.id === id);
       const newUploads = prev.map(u => 
-        u.id === id ? { ...u, status, result, error } : u
+        u.id === id ? { ...u, status, result, error, speed: 0, eta: 0 } : u
       );
       
       // Show toast notifications
       if (status === 'completed' && item) {
         toast.success(`Uploaded: ${item.filename}`);
+        
+        // Record to upload history
+        const durationSeconds = Math.round((Date.now() - item.createdAt) / 1000);
+        const averageSpeed = durationSeconds > 0 ? Math.round(item.fileSize / durationSeconds) : 0;
+        
+        recordHistoryMutation.mutate({
+          fileId: result?.fileId,
+          filename: item.filename,
+          fileSize: item.fileSize,
+          mimeType: item.mimeType,
+          uploadType: item.uploadType,
+          status: 'completed',
+          startedAt: item.createdAt,
+          durationSeconds,
+          averageSpeed,
+        });
       } else if (status === 'error' && error && item) {
         toast.error(`Failed to upload ${item.filename}: ${error}`);
+        
+        // Record failed upload to history
+        const durationSeconds = Math.round((Date.now() - item.createdAt) / 1000);
+        
+        recordHistoryMutation.mutate({
+          filename: item.filename,
+          fileSize: item.fileSize,
+          mimeType: item.mimeType,
+          uploadType: item.uploadType,
+          status: 'failed',
+          errorMessage: error,
+          startedAt: item.createdAt,
+          durationSeconds,
+        });
       }
       
       return newUploads;
     });
-  }, []);
+  }, [recordHistoryMutation]);
 
   const updateUploadSessionId = useCallback((id: string, sessionId: string) => {
     setUploads(prev => prev.map(item => 
       item.id === id ? { ...item, sessionId } : item
+    ));
+  }, []);
+
+  const updatePausedChunk = useCallback((id: string, chunkIndex: number) => {
+    setUploads(prev => prev.map(item => 
+      item.id === id ? { ...item, pausedAtChunk: chunkIndex } : item
     ));
   }, []);
 
@@ -312,9 +470,10 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
   const isUploading = uploads.some(u => u.status === 'uploading');
   const pendingCount = uploads.filter(u => u.status === 'pending').length;
   const uploadingCount = uploads.filter(u => u.status === 'uploading').length;
+  const pausedCount = uploads.filter(u => u.status === 'paused').length;
   const completedCount = uploads.filter(u => u.status === 'completed').length;
-  const activeUploads = uploads.filter(u => u.status === 'pending' || u.status === 'uploading');
-  const queuedCount = pendingCount; // Items waiting in queue
+  const activeUploads = uploads.filter(u => u.status === 'pending' || u.status === 'uploading' || u.status === 'paused');
+  const queuedCount = pendingCount;
   
   const totalProgress = activeUploads.length > 0
     ? activeUploads.reduce((sum, u) => sum + u.progress, 0) / activeUploads.length
@@ -328,11 +487,14 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         addUploads,
         cancelUpload,
         cancelAllUploads,
+        pauseUpload,
+        resumeUpload,
         removeUpload,
         clearCompleted,
         updateUploadProgress,
         updateUploadStatus,
         updateUploadSessionId,
+        updatePausedChunk,
         registerProcessor,
         unregisterProcessor,
         getAbortController,
@@ -340,6 +502,7 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         totalProgress,
         pendingCount,
         uploadingCount,
+        pausedCount,
         completedCount,
         activeUploads,
         queuedCount,
@@ -356,4 +519,23 @@ export function useUploadManager() {
     throw new Error("useUploadManager must be used within UploadManagerProvider");
   }
   return context;
+}
+
+// Utility function to format speed
+export function formatSpeed(bytesPerSecond: number): string {
+  if (bytesPerSecond === 0) return "0 B/s";
+  const k = 1024;
+  const sizes = ["B/s", "KB/s", "MB/s", "GB/s"];
+  const i = Math.floor(Math.log(bytesPerSecond) / Math.log(k));
+  return `${(bytesPerSecond / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+}
+
+// Utility function to format ETA
+export function formatEta(seconds: number): string {
+  if (seconds === 0 || !isFinite(seconds)) return "--";
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  return `${hours}h ${mins}m`;
 }
