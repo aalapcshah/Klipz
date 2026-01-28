@@ -4207,3 +4207,15 @@ Note: The application already has extensive annotation features including voice 
 - [x] Enter selection mode shows checkboxes on all cards
 - [x] Exit selection mode button clears selection and exits mode
 - [x] Cards show ring highlight when selected in selection mode
+
+
+## Mobile Enhancements & Batch Compression - January 28, 2026 (Completed)
+- [x] Implement swipe-to-delete on mobile file cards (swipe left reveals delete button with undo)
+- [x] Add batch compression dialog for existing videos in library (BulkOperationsToolbar)
+- [x] Create client-side video re-compression with quality presets (high/medium/low/custom)
+- [x] Ensure full mobile connectivity with touch-optimized interactions
+- [x] Add mobile bottom navigation bar for quick access (Files, Search, Videos, Collections)
+- [x] Optimize touch targets and gestures throughout the app
+- [x] Add safe-area-bottom support for iOS devices (pb-safe class)
+- [x] Add haptic feedback on navigation and actions (haptics.ts utility)
+- [x] Long-press selection mode for mobile (500ms hold triggers selection)

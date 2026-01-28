@@ -9,7 +9,9 @@ import {
   Loader2,
   Archive,
   Sparkles,
+  Video,
 } from "lucide-react";
+import { BatchCompressionDialog } from "@/components/BatchCompressionDialog";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +50,7 @@ export function BulkOperationsToolbar({
   const [showTagDialog, setShowTagDialog] = useState(false);
   const [showRemoveTagDialog, setShowRemoveTagDialog] = useState(false);
   const [showCollectionDialog, setShowCollectionDialog] = useState(false);
+  const [showCompressionDialog, setShowCompressionDialog] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [removeTagIds, setRemoveTagIds] = useState<number[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
@@ -384,6 +387,16 @@ export function BulkOperationsToolbar({
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setShowCompressionDialog(true)}
+              disabled={isProcessing}
+            >
+              <Video className="w-4 h-4 mr-2" />
+              Compress
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setShowDeleteDialog(true)}
               disabled={isProcessing}
             >
@@ -661,6 +674,24 @@ export function BulkOperationsToolbar({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Batch Compression Dialog */}
+      <BatchCompressionDialog
+        open={showCompressionDialog}
+        onOpenChange={setShowCompressionDialog}
+        selectedFiles={allFiles.filter((f: any) => selectedFileIds.includes(f.id)).map((f: any) => ({
+          id: f.id,
+          filename: f.filename,
+          url: f.url,
+          fileSize: f.fileSize,
+          mimeType: f.mimeType,
+        }))}
+        onComplete={() => {
+          setShowCompressionDialog(false);
+          onOperationComplete();
+          onClearSelection();
+        }}
+      />
     </>
   );
 }

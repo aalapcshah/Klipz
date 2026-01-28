@@ -39,6 +39,7 @@ import { GlobalUploadProgress } from "@/components/GlobalUploadProgress";
 import { StorageAlertBanner } from "@/components/StorageAlertBanner";
 import { TrialBanner } from "@/components/TrialBanner";
 import { UsageDashboardWidget } from "@/components/UsageDashboardWidget";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 
 export default function Dashboard() {
   const { user, loading, isAuthenticated, logout } = useAuth();
@@ -377,8 +378,11 @@ export default function Dashboard() {
         </>
       )}
 
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
+
       {/* Main Content */}
-      <main className="container py-8">
+      <main className="container py-8 pb-20 md:pb-8">
         {/* Usage Dashboard Widget - show on main pages */}
         {(location === "/" || location === "/videos" || location === "/collections") && (
           <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">

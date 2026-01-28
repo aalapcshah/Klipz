@@ -143,6 +143,9 @@ export default function FileGridEnhanced({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [swipedFileId, setSwipedFileId] = useState<number | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const swipeStartXRef = useRef<number | null>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const deletedFilesRef = useRef<DeletedFile[]>([]);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -432,6 +435,69 @@ export default function FileGridEnhanced({
   const exitSelectionMode = () => {
     setIsSelectionMode(false);
     setSelectedFiles(new Set());
+  };
+
+  // Swipe-to-delete handlers for mobile
+  const handleSwipeStart = (e: React.TouchEvent, fileId: number) => {
+    if (isSelectionMode) return;
+    swipeStartXRef.current = e.touches[0].clientX;
+    setSwipedFileId(fileId);
+  };
+
+  const handleSwipeMove = (e: React.TouchEvent) => {
+    if (swipeStartXRef.current === null || isSelectionMode) return;
+    const currentX = e.touches[0].clientX;
+    const diff = swipeStartXRef.current - currentX;
+    // Only allow left swipe (positive diff)
+    if (diff > 0) {
+      setSwipeOffset(Math.min(diff, 80)); // Max 80px swipe
+    } else {
+      setSwipeOffset(0);
+    }
+  };
+
+  const handleSwipeEnd = () => {
+    if (swipeOffset > 40) {
+      // Keep the delete button visible
+      setSwipeOffset(80);
+    } else {
+      // Reset swipe
+      setSwipeOffset(0);
+      setSwipedFileId(null);
+    }
+    swipeStartXRef.current = null;
+  };
+
+  const handleSwipeDelete = (fileId: number) => {
+    const file = files.find((f: any) => f.id === fileId);
+    if (file) {
+      deletedFilesRef.current.push({
+        id: file.id,
+        title: file.title || file.filename,
+        filename: file.filename,
+        description: file.description || '',
+        mimeType: file.mimeType,
+        fileSize: file.fileSize,
+        fileKey: file.fileKey,
+        url: file.url,
+        enrichmentStatus: file.enrichmentStatus || 'pending',
+        userId: file.userId,
+      });
+      deleteMutation.mutate({ id: fileId });
+      toast.success(`Deleted "${file.title || file.filename}"`, {
+        action: {
+          label: "Undo",
+          onClick: () => handleUndo(),
+        },
+      });
+    }
+    setSwipeOffset(0);
+    setSwipedFileId(null);
+  };
+
+  const resetSwipe = () => {
+    setSwipeOffset(0);
+    setSwipedFileId(null);
   };
 
   const toggleAll = () => {
@@ -1353,26 +1419,58 @@ export default function FileGridEnhanced({
           >
             {files.map((file: any) => {
               const fileCollections = getFileCollections(file.id);
+              const isSwipedFile = swipedFileId === file.id;
               return (
-                      <Card
-                        key={file.id}
-                        className={`group p-2 md:p-3 hover:border-primary/50 transition-colors cursor-pointer relative ${
-                          draggedFileId === file.id ? "opacity-50" : ""
-                        } ${isSelectionMode && selectedFilesSet.has(file.id) ? "ring-2 ring-primary" : ""}`}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, file.id)}
-                        onDragEnd={handleDragEnd}
-                        onTouchStart={() => handleTouchStart(file.id)}
-                        onTouchEnd={handleTouchEnd}
-                        onTouchMove={handleTouchMove}
-                        onClick={() => {
-                          if (isSelectionMode) {
-                            toggleFile(file.id);
-                          }
-                        }}
-                        role="gridcell"
-                        aria-label={`File: ${file.filename}`}
-                      >
+                <div key={file.id} className="relative overflow-hidden">
+                  {/* Swipe delete button - revealed on swipe */}
+                  <div 
+                    className="absolute right-0 top-0 bottom-0 w-20 bg-destructive flex items-center justify-center md:hidden"
+                    style={{ opacity: isSwipedFile ? 1 : 0 }}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive-foreground h-10 w-10"
+                      onClick={() => handleSwipeDelete(file.id)}
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </Button>
+                  </div>
+                  <Card
+                    className={`group p-2 md:p-3 hover:border-primary/50 transition-colors cursor-pointer relative ${
+                      draggedFileId === file.id ? "opacity-50" : ""
+                    } ${isSelectionMode && selectedFilesSet.has(file.id) ? "ring-2 ring-primary" : ""}`}
+                    style={{
+                      transform: isSwipedFile ? `translateX(-${swipeOffset}px)` : 'translateX(0)',
+                      transition: swipeStartXRef.current === null ? 'transform 0.2s ease-out' : 'none'
+                    }}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, file.id)}
+                    onDragEnd={handleDragEnd}
+                    onTouchStart={(e) => {
+                      handleTouchStart(file.id);
+                      handleSwipeStart(e, file.id);
+                    }}
+                    onTouchEnd={() => {
+                      handleTouchEnd();
+                      handleSwipeEnd();
+                    }}
+                    onTouchMove={(e) => {
+                      handleTouchMove();
+                      handleSwipeMove(e);
+                    }}
+                    onClick={() => {
+                      if (isSwipedFile && swipeOffset > 0) {
+                        resetSwipe();
+                        return;
+                      }
+                      if (isSelectionMode) {
+                        toggleFile(file.id);
+                      }
+                    }}
+                    role="gridcell"
+                    aria-label={`File: ${file.filename}`}
+                  >
                   <Button
                     variant="ghost"
                     size="icon"
@@ -1533,7 +1631,8 @@ export default function FileGridEnhanced({
                       )}
                     </div>
                   </div>
-                      </Card>
+                  </Card>
+                </div>
               );
             })}
           </div>
