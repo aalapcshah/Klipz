@@ -4128,3 +4128,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Display share links in table with all details
 - [x] Add copy link, open in new tab, and delete actions
 - [x] Add My Shares to Tools navigation menu
+
+
+## Bug Fixes - January 28, 2026
+- [x] Fix upload progress bar to show actual uploaded bytes (e.g., "185 MB / 1.85 GB") instead of just total size
+- [x] Sync progress percentage with progress bar visual
+- [x] Add custom compression ratio slider for user control (bitrate 500-8000 kbps, resolution 360p-1080p)
+- [x] Fix Files page margins to prevent horizontal overflow of file tiles (changed to fixed column grid)

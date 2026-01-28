@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -20,7 +21,7 @@ import { useUploadManager, UploadItem, formatSpeed, formatEta } from "@/contexts
 import { extractVideoMetadata, generateVideoThumbnail, formatDuration } from "@/lib/videoUtils";
 import { compressVideo, estimateCompressedSize, getVideoMetadata, isCompressionSupported, formatFileSize, COMPRESSION_PRESETS, CompressionProgress } from "@/lib/videoCompression";
 
-type VideoQuality = "original" | "high" | "medium" | "low";
+type VideoQuality = "original" | "high" | "medium" | "low" | "custom";
 
 const ACCEPTED_VIDEO_FORMATS = [
   "video/mp4",
@@ -40,11 +41,14 @@ const QUALITY_SETTINGS = {
   high: { label: "High (1080p)", maxHeight: 1080, bitrate: 5000 },
   medium: { label: "Medium (720p)", maxHeight: 720, bitrate: 2500 },
   low: { label: "Low (480p)", maxHeight: 480, bitrate: 1000 },
+  custom: { label: "Custom", maxHeight: null, bitrate: null },
 };
 
 export function VideoUploadSection() {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality>("high");
+  const [customBitrate, setCustomBitrate] = useState<number>(3000); // Custom bitrate in kbps
+  const [customResolution, setCustomResolution] = useState<number>(720); // Custom max height
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [scheduleUploadId, setScheduleUploadId] = useState<string | null>(null);
   const [scheduleTime, setScheduleTime] = useState("");
@@ -146,7 +150,10 @@ export function VideoUploadSection() {
         updateUploadStatus(uploadId, 'uploading'); // Show as active
         toast.info(`Compressing ${file.name}...`, { duration: 3000 });
         
-        const compressionSettings = COMPRESSION_PRESETS[quality];
+        // Get compression settings - use custom values if quality is 'custom'
+        const compressionSettings = quality === 'custom' 
+          ? { maxHeight: customResolution, videoBitrate: customBitrate, audioBitrate: 128 }
+          : COMPRESSION_PRESETS[quality];
         try {
           fileToUpload = await compressVideo(file, compressionSettings, (progress) => {
             setCompressionProgress(prev => {
@@ -656,8 +663,52 @@ export function VideoUploadSection() {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Compression reduces file size by re-encoding at {QUALITY_SETTINGS[selectedQuality].bitrate} kbps
+                  {selectedQuality === 'custom' 
+                    ? `Compression reduces file size by re-encoding at ${customBitrate} kbps (${customResolution}p)`
+                    : `Compression reduces file size by re-encoding at ${QUALITY_SETTINGS[selectedQuality].bitrate} kbps`}
                 </p>
+                
+                {/* Custom compression controls */}
+                {selectedQuality === 'custom' && (
+                  <div className="mt-3 space-y-4 p-3 bg-background rounded border">
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs font-medium">Video Bitrate</label>
+                        <span className="text-xs text-muted-foreground">{customBitrate} kbps</span>
+                      </div>
+                      <Slider
+                        value={[customBitrate]}
+                        onValueChange={(v) => setCustomBitrate(v[0])}
+                        min={500}
+                        max={8000}
+                        step={100}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                        <span>500 kbps (smaller)</span>
+                        <span>8000 kbps (better quality)</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs font-medium">Max Resolution</label>
+                        <span className="text-xs text-muted-foreground">{customResolution}p</span>
+                      </div>
+                      <Slider
+                        value={[customResolution]}
+                        onValueChange={(v) => setCustomResolution(v[0])}
+                        min={360}
+                        max={1080}
+                        step={90}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                        <span>360p</span>
+                        <span>1080p</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {previewEstimate && (
                   <div className="mt-2 p-2 bg-background rounded border">
                     <p className="text-xs font-medium">Estimated for {previewEstimate.filename}:</p>
