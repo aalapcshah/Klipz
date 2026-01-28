@@ -32,6 +32,13 @@ import {
   ChevronRight,
   Timer,
   Grid3X3,
+  Flashlight,
+  FlashlightOff,
+  ZoomIn,
+  ZoomOut,
+  RectangleHorizontal,
+  Square as SquareIcon,
+  Smartphone,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -42,6 +49,7 @@ type CaptureMode = "video" | "photo";
 type VideoQuality = "720p" | "1080p" | "4k";
 type FilterPreset = "normal" | "vivid" | "warm" | "cool" | "bw" | "sepia";
 type TimerDuration = 0 | 3 | 5 | 10;
+type AspectRatio = "16:9" | "4:3" | "1:1";
 
 interface QualitySettings {
   width: number;
@@ -136,6 +144,22 @@ export function VideoRecorder() {
     return localStorage.getItem("camera-grid") === "true";
   });
 
+  // Flash/Torch
+  const [flashEnabled, setFlashEnabled] = useState(false);
+  const [hasFlash, setHasFlash] = useState(false);
+
+  // Zoom
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [maxZoom, setMaxZoom] = useState(1);
+  const [minZoom, setMinZoom] = useState(1);
+  const [hasZoom, setHasZoom] = useState(false);
+
+  // Aspect Ratio
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>(() => {
+    const saved = localStorage.getItem("camera-aspect-ratio");
+    return (saved as AspectRatio) || "16:9";
+  });
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const filterCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -206,6 +230,10 @@ export function VideoRecorder() {
     localStorage.setItem("camera-grid", showGrid.toString());
   }, [showGrid]);
 
+  useEffect(() => {
+    localStorage.setItem("camera-aspect-ratio", aspectRatio);
+  }, [aspectRatio]);
+
   // Update custom filters when preset changes
   useEffect(() => {
     if (!useCustomFilters) {
@@ -237,6 +265,30 @@ export function VideoRecorder() {
         videoRef.current.srcObject = stream;
       }
       setIsPreviewing(true);
+
+      // Check for flash/torch and zoom capabilities
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        const capabilities = videoTrack.getCapabilities?.() as any;
+        if (capabilities) {
+          // Check for torch/flash
+          if (capabilities.torch) {
+            setHasFlash(true);
+          } else {
+            setHasFlash(false);
+          }
+
+          // Check for zoom
+          if (capabilities.zoom) {
+            setHasZoom(true);
+            setMinZoom(capabilities.zoom.min || 1);
+            setMaxZoom(capabilities.zoom.max || 1);
+            setZoomLevel(capabilities.zoom.min || 1);
+          } else {
+            setHasZoom(false);
+          }
+        }
+      }
     } catch (error) {
       toast.error("Failed to access camera. Please check permissions.");
       console.error(error);
@@ -252,6 +304,11 @@ export function VideoRecorder() {
       videoRef.current.srcObject = null;
     }
     setIsPreviewing(false);
+    // Reset flash and zoom
+    setFlashEnabled(false);
+    setHasFlash(false);
+    setHasZoom(false);
+    setZoomLevel(1);
     // Cancel any countdown
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
@@ -620,6 +677,66 @@ export function VideoRecorder() {
     setTimerDuration(TIMER_OPTIONS[nextIndex]);
   };
 
+  // Toggle flash/torch
+  const toggleFlash = async () => {
+    if (!streamRef.current || !hasFlash) return;
+
+    const videoTrack = streamRef.current.getVideoTracks()[0];
+    if (videoTrack) {
+      try {
+        const newFlashState = !flashEnabled;
+        await videoTrack.applyConstraints({
+          advanced: [{ torch: newFlashState } as any],
+        });
+        setFlashEnabled(newFlashState);
+        toast.success(newFlashState ? "Flash enabled" : "Flash disabled");
+      } catch (error) {
+        console.error("Failed to toggle flash:", error);
+        toast.error("Failed to toggle flash");
+      }
+    }
+  };
+
+  // Update zoom level
+  const updateZoom = async (newZoom: number) => {
+    if (!streamRef.current || !hasZoom) return;
+
+    const videoTrack = streamRef.current.getVideoTracks()[0];
+    if (videoTrack) {
+      try {
+        const clampedZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
+        await videoTrack.applyConstraints({
+          advanced: [{ zoom: clampedZoom } as any],
+        });
+        setZoomLevel(clampedZoom);
+      } catch (error) {
+        console.error("Failed to update zoom:", error);
+      }
+    }
+  };
+
+  // Cycle aspect ratio
+  const cycleAspectRatio = () => {
+    const ratios: AspectRatio[] = ["16:9", "4:3", "1:1"];
+    const currentIndex = ratios.indexOf(aspectRatio);
+    const nextIndex = (currentIndex + 1) % ratios.length;
+    setAspectRatio(ratios[nextIndex]);
+  };
+
+  // Get aspect ratio class
+  const getAspectRatioClass = () => {
+    switch (aspectRatio) {
+      case "16:9":
+        return "aspect-video";
+      case "4:3":
+        return "aspect-[4/3]";
+      case "1:1":
+        return "aspect-square";
+      default:
+        return "aspect-video";
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -646,7 +763,33 @@ export function VideoRecorder() {
             </Button>
           </div>
           
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap">
+            {/* Flash/Torch - only shown when camera supports it */}
+            {hasFlash && isPreviewing && (
+              <Button
+                variant={flashEnabled ? "default" : "ghost"}
+                size="sm"
+                onClick={toggleFlash}
+                title={flashEnabled ? "Turn off flash" : "Turn on flash"}
+              >
+                {flashEnabled ? <Flashlight className="h-4 w-4" /> : <FlashlightOff className="h-4 w-4" />}
+              </Button>
+            )}
+
+            {/* Aspect Ratio */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={cycleAspectRatio}
+              title={`Aspect ratio: ${aspectRatio}`}
+              disabled={isPreviewing}
+            >
+              {aspectRatio === "16:9" && <RectangleHorizontal className="h-4 w-4" />}
+              {aspectRatio === "4:3" && <Smartphone className="h-4 w-4" />}
+              {aspectRatio === "1:1" && <SquareIcon className="h-4 w-4" />}
+              <span className="ml-1 text-xs">{aspectRatio}</span>
+            </Button>
+
             {/* Filters - available for both modes */}
             <Button
               variant={showFilters ? "default" : "ghost"}
@@ -870,7 +1013,7 @@ export function VideoRecorder() {
         <canvas ref={filterCanvasRef} className="hidden" />
 
         {/* Video/Photo Preview */}
-        <div className="relative aspect-video bg-black rounded-lg overflow-hidden mb-4">
+        <div className={`relative ${getAspectRatioClass()} bg-black rounded-lg overflow-hidden mb-4`}>
           {/* Grid Overlay */}
           {showGrid && isPreviewing && (
             <div className="absolute inset-0 pointer-events-none z-10">
@@ -880,6 +1023,42 @@ export function VideoRecorder() {
               {/* Horizontal lines */}
               <div className="absolute top-1/3 left-0 right-0 h-px bg-white/30" />
               <div className="absolute top-2/3 left-0 right-0 h-px bg-white/30" />
+            </div>
+          )}
+
+          {/* Zoom Slider - shown when camera supports zoom */}
+          {hasZoom && isPreviewing && (
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2 bg-black/50 rounded-lg p-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-white hover:bg-white/20"
+                onClick={() => updateZoom(zoomLevel + 0.5)}
+                disabled={zoomLevel >= maxZoom}
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+              <div className="h-24 flex flex-col items-center justify-center">
+                <Slider
+                  orientation="vertical"
+                  value={[zoomLevel]}
+                  onValueChange={([v]) => updateZoom(v)}
+                  min={minZoom}
+                  max={maxZoom}
+                  step={0.1}
+                  className="h-full"
+                />
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-white hover:bg-white/20"
+                onClick={() => updateZoom(zoomLevel - 0.5)}
+                disabled={zoomLevel <= minZoom}
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              <span className="text-xs text-white font-medium">{zoomLevel.toFixed(1)}x</span>
             </div>
           )}
 

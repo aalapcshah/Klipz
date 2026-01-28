@@ -14,7 +14,7 @@ import { Upload, Mic, X, Loader2, Sparkles, AlertCircle, FileText, Edit3 } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { uploadFileToStorage } from "@/lib/storage";
+import { uploadFileToStorage, formatFileSize, formatUploadSpeed, formatEta } from "@/lib/storage";
 import exifr from "exifr";
 import { DuplicateDetectionDialog } from "@/components/DuplicateDetectionDialog";
 
@@ -32,6 +32,9 @@ interface FileWithMetadata {
   voiceTranscript?: string;
   isRecording?: boolean;
   uploadProgress?: number;
+  uploadedBytes?: number;
+  uploadSpeed?: number;
+  uploadEta?: number;
   uploadStatus?: 'pending' | 'uploading' | 'completed' | 'error';
   extractedMetadata?: Record<string, any>;
   extractedKeywords?: string[];
@@ -581,8 +584,12 @@ export function FileUploadDialog({
 
   const trpcUtils = trpc.useUtils();
 
-  const uploadToS3 = async (file: File | Blob, filename: string): Promise<{ url: string; fileKey: string }> => {
-    const result = await uploadFileToStorage(file, filename, trpcUtils);
+  const uploadToS3 = async (
+    file: File | Blob, 
+    filename: string,
+    onProgress?: (progress: number, uploadedBytes: number, totalBytes: number) => void
+  ): Promise<{ url: string; fileKey: string }> => {
+    const result = await uploadFileToStorage(file, filename, trpcUtils, onProgress);
     return result;
   };
 
@@ -607,16 +614,42 @@ export function FileUploadDialog({
         // Update status to uploading
         updateFileMetadata(i, { uploadStatus: 'uploading', uploadProgress: 0 });
 
-        // Simulate progress for file upload (S3 upload doesn't provide progress)
-        const progressInterval = setInterval(() => {
+        // Track upload progress with real callbacks
+        let lastProgressUpdate = Date.now();
+        let lastUploadedBytes = 0;
+        let currentSpeed = 0;
+        let currentEta = 0;
+        
+        const handleProgress = (progress: number, uploadedBytes: number, totalBytes: number) => {
+          const now = Date.now();
+          const timeDiff = (now - lastProgressUpdate) / 1000;
+          
+          if (timeDiff > 0.1) {
+            const bytesDiff = uploadedBytes - lastUploadedBytes;
+            currentSpeed = bytesDiff / timeDiff;
+            const remainingBytes = totalBytes - uploadedBytes;
+            currentEta = currentSpeed > 0 ? remainingBytes / currentSpeed : 0;
+            lastProgressUpdate = now;
+            lastUploadedBytes = uploadedBytes;
+          }
+          
           setFiles((prev) =>
             prev.map((f, idx) =>
               idx === i
-                ? { ...f, uploadProgress: Math.min((f.uploadProgress || 0) + 10, 90) }
+                ? { 
+                    ...f, 
+                    uploadProgress: progress,
+                    uploadedBytes,
+                    uploadSpeed: currentSpeed,
+                    uploadEta: currentEta
+                  }
                 : f
             )
           );
-        }, 200);
+        };
+        
+        // Placeholder for progress interval (kept for compatibility)
+        const progressInterval: NodeJS.Timeout | null = null;
 
         try {
           // Extract metadata from image files
@@ -673,7 +706,7 @@ export function FileUploadDialog({
           
           // Upload file to S3
           console.log('[FileUpload] About to upload file:', fileData.file.name, 'size:', fileData.file.size);
-          const { url: fileUrl, fileKey } = await uploadToS3(fileData.file, fileData.file.name);
+          const { url: fileUrl, fileKey } = await uploadToS3(fileData.file, fileData.file.name, handleProgress);
           console.log('[FileUpload] Upload successful! URL:', fileUrl);
 
           // Upload voice recording if exists
@@ -734,7 +767,7 @@ export function FileUploadDialog({
             perceptualHash,
           } as any);
 
-          clearInterval(progressInterval);
+          if (progressInterval) clearInterval(progressInterval);
           updateFileMetadata(i, { uploadStatus: 'completed', uploadProgress: 100 });
           
           // Track metadata usage for future suggestions
@@ -790,7 +823,7 @@ export function FileUploadDialog({
             enrichMutation.mutate({ id });
           }
         } catch (error) {
-          clearInterval(progressInterval);
+          if (progressInterval) clearInterval(progressInterval);
           updateFileMetadata(i, { uploadStatus: 'error', uploadProgress: 0 });
           
           // Detailed error logging
@@ -1104,20 +1137,36 @@ export function FileUploadDialog({
                 {/* Progress Bar - Enhanced to match Video upload style */}
                 {(fileData.uploadStatus === 'uploading' || fileData.uploadStatus === 'pending') && (
                   <div className="space-y-1">
-                    <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-primary h-full transition-all duration-300"
-                        style={{ width: `${fileData.uploadProgress || 0}%` }}
-                      />
+                    <div className="flex items-center gap-2">
+                      {fileData.uploadStatus === 'uploading' && (
+                        <span className="text-xs text-primary font-medium">Uploading</span>
+                      )}
+                      {fileData.uploadStatus === 'pending' && (
+                        <span className="text-xs text-muted-foreground">Queued</span>
+                      )}
+                      <div className="flex-1 bg-secondary rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-primary h-full transition-all duration-300"
+                          style={{ width: `${fileData.uploadProgress || 0}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {fileData.uploadStatus === 'pending' ? '--' : `${(fileData.uploadProgress || 0).toFixed(0)}%`}
+                      </span>
                     </div>
                     <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>
-                        {fileData.uploadStatus === 'pending' && 'Queued...'}
-                        {fileData.uploadStatus === 'uploading' && `${(fileData.uploadProgress || 0).toFixed(0)}%`}
-                      </span>
-                      <span>
-                        {((fileData.file.size * (fileData.uploadProgress || 0)) / 100 / 1024 / 1024).toFixed(1)} MB / {(fileData.file.size / 1024 / 1024).toFixed(1)} MB
-                      </span>
+                      <span></span>
+                      <div className="flex gap-3">
+                        {fileData.uploadStatus === 'uploading' && fileData.uploadSpeed && fileData.uploadSpeed > 0 && (
+                          <>
+                            <span>{formatUploadSpeed(fileData.uploadSpeed)}</span>
+                            <span>ETA: {formatEta(fileData.uploadEta || 0)}</span>
+                          </>
+                        )}
+                        <span>
+                          {formatFileSize(fileData.uploadedBytes || 0)} / {formatFileSize(fileData.file.size)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}

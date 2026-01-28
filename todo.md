@@ -4258,3 +4258,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Implement rule-of-thirds grid lines
 - [x] Save grid and timer preferences to localStorage
 - [ ] Test video filters on recorded output
+
+
+## Camera Enhancements & File Upload Fix - January 28, 2026 (Completed)
+- [x] Fix file upload progress indicators in drag & drop area (show per-file status like video uploads)
+- [x] Add flash/torch toggle for low-light capture
+- [x] Add zoom controls (vertical slider with zoom in/out buttons)
+- [x] Add aspect ratio options (16:9, 4:3, 1:1 square)
