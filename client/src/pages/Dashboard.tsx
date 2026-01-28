@@ -21,7 +21,8 @@ import {
   Activity,
   ChevronDown,
   Wrench,
-  Link2
+  Link2,
+  Crown
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -36,6 +37,7 @@ import { StorageAlert } from "@/components/StorageAlert";
 import { triggerHaptic } from "@/lib/haptics";
 import { GlobalUploadProgress } from "@/components/GlobalUploadProgress";
 import { StorageAlertBanner } from "@/components/StorageAlertBanner";
+import { TrialBanner } from "@/components/TrialBanner";
 
 export default function Dashboard() {
   const { user, loading, isAuthenticated, logout } = useAuth();
@@ -109,6 +111,7 @@ export default function Dashboard() {
     { href: "/enrichment-queue", label: "Enrichment Queue", icon: ListChecks },
     { href: "/scheduled-exports", label: "Scheduled Exports", icon: Calendar },
     { href: "/my-shares", label: "My Shares", icon: Link2 },
+    { href: "/pricing", label: "Subscription", icon: Crown },
   ];
 
   const insightsMenuItems = [
@@ -123,6 +126,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background">
       {/* Storage Alert Banner */}
       <StorageAlertBanner />
+      <TrialBanner />
       
       {/* Top Navigation */}
       <header className="border-b border-border bg-card sticky top-0 z-50">

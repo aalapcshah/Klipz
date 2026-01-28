@@ -39,6 +39,7 @@ import { uploadHistoryRouter } from "./routers/uploadHistory";
 import { duplicateCheckRouter } from "./routers/duplicateCheck";
 import { storageStatsRouter } from "./routers/storageStats";
 import { shareLinksRouter } from "./routers/shareLinks";
+import { subscriptionRouter } from "./routers/subscription";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { sendUploadEmail, sendEditEmail, sendDeleteEmail, sendEnrichEmail } from "./_core/activityEmailNotifications";
 import { TRPCError } from "@trpc/server";
@@ -54,6 +55,7 @@ import { voiceAnnotations, visualAnnotations, files } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 
 export const appRouter = router({
+  subscription: subscriptionRouter,
   duplicateCheck: duplicateCheckRouter,
   storageStats: storageStatsRouter,
   shareLinks: shareLinksRouter,

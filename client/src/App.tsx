@@ -30,6 +30,7 @@ import AdminShareAnalytics from "./pages/AdminShareAnalytics";
 import AdminSystemOverview from "./pages/AdminSystemOverview";
 import ShareView from "./pages/ShareView";
 import MyShares from "./pages/MyShares";
+import Pricing from "./pages/Pricing";
 import { trpc } from "./lib/trpc";
 import { useState, useEffect } from "react";
 import { CookieConsent } from "./components/CookieConsent";
@@ -55,6 +56,7 @@ function Router() {
       <Route path="/faq" component={FAQ} />
       <Route path="/contact" component={Contact} />
       <Route path="/upgrade" component={Upgrade} />
+      <Route path="/pricing" component={Pricing} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/terms-of-service" component={TermsOfService} />
       <Route path="/payment/success" component={PaymentSuccess} />

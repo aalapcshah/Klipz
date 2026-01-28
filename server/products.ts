@@ -5,8 +5,10 @@
  * These should match the products created in your Stripe Dashboard.
  */
 
+export type SubscriptionTierId = 'free' | 'trial' | 'pro';
+
 export interface SubscriptionTier {
-  id: string;
+  id: SubscriptionTierId;
   name: string;
   stripePriceId: string;
   storageGB: number;
@@ -14,21 +16,38 @@ export interface SubscriptionTier {
   features: string[];
 }
 
-export const SUBSCRIPTION_TIERS: Record<string, SubscriptionTier> = {
+export const SUBSCRIPTION_TIERS: Record<SubscriptionTierId, SubscriptionTier> = {
   free: {
     id: 'free',
     name: 'Free',
     stripePriceId: '', // No Stripe price for free tier
+    storageGB: 1,
+    priceMonthly: 0,
+    features: [
+      '1 GB storage',
+      'Upload up to 100 files',
+      'Label and organize files',
+      'Edit file metadata',
+      'Delete files',
+      'Create collections',
+      'Share files via links',
+    ]
+  },
+  trial: {
+    id: 'trial',
+    name: 'Pro Trial',
+    stripePriceId: '', // No Stripe price for trial
     storageGB: 10,
     priceMonthly: 0,
     features: [
+      'All Pro features for 14 days',
       '10 GB storage',
-      'Unlimited file uploads',
-      'AI enrichment',
-      'Basic search',
-      'Collections',
-      'Video annotations',
-      'Mobile access'
+      'Upload up to 20 videos',
+      'Video annotation with transcription',
+      'AI-powered file enrichment',
+      'Knowledge graph visualization',
+      'Export data',
+      'No credit card required',
     ]
   },
   pro: {
@@ -37,44 +56,26 @@ export const SUBSCRIPTION_TIERS: Record<string, SubscriptionTier> = {
     // TODO: Replace with actual Stripe Price ID after creating product in Stripe Dashboard
     stripePriceId: process.env.STRIPE_PRICE_ID_PRO || 'price_pro_placeholder',
     storageGB: 100,
-    priceMonthly: 9,
+    priceMonthly: 1999, // $19.99 in cents
     features: [
+      'Unlimited files',
       '100 GB storage',
-      'Everything in Free',
-      'Advanced AI enrichment',
-      'Priority processing',
-      'Advanced search filters',
-      'Batch operations',
-      'Export to multiple formats',
-      'Email support'
+      'Unlimited video uploads',
+      'Video annotation with transcription',
+      'Link annotations to metadata-labeled files',
+      'AI-powered file enrichment',
+      'Knowledge graph visualization',
+      'Export data in multiple formats',
+      'Priority support',
     ]
   },
-  enterprise: {
-    id: 'enterprise',
-    name: 'Enterprise',
-    // TODO: Replace with actual Stripe Price ID after creating product in Stripe Dashboard
-    stripePriceId: process.env.STRIPE_PRICE_ID_ENTERPRISE || 'price_enterprise_placeholder',
-    storageGB: 1024, // 1 TB
-    priceMonthly: 49,
-    features: [
-      '1 TB storage',
-      'Everything in Pro',
-      'Custom AI models',
-      'API access',
-      'Team collaboration',
-      'SSO authentication',
-      'Advanced analytics',
-      'Dedicated support',
-      'Custom integrations'
-    ]
-  }
 };
 
 /**
  * Get subscription tier by ID
  */
 export function getSubscriptionTier(tierId: string): SubscriptionTier | undefined {
-  return SUBSCRIPTION_TIERS[tierId];
+  return SUBSCRIPTION_TIERS[tierId as SubscriptionTierId];
 }
 
 /**
@@ -89,5 +90,5 @@ export function getSubscriptionTierByPriceId(priceId: string): SubscriptionTier 
  */
 export function getStorageLimit(tierId: string): number {
   const tier = getSubscriptionTier(tierId);
-  return tier ? tier.storageGB * 1024 * 1024 * 1024 : 10 * 1024 * 1024 * 1024; // Default to 10GB
+  return tier ? tier.storageGB * 1024 * 1024 * 1024 : 1 * 1024 * 1024 * 1024; // Default to 1GB
 }

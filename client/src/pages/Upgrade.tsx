@@ -16,7 +16,7 @@ export default function Upgrade() {
     
     setLoading(tierId);
     try {
-      const result = await createCheckout.mutateAsync({ tierId: tierId as "pro" | "enterprise" });
+      const result = await createCheckout.mutateAsync({ tierId: "pro" });
       
       if (result.checkoutUrl) {
         toast.info("Redirecting to checkout...");

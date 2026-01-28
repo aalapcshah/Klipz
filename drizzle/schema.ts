@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, float, boolean, json, uniqueIndex, index } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, float, boolean, json, uniqueIndex, index, bigint } from "drizzle-orm/mysql-core";
 import { relations } from "drizzle-orm";
 
 /**
@@ -26,10 +26,19 @@ export const users = mysqlTable("users", {
   deactivatedAt: timestamp("deactivatedAt"),
   
   // Subscription and premium features
-  subscriptionTier: mysqlEnum("subscriptionTier", ["free", "premium", "enterprise"]).default("free").notNull(),
+  subscriptionTier: mysqlEnum("subscriptionTier", ["free", "trial", "pro"]).default("free").notNull(),
   knowledgeGraphUsageCount: int("knowledgeGraphUsageCount").default(0).notNull(),
   knowledgeGraphUsageLimit: int("knowledgeGraphUsageLimit").default(10).notNull(), // Free tier: 10 queries/month
   subscriptionExpiresAt: timestamp("subscriptionExpiresAt"),
+  
+  // Trial tracking
+  trialStartedAt: timestamp("trialStartedAt"),
+  trialEndsAt: timestamp("trialEndsAt"),
+  trialUsed: boolean("trialUsed").default(false).notNull(), // Prevent multiple trials
+  
+  // Usage limits
+  storageUsedBytes: bigint("storageUsedBytes", { mode: "number" }).default(0).notNull(),
+  videoCount: int("videoCount").default(0).notNull(),
   
   // Stripe integration
   stripeCustomerId: varchar("stripeCustomerId", { length: 255 }),

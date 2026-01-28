@@ -351,6 +351,13 @@
       "when": 1769554552962,
       "tag": "0049_slow_red_ghost",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "5",
+      "when": 1769583694500,
+      "tag": "0050_famous_lockheed",
+      "breakpoints": true
     }
   ]
 }

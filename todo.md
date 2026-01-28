@@ -4135,3 +4135,46 @@ Note: The application already has extensive annotation features including voice 
 - [x] Sync progress percentage with progress bar visual
 - [x] Add custom compression ratio slider for user control (bitrate 500-8000 kbps, resolution 360p-1080p)
 - [x] Fix Files page margins to prevent horizontal overflow of file tiles (changed to fixed column grid)
+
+
+## Subscription System - January 28, 2026
+
+### Phase 1: Database Schema
+- [x] Create subscriptionPlans configuration in shared/subscriptionPlans.ts
+- [x] Add subscription fields to users table (subscriptionTier, trialUsed, trialStartedAt, trialEndsAt, storageUsedBytes, videoCount)
+- [x] Add Stripe integration fields (stripeCustomerId, stripeSubscriptionId, subscriptionExpiresAt)
+
+### Phase 2: Usage Tracking & Limits
+- [x] Implement storage usage calculation per user
+- [x] Implement video count tracking per user
+- [x] Create limit enforcement procedures (checkStorageLimit, checkVideoLimit, checkPermission)
+- [x] Add usage alerts via TrialBanner component
+
+### Phase 3: Subscription Management UI
+- [x] Create pricing/plans page (/pricing) showing tier comparison
+- [x] Build subscription status display in pricing page
+- [x] Add upgrade flow via Stripe checkout
+- [x] Show current usage vs limits in pricing page
+- [x] Add Subscription link to Tools menu in Dashboard
+
+### Phase 4: Free Trial Flow
+- [x] Implement 14-day trial activation via startTrial procedure
+- [x] Create TrialBanner component with countdown/expiration notifications
+- [x] Build trial-to-paid conversion flow via pricing page
+- [x] Handle trial expiration with appropriate messaging
+
+### Phase 5: Feature Gating
+- [x] Create FeatureGate component for gating features
+- [x] Create useFeatureAccess, useStorageLimit, useVideoLimit hooks
+- [x] Gate video upload behind Pro/Trial tier
+- [x] Gate video annotation features behind Pro/Trial
+- [x] Show upgrade prompts for gated features
+- [x] Allow basic file operations on Free tier
+
+### Plan Definitions:
+- Free: Upload, label, edit, delete files only (2GB storage)
+- Trial (14 days): Full Pro features
+- Pro ($9.99/mo): 50GB storage, unlimited videos, video annotations with transcription linked to metadata-labeled files
+
+### Tests:
+- [x] 7 passing unit tests for subscription router

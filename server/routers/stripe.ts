@@ -16,7 +16,7 @@ export const stripeRouter = router({
    */
   createCheckoutSession: protectedProcedure
     .input(z.object({
-      tierId: z.enum(["pro", "enterprise"]),
+      tierId: z.enum(["pro"]),
     }))
     .mutation(async ({ input, ctx }) => {
       const tier = SUBSCRIPTION_TIERS[input.tierId];
