@@ -4219,3 +4219,16 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add safe-area-bottom support for iOS devices (pb-safe class)
 - [x] Add haptic feedback on navigation and actions (haptics.ts utility)
 - [x] Long-press selection mode for mobile (500ms hold triggers selection)
+
+
+## Camera Enhancements - January 28, 2026 (Completed)
+- [x] Add front/back camera switcher button during video recording
+- [x] Implement camera switching logic using facingMode constraint
+- [x] Add photo capture mode (take still photos in addition to video)
+- [x] Create photo preview and save functionality
+- [x] Add camera quality/resolution settings (720p, 1080p, 4K)
+- [x] Create quality selector UI in recording interface
+- [x] Store camera preferences in localStorage
+- [ ] Test camera switching on mobile devices
+- [ ] Test photo capture on mobile devices
+- [ ] Test quality settings with different resolutions
