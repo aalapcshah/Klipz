@@ -4247,3 +4247,14 @@ Note: The application already has extensive annotation features including voice 
 - [x] Allow user to select best photos from burst
 - [ ] Test filters on mobile devices
 - [ ] Test burst mode performance
+
+
+## Video Filters, Timer & Grid Overlay - January 28, 2026 (Completed)
+- [x] Apply filter presets to video recording mode
+- [x] Add real-time filter preview for video
+- [x] Add timer/countdown mode (3s, 5s, 10s options)
+- [x] Show countdown animation before capture
+- [x] Add grid overlay toggle for composition
+- [x] Implement rule-of-thirds grid lines
+- [x] Save grid and timer preferences to localStorage
+- [ ] Test video filters on recorded output

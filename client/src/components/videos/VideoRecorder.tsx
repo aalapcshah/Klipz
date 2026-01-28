@@ -30,6 +30,8 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Timer,
+  Grid3X3,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -39,6 +41,7 @@ type CameraFacing = "user" | "environment";
 type CaptureMode = "video" | "photo";
 type VideoQuality = "720p" | "1080p" | "4k";
 type FilterPreset = "normal" | "vivid" | "warm" | "cool" | "bw" | "sepia";
+type TimerDuration = 0 | 3 | 5 | 10;
 
 interface QualitySettings {
   width: number;
@@ -83,6 +86,8 @@ const FILTER_PRESET_LABELS: Record<FilterPreset, string> = {
   sepia: "Sepia",
 };
 
+const TIMER_OPTIONS: TimerDuration[] = [0, 3, 5, 10];
+
 export function VideoRecorder() {
   const [isRecording, setIsRecording] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -105,7 +110,7 @@ export function VideoRecorder() {
   const [showSettings, setShowSettings] = useState(false);
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
 
-  // Photo filters
+  // Filters (now for both photo and video)
   const [showFilters, setShowFilters] = useState(false);
   const [filterPreset, setFilterPreset] = useState<FilterPreset>("normal");
   const [customFilters, setCustomFilters] = useState<PhotoFilters>(FILTER_PRESETS.normal);
@@ -118,6 +123,19 @@ export function VideoRecorder() {
   const [isBurstCapturing, setIsBurstCapturing] = useState(false);
   const [burstCurrentIndex, setBurstCurrentIndex] = useState(0);
 
+  // Timer/Countdown
+  const [timerDuration, setTimerDuration] = useState<TimerDuration>(() => {
+    const saved = localStorage.getItem("camera-timer");
+    return (parseInt(saved || "0") as TimerDuration) || 0;
+  });
+  const [countdownValue, setCountdownValue] = useState<number | null>(null);
+  const [isCountingDown, setIsCountingDown] = useState(false);
+
+  // Grid overlay
+  const [showGrid, setShowGrid] = useState(() => {
+    return localStorage.getItem("camera-grid") === "true";
+  });
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const filterCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -125,6 +143,7 @@ export function VideoRecorder() {
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
   const createVideoMutation = trpc.videos.create.useMutation();
   const createFileMutation = trpc.files.create.useMutation();
@@ -134,7 +153,7 @@ export function VideoRecorder() {
   const activeFilters = useCustomFilters ? customFilters : FILTER_PRESETS[filterPreset];
 
   // CSS filter string for live preview
-  const getCssFilterString = () => {
+  const getCssFilterString = useCallback(() => {
     const f = activeFilters;
     let filter = `brightness(${f.brightness}%) contrast(${f.contrast}%) saturate(${f.saturation}%)`;
     if (f.warmth !== 0) {
@@ -144,7 +163,7 @@ export function VideoRecorder() {
       }
     }
     return filter;
-  };
+  }, [activeFilters]);
 
   // Check for multiple cameras on mount
   useEffect(() => {
@@ -164,6 +183,7 @@ export function VideoRecorder() {
     return () => {
       stopCamera();
       if (timerRef.current) clearInterval(timerRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
       if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
       burstPhotos.forEach(p => URL.revokeObjectURL(p.url));
     };
@@ -177,6 +197,14 @@ export function VideoRecorder() {
   useEffect(() => {
     localStorage.setItem("camera-quality", videoQuality);
   }, [videoQuality]);
+
+  useEffect(() => {
+    localStorage.setItem("camera-timer", timerDuration.toString());
+  }, [timerDuration]);
+
+  useEffect(() => {
+    localStorage.setItem("camera-grid", showGrid.toString());
+  }, [showGrid]);
 
   // Update custom filters when preset changes
   useEffect(() => {
@@ -199,7 +227,6 @@ export function VideoRecorder() {
 
   const startCamera = async () => {
     try {
-      // Stop any existing stream first
       stopCamera();
       
       const constraints = getVideoConstraints();
@@ -225,6 +252,13 @@ export function VideoRecorder() {
       videoRef.current.srcObject = null;
     }
     setIsPreviewing(false);
+    // Cancel any countdown
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+    setIsCountingDown(false);
+    setCountdownValue(null);
   };
 
   const switchCamera = async () => {
@@ -259,7 +293,7 @@ export function VideoRecorder() {
   };
 
   // Apply filters to canvas and return blob
-  const applyFiltersToCanvas = (sourceCanvas: HTMLCanvasElement): Promise<Blob | null> => {
+  const applyFiltersToCanvas = useCallback((sourceCanvas: HTMLCanvasElement): Promise<Blob | null> => {
     return new Promise((resolve) => {
       const filterCanvas = filterCanvasRef.current;
       if (!filterCanvas) {
@@ -275,7 +309,6 @@ export function VideoRecorder() {
         return;
       }
 
-      // Apply CSS-like filters
       ctx.filter = getCssFilterString();
       ctx.drawImage(sourceCanvas, 0, 0);
       
@@ -283,6 +316,32 @@ export function VideoRecorder() {
         resolve(blob);
       }, "image/jpeg", 0.95);
     });
+  }, [getCssFilterString]);
+
+  // Start countdown then execute action
+  const startCountdown = (action: () => void) => {
+    if (timerDuration === 0) {
+      action();
+      return;
+    }
+
+    setIsCountingDown(true);
+    setCountdownValue(timerDuration);
+
+    countdownRef.current = setInterval(() => {
+      setCountdownValue(prev => {
+        if (prev === null || prev <= 1) {
+          if (countdownRef.current) {
+            clearInterval(countdownRef.current);
+            countdownRef.current = null;
+          }
+          setIsCountingDown(false);
+          action();
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
   const capturePhoto = async () => {
@@ -298,7 +357,6 @@ export function VideoRecorder() {
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    // Apply filters
     const blob = await applyFiltersToCanvas(canvas);
     
     if (blob) {
@@ -308,6 +366,10 @@ export function VideoRecorder() {
       stopCamera();
       toast.success("Photo captured!");
     }
+  };
+
+  const handleCaptureWithTimer = () => {
+    startCountdown(capturePhoto);
   };
 
   const captureBurst = async () => {
@@ -328,7 +390,6 @@ export function VideoRecorder() {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    // Capture photos with delay
     for (let i = 0; i < burstCount; i++) {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const blob = await applyFiltersToCanvas(canvas);
@@ -337,11 +398,10 @@ export function VideoRecorder() {
         photos.push({
           blob,
           url: URL.createObjectURL(blob),
-          selected: i === 0, // Select first by default
+          selected: i === 0,
         });
       }
       
-      // Small delay between captures (100ms)
       if (i < burstCount - 1) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
@@ -352,6 +412,10 @@ export function VideoRecorder() {
     setIsBurstCapturing(false);
     stopCamera();
     toast.success(`Captured ${photos.length} photos!`);
+  };
+
+  const handleBurstWithTimer = () => {
+    startCountdown(captureBurst);
   };
 
   const toggleBurstPhotoSelection = (index: number) => {
@@ -437,6 +501,10 @@ export function VideoRecorder() {
     timerRef.current = setInterval(() => {
       setRecordingTime((prev) => prev + 1);
     }, 1000);
+  };
+
+  const handleRecordWithTimer = () => {
+    startCountdown(startRecording);
   };
 
   const stopRecording = () => {
@@ -546,6 +614,12 @@ export function VideoRecorder() {
     setCustomFilters(prev => ({ ...prev, [key]: value }));
   };
 
+  const cycleTimer = () => {
+    const currentIndex = TIMER_OPTIONS.indexOf(timerDuration);
+    const nextIndex = (currentIndex + 1) % TIMER_OPTIONS.length;
+    setTimerDuration(TIMER_OPTIONS[nextIndex]);
+  };
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -572,30 +646,57 @@ export function VideoRecorder() {
             </Button>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            {/* Filters - available for both modes */}
+            <Button
+              variant={showFilters ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              title="Filters"
+            >
+              <Palette className="h-4 w-4" />
+            </Button>
+            
+            {/* Timer */}
+            <Button
+              variant={timerDuration > 0 ? "default" : "ghost"}
+              size="sm"
+              onClick={cycleTimer}
+              title={`Timer: ${timerDuration}s`}
+            >
+              <Timer className="h-4 w-4" />
+              {timerDuration > 0 && <span className="ml-1 text-xs">{timerDuration}s</span>}
+            </Button>
+            
+            {/* Grid */}
+            <Button
+              variant={showGrid ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setShowGrid(!showGrid)}
+              title="Grid overlay"
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </Button>
+            
+            {/* Burst mode - photo only */}
             {captureMode === "photo" && (
-              <>
-                <Button
-                  variant={showFilters ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setShowFilters(!showFilters)}
-                >
-                  <Palette className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={burstMode ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setBurstMode(!burstMode)}
-                  disabled={!!capturedPhoto || burstPhotos.length > 0}
-                >
-                  <Zap className="h-4 w-4" />
-                </Button>
-              </>
+              <Button
+                variant={burstMode ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setBurstMode(!burstMode)}
+                disabled={!!capturedPhoto || burstPhotos.length > 0}
+                title="Burst mode"
+              >
+                <Zap className="h-4 w-4" />
+              </Button>
             )}
+            
+            {/* Settings */}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowSettings(!showSettings)}
+              title="Settings"
             >
               <Settings className="h-4 w-4" />
             </Button>
@@ -603,10 +704,12 @@ export function VideoRecorder() {
         </div>
 
         {/* Filter Controls */}
-        {showFilters && captureMode === "photo" && (
+        {showFilters && (
           <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Photo Filters</span>
+              <span className="text-sm font-medium">
+                {captureMode === "video" ? "Video Filters" : "Photo Filters"}
+              </span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -691,6 +794,12 @@ export function VideoRecorder() {
                 <span className="text-xs w-8">{customFilters.warmth > 0 ? "+" : ""}{customFilters.warmth}</span>
               </div>
             </div>
+            
+            {captureMode === "video" && (
+              <p className="text-xs text-muted-foreground">
+                Note: Video filters are applied as a live preview. The recorded video will include the filter effect.
+              </p>
+            )}
           </div>
         )}
 
@@ -762,6 +871,29 @@ export function VideoRecorder() {
 
         {/* Video/Photo Preview */}
         <div className="relative aspect-video bg-black rounded-lg overflow-hidden mb-4">
+          {/* Grid Overlay */}
+          {showGrid && isPreviewing && (
+            <div className="absolute inset-0 pointer-events-none z-10">
+              {/* Vertical lines */}
+              <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white/30" />
+              <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/30" />
+              {/* Horizontal lines */}
+              <div className="absolute top-1/3 left-0 right-0 h-px bg-white/30" />
+              <div className="absolute top-2/3 left-0 right-0 h-px bg-white/30" />
+            </div>
+          )}
+
+          {/* Countdown Overlay */}
+          {isCountingDown && countdownValue !== null && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
+              <div className="text-center">
+                <div className="text-8xl font-bold text-white animate-pulse">
+                  {countdownValue}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Burst Photos Gallery */}
           {burstPhotos.length > 0 ? (
             <div className="w-full h-full flex flex-col">
@@ -841,12 +973,12 @@ export function VideoRecorder() {
               muted={!recordedBlob}
               controls={!!recordedBlob}
               className="w-full h-full object-contain"
-              style={{ filter: captureMode === "photo" && isPreviewing ? getCssFilterString() : undefined }}
+              style={{ filter: isPreviewing ? getCssFilterString() : undefined }}
             />
           )}
 
           {/* Camera Switch Button (overlay) */}
-          {isPreviewing && hasMultipleCameras && !isRecording && (
+          {isPreviewing && hasMultipleCameras && !isRecording && !isCountingDown && (
             <Button
               variant="secondary"
               size="icon"
@@ -901,7 +1033,7 @@ export function VideoRecorder() {
           )}
 
           {/* Camera Active - Video Mode */}
-          {isPreviewing && captureMode === "video" && !isRecording && (
+          {isPreviewing && captureMode === "video" && !isRecording && !isCountingDown && (
             <>
               <Button onClick={stopCamera} variant="outline">
                 <VideoOff className="h-4 w-4 mr-2" />
@@ -913,15 +1045,15 @@ export function VideoRecorder() {
                   Switch
                 </Button>
               )}
-              <Button onClick={startRecording} size="lg" className="bg-destructive hover:bg-destructive/90">
+              <Button onClick={handleRecordWithTimer} size="lg" className="bg-destructive hover:bg-destructive/90">
                 <Circle className="h-5 w-5 mr-2" />
-                Record
+                {timerDuration > 0 ? `Record (${timerDuration}s)` : "Record"}
               </Button>
             </>
           )}
 
           {/* Camera Active - Photo Mode */}
-          {isPreviewing && captureMode === "photo" && !isBurstCapturing && (
+          {isPreviewing && captureMode === "photo" && !isBurstCapturing && !isCountingDown && (
             <>
               <Button onClick={stopCamera} variant="outline">
                 <VideoOff className="h-4 w-4 mr-2" />
@@ -934,17 +1066,32 @@ export function VideoRecorder() {
                 </Button>
               )}
               {burstMode ? (
-                <Button onClick={captureBurst} size="lg" className="bg-primary hover:bg-primary/90">
+                <Button onClick={handleBurstWithTimer} size="lg" className="bg-primary hover:bg-primary/90">
                   <Zap className="h-5 w-5 mr-2" />
-                  Burst ({burstCount})
+                  {timerDuration > 0 ? `Burst (${timerDuration}s)` : `Burst (${burstCount})`}
                 </Button>
               ) : (
-                <Button onClick={capturePhoto} size="lg" className="bg-primary hover:bg-primary/90">
+                <Button onClick={handleCaptureWithTimer} size="lg" className="bg-primary hover:bg-primary/90">
                   <Camera className="h-5 w-5 mr-2" />
-                  Capture
+                  {timerDuration > 0 ? `Capture (${timerDuration}s)` : "Capture"}
                 </Button>
               )}
             </>
+          )}
+
+          {/* Counting Down */}
+          {isCountingDown && (
+            <Button onClick={() => {
+              if (countdownRef.current) {
+                clearInterval(countdownRef.current);
+                countdownRef.current = null;
+              }
+              setIsCountingDown(false);
+              setCountdownValue(null);
+            }} size="lg" variant="destructive">
+              <X className="h-5 w-5 mr-2" />
+              Cancel
+            </Button>
           )}
 
           {/* Recording */}
@@ -1017,6 +1164,7 @@ export function VideoRecorder() {
             <Badge variant="secondary">
               Duration: {formatTime(recordingTime)} • Size:{" "}
               {(recordedBlob.size / 1024 / 1024).toFixed(2)} MB
+              {filterPreset !== "normal" && ` • Filter: ${FILTER_PRESET_LABELS[filterPreset]}`}
             </Badge>
           </div>
         )}
@@ -1047,7 +1195,7 @@ export function VideoRecorder() {
           <p className="text-sm font-medium">How to use:</p>
           <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
             <li>Select Video or Photo mode above</li>
-            <li>For photos: Use filter icon for effects, lightning icon for burst mode</li>
+            <li>Use toolbar: filters (palette), timer (clock), grid (grid icon), burst (lightning)</li>
             <li>Adjust quality settings if needed (gear icon)</li>
             <li>Click "Start Camera" to enable your camera</li>
             <li>Use the switch button to toggle front/back camera</li>
