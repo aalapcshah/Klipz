@@ -142,6 +142,8 @@ export default function FileGridEnhanced({
   const [compareFiles, setCompareFiles] = useState<number[]>([]);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const deletedFilesRef = useRef<DeletedFile[]>([]);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -397,6 +399,39 @@ export default function FileGridEnhanced({
       newSelected.add(fileId);
     }
     setSelectedFiles(newSelected);
+  };
+
+  // Long-press handlers for mobile selection
+  const handleTouchStart = (fileId: number) => {
+    longPressTimerRef.current = setTimeout(() => {
+      // Enter selection mode and select this file
+      setIsSelectionMode(true);
+      setSelectedFiles(new Set([fileId]));
+      // Haptic feedback if available
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }, 500); // 500ms long press
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleTouchMove = () => {
+    // Cancel long press if user moves finger
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const exitSelectionMode = () => {
+    setIsSelectionMode(false);
+    setSelectedFiles(new Set());
   };
 
   const toggleAll = () => {
@@ -1159,10 +1194,13 @@ export default function FileGridEnhanced({
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => setSelectedFiles(new Set())}
+                onClick={() => {
+                  setSelectedFiles(new Set());
+                  setIsSelectionMode(false);
+                }}
                 aria-label="Clear file selection"
               >
-                Clear Selection
+                {isSelectionMode ? "Exit Selection" : "Clear Selection"}
               </Button>
             </div>
           </Card>
@@ -1320,10 +1358,18 @@ export default function FileGridEnhanced({
                         key={file.id}
                         className={`group p-2 md:p-3 hover:border-primary/50 transition-colors cursor-pointer relative ${
                           draggedFileId === file.id ? "opacity-50" : ""
-                        }`}
+                        } ${isSelectionMode && selectedFilesSet.has(file.id) ? "ring-2 ring-primary" : ""}`}
                         draggable
                         onDragStart={(e) => handleDragStart(e, file.id)}
                         onDragEnd={handleDragEnd}
+                        onTouchStart={() => handleTouchStart(file.id)}
+                        onTouchEnd={handleTouchEnd}
+                        onTouchMove={handleTouchMove}
+                        onClick={() => {
+                          if (isSelectionMode) {
+                            toggleFile(file.id);
+                          }
+                        }}
                         role="gridcell"
                         aria-label={`File: ${file.filename}`}
                       >
@@ -1340,8 +1386,8 @@ export default function FileGridEnhanced({
                     <X className="h-4 w-4" />
                   </Button>
                   <div className="flex items-start gap-1 md:gap-3">
-                    {/* Checkbox - hidden on mobile unless selected or in compare mode */}
-                    <div className={`flex-shrink-0 ${compareMode || selectedFilesSet.has(file.id) ? 'block' : 'hidden md:block'}`}>
+                    {/* Checkbox - hidden on mobile unless in selection mode, selected, or compare mode */}
+                    <div className={`flex-shrink-0 ${compareMode || isSelectionMode || selectedFilesSet.has(file.id) ? 'block' : 'hidden md:block'}`}>
                       {compareMode ? (
                         <Checkbox
                           checked={compareFiles.includes(file.id)}
@@ -1360,7 +1406,11 @@ export default function FileGridEnhanced({
                     </div>
                     <div
                       className="flex-1 min-w-0"
-                      onClick={() => onFileClick?.(file.id)}
+                      onClick={() => {
+                        if (!isSelectionMode) {
+                          onFileClick?.(file.id);
+                        }
+                      }}
                     >
                       <div className="flex items-start gap-3">
                         {file.mimeType?.startsWith('image/') ? (

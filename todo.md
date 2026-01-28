@@ -4194,3 +4194,16 @@ Note: The application already has extensive annotation features including voice 
 ## Bug Fixes - January 28, 2026 (Mobile & Upload)
 - [x] Fix large checkboxes appearing on mobile file cards - hidden on mobile unless selected
 - [x] Fix upload progress showing "0 B / X MB" - now shows "Compressing..." during compression phase and actual bytes during upload
+
+
+## Mobile Selection & Compression Progress - January 28, 2026
+- [ ] Add long-press to select on mobile file cards
+- [ ] Show compression progress bar separately from upload progress bar
+
+
+## Mobile Selection & Compression Progress - January 28, 2026
+- [x] Add long-press to select on mobile file cards (500ms hold triggers selection mode with haptic feedback)
+- [x] Show compression progress bar separately from upload progress bar (amber for compression, primary for upload)
+- [x] Enter selection mode shows checkboxes on all cards
+- [x] Exit selection mode button clears selection and exits mode
+- [x] Cards show ring highlight when selected in selection mode

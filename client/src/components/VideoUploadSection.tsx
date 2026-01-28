@@ -974,37 +974,70 @@ export function VideoUploadSection() {
                     </div>
                   </div>
 
-                  {/* Progress Bar */}
+                  {/* Compression Progress Bar - shown during compression phase */}
+                  {upload.status === "uploading" && compressionProgress.has(upload.id) && (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-amber-500 font-medium">Compressing</span>
+                        <div className="flex-1 bg-secondary rounded-full h-2 overflow-hidden">
+                          <div
+                            className="h-full transition-all duration-300 bg-amber-500"
+                            style={{ width: `${(compressionProgress.get(upload.id)?.progress || 0)}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {(compressionProgress.get(upload.id)?.progress || 0).toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Upload Progress Bar */}
                   {(upload.status === "uploading" || upload.status === "pending" || upload.status === "paused") && (
                     <div className="space-y-1">
-                      <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
-                        <div
-                          className={`h-full transition-all duration-300 ${
-                            upload.status === "paused" ? "bg-yellow-500" : "bg-primary"
-                          }`}
-                          style={{ width: `${upload.progress}%` }}
-                        />
+                      <div className="flex items-center gap-2">
+                        {!compressionProgress.has(upload.id) && upload.status === "uploading" && (
+                          <span className="text-xs text-primary font-medium">Uploading</span>
+                        )}
+                        {compressionProgress.has(upload.id) && (
+                          <span className="text-xs text-muted-foreground">Upload (waiting)</span>
+                        )}
+                        {upload.status === "pending" && (
+                          <span className="text-xs text-muted-foreground">Queued</span>
+                        )}
+                        {upload.status === "paused" && (
+                          <span className="text-xs text-yellow-500 font-medium">Paused</span>
+                        )}
+                        <div className="flex-1 bg-secondary rounded-full h-2 overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-300 ${
+                              upload.status === "paused" ? "bg-yellow-500" : 
+                              compressionProgress.has(upload.id) ? "bg-muted-foreground" : "bg-primary"
+                            }`}
+                            style={{ width: `${compressionProgress.has(upload.id) ? 0 : Math.max(0, ((upload.progress - 30) / 70) * 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {compressionProgress.has(upload.id) 
+                            ? "0%" 
+                            : upload.status === "pending" 
+                              ? "--" 
+                              : `${Math.max(0, ((upload.progress - 30) / 70) * 100).toFixed(0)}%`
+                          }
+                        </span>
                       </div>
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>
-                          {upload.status === "pending" && "Queued..."}
-                          {upload.status === "paused" && "Paused"}
-                          {upload.status === "uploading" && (
-                            upload.progress < 30 && compressionProgress.has(upload.id)
-                              ? `Compressing... ${upload.progress.toFixed(0)}%`
-                              : `${upload.progress.toFixed(0)}%`
-                          )}
-                        </span>
+                        <span></span>
                         <div className="flex gap-3">
-                          {upload.status === "uploading" && upload.progress >= 30 && upload.speed > 0 && (
+                          {upload.status === "uploading" && !compressionProgress.has(upload.id) && upload.speed > 0 && (
                             <>
                               <span>{formatSpeed(upload.speed)}</span>
                               <span>ETA: {formatEta(upload.eta)}</span>
                             </>
                           )}
                           <span>
-                            {upload.progress < 30 && compressionProgress.has(upload.id)
-                              ? `Compressing...`
+                            {compressionProgress.has(upload.id)
+                              ? `0 B / ${formatFileSize(upload.fileSize)}`
                               : `${formatFileSize(upload.uploadedBytes)} / ${formatFileSize(upload.fileSize)}`
                             }
                           </span>
