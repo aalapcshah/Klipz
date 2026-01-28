@@ -26,7 +26,7 @@ import {
 interface ShareDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  itemType: "file" | "video";
+  itemType: "file" | "video" | "collection";
   itemId: number;
   itemName: string;
 }
@@ -46,9 +46,29 @@ export function ShareDialog({ open, onOpenChange, itemType, itemId, itemName }: 
   const utils = trpc.useUtils();
 
   // Fetch existing share links
-  const { data: existingLinks, isLoading: isLoadingLinks } = itemType === "file"
-    ? trpc.shareLinks.getForFile.useQuery({ fileId: itemId }, { enabled: open })
-    : trpc.shareLinks.getForVideo.useQuery({ videoId: itemId }, { enabled: open });
+  const fileLinksQuery = trpc.shareLinks.getForFile.useQuery(
+    { fileId: itemId }, 
+    { enabled: open && itemType === "file" }
+  );
+  const videoLinksQuery = trpc.shareLinks.getForVideo.useQuery(
+    { videoId: itemId }, 
+    { enabled: open && itemType === "video" }
+  );
+  const collectionLinksQuery = trpc.shareLinks.getForCollection.useQuery(
+    { collectionId: itemId }, 
+    { enabled: open && itemType === "collection" }
+  );
+  
+  const existingLinks = itemType === "file" 
+    ? fileLinksQuery.data 
+    : itemType === "video" 
+    ? videoLinksQuery.data 
+    : collectionLinksQuery.data;
+  const isLoadingLinks = itemType === "file" 
+    ? fileLinksQuery.isLoading 
+    : itemType === "video" 
+    ? videoLinksQuery.isLoading 
+    : collectionLinksQuery.isLoading;
 
   const createMutation = trpc.shareLinks.create.useMutation({
     onSuccess: (data) => {
@@ -68,8 +88,10 @@ export function ShareDialog({ open, onOpenChange, itemType, itemId, itemName }: 
       // Refresh links
       if (itemType === "file") {
         utils.shareLinks.getForFile.invalidate({ fileId: itemId });
-      } else {
+      } else if (itemType === "video") {
         utils.shareLinks.getForVideo.invalidate({ videoId: itemId });
+      } else {
+        utils.shareLinks.getForCollection.invalidate({ collectionId: itemId });
       }
       setIsCreating(false);
     },
@@ -84,8 +106,10 @@ export function ShareDialog({ open, onOpenChange, itemType, itemId, itemName }: 
       toast.success("Share link deleted");
       if (itemType === "file") {
         utils.shareLinks.getForFile.invalidate({ fileId: itemId });
-      } else {
+      } else if (itemType === "video") {
         utils.shareLinks.getForVideo.invalidate({ videoId: itemId });
+      } else {
+        utils.shareLinks.getForCollection.invalidate({ collectionId: itemId });
       }
     },
     onError: (error) => {
@@ -98,6 +122,7 @@ export function ShareDialog({ open, onOpenChange, itemType, itemId, itemName }: 
     createMutation.mutate({
       fileId: itemType === "file" ? itemId : undefined,
       videoId: itemType === "video" ? itemId : undefined,
+      collectionId: itemType === "collection" ? itemId : undefined,
       password: usePassword && password ? password : undefined,
       expiresAt: useExpiration && expiresAt ? new Date(expiresAt).toISOString() : undefined,
       allowDownload,
@@ -137,7 +162,7 @@ export function ShareDialog({ open, onOpenChange, itemType, itemId, itemName }: 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="h-5 w-5" />
-            Share {itemType === "file" ? "File" : "Video"}
+            Share {itemType === "file" ? "File" : itemType === "video" ? "Video" : "Collection"}
           </DialogTitle>
           <DialogDescription className="truncate">
             {itemName}

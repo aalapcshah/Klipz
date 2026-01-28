@@ -4100,3 +4100,31 @@ Note: The application already has extensive annotation features including voice 
 
 ## Bug Fix - Upload Dialog Width - January 27, 2026
 - [x] Make upload popup dialog wider to prevent content cutoff on right side
+
+
+## Collection Share UI - January 28, 2026
+- [ ] Add share button to collection cards in CollectionsView
+- [ ] Add share button to collection detail/edit dialog
+- [ ] Integrate ShareDialog component for collections
+
+## Bulk Share Management Page - January 28, 2026
+- [ ] Create MyShares page (/my-shares) for users to manage all their shares
+- [ ] Display all active shares (files, videos, collections) with stats
+- [ ] Add ability to copy link, edit settings, and revoke shares
+- [ ] Add filtering by share type and status
+- [ ] Add route and navigation link to MyShares page
+
+
+## Phase 120: Collection Share UI - January 27, 2026
+- [x] Add Share button to collection cards in CollectionsManager
+- [x] Update ShareDialog to support collection type
+- [x] Add getForCollection query support in ShareDialog
+- [x] Write unit tests for collection sharing (8 tests passing)
+
+## Phase 121: Bulk Share Management Page - January 27, 2026
+- [x] Create My Shares page (/my-shares) for managing all share links
+- [x] Add stats cards (total, active, expired, views, downloads)
+- [x] Add search and filter functionality (by type, status)
+- [x] Display share links in table with all details
+- [x] Add copy link, open in new tab, and delete actions
+- [x] Add My Shares to Tools navigation menu

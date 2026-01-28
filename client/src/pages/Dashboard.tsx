@@ -20,7 +20,8 @@ import {
   Calendar,
   Activity,
   ChevronDown,
-  Wrench
+  Wrench,
+  Link2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -107,6 +108,7 @@ export default function Dashboard() {
   const toolsMenuItems = [
     { href: "/enrichment-queue", label: "Enrichment Queue", icon: ListChecks },
     { href: "/scheduled-exports", label: "Scheduled Exports", icon: Calendar },
+    { href: "/my-shares", label: "My Shares", icon: Link2 },
   ];
 
   const insightsMenuItems = [

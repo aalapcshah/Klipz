@@ -29,6 +29,7 @@ import AdminReports from "./pages/AdminReports";
 import AdminShareAnalytics from "./pages/AdminShareAnalytics";
 import AdminSystemOverview from "./pages/AdminSystemOverview";
 import ShareView from "./pages/ShareView";
+import MyShares from "./pages/MyShares";
 import { trpc } from "./lib/trpc";
 import { useState, useEffect } from "react";
 import { CookieConsent } from "./components/CookieConsent";
@@ -66,6 +67,7 @@ function Router() {
       <Route path="/admin/reports" component={AdminReports} />
       <Route path="/admin/shares" component={AdminShareAnalytics} />
       <Route path="/admin/system" component={AdminSystemOverview} />
+      <Route path="/my-shares" component={MyShares} />
       <Route path="/share/:token" component={ShareView} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

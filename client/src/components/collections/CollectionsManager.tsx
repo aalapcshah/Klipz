@@ -15,6 +15,7 @@ import {
   FileText,
   Video,
   File as FileIcon,
+  Share2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -35,6 +36,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ShareDialog } from "@/components/ShareDialog";
 
 const COLORS = [
   "#10b981", // green
@@ -52,6 +54,8 @@ export function CollectionsManager() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<any>(null);
   const [viewingCollection, setViewingCollection] = useState<number | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [sharingCollection, setSharingCollection] = useState<any>(null);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -225,6 +229,18 @@ export function CollectionsManager() {
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSharingCollection(collection);
+                    setShareDialogOpen(true);
+                  }}
+                >
+                  <Share2 className="h-3 w-3 mr-1" />
+                  Share
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -464,6 +480,20 @@ export function CollectionsManager() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Share Dialog */}
+      {sharingCollection && (
+        <ShareDialog
+          open={shareDialogOpen}
+          onOpenChange={(open) => {
+            setShareDialogOpen(open);
+            if (!open) setSharingCollection(null);
+          }}
+          itemType="collection"
+          itemId={sharingCollection.id}
+          itemName={sharingCollection.name}
+        />
+      )}
     </div>
   );
 }
