@@ -20,6 +20,9 @@ import { triggerHaptic } from "@/lib/haptics";
 import { useUploadManager, UploadItem, formatSpeed, formatEta } from "@/contexts/UploadManagerContext";
 import { extractVideoMetadata, generateVideoThumbnail, formatDuration } from "@/lib/videoUtils";
 import { compressVideo, estimateCompressedSize, getVideoMetadata, isCompressionSupported, formatFileSize, COMPRESSION_PRESETS, CompressionProgress } from "@/lib/videoCompression";
+import { useFeatureAccess, useVideoLimit } from "@/components/FeatureGate";
+import { Link } from "wouter";
+import { Lock, Crown, Sparkles } from "lucide-react";
 
 type VideoQuality = "original" | "high" | "medium" | "low" | "custom";
 
@@ -102,6 +105,10 @@ export function VideoUploadSection() {
   const updateVideoMutation = trpc.videos.update.useMutation();
   const uploadThumbnailMutation = trpc.files.uploadThumbnail.useMutation();
 
+  // Feature gate hooks
+  const { allowed: canUploadVideos, loading: featureLoading } = useFeatureAccess('uploadVideo');
+  const { allowed: hasVideoSlots, currentCount: videoCount, limit: videoLimit, message: videoLimitMessage } = useVideoLimit();
+  
   // Filter uploads to show only video uploads
   const videoUploads = uploads.filter(u => u.uploadType === 'video');
 
@@ -468,6 +475,30 @@ export function VideoUploadSection() {
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     
+    // Check feature access
+    if (!canUploadVideos) {
+      toast.error('Video uploads require a Pro subscription', {
+        description: 'Start a free trial or upgrade to Pro to upload videos.',
+        action: {
+          label: 'View Plans',
+          onClick: () => window.location.href = '/pricing',
+        },
+      });
+      return;
+    }
+    
+    // Check video limit
+    if (!hasVideoSlots) {
+      toast.error(videoLimitMessage || 'Video upload limit reached', {
+        description: 'Upgrade to Pro for unlimited video uploads.',
+        action: {
+          label: 'Upgrade',
+          onClick: () => window.location.href = '/pricing',
+        },
+      });
+      return;
+    }
+    
     // Calculate estimated compression for first file
     const fileArray = Array.from(files);
     if (fileArray.length > 0 && selectedQuality !== 'original' && isCompressionSupported()) {
@@ -622,6 +653,40 @@ export function VideoUploadSection() {
     }
   };
 
+  // Show upgrade banner if video uploads are not allowed
+  if (!canUploadVideos && !featureLoading) {
+    return (
+      <div className="space-y-6">
+        <Card className="p-6 border-dashed">
+          <div className="text-center py-8">
+            <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-muted flex items-center justify-center">
+              <Lock className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">Video Uploads are a Pro Feature</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              Upload, annotate, and transcribe videos with a Pro subscription. 
+              Start with a free 14-day trial - no credit card required.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link href="/pricing">
+                <Button className="gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  Start Free Trial
+                </Button>
+              </Link>
+              <Link href="/pricing">
+                <Button variant="outline" className="gap-2">
+                  <Crown className="h-4 w-4" />
+                  View Plans
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+  
   return (
     <div className="space-y-6">
       {/* Quality Selector */}

@@ -21,10 +21,10 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTierId, SubscriptionTier> = 
     id: 'free',
     name: 'Free',
     stripePriceId: '', // No Stripe price for free tier
-    storageGB: 1,
+    storageGB: 2,
     priceMonthly: 0,
     features: [
-      '1 GB storage',
+      '2 GB storage',
       'Upload up to 100 files',
       'Label and organize files',
       'Edit file metadata',
@@ -53,13 +53,13 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTierId, SubscriptionTier> = 
   pro: {
     id: 'pro',
     name: 'Pro',
-    // TODO: Replace with actual Stripe Price ID after creating product in Stripe Dashboard
-    stripePriceId: process.env.STRIPE_PRICE_ID_PRO || 'price_pro_placeholder',
-    storageGB: 100,
-    priceMonthly: 1999, // $19.99 in cents
+    // Stripe Price ID - set via environment variable after creating product in Stripe Dashboard
+    stripePriceId: process.env.STRIPE_PRICE_ID_PRO || '',
+    storageGB: 50,
+    priceMonthly: 999, // $9.99 in cents
     features: [
       'Unlimited files',
-      '100 GB storage',
+      '50 GB storage',
       'Unlimited video uploads',
       'Video annotation with transcription',
       'Link annotations to metadata-labeled files',

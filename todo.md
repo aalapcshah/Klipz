@@ -4178,3 +4178,14 @@ Note: The application already has extensive annotation features including voice 
 
 ### Tests:
 - [x] 7 passing unit tests for subscription router
+
+
+## Feature Gates & Dashboard Widget - January 28, 2026
+- [x] Integrate useVideoLimit hook into video upload component to block uploads when limits reached
+- [x] Add upgrade prompt when video upload is blocked (shows banner with upgrade CTA)
+- [x] Create usage dashboard widget showing storage and video count
+- [x] Display usage percentages with progress bars (with warning/critical states)
+- [x] Configure Stripe products for Pro subscription ($9.99/mo, 50GB storage)
+- [x] Update free plan to 2GB storage
+- [x] Add UsageDashboardWidget to Files, Videos, and Collections pages
+- [x] All 7 subscription tests passing

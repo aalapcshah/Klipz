@@ -38,6 +38,7 @@ import { triggerHaptic } from "@/lib/haptics";
 import { GlobalUploadProgress } from "@/components/GlobalUploadProgress";
 import { StorageAlertBanner } from "@/components/StorageAlertBanner";
 import { TrialBanner } from "@/components/TrialBanner";
+import { UsageDashboardWidget } from "@/components/UsageDashboardWidget";
 
 export default function Dashboard() {
   const { user, loading, isAuthenticated, logout } = useAuth();
@@ -378,8 +379,26 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="container py-8">
-        {/* Storage Alert */}
-        {stats && (
+        {/* Usage Dashboard Widget - show on main pages */}
+        {(location === "/" || location === "/videos" || location === "/collections") && (
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              {/* Storage Alert */}
+              {stats && (
+                <StorageAlert 
+                  totalStorage={stats.totalStorage} 
+                  storageLimit={storageLimit}
+                />
+              )}
+            </div>
+            <div>
+              <UsageDashboardWidget />
+            </div>
+          </div>
+        )}
+        
+        {/* Storage Alert for other pages */}
+        {!(location === "/" || location === "/videos" || location === "/collections") && stats && (
           <div className="mb-6">
             <StorageAlert 
               totalStorage={stats.totalStorage} 

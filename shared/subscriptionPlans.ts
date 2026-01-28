@@ -48,7 +48,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, PlanInfo> = {
     description: 'Basic file management for individuals',
     price: 0,
     limits: {
-      maxStorageBytes: 1 * 1024 * 1024 * 1024, // 1 GB
+      maxStorageBytes: 2 * 1024 * 1024 * 1024, // 2 GB
       maxVideoCount: 0, // No videos on free plan
       maxFileCount: 100,
       canUploadVideos: false,
@@ -65,7 +65,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, PlanInfo> = {
     },
     features: [
       'Upload up to 100 files',
-      '1 GB storage',
+      '2 GB storage',
       'Label and organize files',
       'Edit file metadata',
       'Delete files',
@@ -111,10 +111,10 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, PlanInfo> = {
     id: 'pro',
     name: 'Pro',
     description: 'Full-featured media management for professionals',
-    price: 1999, // $19.99/month
+    price: 999, // $9.99/month
     recommended: true,
     limits: {
-      maxStorageBytes: 100 * 1024 * 1024 * 1024, // 100 GB
+      maxStorageBytes: 50 * 1024 * 1024 * 1024, // 50 GB
       maxVideoCount: -1, // Unlimited
       maxFileCount: -1, // Unlimited
       canUploadVideos: true,
@@ -131,7 +131,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, PlanInfo> = {
     },
     features: [
       'Unlimited files',
-      '100 GB storage',
+      '50 GB storage',
       'Unlimited video uploads',
       'Video annotation with transcription',
       'Link annotations to metadata-labeled files',
