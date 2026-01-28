@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -20,6 +21,15 @@ import {
   SwitchCamera,
   Settings,
   Image,
+  Zap,
+  Sun,
+  Contrast,
+  Palette,
+  Thermometer,
+  X,
+  Check,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -28,6 +38,7 @@ import { uploadFileToStorage } from "@/lib/storage";
 type CameraFacing = "user" | "environment";
 type CaptureMode = "video" | "photo";
 type VideoQuality = "720p" | "1080p" | "4k";
+type FilterPreset = "normal" | "vivid" | "warm" | "cool" | "bw" | "sepia";
 
 interface QualitySettings {
   width: number;
@@ -35,10 +46,41 @@ interface QualitySettings {
   label: string;
 }
 
+interface PhotoFilters {
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  warmth: number;
+}
+
+interface BurstPhoto {
+  blob: Blob;
+  url: string;
+  selected: boolean;
+}
+
 const QUALITY_PRESETS: Record<VideoQuality, QualitySettings> = {
   "720p": { width: 1280, height: 720, label: "HD 720p" },
   "1080p": { width: 1920, height: 1080, label: "Full HD 1080p" },
   "4k": { width: 3840, height: 2160, label: "4K Ultra HD" },
+};
+
+const FILTER_PRESETS: Record<FilterPreset, PhotoFilters> = {
+  normal: { brightness: 100, contrast: 100, saturation: 100, warmth: 0 },
+  vivid: { brightness: 105, contrast: 115, saturation: 130, warmth: 0 },
+  warm: { brightness: 102, contrast: 100, saturation: 105, warmth: 15 },
+  cool: { brightness: 100, contrast: 105, saturation: 95, warmth: -15 },
+  bw: { brightness: 100, contrast: 110, saturation: 0, warmth: 0 },
+  sepia: { brightness: 100, contrast: 95, saturation: 50, warmth: 30 },
+};
+
+const FILTER_PRESET_LABELS: Record<FilterPreset, string> = {
+  normal: "Normal",
+  vivid: "Vivid",
+  warm: "Warm",
+  cool: "Cool",
+  bw: "B&W",
+  sepia: "Sepia",
 };
 
 export function VideoRecorder() {
@@ -63,8 +105,22 @@ export function VideoRecorder() {
   const [showSettings, setShowSettings] = useState(false);
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
 
+  // Photo filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterPreset, setFilterPreset] = useState<FilterPreset>("normal");
+  const [customFilters, setCustomFilters] = useState<PhotoFilters>(FILTER_PRESETS.normal);
+  const [useCustomFilters, setUseCustomFilters] = useState(false);
+
+  // Burst mode
+  const [burstMode, setBurstMode] = useState(false);
+  const [burstCount, setBurstCount] = useState(5);
+  const [burstPhotos, setBurstPhotos] = useState<BurstPhoto[]>([]);
+  const [isBurstCapturing, setIsBurstCapturing] = useState(false);
+  const [burstCurrentIndex, setBurstCurrentIndex] = useState(0);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const filterCanvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -73,6 +129,22 @@ export function VideoRecorder() {
   const createVideoMutation = trpc.videos.create.useMutation();
   const createFileMutation = trpc.files.create.useMutation();
   const trpcUtils = trpc.useUtils();
+
+  // Get active filters
+  const activeFilters = useCustomFilters ? customFilters : FILTER_PRESETS[filterPreset];
+
+  // CSS filter string for live preview
+  const getCssFilterString = () => {
+    const f = activeFilters;
+    let filter = `brightness(${f.brightness}%) contrast(${f.contrast}%) saturate(${f.saturation}%)`;
+    if (f.warmth !== 0) {
+      filter += ` sepia(${Math.abs(f.warmth)}%)`;
+      if (f.warmth < 0) {
+        filter += ` hue-rotate(180deg)`;
+      }
+    }
+    return filter;
+  };
 
   // Check for multiple cameras on mount
   useEffect(() => {
@@ -93,6 +165,7 @@ export function VideoRecorder() {
       stopCamera();
       if (timerRef.current) clearInterval(timerRef.current);
       if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+      burstPhotos.forEach(p => URL.revokeObjectURL(p.url));
     };
   }, []);
 
@@ -104,6 +177,13 @@ export function VideoRecorder() {
   useEffect(() => {
     localStorage.setItem("camera-quality", videoQuality);
   }, [videoQuality]);
+
+  // Update custom filters when preset changes
+  useEffect(() => {
+    if (!useCustomFilters) {
+      setCustomFilters(FILTER_PRESETS[filterPreset]);
+    }
+  }, [filterPreset, useCustomFilters]);
 
   const getVideoConstraints = useCallback(() => {
     const quality = QUALITY_PRESETS[videoQuality];
@@ -152,7 +232,6 @@ export function VideoRecorder() {
     setCameraFacing(newFacing);
     
     if (isPreviewing && !isRecording) {
-      // Restart camera with new facing mode
       stopCamera();
       setTimeout(async () => {
         try {
@@ -179,7 +258,34 @@ export function VideoRecorder() {
     }
   };
 
-  const capturePhoto = () => {
+  // Apply filters to canvas and return blob
+  const applyFiltersToCanvas = (sourceCanvas: HTMLCanvasElement): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      const filterCanvas = filterCanvasRef.current;
+      if (!filterCanvas) {
+        resolve(null);
+        return;
+      }
+
+      filterCanvas.width = sourceCanvas.width;
+      filterCanvas.height = sourceCanvas.height;
+      const ctx = filterCanvas.getContext("2d");
+      if (!ctx) {
+        resolve(null);
+        return;
+      }
+
+      // Apply CSS-like filters
+      ctx.filter = getCssFilterString();
+      ctx.drawImage(sourceCanvas, 0, 0);
+      
+      filterCanvas.toBlob((blob) => {
+        resolve(blob);
+      }, "image/jpeg", 0.95);
+    });
+  };
+
+  const capturePhoto = async () => {
     if (!videoRef.current || !canvasRef.current) return;
     
     const video = videoRef.current;
@@ -188,23 +294,115 @@ export function VideoRecorder() {
     
     if (!ctx) return;
     
-    // Set canvas size to match video
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    
-    // Draw current video frame to canvas
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    // Convert to blob
-    canvas.toBlob((blob) => {
+    // Apply filters
+    const blob = await applyFiltersToCanvas(canvas);
+    
+    if (blob) {
+      setCapturedPhoto(blob);
+      const url = URL.createObjectURL(blob);
+      setPhotoPreviewUrl(url);
+      stopCamera();
+      toast.success("Photo captured!");
+    }
+  };
+
+  const captureBurst = async () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    
+    setIsBurstCapturing(true);
+    const photos: BurstPhoto[] = [];
+    
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    
+    if (!ctx) {
+      setIsBurstCapturing(false);
+      return;
+    }
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Capture photos with delay
+    for (let i = 0; i < burstCount; i++) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const blob = await applyFiltersToCanvas(canvas);
+      
       if (blob) {
-        setCapturedPhoto(blob);
-        const url = URL.createObjectURL(blob);
-        setPhotoPreviewUrl(url);
-        stopCamera();
-        toast.success("Photo captured!");
+        photos.push({
+          blob,
+          url: URL.createObjectURL(blob),
+          selected: i === 0, // Select first by default
+        });
       }
-    }, "image/jpeg", 0.95);
+      
+      // Small delay between captures (100ms)
+      if (i < burstCount - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    setBurstPhotos(photos);
+    setBurstCurrentIndex(0);
+    setIsBurstCapturing(false);
+    stopCamera();
+    toast.success(`Captured ${photos.length} photos!`);
+  };
+
+  const toggleBurstPhotoSelection = (index: number) => {
+    setBurstPhotos(prev => prev.map((p, i) => 
+      i === index ? { ...p, selected: !p.selected } : p
+    ));
+  };
+
+  const handleUploadBurstPhotos = async () => {
+    const selectedPhotos = burstPhotos.filter(p => p.selected);
+    if (selectedPhotos.length === 0) {
+      toast.error("Please select at least one photo to upload");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      for (let i = 0; i < selectedPhotos.length; i++) {
+        const photo = selectedPhotos[i];
+        const filename = `burst-photo-${Date.now()}-${i}.jpg`;
+        const { url, fileKey } = await uploadFileToStorage(
+          photo.blob,
+          filename,
+          trpcUtils
+        );
+
+        await createFileMutation.mutateAsync({
+          filename,
+          mimeType: "image/jpeg",
+          fileSize: photo.blob.size,
+          url,
+          fileKey,
+          title: `Burst Photo ${i + 1} - ${new Date().toLocaleString()}`,
+        });
+      }
+
+      toast.success(`Uploaded ${selectedPhotos.length} photos!`);
+      handleDiscardBurstPhotos();
+      trpcUtils.files.list.invalidate();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to upload photos");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDiscardBurstPhotos = () => {
+    burstPhotos.forEach(p => URL.revokeObjectURL(p.url));
+    setBurstPhotos([]);
+    setBurstCurrentIndex(0);
   };
 
   const startRecording = () => {
@@ -225,19 +423,17 @@ export function VideoRecorder() {
       const blob = new Blob(chunksRef.current, { type: "video/webm" });
       setRecordedBlob(blob);
       
-      // Show preview
       if (videoRef.current) {
         videoRef.current.srcObject = null;
         videoRef.current.src = URL.createObjectURL(blob);
       }
     };
 
-    mediaRecorder.start(1000); // Collect data every second
+    mediaRecorder.start(1000);
     mediaRecorderRef.current = mediaRecorder;
     setIsRecording(true);
     setRecordingTime(0);
 
-    // Start timer
     timerRef.current = setInterval(() => {
       setRecordingTime((prev) => prev + 1);
     }, 1000);
@@ -260,7 +456,6 @@ export function VideoRecorder() {
 
     setUploading(true);
     try {
-      // Upload video to S3
       const filename = `recording-${Date.now()}.webm`;
       const { url, fileKey } = await uploadFileToStorage(
         recordedBlob,
@@ -268,7 +463,6 @@ export function VideoRecorder() {
         trpcUtils
       );
 
-      // Create video record
       await createVideoMutation.mutateAsync({
         fileKey,
         url,
@@ -279,7 +473,6 @@ export function VideoRecorder() {
 
       toast.success("Video uploaded successfully!");
       
-      // Reset
       setRecordedBlob(null);
       setRecordingTime(0);
       if (videoRef.current) {
@@ -298,7 +491,6 @@ export function VideoRecorder() {
 
     setUploading(true);
     try {
-      // Upload photo to S3
       const filename = `photo-${Date.now()}.jpg`;
       const { url, fileKey } = await uploadFileToStorage(
         capturedPhoto,
@@ -306,9 +498,8 @@ export function VideoRecorder() {
         trpcUtils
       );
 
-      // Create file record
       await createFileMutation.mutateAsync({
-        filename: `photo-${Date.now()}.jpg`,
+        filename,
         mimeType: "image/jpeg",
         fileSize: capturedPhoto.size,
         url,
@@ -318,7 +509,6 @@ export function VideoRecorder() {
 
       toast.success("Photo uploaded successfully!");
       
-      // Reset
       handleDiscardPhoto();
       trpcUtils.files.list.invalidate();
     } catch (error) {
@@ -351,6 +541,11 @@ export function VideoRecorder() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const updateCustomFilter = (key: keyof PhotoFilters, value: number) => {
+    setUseCustomFilters(true);
+    setCustomFilters(prev => ({ ...prev, [key]: value }));
+  };
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -361,7 +556,7 @@ export function VideoRecorder() {
               variant={captureMode === "video" ? "default" : "outline"}
               size="sm"
               onClick={() => setCaptureMode("video")}
-              disabled={isPreviewing || !!recordedBlob || !!capturedPhoto}
+              disabled={isPreviewing || !!recordedBlob || !!capturedPhoto || burstPhotos.length > 0}
             >
               <Video className="h-4 w-4 mr-1" />
               Video
@@ -370,21 +565,162 @@ export function VideoRecorder() {
               variant={captureMode === "photo" ? "default" : "outline"}
               size="sm"
               onClick={() => setCaptureMode("photo")}
-              disabled={isPreviewing || !!recordedBlob || !!capturedPhoto}
+              disabled={isPreviewing || !!recordedBlob || !!capturedPhoto || burstPhotos.length > 0}
             >
               <Image className="h-4 w-4 mr-1" />
               Photo
             </Button>
           </div>
           
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowSettings(!showSettings)}
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            {captureMode === "photo" && (
+              <>
+                <Button
+                  variant={showFilters ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setShowFilters(!showFilters)}
+                >
+                  <Palette className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={burstMode ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setBurstMode(!burstMode)}
+                  disabled={!!capturedPhoto || burstPhotos.length > 0}
+                >
+                  <Zap className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSettings(!showSettings)}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
+
+        {/* Filter Controls */}
+        {showFilters && captureMode === "photo" && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Photo Filters</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setUseCustomFilters(false);
+                  setFilterPreset("normal");
+                }}
+              >
+                Reset
+              </Button>
+            </div>
+            
+            {/* Filter Presets */}
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(FILTER_PRESETS) as FilterPreset[]).map((preset) => (
+                <Button
+                  key={preset}
+                  variant={filterPreset === preset && !useCustomFilters ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setFilterPreset(preset);
+                    setUseCustomFilters(false);
+                  }}
+                >
+                  {FILTER_PRESET_LABELS[preset]}
+                </Button>
+              ))}
+            </div>
+
+            {/* Custom Sliders */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Sun className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs w-20">Brightness</span>
+                <Slider
+                  value={[customFilters.brightness]}
+                  onValueChange={([v]) => updateCustomFilter("brightness", v)}
+                  min={50}
+                  max={150}
+                  step={1}
+                  className="flex-1"
+                />
+                <span className="text-xs w-8">{customFilters.brightness}%</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Contrast className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs w-20">Contrast</span>
+                <Slider
+                  value={[customFilters.contrast]}
+                  onValueChange={([v]) => updateCustomFilter("contrast", v)}
+                  min={50}
+                  max={150}
+                  step={1}
+                  className="flex-1"
+                />
+                <span className="text-xs w-8">{customFilters.contrast}%</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Palette className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs w-20">Saturation</span>
+                <Slider
+                  value={[customFilters.saturation]}
+                  onValueChange={([v]) => updateCustomFilter("saturation", v)}
+                  min={0}
+                  max={200}
+                  step={1}
+                  className="flex-1"
+                />
+                <span className="text-xs w-8">{customFilters.saturation}%</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Thermometer className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs w-20">Warmth</span>
+                <Slider
+                  value={[customFilters.warmth]}
+                  onValueChange={([v]) => updateCustomFilter("warmth", v)}
+                  min={-50}
+                  max={50}
+                  step={1}
+                  className="flex-1"
+                />
+                <span className="text-xs w-8">{customFilters.warmth > 0 ? "+" : ""}{customFilters.warmth}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Burst Mode Settings */}
+        {burstMode && captureMode === "photo" && !capturedPhoto && burstPhotos.length === 0 && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Burst Mode: {burstCount} photos</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBurstCount(Math.max(3, burstCount - 1))}
+                  disabled={burstCount <= 3}
+                >
+                  -
+                </Button>
+                <span className="w-8 text-center">{burstCount}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBurstCount(Math.min(10, burstCount + 1))}
+                  disabled={burstCount >= 10}
+                >
+                  +
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Settings Panel */}
         {showSettings && (
@@ -420,13 +756,78 @@ export function VideoRecorder() {
           </div>
         )}
 
+        {/* Hidden canvases for processing */}
+        <canvas ref={canvasRef} className="hidden" />
+        <canvas ref={filterCanvasRef} className="hidden" />
+
         {/* Video/Photo Preview */}
         <div className="relative aspect-video bg-black rounded-lg overflow-hidden mb-4">
-          {/* Hidden canvas for photo capture */}
-          <canvas ref={canvasRef} className="hidden" />
-          
-          {/* Photo preview */}
-          {photoPreviewUrl ? (
+          {/* Burst Photos Gallery */}
+          {burstPhotos.length > 0 ? (
+            <div className="w-full h-full flex flex-col">
+              <div className="flex-1 relative">
+                <img
+                  src={burstPhotos[burstCurrentIndex]?.url}
+                  alt={`Burst photo ${burstCurrentIndex + 1}`}
+                  className="w-full h-full object-contain"
+                />
+                <div className="absolute top-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-sm">
+                  {burstCurrentIndex + 1} / {burstPhotos.length}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 bg-black/50 hover:bg-black/70"
+                  onClick={() => toggleBurstPhotoSelection(burstCurrentIndex)}
+                >
+                  {burstPhotos[burstCurrentIndex]?.selected ? (
+                    <Check className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <X className="h-5 w-5 text-white" />
+                  )}
+                </Button>
+                {burstCurrentIndex > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70"
+                    onClick={() => setBurstCurrentIndex(prev => prev - 1)}
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </Button>
+                )}
+                {burstCurrentIndex < burstPhotos.length - 1 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70"
+                    onClick={() => setBurstCurrentIndex(prev => prev + 1)}
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </Button>
+                )}
+              </div>
+              {/* Thumbnail strip */}
+              <div className="flex gap-1 p-2 bg-black/80 overflow-x-auto">
+                {burstPhotos.map((photo, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setBurstCurrentIndex(i)}
+                    className={`relative flex-shrink-0 w-12 h-12 rounded overflow-hidden border-2 ${
+                      i === burstCurrentIndex ? "border-primary" : "border-transparent"
+                    }`}
+                  >
+                    <img src={photo.url} alt="" className="w-full h-full object-cover" />
+                    {photo.selected && (
+                      <div className="absolute inset-0 bg-green-500/30 flex items-center justify-center">
+                        <Check className="h-4 w-4 text-white" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : photoPreviewUrl ? (
             <img
               src={photoPreviewUrl}
               alt="Captured photo"
@@ -440,6 +841,7 @@ export function VideoRecorder() {
               muted={!recordedBlob}
               controls={!!recordedBlob}
               className="w-full h-full object-contain"
+              style={{ filter: captureMode === "photo" && isPreviewing ? getCssFilterString() : undefined }}
             />
           )}
 
@@ -463,8 +865,18 @@ export function VideoRecorder() {
             </div>
           )}
 
+          {/* Burst Capturing Indicator */}
+          {isBurstCapturing && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+              <div className="text-center text-white">
+                <Loader2 className="h-12 w-12 mx-auto mb-2 animate-spin" />
+                <p>Capturing burst photos...</p>
+              </div>
+            </div>
+          )}
+
           {/* Status Badge */}
-          {!isPreviewing && !recordedBlob && !photoPreviewUrl && (
+          {!isPreviewing && !recordedBlob && !photoPreviewUrl && burstPhotos.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center text-white">
                 {captureMode === "video" ? (
@@ -481,7 +893,7 @@ export function VideoRecorder() {
         {/* Controls */}
         <div className="flex items-center justify-center gap-4 flex-wrap">
           {/* Start Camera */}
-          {!isPreviewing && !recordedBlob && !photoPreviewUrl && (
+          {!isPreviewing && !recordedBlob && !photoPreviewUrl && burstPhotos.length === 0 && (
             <Button onClick={startCamera} size="lg">
               <Camera className="h-5 w-5 mr-2" />
               Start Camera
@@ -509,7 +921,7 @@ export function VideoRecorder() {
           )}
 
           {/* Camera Active - Photo Mode */}
-          {isPreviewing && captureMode === "photo" && (
+          {isPreviewing && captureMode === "photo" && !isBurstCapturing && (
             <>
               <Button onClick={stopCamera} variant="outline">
                 <VideoOff className="h-4 w-4 mr-2" />
@@ -521,10 +933,17 @@ export function VideoRecorder() {
                   Switch
                 </Button>
               )}
-              <Button onClick={capturePhoto} size="lg" className="bg-primary hover:bg-primary/90">
-                <Camera className="h-5 w-5 mr-2" />
-                Capture
-              </Button>
+              {burstMode ? (
+                <Button onClick={captureBurst} size="lg" className="bg-primary hover:bg-primary/90">
+                  <Zap className="h-5 w-5 mr-2" />
+                  Burst ({burstCount})
+                </Button>
+              ) : (
+                <Button onClick={capturePhoto} size="lg" className="bg-primary hover:bg-primary/90">
+                  <Camera className="h-5 w-5 mr-2" />
+                  Capture
+                </Button>
+              )}
             </>
           )}
 
@@ -566,6 +985,23 @@ export function VideoRecorder() {
             </>
           )}
 
+          {/* Burst Photos Preview */}
+          {burstPhotos.length > 0 && !uploading && (
+            <>
+              <Button onClick={handleDiscardBurstPhotos} variant="outline">
+                Discard All
+              </Button>
+              <Button onClick={startCamera} variant="outline">
+                <Camera className="h-4 w-4 mr-2" />
+                Retake
+              </Button>
+              <Button onClick={handleUploadBurstPhotos} size="lg">
+                <Upload className="h-5 w-5 mr-2" />
+                Upload ({burstPhotos.filter(p => p.selected).length})
+              </Button>
+            </>
+          )}
+
           {/* Uploading */}
           {uploading && (
             <Button disabled size="lg">
@@ -590,6 +1026,16 @@ export function VideoRecorder() {
             <Badge variant="secondary">
               Photo Size: {(capturedPhoto.size / 1024).toFixed(0)} KB •
               Quality: {QUALITY_PRESETS[videoQuality].label}
+              {filterPreset !== "normal" && ` • Filter: ${FILTER_PRESET_LABELS[filterPreset]}`}
+            </Badge>
+          </div>
+        )}
+
+        {burstPhotos.length > 0 && (
+          <div className="mt-4 text-center">
+            <Badge variant="secondary">
+              {burstPhotos.filter(p => p.selected).length} of {burstPhotos.length} selected •
+              Quality: {QUALITY_PRESETS[videoQuality].label}
             </Badge>
           </div>
         )}
@@ -601,12 +1047,15 @@ export function VideoRecorder() {
           <p className="text-sm font-medium">How to use:</p>
           <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
             <li>Select Video or Photo mode above</li>
+            <li>For photos: Use filter icon for effects, lightning icon for burst mode</li>
             <li>Adjust quality settings if needed (gear icon)</li>
             <li>Click "Start Camera" to enable your camera</li>
             <li>Use the switch button to toggle front/back camera</li>
             <li>{captureMode === "video" 
               ? "Click Record to start, Stop when finished" 
-              : "Click Capture to take a photo"}</li>
+              : burstMode 
+                ? "Click Burst to capture multiple photos quickly"
+                : "Click Capture to take a photo"}</li>
             <li>Review and upload or discard</li>
           </ol>
         </div>
