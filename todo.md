@@ -4066,3 +4066,37 @@ Note: The application already has extensive annotation features including voice 
 - [x] Implement expiration dates for share links
 - [x] Track view and download counts for share links
 - [x] Write unit tests for share links feature (12 tests passing)
+
+
+## Video Compression Options - January 27, 2026
+- [x] Add compression quality selector (Original, High 1080p, Medium 720p, Low 480p) to video upload UI
+- [x] Implement client-side video compression using FFmpeg.wasm or browser MediaRecorder API
+- [x] Show estimated file size reduction before compression
+- [x] Display compression progress indicator
+- [x] Allow users to preview compressed video before upload
+- [x] Store compression settings in upload state
+
+## Collection Sharing - January 27, 2026
+- [x] Add collectionId field to shareLinks table for collection sharing
+- [x] Implement collection share creation API with password and expiration
+- [x] Add getForCollection procedure to shareLinks router
+- [x] Update access procedure to support collection content retrieval
+- [x] Track view counts for shared collections
+
+## Admin Panel Enhancement - January 27, 2026
+- [x] Create admin dashboard overview page with key metrics
+- [x] Build user management section (list, search, view details)
+- [x] Add user activity tracking and display
+- [x] Create share analytics dashboard (all shares, views, downloads)
+- [x] Add system storage usage overview
+- [x] Build file/video statistics section
+- [x] Add user role management (promote/demote admin)
+- [x] Create admin-only navigation and access control
+- [x] Add Share Analytics page (/admin/shares) with view/download stats
+- [x] Add System Overview page (/admin/system) with storage and file type breakdown
+- [x] Add admin procedures: getShareAnalytics, getShareAccessLogs, revokeShareLink, getSystemOverview
+- [x] Write unit tests for admin analytics (10 tests passing)
+
+
+## Bug Fix - Upload Dialog Width - January 27, 2026
+- [x] Make upload popup dialog wider to prevent content cutoff on right side

@@ -11,7 +11,9 @@ import {
   Calendar,
   LogOut,
   Shield,
-  History
+  History,
+  Link2,
+  Server
 } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -47,6 +49,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const navItems = [
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/admin/system", label: "System Overview", icon: Server },
+    { href: "/admin/shares", label: "Share Analytics", icon: Link2 },
     { href: "/admin/users", label: "Users", icon: Users },
     { href: "/admin/reports", label: "Reports", icon: FileText },
     { href: "/admin/engagement", label: "Engagement", icon: TrendingUp },

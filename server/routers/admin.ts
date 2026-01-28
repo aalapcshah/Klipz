@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { users, files, fileActivityLogs, savedCohortComparisons } from "../../drizzle/schema";
+import { users, files, fileActivityLogs, savedCohortComparisons, shareLinks, shareAccessLog, videos, collections } from "../../drizzle/schema";
 import { eq, sql, desc, and, gte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { fetchActivityDataForExport, generateCSV, generateExcel } from "../_core/activityExport";
@@ -436,4 +436,194 @@ export const adminRouter = router({
 
       return { success: true };
     }),
+
+  /**
+   * Get share analytics - all share links with stats
+   */
+  getShareAnalytics: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+    // Get all share links with user info
+    const allShareLinks = await db
+      .select({
+        id: shareLinks.id,
+        token: shareLinks.token,
+        fileId: shareLinks.fileId,
+        videoId: shareLinks.videoId,
+        collectionId: shareLinks.collectionId,
+        viewCount: shareLinks.viewCount,
+        maxViews: shareLinks.maxViews,
+        isActive: shareLinks.isActive,
+        allowDownload: shareLinks.allowDownload,
+        expiresAt: shareLinks.expiresAt,
+        createdAt: shareLinks.createdAt,
+        lastAccessedAt: shareLinks.lastAccessedAt,
+        userId: shareLinks.userId,
+        userName: users.name,
+        userEmail: users.email,
+      })
+      .from(shareLinks)
+      .leftJoin(users, eq(shareLinks.userId, users.id))
+      .orderBy(desc(shareLinks.createdAt));
+
+    // Enrich with item names
+    const enrichedLinks = await Promise.all(
+      allShareLinks.map(async (link) => {
+        let itemName = "Unknown";
+        let itemType: "file" | "video" | "collection" = "file";
+
+        if (link.fileId) {
+          const [file] = await db.select({ filename: files.filename }).from(files).where(eq(files.id, link.fileId));
+          itemName = file?.filename || "Deleted file";
+          itemType = "file";
+        } else if (link.videoId) {
+          const [video] = await db.select({ title: videos.title }).from(videos).where(eq(videos.id, link.videoId));
+          itemName = video?.title || "Deleted video";
+          itemType = "video";
+        } else if (link.collectionId) {
+          const [collection] = await db.select({ name: collections.name }).from(collections).where(eq(collections.id, link.collectionId));
+          itemName = collection?.name || "Deleted collection";
+          itemType = "collection";
+        }
+
+        return {
+          ...link,
+          itemName,
+          itemType,
+          isExpired: link.expiresAt ? new Date(link.expiresAt) < new Date() : false,
+        };
+      })
+    );
+
+    // Get summary stats
+    const totalSharesResult = await db.select({ count: sql<number>`COUNT(*)` }).from(shareLinks);
+    const activeSharesResult = await db.select({ count: sql<number>`COUNT(*)` }).from(shareLinks).where(eq(shareLinks.isActive, true));
+    const totalViewsResult = await db.select({ sum: sql<number>`SUM(${shareLinks.viewCount})` }).from(shareLinks);
+    const totalAccessLogsResult = await db.select({ count: sql<number>`COUNT(*)` }).from(shareAccessLog);
+    
+    // Get downloads count
+    const downloadsResult = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(shareAccessLog)
+      .where(eq(shareAccessLog.action, "download"));
+
+    return {
+      shares: enrichedLinks,
+      stats: {
+        totalShares: totalSharesResult[0]?.count || 0,
+        activeShares: activeSharesResult[0]?.count || 0,
+        totalViews: totalViewsResult[0]?.sum || 0,
+        totalDownloads: downloadsResult[0]?.count || 0,
+        totalAccessLogs: totalAccessLogsResult[0]?.count || 0,
+      },
+    };
+  }),
+
+  /**
+   * Get access logs for a specific share link (admin view)
+   */
+  getShareAccessLogs: adminProcedure
+    .input(z.object({ shareLinkId: z.number(), limit: z.number().default(100) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      return db
+        .select()
+        .from(shareAccessLog)
+        .where(eq(shareAccessLog.shareLinkId, input.shareLinkId))
+        .orderBy(desc(shareAccessLog.accessedAt))
+        .limit(input.limit);
+    }),
+
+  /**
+   * Revoke a share link (admin action)
+   */
+  revokeShareLink: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      await db
+        .update(shareLinks)
+        .set({ isActive: false })
+        .where(eq(shareLinks.id, input.id));
+
+      return { success: true };
+    }),
+
+  /**
+   * Get system overview with storage and resource usage
+   */
+  getSystemOverview: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+    // Total storage used
+    const storageResult = await db
+      .select({ total: sql<number>`SUM(${files.fileSize})` })
+      .from(files);
+    const totalStorageBytes = storageResult[0]?.total || 0;
+
+    // Files by type
+    const filesByType = await db
+      .select({
+        mimeType: files.mimeType,
+        count: sql<number>`COUNT(*)`,
+        size: sql<number>`SUM(${files.fileSize})`,
+      })
+      .from(files)
+      .groupBy(files.mimeType);
+
+    // Enrichment status breakdown
+    const enrichmentStatus = await db
+      .select({
+        status: files.enrichmentStatus,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(files)
+      .groupBy(files.enrichmentStatus);
+
+    // Videos count
+    const videosCountResult = await db.select({ count: sql<number>`COUNT(*)` }).from(videos);
+    const videosCount = videosCountResult[0]?.count || 0;
+
+    // Collections count
+    const collectionsCountResult = await db.select({ count: sql<number>`COUNT(*)` }).from(collections);
+    const collectionsCount = collectionsCountResult[0]?.count || 0;
+
+    // Top users by storage
+    const topUsersByStorage = await db
+      .select({
+        userId: files.userId,
+        userName: users.name,
+        userEmail: users.email,
+        fileCount: sql<number>`COUNT(*)`,
+        totalSize: sql<number>`SUM(${files.fileSize})`,
+      })
+      .from(files)
+      .leftJoin(users, eq(files.userId, users.id))
+      .groupBy(files.userId, users.name, users.email)
+      .orderBy(desc(sql`SUM(${files.fileSize})`))
+      .limit(10);
+
+    return {
+      storage: {
+        totalBytes: totalStorageBytes,
+        totalGB: (totalStorageBytes / (1024 * 1024 * 1024)).toFixed(2),
+      },
+      filesByType: filesByType.map((f) => ({
+        type: f.mimeType.split('/')[0] || 'other',
+        mimeType: f.mimeType,
+        count: f.count,
+        sizeBytes: f.size,
+      })),
+      enrichmentStatus,
+      videosCount,
+      collectionsCount,
+      topUsersByStorage,
+    };
+  }),
 });

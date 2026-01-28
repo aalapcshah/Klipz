@@ -344,6 +344,13 @@
       "when": 1769552454489,
       "tag": "0048_medical_flatman",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "5",
+      "when": 1769554552962,
+      "tag": "0049_slow_red_ghost",
+      "breakpoints": true
     }
   ]
 }

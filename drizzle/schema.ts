@@ -1330,6 +1330,7 @@ export const shareLinks = mysqlTable("share_links", {
   // What is being shared (one of these will be set)
   fileId: int("fileId"),
   videoId: int("videoId"),
+  collectionId: int("collectionId"),
   
   // Share token (unique identifier for the public link)
   token: varchar("token", { length: 64 }).notNull().unique(),
@@ -1371,6 +1372,10 @@ export const shareLinksRelations = relations(shareLinks, ({ one }) => ({
   video: one(videos, {
     fields: [shareLinks.videoId],
     references: [videos.id],
+  }),
+  collection: one(collections, {
+    fields: [shareLinks.collectionId],
+    references: [collections.id],
   }),
 }));
 

@@ -60,6 +60,7 @@ export function VideoUploadSection() {
   // Compression state
   const [compressionProgress, setCompressionProgress] = useState<Map<string, CompressionProgress>>(new Map());
   const [estimatedSizes, setEstimatedSizes] = useState<Map<string, { original: number; compressed: number }>>(new Map());
+  const [previewEstimate, setPreviewEstimate] = useState<{ filename: string; original: number; estimated: number; savings: string } | null>(null);
   
   const {
     uploads,
@@ -459,7 +460,28 @@ export function VideoUploadSection() {
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    await checkAndAddFiles(Array.from(files));
+    
+    // Calculate estimated compression for first file
+    const fileArray = Array.from(files);
+    if (fileArray.length > 0 && selectedQuality !== 'original' && isCompressionSupported()) {
+      const firstFile = fileArray[0];
+      try {
+        const metadata = await getVideoMetadata(firstFile);
+        const settings = COMPRESSION_PRESETS[selectedQuality];
+        const estimated = estimateCompressedSize(firstFile.size, metadata.duration, settings);
+        const savings = ((firstFile.size - estimated) / firstFile.size * 100).toFixed(1);
+        setPreviewEstimate({
+          filename: firstFile.name,
+          original: firstFile.size,
+          estimated,
+          savings: `${savings}%`,
+        });
+      } catch (e) {
+        console.warn('Could not estimate compression:', e);
+      }
+    }
+    
+    await checkAndAddFiles(fileArray);
   };
 
   const handleFolderSelect = async (files: FileList | null) => {
@@ -636,6 +658,17 @@ export function VideoUploadSection() {
                 <p className="text-xs text-muted-foreground mt-1">
                   Compression reduces file size by re-encoding at {QUALITY_SETTINGS[selectedQuality].bitrate} kbps
                 </p>
+                {previewEstimate && (
+                  <div className="mt-2 p-2 bg-background rounded border">
+                    <p className="text-xs font-medium">Estimated for {previewEstimate.filename}:</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs">{formatFileSize(previewEstimate.original)}</span>
+                      <span className="text-xs">→</span>
+                      <span className="text-xs text-green-600 font-medium">{formatFileSize(previewEstimate.estimated)}</span>
+                      <span className="text-xs text-green-600">({previewEstimate.savings} smaller)</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

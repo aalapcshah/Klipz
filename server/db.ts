@@ -3036,3 +3036,33 @@ export async function getShareAccessLogs(shareLinkId: number, limit: number = 50
     .orderBy(desc(shareAccessLog.accessedAt))
     .limit(limit);
 }
+
+
+export async function getShareLinksForCollection(collectionId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(shareLinks)
+    .where(eq(shareLinks.collectionId, collectionId))
+    .orderBy(desc(shareLinks.createdAt));
+}
+
+export async function getFilesInCollection(collectionId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const result = await db
+    .select({
+      id: files.id,
+      filename: files.filename,
+      url: files.url,
+      mimeType: files.mimeType,
+      fileSize: files.fileSize,
+      title: files.title,
+      description: files.description,
+    })
+    .from(collectionFiles)
+    .innerJoin(files, eq(collectionFiles.fileId, files.id))
+    .where(eq(collectionFiles.collectionId, collectionId));
+  return result;
+}

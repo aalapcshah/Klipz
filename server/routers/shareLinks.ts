@@ -12,6 +12,7 @@ export const shareLinksRouter = router({
       z.object({
         fileId: z.number().optional(),
         videoId: z.number().optional(),
+        collectionId: z.number().optional(),
         password: z.string().optional(),
         expiresAt: z.string().optional(), // ISO date string
         allowDownload: z.boolean().default(true),
@@ -19,11 +20,12 @@ export const shareLinksRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Validate that either fileId or videoId is provided
-      if (!input.fileId && !input.videoId) {
+      // Validate that exactly one of fileId, videoId, or collectionId is provided
+      const providedCount = [input.fileId, input.videoId, input.collectionId].filter(Boolean).length;
+      if (providedCount !== 1) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Either fileId or videoId must be provided",
+          message: "Exactly one of fileId, videoId, or collectionId must be provided",
         });
       }
 
@@ -48,6 +50,16 @@ export const shareLinksRouter = router({
         }
       }
 
+      if (input.collectionId) {
+        const collection = await db.getCollectionById(input.collectionId);
+        if (!collection || collection.userId !== ctx.user.id) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Collection not found",
+          });
+        }
+      }
+
       // Generate unique token
       const token = nanoid(32);
 
@@ -62,6 +74,7 @@ export const shareLinksRouter = router({
         userId: ctx.user.id,
         fileId: input.fileId,
         videoId: input.videoId,
+        collectionId: input.collectionId,
         token,
         passwordHash,
         expiresAt: input.expiresAt ? new Date(input.expiresAt) : undefined,
@@ -80,11 +93,11 @@ export const shareLinksRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
     const links = await db.getShareLinksByUserId(ctx.user.id);
     
-    // Enrich with file/video info
+    // Enrich with file/video/collection info
     const enrichedLinks = await Promise.all(
       links.map(async (link) => {
         let itemName = "Unknown";
-        let itemType: "file" | "video" = "file";
+        let itemType: "file" | "video" | "collection" = "file";
         
         if (link.fileId) {
           const file = await db.getFileById(link.fileId);
@@ -94,6 +107,10 @@ export const shareLinksRouter = router({
           const video = await db.getVideoById(link.videoId);
           itemName = video?.title || "Deleted video";
           itemType = "video";
+        } else if (link.collectionId) {
+          const collection = await db.getCollectionById(link.collectionId);
+          itemName = collection?.name || "Deleted collection";
+          itemType = "collection";
         }
         
         return {
@@ -136,6 +153,23 @@ export const shareLinksRouter = router({
       }
       
       const links = await db.getShareLinksForVideo(input.videoId);
+      return links.map((link) => ({
+        ...link,
+        hasPassword: !!link.passwordHash,
+        isExpired: link.expiresAt ? new Date(link.expiresAt) < new Date() : false,
+      }));
+    }),
+
+  // Get share links for a specific collection
+  getForCollection: protectedProcedure
+    .input(z.object({ collectionId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const collection = await db.getCollectionById(input.collectionId);
+      if (!collection || collection.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Collection not found" });
+      }
+      
+      const links = await db.getShareLinksForCollection(input.collectionId);
       return links.map((link) => ({
         ...link,
         hasPassword: !!link.passwordHash,
@@ -273,7 +307,7 @@ export const shareLinksRouter = router({
 
       // Get the shared content
       let content: any = null;
-      let contentType: "file" | "video" = "file";
+      let contentType: "file" | "video" | "collection" = "file";
 
       if (link.fileId) {
         const file = await db.getFileById(link.fileId);
@@ -311,6 +345,29 @@ export const shareLinksRouter = router({
             })),
           };
           contentType = "video";
+        }
+      } else if (link.collectionId) {
+        const collection = await db.getCollectionById(link.collectionId);
+        if (collection) {
+          // Get all files in the collection
+          const collectionFiles = await db.getFilesInCollection(link.collectionId);
+          content = {
+            id: collection.id,
+            name: collection.name,
+            description: collection.description,
+            color: collection.color,
+            fileCount: collectionFiles.length,
+            files: collectionFiles.map((file) => ({
+              id: file.id,
+              filename: file.filename,
+              url: file.url,
+              mimeType: file.mimeType,
+              fileSize: file.fileSize,
+              title: file.title,
+              description: file.description,
+            })),
+          };
+          contentType = "collection";
         }
       }
 
