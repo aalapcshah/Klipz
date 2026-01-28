@@ -1339,22 +1339,25 @@ export default function FileGridEnhanced({
                   >
                     <X className="h-4 w-4" />
                   </Button>
-                  <div className="flex items-start gap-2 md:gap-3">
-                    {compareMode ? (
-                      <Checkbox
-                        checked={compareFiles.includes(file.id)}
-                        onCheckedChange={() => toggleCompareFile(file.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-2.5 h-2.5 md:w-3 md:h-3"
-                      />
-                    ) : (
-                      <Checkbox
-                        checked={selectedFilesSet.has(file.id)}
-                        onCheckedChange={() => toggleFile(file.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-2.5 h-2.5 md:w-3 md:h-3"
-                      />
-                    )}
+                  <div className="flex items-start gap-1 md:gap-3">
+                    {/* Checkbox - hidden on mobile unless selected or in compare mode */}
+                    <div className={`flex-shrink-0 ${compareMode || selectedFilesSet.has(file.id) ? 'block' : 'hidden md:block'}`}>
+                      {compareMode ? (
+                        <Checkbox
+                          checked={compareFiles.includes(file.id)}
+                          onCheckedChange={() => toggleCompareFile(file.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-3 h-3 md:w-4 md:h-4"
+                        />
+                      ) : (
+                        <Checkbox
+                          checked={selectedFilesSet.has(file.id)}
+                          onCheckedChange={() => toggleFile(file.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-3 h-3 md:w-4 md:h-4"
+                        />
+                      )}
+                    </div>
                     <div
                       className="flex-1 min-w-0"
                       onClick={() => onFileClick?.(file.id)}

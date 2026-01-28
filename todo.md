@@ -4189,3 +4189,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Update free plan to 2GB storage
 - [x] Add UsageDashboardWidget to Files, Videos, and Collections pages
 - [x] All 7 subscription tests passing
+
+
+## Bug Fixes - January 28, 2026 (Mobile & Upload)
+- [x] Fix large checkboxes appearing on mobile file cards - hidden on mobile unless selected
+- [x] Fix upload progress showing "0 B / X MB" - now shows "Compressing..." during compression phase and actual bytes during upload

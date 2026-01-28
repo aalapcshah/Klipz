@@ -170,7 +170,10 @@ export function VideoUploadSection() {
             });
             // Update progress during compression (0-30%)
             if (progress.stage === 'encoding') {
-              updateUploadProgress(uploadId, progress.progress * 0.3, 0);
+              // Show estimated compressed bytes based on compression progress
+              const estimatedCompressedSize = file.size * 0.5; // Estimate 50% compression
+              const estimatedBytes = Math.floor(progress.progress * 0.01 * estimatedCompressedSize);
+              updateUploadProgress(uploadId, progress.progress * 0.3, estimatedBytes);
             }
           });
           
@@ -986,17 +989,24 @@ export function VideoUploadSection() {
                         <span>
                           {upload.status === "pending" && "Queued..."}
                           {upload.status === "paused" && "Paused"}
-                          {upload.status === "uploading" && `${upload.progress.toFixed(0)}%`}
+                          {upload.status === "uploading" && (
+                            upload.progress < 30 && compressionProgress.has(upload.id)
+                              ? `Compressing... ${upload.progress.toFixed(0)}%`
+                              : `${upload.progress.toFixed(0)}%`
+                          )}
                         </span>
                         <div className="flex gap-3">
-                          {upload.status === "uploading" && upload.speed > 0 && (
+                          {upload.status === "uploading" && upload.progress >= 30 && upload.speed > 0 && (
                             <>
                               <span>{formatSpeed(upload.speed)}</span>
                               <span>ETA: {formatEta(upload.eta)}</span>
                             </>
                           )}
                           <span>
-                            {formatFileSize(upload.uploadedBytes)} / {formatFileSize(upload.fileSize)}
+                            {upload.progress < 30 && compressionProgress.has(upload.id)
+                              ? `Compressing...`
+                              : `${formatFileSize(upload.uploadedBytes)} / ${formatFileSize(upload.fileSize)}`
+                            }
                           </span>
                         </div>
                       </div>
