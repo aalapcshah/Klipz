@@ -4434,3 +4434,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Enable navigation between chapters
 - [ ] Test bookmark functionality (requires user testing)
 - [ ] Test chapter navigation (requires user testing)
+
+
+## Video Annotation for Uploaded Files - January 29, 2026
+- [ ] Add annotate button to video file cards in the file grid
+- [ ] Create video annotation editor component for existing videos
+- [ ] Allow drawing annotations over uploaded video playback
+- [ ] Save annotations as overlay or export annotated video
+- [ ] Test annotation workflow on uploaded videos

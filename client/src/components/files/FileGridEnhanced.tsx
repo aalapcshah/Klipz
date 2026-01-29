@@ -24,6 +24,7 @@ import {
   GitCompare,
   X,
   Download,
+  PenLine,
 } from "lucide-react";
 import JSZip from "jszip";
 import { toast } from "sonner";
@@ -1556,6 +1557,21 @@ export default function FileGridEnhanced({
                       <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-muted-foreground">
                         <span className="shrink-0">{formatFileSize(file.fileSize)}</span>
                         <div className="flex items-center gap-2 flex-wrap">
+                          {/* Annotate button for video files */}
+                          {file.mimeType?.startsWith('video/') && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-6 px-2 text-xs bg-purple-600 hover:bg-purple-700 text-white border-purple-600"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onFileClick?.(file.id);
+                              }}
+                            >
+                              <PenLine className="h-3 w-3 mr-1" />
+                              Annotate
+                            </Button>
+                          )}
                           {file.enrichmentStatus === "enriched" && (
                             <span className="text-green-500">Enriched</span>
                           )}
