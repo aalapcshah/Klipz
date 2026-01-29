@@ -72,6 +72,16 @@ import {
   Subtitles,
   Eraser,
   Paintbrush,
+  Wand2,
+  Film,
+  Sliders,
+  PenTool,
+  Highlighter,
+  ArrowUpRight,
+  RotateCcw,
+  RotateCw,
+  CircleDot,
+  Layers2,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -92,6 +102,39 @@ type RecordingTemplate = "screen-only" | "camera-only" | "pip-corner" | "pip-sid
 type ExportFormat = "webm" | "mp4" | "gif";
 type ChromaKeyColor = "green" | "blue" | "custom";
 type BackgroundType = "none" | "blur" | "color" | "image";
+type VideoEffect = "none" | "vignette" | "filmGrain" | "colorGrade" | "blur" | "sharpen";
+type DrawingTool = "pen" | "rectangle" | "circle" | "arrow" | "text" | "eraser" | "highlight";
+
+interface VideoEffectSettings {
+  vignette: { enabled: boolean; intensity: number };
+  filmGrain: { enabled: boolean; intensity: number; size: number };
+  colorGrade: { enabled: boolean; preset: string; intensity: number };
+  blur: { enabled: boolean; intensity: number };
+  sharpen: { enabled: boolean; intensity: number };
+}
+
+interface AudioTrack {
+  id: string;
+  name: string;
+  type: "mic" | "system" | "music";
+  volume: number;
+  muted: boolean;
+  level: number; // 0-100 current audio level
+}
+
+interface DrawingPoint {
+  x: number;
+  y: number;
+}
+
+interface DrawingElement {
+  id: string;
+  type: DrawingTool;
+  points: DrawingPoint[];
+  color: string;
+  strokeWidth: number;
+  text?: string;
+}
 
 interface CaptionSegment {
   id: string;
@@ -462,6 +505,45 @@ export function VideoRecorder() {
   const chromaAnimationRef = useRef<number | null>(null);
   const backgroundImageRef = useRef<HTMLImageElement | null>(null);
   const chromaBackgroundInputRef = useRef<HTMLInputElement>(null);
+
+  // Video Effects
+  const [showEffectsPanel, setShowEffectsPanel] = useState(false);
+  const [videoEffects, setVideoEffects] = useState<VideoEffectSettings>({
+    vignette: { enabled: false, intensity: 50 },
+    filmGrain: { enabled: false, intensity: 30, size: 1 },
+    colorGrade: { enabled: false, preset: "cinematic", intensity: 50 },
+    blur: { enabled: false, intensity: 5 },
+    sharpen: { enabled: false, intensity: 50 },
+  });
+  const effectsCanvasRef = useRef<HTMLCanvasElement>(null);
+  const effectsAnimationRef = useRef<number | null>(null);
+
+  // Multi-Track Audio
+  const [showAudioMixer, setShowAudioMixer] = useState(false);
+  const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([
+    { id: "mic", name: "Microphone", type: "mic", volume: 100, muted: false, level: 0 },
+    { id: "system", name: "System Audio", type: "system", volume: 80, muted: false, level: 0 },
+    { id: "music", name: "Background Music", type: "music", volume: 50, muted: false, level: 0 },
+  ]);
+  const audioMixerContextRef = useRef<AudioContext | null>(null);
+  const audioGainNodesRef = useRef<Map<string, GainNode>>(new Map());
+  const audioAnalysersRef = useRef<Map<string, AnalyserNode>>(new Map());
+  const audioMixerAnimationRef = useRef<number | null>(null);
+
+  // Live Annotations / Drawing
+  const [showDrawingTools, setShowDrawingTools] = useState(false);
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
+  const [selectedDrawingTool, setSelectedDrawingTool] = useState<DrawingTool>("pen");
+  const [drawingColor, setDrawingColor] = useState("#ff0000");
+  const [drawingStrokeWidth, setDrawingStrokeWidth] = useState(3);
+  const [drawingElements, setDrawingElements] = useState<DrawingElement[]>([]);
+  const [currentDrawingElement, setCurrentDrawingElement] = useState<DrawingElement | null>(null);
+  const [drawingHistory, setDrawingHistory] = useState<DrawingElement[][]>([]);
+  const [drawingHistoryIndex, setDrawingHistoryIndex] = useState(-1);
+  const [drawingTextInput, setDrawingTextInput] = useState("");
+  const [drawingTextPosition, setDrawingTextPosition] = useState<DrawingPoint | null>(null);
+  const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawingRef = useRef(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -2585,6 +2667,268 @@ export function VideoRecorder() {
     }
   }, [isRecording, captionsEnabled, isTranscribing, startCaptionTranscription, stopCaptionTranscription]);
 
+  // Video Effects Functions
+  const toggleVideoEffect = (effect: keyof VideoEffectSettings) => {
+    setVideoEffects(prev => ({
+      ...prev,
+      [effect]: { ...prev[effect], enabled: !prev[effect].enabled }
+    }));
+  };
+
+  const updateVideoEffectIntensity = (effect: keyof VideoEffectSettings, intensity: number) => {
+    setVideoEffects(prev => ({
+      ...prev,
+      [effect]: { ...prev[effect], intensity }
+    }));
+  };
+
+  const getEffectsCssFilter = useCallback(() => {
+    let filter = getCssFilterString();
+    if (videoEffects.blur.enabled) {
+      filter += ` blur(${videoEffects.blur.intensity}px)`;
+    }
+    return filter;
+  }, [getCssFilterString, videoEffects.blur]);
+
+  // Multi-Track Audio Functions
+  const updateTrackVolume = (trackId: string, volume: number) => {
+    setAudioTracks(prev => prev.map(t => 
+      t.id === trackId ? { ...t, volume } : t
+    ));
+    const gainNode = audioGainNodesRef.current.get(trackId);
+    if (gainNode) {
+      gainNode.gain.value = volume / 100;
+    }
+  };
+
+  const toggleTrackMute = (trackId: string) => {
+    setAudioTracks(prev => prev.map(t => 
+      t.id === trackId ? { ...t, muted: !t.muted } : t
+    ));
+    const gainNode = audioGainNodesRef.current.get(trackId);
+    if (gainNode) {
+      const track = audioTracks.find(t => t.id === trackId);
+      gainNode.gain.value = track?.muted ? track.volume / 100 : 0;
+    }
+  };
+
+  // Live Drawing Functions
+  const getDrawingCanvasPos = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>): DrawingPoint => {
+    const canvas = drawingCanvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0]?.clientX ?? 0 : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0]?.clientY ?? 0 : e.clientY;
+    return {
+      x: (clientX - rect.left) * (canvas.width / rect.width),
+      y: (clientY - rect.top) * (canvas.height / rect.height)
+    };
+  };
+
+  const handleDrawingStart = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawingMode) return;
+    e.preventDefault();
+    const pos = getDrawingCanvasPos(e);
+    isDrawingRef.current = true;
+
+    if (selectedDrawingTool === "text") {
+      setDrawingTextPosition(pos);
+      return;
+    }
+
+    const newElement: DrawingElement = {
+      id: `el-${Date.now()}`,
+      type: selectedDrawingTool,
+      points: [pos],
+      color: drawingColor,
+      strokeWidth: drawingStrokeWidth,
+    };
+    setCurrentDrawingElement(newElement);
+  };
+
+  const handleDrawingMove = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawingMode || !isDrawingRef.current || !currentDrawingElement) return;
+    e.preventDefault();
+    const pos = getDrawingCanvasPos(e);
+
+    if (selectedDrawingTool === "pen" || selectedDrawingTool === "highlight" || selectedDrawingTool === "eraser") {
+      setCurrentDrawingElement(prev => prev ? {
+        ...prev,
+        points: [...prev.points, pos]
+      } : null);
+    } else {
+      setCurrentDrawingElement(prev => prev ? {
+        ...prev,
+        points: [prev.points[0], pos]
+      } : null);
+    }
+    renderDrawingCanvas();
+  };
+
+  const handleDrawingEnd = () => {
+    if (!isDrawingMode || !currentDrawingElement) {
+      isDrawingRef.current = false;
+      return;
+    }
+    isDrawingRef.current = false;
+
+    const newElements = [...drawingElements, currentDrawingElement];
+    setDrawingElements(newElements);
+    setCurrentDrawingElement(null);
+
+    // Update history for undo/redo
+    const newHistory = drawingHistory.slice(0, drawingHistoryIndex + 1);
+    newHistory.push(newElements);
+    setDrawingHistory(newHistory);
+    setDrawingHistoryIndex(newHistory.length - 1);
+  };
+
+  const handleDrawingTextSubmit = () => {
+    if (!drawingTextPosition || !drawingTextInput.trim()) {
+      setDrawingTextPosition(null);
+      setDrawingTextInput("");
+      return;
+    }
+
+    const textElement: DrawingElement = {
+      id: `el-${Date.now()}`,
+      type: "text",
+      points: [drawingTextPosition],
+      color: drawingColor,
+      strokeWidth: drawingStrokeWidth,
+      text: drawingTextInput,
+    };
+
+    const newElements = [...drawingElements, textElement];
+    setDrawingElements(newElements);
+    setDrawingTextPosition(null);
+    setDrawingTextInput("");
+
+    const newHistory = drawingHistory.slice(0, drawingHistoryIndex + 1);
+    newHistory.push(newElements);
+    setDrawingHistory(newHistory);
+    setDrawingHistoryIndex(newHistory.length - 1);
+  };
+
+  const undoDrawing = () => {
+    if (drawingHistoryIndex > 0) {
+      setDrawingHistoryIndex(prev => prev - 1);
+      setDrawingElements(drawingHistory[drawingHistoryIndex - 1] || []);
+    } else if (drawingHistoryIndex === 0) {
+      setDrawingHistoryIndex(-1);
+      setDrawingElements([]);
+    }
+  };
+
+  const redoDrawing = () => {
+    if (drawingHistoryIndex < drawingHistory.length - 1) {
+      setDrawingHistoryIndex(prev => prev + 1);
+      setDrawingElements(drawingHistory[drawingHistoryIndex + 1]);
+    }
+  };
+
+  const clearDrawing = () => {
+    setDrawingElements([]);
+    setCurrentDrawingElement(null);
+    const newHistory = drawingHistory.slice(0, drawingHistoryIndex + 1);
+    newHistory.push([]);
+    setDrawingHistory(newHistory);
+    setDrawingHistoryIndex(newHistory.length - 1);
+  };
+
+  const renderDrawingCanvas = useCallback(() => {
+    const canvas = drawingCanvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Match canvas size to video
+    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const allElements = currentDrawingElement 
+      ? [...drawingElements, currentDrawingElement]
+      : drawingElements;
+
+    allElements.forEach(element => {
+      ctx.strokeStyle = element.color;
+      ctx.fillStyle = element.color;
+      ctx.lineWidth = element.strokeWidth;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      switch (element.type) {
+        case "pen":
+        case "eraser":
+          if (element.points.length < 2) return;
+          ctx.globalCompositeOperation = element.type === "eraser" ? "destination-out" : "source-over";
+          ctx.beginPath();
+          ctx.moveTo(element.points[0].x, element.points[0].y);
+          element.points.forEach(p => ctx.lineTo(p.x, p.y));
+          ctx.stroke();
+          ctx.globalCompositeOperation = "source-over";
+          break;
+
+        case "highlight":
+          if (element.points.length < 2) return;
+          ctx.globalAlpha = 0.4;
+          ctx.lineWidth = element.strokeWidth * 4;
+          ctx.beginPath();
+          ctx.moveTo(element.points[0].x, element.points[0].y);
+          element.points.forEach(p => ctx.lineTo(p.x, p.y));
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+          break;
+
+        case "rectangle":
+          if (element.points.length < 2) return;
+          const [start, end] = element.points;
+          ctx.strokeRect(start.x, start.y, end.x - start.x, end.y - start.y);
+          break;
+
+        case "circle":
+          if (element.points.length < 2) return;
+          const [center, edge] = element.points;
+          const radius = Math.sqrt(Math.pow(edge.x - center.x, 2) + Math.pow(edge.y - center.y, 2));
+          ctx.beginPath();
+          ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+          ctx.stroke();
+          break;
+
+        case "arrow":
+          if (element.points.length < 2) return;
+          const [from, to] = element.points;
+          const angle = Math.atan2(to.y - from.y, to.x - from.x);
+          const headLen = 15;
+          ctx.beginPath();
+          ctx.moveTo(from.x, from.y);
+          ctx.lineTo(to.x, to.y);
+          ctx.lineTo(to.x - headLen * Math.cos(angle - Math.PI / 6), to.y - headLen * Math.sin(angle - Math.PI / 6));
+          ctx.moveTo(to.x, to.y);
+          ctx.lineTo(to.x - headLen * Math.cos(angle + Math.PI / 6), to.y - headLen * Math.sin(angle + Math.PI / 6));
+          ctx.stroke();
+          break;
+
+        case "text":
+          if (!element.text || element.points.length < 1) return;
+          ctx.font = `${element.strokeWidth * 6}px sans-serif`;
+          ctx.fillText(element.text, element.points[0].x, element.points[0].y);
+          break;
+      }
+    });
+  }, [drawingElements, currentDrawingElement]);
+
+  // Render drawing canvas when elements change
+  useEffect(() => {
+    renderDrawingCanvas();
+  }, [renderDrawingCanvas]);
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -2886,6 +3230,45 @@ export function VideoRecorder() {
                 title="Green screen / Chroma key"
               >
                 <Eraser className="h-4 w-4" />
+              </Button>
+            )}
+
+            {/* Video Effects - video mode */}
+            {captureMode === "video" && (
+              <Button
+                variant={showEffectsPanel ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setShowEffectsPanel(!showEffectsPanel)}
+                title="Video effects"
+              >
+                <Wand2 className="h-4 w-4" />
+              </Button>
+            )}
+
+            {/* Audio Mixer - video and screen modes */}
+            {(captureMode === "video" || captureMode === "screen") && (
+              <Button
+                variant={showAudioMixer ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setShowAudioMixer(!showAudioMixer)}
+                title="Audio mixer"
+              >
+                <Sliders className="h-4 w-4" />
+              </Button>
+            )}
+
+            {/* Live Drawing/Annotations - video mode */}
+            {captureMode === "video" && isPreviewing && (
+              <Button
+                variant={isDrawingMode ? "default" : "ghost"}
+                size="sm"
+                onClick={() => {
+                  setIsDrawingMode(!isDrawingMode);
+                  setShowDrawingTools(!isDrawingMode);
+                }}
+                title="Live annotations"
+              >
+                <PenTool className="h-4 w-4" />
               </Button>
             )}
           </div>
@@ -3829,6 +4212,329 @@ export function VideoRecorder() {
           </div>
         )}
 
+        {/* Video Effects Panel */}
+        {showEffectsPanel && captureMode === "video" && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Video Effects</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowEffectsPanel(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="space-y-3">
+              {/* Vignette */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CircleDot className="h-4 w-4" />
+                  <span className="text-sm">Vignette</span>
+                </div>
+                <Button
+                  variant={videoEffects.vignette.enabled ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleVideoEffect("vignette")}
+                >
+                  {videoEffects.vignette.enabled ? "On" : "Off"}
+                </Button>
+              </div>
+              {videoEffects.vignette.enabled && (
+                <Slider
+                  value={[videoEffects.vignette.intensity]}
+                  onValueChange={([v]) => updateVideoEffectIntensity("vignette", v)}
+                  min={10}
+                  max={100}
+                  step={5}
+                />
+              )}
+              
+              {/* Film Grain */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Film className="h-4 w-4" />
+                  <span className="text-sm">Film Grain</span>
+                </div>
+                <Button
+                  variant={videoEffects.filmGrain.enabled ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleVideoEffect("filmGrain")}
+                >
+                  {videoEffects.filmGrain.enabled ? "On" : "Off"}
+                </Button>
+              </div>
+              {videoEffects.filmGrain.enabled && (
+                <Slider
+                  value={[videoEffects.filmGrain.intensity]}
+                  onValueChange={([v]) => updateVideoEffectIntensity("filmGrain", v)}
+                  min={10}
+                  max={100}
+                  step={5}
+                />
+              )}
+              
+              {/* Blur */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Paintbrush className="h-4 w-4" />
+                  <span className="text-sm">Blur</span>
+                </div>
+                <Button
+                  variant={videoEffects.blur.enabled ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleVideoEffect("blur")}
+                >
+                  {videoEffects.blur.enabled ? "On" : "Off"}
+                </Button>
+              </div>
+              {videoEffects.blur.enabled && (
+                <Slider
+                  value={[videoEffects.blur.intensity]}
+                  onValueChange={([v]) => updateVideoEffectIntensity("blur", v)}
+                  min={1}
+                  max={20}
+                  step={1}
+                />
+              )}
+              
+              {/* Sharpen */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Focus className="h-4 w-4" />
+                  <span className="text-sm">Sharpen</span>
+                </div>
+                <Button
+                  variant={videoEffects.sharpen.enabled ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleVideoEffect("sharpen")}
+                >
+                  {videoEffects.sharpen.enabled ? "On" : "Off"}
+                </Button>
+              </div>
+              {videoEffects.sharpen.enabled && (
+                <Slider
+                  value={[videoEffects.sharpen.intensity]}
+                  onValueChange={([v]) => updateVideoEffectIntensity("sharpen", v)}
+                  min={10}
+                  max={100}
+                  step={5}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Audio Mixer Panel */}
+        {showAudioMixer && (captureMode === "video" || captureMode === "screen") && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Audio Mixer</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAudioMixer(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              {audioTracks.map((track) => (
+                <div key={track.id} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {track.type === "mic" && <Mic className="h-4 w-4" />}
+                      {track.type === "system" && <Volume2 className="h-4 w-4" />}
+                      {track.type === "music" && <Music2 className="h-4 w-4" />}
+                      <span className="text-sm">{track.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleTrackMute(track.id)}
+                      >
+                        {track.muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                      </Button>
+                      <span className="text-xs w-8 text-right">{track.volume}%</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <Slider
+                        value={[track.volume]}
+                        onValueChange={([v]) => updateTrackVolume(track.id, v)}
+                        min={0}
+                        max={100}
+                        step={5}
+                        disabled={track.muted}
+                      />
+                    </div>
+                    {/* Level meter */}
+                    <div className="w-16 h-2 bg-gray-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full transition-all duration-75"
+                        style={{
+                          width: `${track.level}%`,
+                          background: track.level > 80 ? '#ef4444' : track.level > 60 ? '#eab308' : '#22c55e',
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <p className="text-xs text-muted-foreground">
+              Adjust individual audio track volumes for your recording.
+            </p>
+          </div>
+        )}
+
+        {/* Live Drawing Tools Panel */}
+        {showDrawingTools && isDrawingMode && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Live Annotations</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowDrawingTools(false);
+                  setIsDrawingMode(false);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* Drawing Tools */}
+            <div className="flex flex-wrap gap-1">
+              <Button
+                variant={selectedDrawingTool === "pen" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedDrawingTool("pen")}
+                title="Pen"
+              >
+                <PenTool className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={selectedDrawingTool === "highlight" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedDrawingTool("highlight")}
+                title="Highlighter"
+              >
+                <Highlighter className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={selectedDrawingTool === "rectangle" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedDrawingTool("rectangle")}
+                title="Rectangle"
+              >
+                <SquareIcon className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={selectedDrawingTool === "circle" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedDrawingTool("circle")}
+                title="Circle"
+              >
+                <Circle className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={selectedDrawingTool === "arrow" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedDrawingTool("arrow")}
+                title="Arrow"
+              >
+                <ArrowUpRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={selectedDrawingTool === "text" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedDrawingTool("text")}
+                title="Text"
+              >
+                <Type className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={selectedDrawingTool === "eraser" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedDrawingTool("eraser")}
+                title="Eraser"
+              >
+                <Eraser className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* Color & Stroke */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs">Color:</span>
+                <input
+                  type="color"
+                  value={drawingColor}
+                  onChange={(e) => setDrawingColor(e.target.value)}
+                  className="w-8 h-8 rounded cursor-pointer"
+                />
+              </div>
+              <div className="flex items-center gap-2 flex-1">
+                <span className="text-xs">Size:</span>
+                <Slider
+                  value={[drawingStrokeWidth]}
+                  onValueChange={([v]) => setDrawingStrokeWidth(v)}
+                  min={1}
+                  max={20}
+                  step={1}
+                  className="flex-1"
+                />
+                <span className="text-xs w-6">{drawingStrokeWidth}</span>
+              </div>
+            </div>
+            
+            {/* Undo/Redo/Clear */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={undoDrawing}
+                disabled={drawingHistoryIndex < 0}
+                title="Undo"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={redoDrawing}
+                disabled={drawingHistoryIndex >= drawingHistory.length - 1}
+                title="Redo"
+              >
+                <RotateCw className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearDrawing}
+                disabled={drawingElements.length === 0}
+                title="Clear all"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+              <Badge variant="secondary" className="ml-auto">
+                {drawingElements.length} elements
+              </Badge>
+            </div>
+            
+            <p className="text-xs text-muted-foreground">
+              Draw directly on the video preview. Annotations will be recorded with the video.
+            </p>
+          </div>
+        )}
+
         {/* Screen Recording Source Selection */}
         {captureMode === "screen" && !isPreviewing && !recordedBlob && (
           <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-3">
@@ -4072,6 +4778,22 @@ export function VideoRecorder() {
               controls={!!recordedBlob}
               className="w-full h-full object-contain"
               style={{ filter: isPreviewing ? getCssFilterString() : undefined }}
+            />
+          )}
+
+          {/* Live Drawing Canvas Overlay */}
+          {isDrawingMode && isPreviewing && (
+            <canvas
+              ref={drawingCanvasRef}
+              className="absolute inset-0 z-30 cursor-crosshair"
+              style={{ touchAction: 'none' }}
+              onMouseDown={handleDrawingStart}
+              onMouseMove={handleDrawingMove}
+              onMouseUp={handleDrawingEnd}
+              onMouseLeave={handleDrawingEnd}
+              onTouchStart={handleDrawingStart}
+              onTouchMove={handleDrawingMove}
+              onTouchEnd={handleDrawingEnd}
             />
           )}
 

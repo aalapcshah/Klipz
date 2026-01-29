@@ -4400,3 +4400,22 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add tolerance and smoothness controls
 - [ ] Test caption accuracy (requires user testing)
 - [ ] Test chroma key quality (requires user testing)
+
+
+## Video Effects, Multi-Track Audio & Live Annotations - January 29, 2026 (Completed)
+- [x] Add video effects library (vignette, film grain, blur, sharpen)
+- [x] Create effects panel with toggle and intensity controls
+- [x] Apply effects in real-time during preview
+- [x] Add intensity controls for each effect
+- [x] Add multi-track audio mixing
+- [x] Separate mic, system audio, and music tracks
+- [x] Add individual volume controls per track
+- [x] Implement audio level meters per track
+- [x] Add video annotations/drawings during recording
+- [x] Reuse existing annotation canvas code from video annotation feature
+- [x] Support drawing shapes, arrows, text, and highlights
+- [x] Implement collapsible annotation toolbar
+- [x] Add undo/redo for annotations
+- [ ] Test video effects performance (requires user testing)
+- [ ] Test multi-track audio mixing (requires user testing)
+- [ ] Test live annotation drawing
