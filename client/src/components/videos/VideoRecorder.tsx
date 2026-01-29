@@ -82,6 +82,10 @@ import {
   RotateCw,
   CircleDot,
   Layers2,
+  Bookmark,
+  BookmarkPlus,
+  ListOrdered,
+  Hash,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -134,6 +138,20 @@ interface DrawingElement {
   color: string;
   strokeWidth: number;
   text?: string;
+}
+
+interface VideoBookmark {
+  id: string;
+  timestamp: number;
+  label: string;
+  color: string;
+}
+
+interface VideoChapter {
+  id: string;
+  startTime: number;
+  endTime: number;
+  title: string;
 }
 
 interface CaptionSegment {
@@ -544,6 +562,19 @@ export function VideoRecorder() {
   const [drawingTextPosition, setDrawingTextPosition] = useState<DrawingPoint | null>(null);
   const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
+
+  // Video Bookmarks
+  const [bookmarks, setBookmarks] = useState<VideoBookmark[]>([]);
+  const [showBookmarksPanel, setShowBookmarksPanel] = useState(false);
+  const [newBookmarkLabel, setNewBookmarkLabel] = useState("");
+  const [bookmarkColor, setBookmarkColor] = useState("#fbbf24"); // amber
+
+  // Video Chapters
+  const [chapters, setChapters] = useState<VideoChapter[]>([]);
+  const [showChaptersPanel, setShowChaptersPanel] = useState(false);
+  const [currentChapterTitle, setCurrentChapterTitle] = useState("");
+  const [chapterStartTime, setChapterStartTime] = useState<number | null>(null);
+  const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1734,6 +1765,82 @@ export function VideoRecorder() {
     } finally {
       setIsMergingClips(false);
     }
+  };
+
+  // Bookmark Functions
+  const addBookmark = () => {
+    if (!isRecording && !recordedBlob) return;
+    
+    const timestamp = recordedBlob ? (videoRef.current?.currentTime || 0) : recordingTime;
+    const newBookmark: VideoBookmark = {
+      id: `bookmark_${Date.now()}`,
+      timestamp,
+      label: newBookmarkLabel || `Bookmark ${bookmarks.length + 1}`,
+      color: bookmarkColor,
+    };
+    
+    setBookmarks(prev => [...prev, newBookmark].sort((a, b) => a.timestamp - b.timestamp));
+    setNewBookmarkLabel("");
+    toast.success(`Bookmark added at ${formatTime(Math.round(timestamp))}`);
+  };
+
+  const removeBookmark = (id: string) => {
+    setBookmarks(prev => prev.filter(b => b.id !== id));
+  };
+
+  const jumpToBookmark = (timestamp: number) => {
+    if (videoRef.current && recordedBlob) {
+      videoRef.current.currentTime = timestamp;
+    }
+  };
+
+  const updateBookmarkLabel = (id: string, label: string) => {
+    setBookmarks(prev => prev.map(b => b.id === id ? { ...b, label } : b));
+  };
+
+  // Chapter Functions
+  const startChapter = () => {
+    if (!isRecording && !recordedBlob) return;
+    
+    const timestamp = recordedBlob ? (videoRef.current?.currentTime || 0) : recordingTime;
+    setChapterStartTime(timestamp);
+    toast.info("Chapter started. Click again to end chapter.");
+  };
+
+  const endChapter = () => {
+    if (chapterStartTime === null) return;
+    
+    const endTime = recordedBlob ? (videoRef.current?.currentTime || 0) : recordingTime;
+    if (endTime <= chapterStartTime) {
+      toast.error("Chapter end time must be after start time");
+      return;
+    }
+    
+    const newChapter: VideoChapter = {
+      id: `chapter_${Date.now()}`,
+      startTime: chapterStartTime,
+      endTime,
+      title: currentChapterTitle || `Chapter ${chapters.length + 1}`,
+    };
+    
+    setChapters(prev => [...prev, newChapter].sort((a, b) => a.startTime - b.startTime));
+    setChapterStartTime(null);
+    setCurrentChapterTitle("");
+    toast.success(`Chapter added: ${formatTime(Math.round(chapterStartTime))} - ${formatTime(Math.round(endTime))}`);
+  };
+
+  const removeChapter = (id: string) => {
+    setChapters(prev => prev.filter(c => c.id !== id));
+  };
+
+  const jumpToChapter = (startTime: number) => {
+    if (videoRef.current && recordedBlob) {
+      videoRef.current.currentTime = startTime;
+    }
+  };
+
+  const updateChapterTitle = (id: string, title: string) => {
+    setChapters(prev => prev.map(c => c.id === id ? { ...c, title } : c));
   };
 
   // Transition Functions
@@ -3271,6 +3378,52 @@ export function VideoRecorder() {
                 <PenTool className="h-4 w-4" />
               </Button>
             )}
+
+            {/* Bookmark Button */}
+            {(isRecording || recordedBlob) && captureMode === "video" && (
+              <Button
+                variant={showBookmarksPanel ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  if (isRecording) {
+                    addBookmark();
+                  } else {
+                    setShowBookmarksPanel(!showBookmarksPanel);
+                  }
+                }}
+                title={isRecording ? "Add bookmark" : "Manage bookmarks"}
+              >
+                <Bookmark className="h-4 w-4" />
+                {bookmarks.length > 0 && (
+                  <span className="ml-1 text-xs">{bookmarks.length}</span>
+                )}
+              </Button>
+            )}
+
+            {/* Chapter Button */}
+            {(isRecording || recordedBlob) && captureMode === "video" && (
+              <Button
+                variant={showChaptersPanel ? "default" : chapterStartTime !== null ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => {
+                  if (isRecording) {
+                    if (chapterStartTime === null) {
+                      startChapter();
+                    } else {
+                      endChapter();
+                    }
+                  } else {
+                    setShowChaptersPanel(!showChaptersPanel);
+                  }
+                }}
+                title={isRecording ? (chapterStartTime !== null ? "End chapter" : "Start chapter") : "Manage chapters"}
+              >
+                <ListOrdered className="h-4 w-4" />
+                {chapters.length > 0 && (
+                  <span className="ml-1 text-xs">{chapters.length}</span>
+                )}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -4532,6 +4685,152 @@ export function VideoRecorder() {
             <p className="text-xs text-muted-foreground">
               Draw directly on the video preview. Annotations will be recorded with the video.
             </p>
+          </div>
+        )}
+
+        {/* Bookmarks Panel */}
+        {showBookmarksPanel && recordedBlob && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Video Bookmarks</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowBookmarksPanel(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* Add Bookmark */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newBookmarkLabel}
+                onChange={(e) => setNewBookmarkLabel(e.target.value)}
+                placeholder="Bookmark label (optional)"
+                className="flex-1 px-3 py-2 text-sm rounded-md border bg-background"
+              />
+              <input
+                type="color"
+                value={bookmarkColor}
+                onChange={(e) => setBookmarkColor(e.target.value)}
+                className="w-10 h-10 rounded cursor-pointer"
+              />
+              <Button size="sm" onClick={addBookmark}>
+                <BookmarkPlus className="h-4 w-4 mr-1" />
+                Add
+              </Button>
+            </div>
+            
+            {/* Bookmark List */}
+            {bookmarks.length > 0 ? (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {bookmarks.map((bookmark) => (
+                  <div
+                    key={bookmark.id}
+                    className="flex items-center gap-2 p-2 bg-background rounded-md hover:bg-accent/50 cursor-pointer"
+                    onClick={() => jumpToBookmark(bookmark.timestamp)}
+                  >
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: bookmark.color }}
+                    />
+                    <span className="text-sm flex-1">{bookmark.label}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatTime(Math.round(bookmark.timestamp))}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeBookmark(bookmark.id);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No bookmarks yet. Add bookmarks to mark important moments.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Chapters Panel */}
+        {showChaptersPanel && recordedBlob && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Video Chapters</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowChaptersPanel(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* Add Chapter */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={currentChapterTitle}
+                onChange={(e) => setCurrentChapterTitle(e.target.value)}
+                placeholder="Chapter title"
+                className="flex-1 px-3 py-2 text-sm rounded-md border bg-background"
+              />
+              {chapterStartTime === null ? (
+                <Button size="sm" onClick={startChapter}>
+                  <Hash className="h-4 w-4 mr-1" />
+                  Start
+                </Button>
+              ) : (
+                <Button size="sm" onClick={endChapter} variant="secondary">
+                  <Check className="h-4 w-4 mr-1" />
+                  End ({formatTime(Math.round(chapterStartTime))})
+                </Button>
+              )}
+            </div>
+            
+            {/* Chapter List */}
+            {chapters.length > 0 ? (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {chapters.map((chapter, index) => (
+                  <div
+                    key={chapter.id}
+                    className="flex items-center gap-2 p-2 bg-background rounded-md hover:bg-accent/50 cursor-pointer"
+                    onClick={() => jumpToChapter(chapter.startTime)}
+                  >
+                    <Badge variant="outline" className="text-xs">
+                      {index + 1}
+                    </Badge>
+                    <span className="text-sm flex-1">{chapter.title}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatTime(Math.round(chapter.startTime))} - {formatTime(Math.round(chapter.endTime))}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeChapter(chapter.id);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No chapters yet. Create chapters to organize your video.
+              </p>
+            )}
           </div>
         )}
 

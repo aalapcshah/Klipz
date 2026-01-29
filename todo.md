@@ -4419,3 +4419,18 @@ Note: The application already has extensive annotation features including voice 
 - [ ] Test video effects performance (requires user testing)
 - [ ] Test multi-track audio mixing (requires user testing)
 - [ ] Test live annotation drawing
+
+
+## Video Bookmarks & Chapters - January 29, 2026 (Completed)
+- [x] Add video bookmarks for marking important moments during recording
+- [x] Create bookmark button in recording controls
+- [x] Store bookmark timestamps with optional labels and colors
+- [x] Display bookmarks in management panel
+- [x] Allow jumping to bookmarks during playback
+- [x] Add video chapters for splitting recordings into named sections
+- [x] Create chapter marker UI during recording (start/end)
+- [x] Allow naming chapters after recording
+- [x] Display chapter list in video preview
+- [x] Enable navigation between chapters
+- [ ] Test bookmark functionality (requires user testing)
+- [ ] Test chapter navigation (requires user testing)
