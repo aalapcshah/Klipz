@@ -4476,8 +4476,9 @@ Note: The application already has extensive annotation features including voice 
 
 
 ## Video Annotation Fix - Jan 29, 2026
-- [ ] Link existing videos to their corresponding files based on S3 URL
-- [ ] Create migration script or procedure to backfill fileId for existing videos
+- [x] Link existing videos to their corresponding files based on S3 URL
+- [x] Create migration script or procedure to backfill fileId for existing videos
+- [x] Made Annotate button always visible and handle missing fileId gracefully
 
 
 ## Critical UI Fix - Jan 29, 2026

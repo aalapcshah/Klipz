@@ -1,0 +1,34 @@
+{
+  "query": "SELECT v.id as vid, v.title, v.fileId, v.url as video_url, f.id as fid, f.url as file_url FROM videos v LEFT JOIN files f ON v.url = f.url;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT v.id as vid, v.title, v.fileId, v.url as video_url, f.id as fid, f.url as file_url FROM videos v LEFT JOIN files f ON v.url = f.url;",
+  "rows": [
+    {
+      "vid": "240001",
+      "title": "Ree1 - The Financial Head Start.mp4",
+      "fileId": "870001",
+      "video_url": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/1769676770499-q1ysil-Ree1 - The Financial Head Start.mp4",
+      "fid": "870001",
+      "file_url": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/1769676770499-q1ysil-Ree1 - The Financial Head Start.mp4"
+    },
+    {
+      "vid": "240002",
+      "title": "Reel 2 - What’s Inside a 529 Plan.mp4",
+      "fileId": "870002",
+      "video_url": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/1769678367169-dcyar9-Reel 2 - What’s Inside a 529 Plan.mp4",
+      "fid": "870002",
+      "file_url": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/1769678367169-dcyar9-Reel 2 - What’s Inside a 529 Plan.mp4"
+    },
+    {
+      "vid": "240003",
+      "title": "Recording 1/29/2026, 1:21:27 AM",
+      "fileId": "870003",
+      "video_url": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769678486826-gzyzir-recording-1769678479689.webm",
+      "fid": "870003",
+      "file_url": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769678486826-gzyzir-recording-1769678479689.webm"
+    }
+  ],
+  "messages": [],
+  "stdout": "vid\ttitle\tfileId\tvideo_url\tfid\tfile_url\n240001\tRee1 - The Financial Head Start.mp4\t870001\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/1769676770499-q1ysil-Ree1 - The Financial Head Start.mp4\t870001\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/1769676770499-q1ysil-Ree1 - The Financial Head Start.mp4\n240002\tReel 2 - What’s Inside a 529 Plan.mp4\t870002\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/1769678367169-dcyar9-Reel 2 - What’s Inside a 529 Plan.mp4\t870002\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/1769678367169-dcyar9-Reel 2 - What’s Inside a 529 Plan.mp4\n240003\tRecording 1/29/2026, 1:21:27 AM\t870003\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769678486826-gzyzir-recording-1769678479689.webm\t870003\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769678486826-gzyzir-recording-1769678479689.webm\n",
+  "stderr": "",
+  "execution_time_ms": 1513
+}

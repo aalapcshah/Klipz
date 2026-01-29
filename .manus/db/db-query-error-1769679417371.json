@@ -1,0 +1,8 @@
+{
+  "query": "SELECT v.id as video_id, v.title, v.fileId, v.s3Url, f.id as file_id, f.s3Url as file_s3Url FROM videos v LEFT JOIN files f ON v.fileId = f.id LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT v.id as video_id, v.title, v.fileId, v.s3Url, f.id as file_id, f.s3Url as file_s3Url FROM videos v LEFT JOIN files f ON v.fileId = f.id LIMIT 10;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'v.s3url' in 'field list'"
+  ]
+}
