@@ -13,6 +13,7 @@ import { FilesEmptyState } from "@/components/files/FilesEmptyState";
 import { AdvancedFiltersPanel, type AdvancedFilters } from "@/components/files/AdvancedFiltersPanel";
 import { trpc } from "@/lib/trpc";
 import { StorageCleanupWizard } from "@/components/StorageCleanupWizard";
+import { UsageOverviewCompact } from "@/components/UsageOverviewCompact";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -177,21 +178,40 @@ export default function FilesView() {
             </div>
           )}
           <div className="space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold">Files</h1>
-                <p className="text-sm text-muted-foreground">
-                  Manage and enrich your media files with AI
-                </p>
+            {/* Header Row */}
+            <div className="flex flex-col gap-3">
+              {/* Title and Actions Row */}
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-bold">Files</h1>
+                  <p className="text-sm text-muted-foreground">
+                    Manage and enrich your media files with AI
+                  </p>
+                </div>
+                {/* Action Buttons - all in one row */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Usage Overview - compact inline */}
+                  <UsageOverviewCompact />
+                  <Button variant="outline" size="sm" onClick={() => setShowCleanupWizard(true)}>
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    <span className="hidden sm:inline">Clean Up</span>
+                  </Button>
+                  <Button id="upload-files-button" size="sm" onClick={() => setUploadDialogOpen(true)}>
+                    <Upload className="h-4 w-4 mr-1" />
+                    <span className="hidden sm:inline">Upload</span>
+                  </Button>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
+              
+              {/* Search and Filters Row */}
+              <div className="flex flex-col sm:flex-row gap-2">
                 {/* View Toggle */}
-                <div className="flex border rounded-md">
+                <div className="flex border rounded-md shrink-0">
                   <Button
                     variant={viewMode === 'grid' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setViewMode('grid')}
-                    className="rounded-r-none"
+                    className="rounded-r-none h-9"
                   >
                     <LayoutGrid className="h-4 w-4" />
                   </Button>
@@ -199,7 +219,7 @@ export default function FilesView() {
                     variant={viewMode === 'list' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setViewMode('list')}
-                    className="rounded-l-none"
+                    className="rounded-l-none h-9"
                   >
                     <List className="h-4 w-4" />
                   </Button>
@@ -209,18 +229,9 @@ export default function FilesView() {
                   variant="outline"
                   size="sm"
                   onClick={() => setFiltersOpen(!filtersOpen)}
+                  className="shrink-0 h-9"
                 >
                   {filtersOpen ? 'Hide Filters' : 'Show Filters'}
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setShowCleanupWizard(true)}>
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline">Clean Up Storage</span>
-                  <span className="sm:hidden">Clean Up</span>
-                </Button>
-                <Button id="upload-files-button" size="sm" onClick={() => setUploadDialogOpen(true)}>
-                  <Upload className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline">Upload Files</span>
-                  <span className="sm:hidden">Upload</span>
                 </Button>
               </div>
             </div>

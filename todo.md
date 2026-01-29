@@ -4442,3 +4442,14 @@ Note: The application already has extensive annotation features including voice 
 - [ ] Allow drawing annotations over uploaded video playback
 - [ ] Save annotations as overlay or export annotated video
 - [ ] Test annotation workflow on uploaded videos
+
+
+## Video Player Enhancements - Jan 29, 2026
+- [ ] Video loop regions - Set A/B points to loop a specific section
+- [ ] Auto-highlight detection - AI-powered detection of key moments
+- [ ] Bookmark/chapter export - Export as SRT, VTT timeline files
+
+
+## UI Fix - Jan 29, 2026
+- [x] Fix Usage Overview layout - make 20% smaller, inline with Clean Up Storage and Upload Files buttons
+- [x] Adjust search bar width and move filter icons down to make space

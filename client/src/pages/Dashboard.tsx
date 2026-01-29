@@ -383,21 +383,13 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="container py-8 pb-20 md:pb-8">
-        {/* Usage Dashboard Widget - show on main pages */}
-        {(location === "/" || location === "/videos" || location === "/collections") && (
-          <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              {/* Storage Alert */}
-              {stats && (
-                <StorageAlert 
-                  totalStorage={stats.totalStorage} 
-                  storageLimit={storageLimit}
-                />
-              )}
-            </div>
-            <div>
-              <UsageDashboardWidget />
-            </div>
+        {/* Storage Alert - show on main pages */}
+        {(location === "/" || location === "/videos" || location === "/collections") && stats && (
+          <div className="mb-6">
+            <StorageAlert 
+              totalStorage={stats.totalStorage} 
+              storageLimit={storageLimit}
+            />
           </div>
         )}
         

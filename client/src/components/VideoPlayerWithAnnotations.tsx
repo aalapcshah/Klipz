@@ -24,6 +24,9 @@ import { HighlightedText } from "./HighlightedText";
 import { AnnotationSearch } from "./videos/AnnotationSearch";
 import { FileSuggestions } from "./FileSuggestions";
 import { VideoChapters } from "./VideoChapters";
+import { VideoLoopRegion } from "./VideoLoopRegion";
+import { AutoHighlightDetection } from "./AutoHighlightDetection";
+import { BookmarkChapterExport } from "./BookmarkChapterExport";
 
 interface VideoPlayerWithAnnotationsProps {
   fileId: number;
@@ -1655,6 +1658,36 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             videoRef.current.currentTime = time;
           }
         }}
+      />
+
+      {/* Video Loop Region */}
+      <VideoLoopRegion
+        videoRef={videoRef}
+        duration={duration}
+        currentTime={currentTime}
+        onSeek={(time) => {
+          if (videoRef.current) {
+            videoRef.current.currentTime = time;
+          }
+        }}
+      />
+
+      {/* Auto-Highlight Detection */}
+      <AutoHighlightDetection
+        videoRef={videoRef}
+        duration={duration}
+        currentTime={currentTime}
+        onSeek={(time) => {
+          if (videoRef.current) {
+            videoRef.current.currentTime = time;
+          }
+        }}
+      />
+
+      {/* Bookmark/Chapter Export */}
+      <BookmarkChapterExport
+        fileId={fileId}
+        videoTitle={`Video_${fileId}`}
       />
 
       {/* File Suggestions Section */}
