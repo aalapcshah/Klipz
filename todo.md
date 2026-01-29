@@ -4453,3 +4453,23 @@ Note: The application already has extensive annotation features including voice 
 ## UI Fix - Jan 29, 2026
 - [x] Fix Usage Overview layout - make 20% smaller, inline with Clean Up Storage and Upload Files buttons
 - [x] Adjust search bar width and move filter icons down to make space
+
+
+## Bug Fixes and Enhancements - Jan 29, 2026 (Batch 2)
+- [ ] Add Annotate button to Video Library cards (missing from video cards)
+- [ ] Fix Files grid responsiveness - 6th column cut off, needs horizontal scroll or responsive adjustment
+- [ ] Fix compression progress bar not updating with percentage completion
+- [ ] Add Usage widget to Videos page
+- [ ] Add Usage widget to Collections page
+- [ ] Add quick filter presets (Recent, Large files, Needs enrichment)
+
+- [ ] Make new video recording features (loop regions, auto-highlight, bookmark/chapter export) visible on mobile
+
+
+## Bug Fixes and Enhancements - Jan 29, 2026 (Session 2)
+- [x] Add Annotate button to Video Library cards (always visible, with re-upload message if no fileId)
+- [x] Fix Files grid 6th column cut off - make responsive for all screen sizes (auto-fit with minmax)
+- [x] Fix compression progress bar not updating during video upload (removed status condition, added stage display)
+- [x] Add Usage widget to Videos/Dashboard and Collections pages
+- [x] Add quick filter presets (Recent 7 days, Large files, Needs enrichment, Clear all)
+- [x] Make new video recording features visible on mobile (added mobile tools FAB menu with scroll-to)

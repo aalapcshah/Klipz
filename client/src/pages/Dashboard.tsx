@@ -40,6 +40,7 @@ import { StorageAlertBanner } from "@/components/StorageAlertBanner";
 import { TrialBanner } from "@/components/TrialBanner";
 import { UsageDashboardWidget } from "@/components/UsageDashboardWidget";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { UsageOverviewCompact } from "@/components/UsageOverviewCompact";
 
 export default function Dashboard() {
   const { user, loading, isAuthenticated, logout } = useAuth();
@@ -282,6 +283,9 @@ export default function Dashboard() {
             </nav>
           
             <div className="flex items-center gap-2 ml-auto">
+            {/* Usage Overview Compact */}
+            <UsageOverviewCompact />
+            
             <span className="text-sm text-muted-foreground hidden sm:inline">
               {user?.name || user?.email}
             </span>

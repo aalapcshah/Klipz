@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine, Eye, EyeOff, Download } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine, Eye, EyeOff, Download, Repeat, Sparkles, FileDown, MoreHorizontal, ChevronUp } from "lucide-react";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { VideoDrawingCanvas, VideoDrawingCanvasHandle } from "./VideoDrawingCanvas";
 import { AnnotationTimeline } from "./AnnotationTimeline";
@@ -48,6 +48,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [showRecorder, setShowRecorder] = useState(false);
   const [recordingTimestamp, setRecordingTimestamp] = useState(0);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
+  const [showMobileTools, setShowMobileTools] = useState(false);
   // Simple drawing state for direct canvas interaction
   const [isCanvasDrawing, setIsCanvasDrawing] = useState(false);
   const [lastDrawPoint, setLastDrawPoint] = useState<{x: number, y: number} | null>(null);
@@ -957,6 +958,44 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           
           {/* Mobile Floating Action Buttons for Annotation Tools */}
           <div className={`md:hidden fixed right-4 flex flex-col gap-3 transition-all duration-300 ${showRecorder ? 'bottom-64' : 'bottom-20'}`} style={{ zIndex: 9999, pointerEvents: 'auto' }}>
+            {/* Expandable tools menu */}
+            {showMobileTools && (
+              <>
+                <Button 
+                  size="lg"
+                  className="h-12 w-12 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700 text-white p-0"
+                  onClick={() => {
+                    setShowMobileTools(false);
+                    document.getElementById('loop-region-section')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  title="Loop Region"
+                >
+                  <Repeat className="h-5 w-5" />
+                </Button>
+                <Button 
+                  size="lg"
+                  className="h-12 w-12 rounded-full shadow-lg bg-amber-600 hover:bg-amber-700 text-white p-0"
+                  onClick={() => {
+                    setShowMobileTools(false);
+                    document.getElementById('auto-highlight-section')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  title="Auto Highlights"
+                >
+                  <Sparkles className="h-5 w-5" />
+                </Button>
+                <Button 
+                  size="lg"
+                  className="h-12 w-12 rounded-full shadow-lg bg-teal-600 hover:bg-teal-700 text-white p-0"
+                  onClick={() => {
+                    setShowMobileTools(false);
+                    document.getElementById('export-section')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  title="Export"
+                >
+                  <FileDown className="h-5 w-5" />
+                </Button>
+              </>
+            )}
             <Button 
               size="lg"
               className="h-14 w-14 rounded-full shadow-lg bg-green-600 hover:bg-green-700 text-white p-0"
@@ -971,6 +1010,14 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               onClick={() => setDrawToggleRequest(prev => prev + 1)}
             >
               <PenLine className="h-6 w-6" />
+            </Button>
+            <Button 
+              size="lg"
+              className={`h-12 w-12 rounded-full shadow-lg ${showMobileTools ? 'bg-gray-600' : 'bg-gray-700'} hover:bg-gray-600 text-white p-0`}
+              onClick={() => setShowMobileTools(!showMobileTools)}
+              title="More Tools"
+            >
+              {showMobileTools ? <ChevronUp className="h-5 w-5" /> : <MoreHorizontal className="h-5 w-5" />}
             </Button>
           </div>
           
@@ -1661,6 +1708,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       />
 
       {/* Video Loop Region */}
+      <div id="loop-region-section">
       <VideoLoopRegion
         videoRef={videoRef}
         duration={duration}
@@ -1671,8 +1719,10 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           }
         }}
       />
+      </div>
 
       {/* Auto-Highlight Detection */}
+      <div id="auto-highlight-section">
       <AutoHighlightDetection
         videoRef={videoRef}
         duration={duration}
@@ -1683,12 +1733,15 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
           }
         }}
       />
+      </div>
 
       {/* Bookmark/Chapter Export */}
+      <div id="export-section">
       <BookmarkChapterExport
         fileId={fileId}
         videoTitle={`Video_${fileId}`}
       />
+      </div>
 
       {/* File Suggestions Section */}
       <FileSuggestions

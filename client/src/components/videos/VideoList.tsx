@@ -719,18 +719,22 @@ export function VideoList() {
                 
                 {/* Action buttons inline - removed Play button, added download/delete */}
                 <div className="flex items-center gap-1 ml-auto shrink-0">
-                  {video.fileId && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-1.5 text-[10px] text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                      onClick={() => setAnnotatingVideo({ id: video.id, fileId: video.fileId!, url: video.url, title: video.title || video.filename })}
-                      title="Annotate (Voice, Drawing, Text)"
-                    >
-                      <MessageSquare className="h-2.5 w-2.5 mr-0.5" />
-                      Annotate
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1.5 text-[10px] text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                    onClick={() => {
+                      if (video.fileId) {
+                        setAnnotatingVideo({ id: video.id, fileId: video.fileId, url: video.url, title: video.title || video.filename });
+                      } else {
+                        toast.error("This video needs to be re-uploaded to enable annotations. Please delete and re-upload the video.");
+                      }
+                    }}
+                    title={video.fileId ? "Annotate (Voice, Drawing, Text)" : "Re-upload required for annotations"}
+                  >
+                    <MessageSquare className="h-2.5 w-2.5 mr-0.5" />
+                    Annotate
+                  </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button

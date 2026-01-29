@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SmartCollectionsManager from "@/components/collections/SmartCollectionsManager";
 import { Folder, Sparkles } from "lucide-react";
+import { UsageOverviewCompact } from "@/components/UsageOverviewCompact";
 
 export default function Collections() {
   const { data: collections = [] } = trpc.collections.list.useQuery();
@@ -12,10 +13,15 @@ export default function Collections() {
   return (
     <div className="container py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Collections</h1>
-        <p className="text-muted-foreground">
-          Organize your files into collections and smart collections
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Collections</h1>
+            <p className="text-muted-foreground">
+              Organize your files into collections and smart collections
+            </p>
+          </div>
+          <UsageOverviewCompact />
+        </div>
       </div>
 
       <Tabs defaultValue="regular" className="space-y-6">

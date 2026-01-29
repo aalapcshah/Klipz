@@ -244,6 +244,75 @@ export default function FilesView() {
               />
             </div>
             
+            {/* Quick Filter Presets */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  setAdvancedFilters(prev => ({
+                    ...prev,
+                    dateFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                    dateTo: '',
+                  }));
+                  setFiltersOpen(true);
+                  toast.success('Showing files from last 7 days');
+                }}
+              >
+                📅 Recent (7 days)
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  setAdvancedFilters(prev => ({
+                    ...prev,
+                    fileSizeMin: 10,
+                    fileSizeMax: 100,
+                  }));
+                  setFiltersOpen(true);
+                  toast.success('Showing files larger than 10MB');
+                }}
+              >
+                📦 Large files
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  setAdvancedFilters(prev => ({
+                    ...prev,
+                    qualityScore: ['0-20', '20-40'],
+                  }));
+                  setFiltersOpen(true);
+                  toast.success('Showing files that need enrichment');
+                }}
+              >
+                ✨ Needs enrichment
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  setAdvancedFilters({
+                    dateFrom: '',
+                    dateTo: '',
+                    fileSizeMin: 0,
+                    fileSizeMax: 100,
+                    enrichmentStatus: [],
+                    qualityScore: [],
+                  });
+                  toast.success('Filters cleared');
+                }}
+              >
+                🔄 Clear all
+              </Button>
+            </div>
+            
             {searchResults && (
               <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                 <span className="text-sm">

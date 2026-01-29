@@ -975,17 +975,26 @@ export function VideoUploadSection() {
                   </div>
 
                   {/* Compression Progress Bar - shown during compression phase */}
-                  {upload.status === "uploading" && compressionProgress.has(upload.id) && (
+                  {compressionProgress.has(upload.id) && (
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-amber-500 font-medium">Compressing</span>
-                        <div className="flex-1 bg-secondary rounded-full h-2 overflow-hidden">
+                        <span className="text-xs text-amber-500 font-medium flex items-center gap-1">
+                          <span className="inline-block w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
+                          {compressionProgress.get(upload.id)?.stage === 'loading' ? 'Loading video...' :
+                           compressionProgress.get(upload.id)?.stage === 'processing' ? 'Processing...' :
+                           compressionProgress.get(upload.id)?.stage === 'encoding' ? 'Compressing...' :
+                           'Compressing'}
+                        </span>
+                        <div className="flex-1 bg-secondary rounded-full h-2.5 overflow-hidden">
                           <div
-                            className="h-full transition-all duration-300 bg-amber-500"
-                            style={{ width: `${(compressionProgress.get(upload.id)?.progress || 0)}%` }}
+                            className="h-full bg-gradient-to-r from-amber-500 to-amber-400"
+                            style={{ 
+                              width: `${Math.max(5, compressionProgress.get(upload.id)?.progress || 0)}%`,
+                              transition: 'width 0.3s ease-out'
+                            }}
                           />
                         </div>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-amber-500 font-medium min-w-[3rem] text-right">
                           {(compressionProgress.get(upload.id)?.progress || 0).toFixed(0)}%
                         </span>
                       </div>
