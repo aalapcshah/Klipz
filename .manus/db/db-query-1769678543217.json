@@ -1,0 +1,28 @@
+{
+  "query": "SELECT id, fileId, filename, userId FROM videos LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, fileId, filename, userId FROM videos LIMIT 10;",
+  "rows": [
+    {
+      "id": "240001",
+      "fileId": "870001",
+      "filename": "Ree1 - The Financial Head Start.mp4",
+      "userId": "1"
+    },
+    {
+      "id": "240002",
+      "fileId": "870002",
+      "filename": "Reel 2 - What’s Inside a 529 Plan.mp4",
+      "userId": "1"
+    },
+    {
+      "id": "240003",
+      "fileId": "870003",
+      "filename": "recording-1769678479689.webm",
+      "userId": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfileId\tfilename\tuserId\n240001\t870001\tRee1 - The Financial Head Start.mp4\t1\n240002\t870002\tReel 2 - What’s Inside a 529 Plan.mp4\t1\n240003\t870003\trecording-1769678479689.webm\t1\n",
+  "stderr": "",
+  "execution_time_ms": 1496
+}

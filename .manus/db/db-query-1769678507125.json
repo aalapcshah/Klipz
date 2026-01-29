@@ -1,0 +1,80 @@
+{
+  "query": "SELECT f.id, f.filename, f.mimeType, SUBSTRING(f.url, 1, 100) as file_url_start, SUBSTRING(f.fileKey, 1, 50) as file_fileKey FROM files f WHERE f.mimeType LIKE 'video/%' LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT f.id, f.filename, f.mimeType, SUBSTRING(f.url, 1, 100) as file_url_start, SUBSTRING(f.fileKey, 1, 50) as file_fileKey FROM files f WHERE f.mimeType LIKE 'video/%' LIMIT 10;",
+  "rows": [
+    {
+      "id": "99995",
+      "filename": "test-video-2.mp4",
+      "mimeType": "video/mp4",
+      "file_url_start": "https://example.com/test-video-2.mp4",
+      "file_fileKey": "test-videos/test-2-1769314167672.mp4"
+    },
+    {
+      "id": "99996",
+      "filename": "test-video.mp4",
+      "mimeType": "video/mp4",
+      "file_url_start": "https://example.com/test-video.mp4",
+      "file_fileKey": "test-videos/test-1769314167586.mp4"
+    },
+    {
+      "id": "630008",
+      "filename": "recording-1769324112432.webm",
+      "mimeType": "video/webm",
+      "file_url_start": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769324116702-t7z4",
+      "file_fileKey": "1/1769324116702-t7z4ve-recording-1769324112432.web"
+    },
+    {
+      "id": "630009",
+      "filename": "recording-1769326126038.webm",
+      "mimeType": "video/webm",
+      "file_url_start": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769326218478-hfnc",
+      "file_fileKey": "1/1769326218478-hfncz-recording-1769326126038.webm"
+    },
+    {
+      "id": "630010",
+      "filename": "recording-1769326193192.webm",
+      "mimeType": "video/webm",
+      "file_url_start": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769326221075-5nwe",
+      "file_fileKey": "1/1769326221075-5nwekr-recording-1769326193192.web"
+    },
+    {
+      "id": "660001",
+      "filename": "test-video-cloud-export.mp4",
+      "mimeType": "video/mp4",
+      "file_url_start": "https://example.com/test-video.mp4",
+      "file_fileKey": "test-cloud-export-1769369946198.mp4"
+    },
+    {
+      "id": "690001",
+      "filename": "recording-1769417601528.webm",
+      "mimeType": "video/webm",
+      "file_url_start": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769417614441-qjgk",
+      "file_fileKey": "1/1769417614441-qjgkvn-recording-1769417601528.web"
+    },
+    {
+      "id": "720001",
+      "filename": "test_video.mp4",
+      "mimeType": "video/mp4",
+      "file_url_start": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/176944",
+      "file_fileKey": "user-1/videos/1769449226481-2aze6a-test_video.mp4"
+    },
+    {
+      "id": "720002",
+      "filename": "Ree1 - The Financial Head Start.mp4",
+      "mimeType": "video/mp4",
+      "file_url_start": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/176945",
+      "file_fileKey": "user-1/videos/1769451652457-pyvutd-Ree1 - The Fina"
+    },
+    {
+      "id": "720003",
+      "filename": "test_large.mp4",
+      "mimeType": "video/mp4",
+      "file_url_start": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/176945",
+      "file_fileKey": "user-1/videos/1769453775146-2020vj-test_large.mp4"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfilename\tmimeType\tfile_url_start\tfile_fileKey\n99995\ttest-video-2.mp4\tvideo/mp4\thttps://example.com/test-video-2.mp4\ttest-videos/test-2-1769314167672.mp4\n99996\ttest-video.mp4\tvideo/mp4\thttps://example.com/test-video.mp4\ttest-videos/test-1769314167586.mp4\n630008\trecording-1769324112432.webm\tvideo/webm\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769324116702-t7z4\t1/1769324116702-t7z4ve-recording-1769324112432.web\n630009\trecording-1769326126038.webm\tvideo/webm\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769326218478-hfnc\t1/1769326218478-hfncz-recording-1769326126038.webm\n630010\trecording-1769326193192.webm\tvideo/webm\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769326221075-5nwe\t1/1769326221075-5nwekr-recording-1769326193192.web\n660001\ttest-video-cloud-export.mp4\tvideo/mp4\thttps://example.com/test-video.mp4\ttest-cloud-export-1769369946198.mp4\n690001\trecording-1769417601528.webm\tvideo/webm\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1/1769417614441-qjgk\t1/1769417614441-qjgkvn-recording-1769417601528.web\n720001\ttest_video.mp4\tvideo/mp4\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/176944\tuser-1/videos/1769449226481-2aze6a-test_video.mp4\n720002\tRee1 - The Financial Head Start.mp4\tvideo/mp4\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/176945\tuser-1/videos/1769451652457-pyvutd-Ree1 - The Fina\n720003\ttest_large.mp4\tvideo/mp4\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/176945\tuser-1/videos/1769453775146-2020vj-test_large.mp4\n",
+  "stderr": "",
+  "execution_time_ms": 1563
+}

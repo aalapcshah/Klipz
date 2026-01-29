@@ -1,0 +1,31 @@
+{
+  "query": "SELECT v.id as video_id, v.fileId, v.filename as video_filename, f.id as file_id, f.filename as file_filename\nFROM videos v\nLEFT JOIN files f ON v.fileId = f.id\nLIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT v.id as video_id, v.fileId, v.filename as video_filename, f.id as file_id, f.filename as file_filename\nFROM videos v\nLEFT JOIN files f ON v.fileId = f.id\nLIMIT 10;",
+  "rows": [
+    {
+      "video_id": "240001",
+      "fileId": "870001",
+      "video_filename": "Ree1 - The Financial Head Start.mp4",
+      "file_id": "870001",
+      "file_filename": "Ree1 - The Financial Head Start.mp4"
+    },
+    {
+      "video_id": "240002",
+      "fileId": "870002",
+      "video_filename": "Reel 2 - What’s Inside a 529 Plan.mp4",
+      "file_id": "870002",
+      "file_filename": "Reel 2 - What’s Inside a 529 Plan.mp4"
+    },
+    {
+      "video_id": "240003",
+      "fileId": "870003",
+      "video_filename": "recording-1769678479689.webm",
+      "file_id": "870003",
+      "file_filename": "recording-1769678479689.webm"
+    }
+  ],
+  "messages": [],
+  "stdout": "video_id\tfileId\tvideo_filename\tfile_id\tfile_filename\n240001\t870001\tRee1 - The Financial Head Start.mp4\t870001\tRee1 - The Financial Head Start.mp4\n240002\t870002\tReel 2 - What’s Inside a 529 Plan.mp4\t870002\tReel 2 - What’s Inside a 529 Plan.mp4\n240003\t870003\trecording-1769678479689.webm\t870003\trecording-1769678479689.webm\n",
+  "stderr": "",
+  "execution_time_ms": 1537
+}

@@ -4473,3 +4473,14 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add Usage widget to Videos/Dashboard and Collections pages
 - [x] Add quick filter presets (Recent 7 days, Large files, Needs enrichment, Clear all)
 - [x] Make new video recording features visible on mobile (added mobile tools FAB menu with scroll-to)
+
+
+## Video Annotation Fix - Jan 29, 2026
+- [ ] Link existing videos to their corresponding files based on S3 URL
+- [ ] Create migration script or procedure to backfill fileId for existing videos
+
+
+## Critical UI Fix - Jan 29, 2026
+- [x] Fix Files grid to have MAXIMUM 4 columns - never more
+- [x] Ensure grid never overflows/cuts off on any device (smartphones, tablets, laptops, desktops, iPads)
+- [x] Use proper responsive breakpoints: 1 col mobile, 2 col tablet, 3 col laptop, 4 col desktop max
