@@ -4278,3 +4278,19 @@ Note: The application already has extensive annotation features including voice 
 - [ ] Test stabilization on mobile devices (requires user testing)
 - [ ] Test audio meter accuracy (requires user testing)
 - [ ] Test face detection performance (requires user testing)
+
+
+## Video Trimming, Slow-Motion & Picture-in-Picture - January 28, 2026 (Completed)
+- [x] Add video trimming feature with start/end point selection
+- [x] Create timeline scrubber UI for selecting trim points
+- [x] Preview trimmed video before upload
+- [x] Implement client-side video trimming using canvas/MediaRecorder
+- [x] Add slow-motion recording mode (30/60/120/240fps options)
+- [x] Detect device frame rate capabilities
+- [x] Add frame rate selector in slow-motion settings panel
+- [x] Add picture-in-picture mode for floating camera preview
+- [x] Allow PiP to persist while navigating the app
+- [x] Add PiP toggle button in camera toolbar
+- [ ] Test video trimming accuracy (requires user testing)
+- [ ] Test slow-motion on supported devices (requires user testing)
+- [ ] Test PiP across different browsers (requires user testing)

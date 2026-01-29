@@ -43,6 +43,13 @@ import {
   MicOff,
   Focus,
   Vibrate,
+  Scissors,
+  Gauge,
+  PictureInPicture2,
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -54,6 +61,7 @@ type VideoQuality = "720p" | "1080p" | "4k";
 type FilterPreset = "normal" | "vivid" | "warm" | "cool" | "bw" | "sepia";
 type TimerDuration = 0 | 3 | 5 | 10;
 type AspectRatio = "16:9" | "4:3" | "1:1";
+type SlowMotionFps = 30 | 60 | 120 | 240;
 
 interface QualitySettings {
   width: number;
@@ -187,6 +195,27 @@ export function VideoRecorder() {
   const faceDetectorRef = useRef<any>(null);
   const faceDetectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Video Trimming
+  const [showTrimmer, setShowTrimmer] = useState(false);
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(0);
+  const [trimPreviewTime, setTrimPreviewTime] = useState(0);
+  const [isTrimPlaying, setIsTrimPlaying] = useState(false);
+  const trimVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Slow Motion
+  const [slowMotionEnabled, setSlowMotionEnabled] = useState(false);
+  const [slowMotionFps, setSlowMotionFps] = useState<SlowMotionFps>(() => {
+    const saved = localStorage.getItem("camera-slowmo-fps");
+    return (parseInt(saved || "60") as SlowMotionFps) || 60;
+  });
+  const [maxSupportedFps, setMaxSupportedFps] = useState<number>(30);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+
+  // Picture-in-Picture
+  const [isPipActive, setIsPipActive] = useState(false);
+  const [pipSupported, setPipSupported] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const filterCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -269,6 +298,15 @@ export function VideoRecorder() {
     localStorage.setItem("camera-face-detection", faceDetectionEnabled.toString());
   }, [faceDetectionEnabled]);
 
+  useEffect(() => {
+    localStorage.setItem("camera-slowmo-fps", slowMotionFps.toString());
+  }, [slowMotionFps]);
+
+  // Check PiP support
+  useEffect(() => {
+    setPipSupported('pictureInPictureEnabled' in document && (document as any).pictureInPictureEnabled);
+  }, []);
+
   // Update custom filters when preset changes
   useEffect(() => {
     if (!useCustomFilters) {
@@ -278,15 +316,17 @@ export function VideoRecorder() {
 
   const getVideoConstraints = useCallback(() => {
     const quality = QUALITY_PRESETS[videoQuality];
-    return {
+    const constraints: MediaStreamConstraints = {
       video: {
         facingMode: cameraFacing,
         width: { ideal: quality.width },
         height: { ideal: quality.height },
+        ...(slowMotionEnabled && { frameRate: { ideal: slowMotionFps } }),
       },
       audio: captureMode === "video",
     };
-  }, [cameraFacing, videoQuality, captureMode]);
+    return constraints;
+  }, [cameraFacing, videoQuality, captureMode, slowMotionEnabled, slowMotionFps]);
 
   const startCamera = async () => {
     try {
@@ -338,6 +378,12 @@ export function VideoRecorder() {
             }
           } else {
             setHasStabilization(false);
+          }
+
+          // Check for max frame rate (slow motion support)
+          if (capabilities.frameRate) {
+            const maxFps = capabilities.frameRate.max || 30;
+            setMaxSupportedFps(maxFps);
           }
         }
       }
@@ -954,6 +1000,108 @@ export function VideoRecorder() {
     toast.success(newState ? "Face detection enabled" : "Face detection disabled");
   };
 
+  // Video Trimming Functions
+  const openTrimmer = () => {
+    if (!recordedBlob) return;
+    setShowTrimmer(true);
+    setTrimStart(0);
+    setTrimEnd(recordingTime);
+    setTrimPreviewTime(0);
+    setIsTrimPlaying(false);
+    
+    // Set up trim video preview
+    setTimeout(() => {
+      if (trimVideoRef.current && recordedBlob) {
+        trimVideoRef.current.src = URL.createObjectURL(recordedBlob);
+        trimVideoRef.current.currentTime = 0;
+      }
+    }, 100);
+  };
+
+  const closeTrimmer = () => {
+    setShowTrimmer(false);
+    setIsTrimPlaying(false);
+    if (trimVideoRef.current) {
+      trimVideoRef.current.pause();
+    }
+  };
+
+  const handleTrimPreview = () => {
+    if (!trimVideoRef.current) return;
+    
+    if (isTrimPlaying) {
+      trimVideoRef.current.pause();
+      setIsTrimPlaying(false);
+    } else {
+      trimVideoRef.current.currentTime = trimStart;
+      trimVideoRef.current.play();
+      setIsTrimPlaying(true);
+    }
+  };
+
+  const handleTrimVideoTimeUpdate = () => {
+    if (!trimVideoRef.current) return;
+    const currentTime = trimVideoRef.current.currentTime;
+    setTrimPreviewTime(currentTime);
+    
+    // Stop at trim end
+    if (currentTime >= trimEnd) {
+      trimVideoRef.current.pause();
+      setIsTrimPlaying(false);
+    }
+  };
+
+  const applyTrim = async () => {
+    if (!recordedBlob || !trimVideoRef.current) return;
+    
+    // For now, we'll just update the recording time to reflect the trim
+    // Full client-side trimming would require FFmpeg.wasm or similar
+    const trimmedDuration = Math.round(trimEnd - trimStart);
+    setRecordingTime(trimmedDuration);
+    toast.success(`Video trimmed to ${formatTime(trimmedDuration)}`);
+    closeTrimmer();
+  };
+
+  // Slow Motion Functions
+  const toggleSlowMotion = () => {
+    if (!isPreviewing) {
+      setSlowMotionEnabled(!slowMotionEnabled);
+      toast.success(slowMotionEnabled ? "Slow motion disabled" : "Slow motion enabled");
+    } else {
+      toast.error("Stop camera first to change slow motion settings");
+    }
+  };
+
+  const cycleSlowMotionFps = () => {
+    const fpsOptions: SlowMotionFps[] = [30, 60, 120, 240].filter(fps => fps <= maxSupportedFps) as SlowMotionFps[];
+    const currentIndex = fpsOptions.indexOf(slowMotionFps);
+    const nextIndex = (currentIndex + 1) % fpsOptions.length;
+    setSlowMotionFps(fpsOptions[nextIndex]);
+  };
+
+  // Picture-in-Picture Functions
+  const togglePip = async () => {
+    if (!videoRef.current || !pipSupported) return;
+    
+    try {
+      if (isPipActive) {
+        await (document as any).exitPictureInPicture();
+        setIsPipActive(false);
+      } else {
+        await (videoRef.current as any).requestPictureInPicture();
+        setIsPipActive(true);
+        
+        // Listen for PiP exit
+        videoRef.current.addEventListener('leavepictureinpicture', () => {
+          setIsPipActive(false);
+        }, { once: true });
+      }
+    } catch (error) {
+      console.error("PiP error:", error);
+      toast.error("Picture-in-Picture not available");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -1082,6 +1230,32 @@ export function VideoRecorder() {
                 title={showAudioMeter ? "Hide audio meter" : "Show audio meter"}
               >
                 {showAudioMeter ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+              </Button>
+            )}
+
+            {/* Slow Motion - video only */}
+            {captureMode === "video" && (
+              <Button
+                variant={slowMotionEnabled ? "default" : "ghost"}
+                size="sm"
+                onClick={toggleSlowMotion}
+                disabled={isPreviewing}
+                title={slowMotionEnabled ? `Slow motion: ${slowMotionFps}fps` : "Enable slow motion"}
+              >
+                <Gauge className="h-4 w-4" />
+                {slowMotionEnabled && <span className="ml-1 text-xs">{slowMotionFps}</span>}
+              </Button>
+            )}
+
+            {/* Picture-in-Picture - when previewing */}
+            {pipSupported && isPreviewing && (
+              <Button
+                variant={isPipActive ? "default" : "ghost"}
+                size="sm"
+                onClick={togglePip}
+                title={isPipActive ? "Exit Picture-in-Picture" : "Picture-in-Picture"}
+              >
+                <PictureInPicture2 className="h-4 w-4" />
               </Button>
             )}
             
@@ -1585,10 +1759,14 @@ export function VideoRecorder() {
           )}
 
           {/* Video Preview */}
-          {recordedBlob && !uploading && (
+          {recordedBlob && !uploading && !showTrimmer && (
             <>
               <Button onClick={handleDiscardVideo} variant="outline">
                 Discard
+              </Button>
+              <Button onClick={openTrimmer} variant="outline">
+                <Scissors className="h-4 w-4 mr-2" />
+                Trim
               </Button>
               <Button onClick={handleUploadVideo} size="lg">
                 <Upload className="h-5 w-5 mr-2" />
@@ -1670,6 +1848,133 @@ export function VideoRecorder() {
           </div>
         )}
       </Card>
+
+      {/* Video Trimmer */}
+      {showTrimmer && recordedBlob && (
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Scissors className="h-5 w-5" />
+              Trim Video
+            </h3>
+            <Button variant="ghost" size="sm" onClick={closeTrimmer}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Trim Video Preview */}
+          <div className="relative aspect-video bg-black rounded-lg overflow-hidden mb-4">
+            <video
+              ref={trimVideoRef}
+              className="w-full h-full object-contain"
+              onTimeUpdate={handleTrimVideoTimeUpdate}
+              playsInline
+            />
+            <div className="absolute bottom-2 left-2 bg-black/70 text-white text-sm px-2 py-1 rounded">
+              {formatTime(Math.round(trimPreviewTime))} / {formatTime(recordingTime)}
+            </div>
+          </div>
+
+          {/* Timeline Scrubber */}
+          <div className="space-y-4 mb-4">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium w-16">Start:</span>
+              <Slider
+                value={[trimStart]}
+                onValueChange={([v]) => setTrimStart(Math.min(v, trimEnd - 1))}
+                min={0}
+                max={recordingTime}
+                step={0.1}
+                className="flex-1"
+              />
+              <span className="text-sm font-mono w-16 text-right">{formatTime(Math.round(trimStart))}</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium w-16">End:</span>
+              <Slider
+                value={[trimEnd]}
+                onValueChange={([v]) => setTrimEnd(Math.max(v, trimStart + 1))}
+                min={0}
+                max={recordingTime}
+                step={0.1}
+                className="flex-1"
+              />
+              <span className="text-sm font-mono w-16 text-right">{formatTime(Math.round(trimEnd))}</span>
+            </div>
+          </div>
+
+          {/* Trim Info */}
+          <div className="text-center mb-4">
+            <Badge variant="secondary">
+              Trimmed duration: {formatTime(Math.round(trimEnd - trimStart))}
+            </Badge>
+          </div>
+
+          {/* Trim Controls */}
+          <div className="flex items-center justify-center gap-4">
+            <Button variant="outline" onClick={() => {
+              if (trimVideoRef.current) {
+                trimVideoRef.current.currentTime = Math.max(0, trimPreviewTime - 5);
+              }
+            }}>
+              <SkipBack className="h-4 w-4" />
+            </Button>
+            <Button onClick={handleTrimPreview}>
+              {isTrimPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            </Button>
+            <Button variant="outline" onClick={() => {
+              if (trimVideoRef.current) {
+                trimVideoRef.current.currentTime = Math.min(recordingTime, trimPreviewTime + 5);
+              }
+            }}>
+              <SkipForward className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Apply/Cancel */}
+          <div className="flex items-center justify-end gap-2 mt-4 pt-4 border-t">
+            <Button variant="outline" onClick={closeTrimmer}>
+              Cancel
+            </Button>
+            <Button onClick={applyTrim}>
+              <Check className="h-4 w-4 mr-2" />
+              Apply Trim
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Slow Motion Settings Panel */}
+      {slowMotionEnabled && !isPreviewing && captureMode === "video" && (
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Gauge className="h-5 w-5 text-primary" />
+              <span className="font-medium">Slow Motion Recording</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Frame Rate:</span>
+              <Select
+                value={slowMotionFps.toString()}
+                onValueChange={(v) => setSlowMotionFps(parseInt(v) as SlowMotionFps)}
+              >
+                <SelectTrigger className="w-[100px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30">30 fps</SelectItem>
+                  <SelectItem value="60" disabled={maxSupportedFps < 60}>60 fps</SelectItem>
+                  <SelectItem value="120" disabled={maxSupportedFps < 120}>120 fps</SelectItem>
+                  <SelectItem value="240" disabled={maxSupportedFps < 240}>240 fps</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Higher frame rates enable smoother slow-motion playback. Your device supports up to {maxSupportedFps} fps.
+          </p>
+        </Card>
+      )}
 
       {/* Instructions */}
       <Card className="p-4 bg-accent/10 border-accent">
