@@ -39,6 +39,10 @@ import {
   RectangleHorizontal,
   Square as SquareIcon,
   Smartphone,
+  Mic,
+  MicOff,
+  Focus,
+  Vibrate,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -160,6 +164,29 @@ export function VideoRecorder() {
     return (saved as AspectRatio) || "16:9";
   });
 
+  // Video Stabilization
+  const [stabilizationEnabled, setStabilizationEnabled] = useState(() => {
+    return localStorage.getItem("camera-stabilization") === "true";
+  });
+  const [hasStabilization, setHasStabilization] = useState(false);
+
+  // Audio Level Meter
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [peakAudioLevel, setPeakAudioLevel] = useState(0);
+  const [showAudioMeter, setShowAudioMeter] = useState(true);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioAnimationRef = useRef<number | null>(null);
+
+  // Face Detection
+  const [faceDetectionEnabled, setFaceDetectionEnabled] = useState(() => {
+    return localStorage.getItem("camera-face-detection") === "true";
+  });
+  const [hasFaceDetection, setHasFaceDetection] = useState(false);
+  const [detectedFaces, setDetectedFaces] = useState<{ x: number; y: number; width: number; height: number }[]>([]);
+  const faceDetectorRef = useRef<any>(null);
+  const faceDetectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const filterCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -234,6 +261,14 @@ export function VideoRecorder() {
     localStorage.setItem("camera-aspect-ratio", aspectRatio);
   }, [aspectRatio]);
 
+  useEffect(() => {
+    localStorage.setItem("camera-stabilization", stabilizationEnabled.toString());
+  }, [stabilizationEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem("camera-face-detection", faceDetectionEnabled.toString());
+  }, [faceDetectionEnabled]);
+
   // Update custom filters when preset changes
   useEffect(() => {
     if (!useCustomFilters) {
@@ -266,7 +301,7 @@ export function VideoRecorder() {
       }
       setIsPreviewing(true);
 
-      // Check for flash/torch and zoom capabilities
+      // Check for flash/torch, zoom, and stabilization capabilities
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {
         const capabilities = videoTrack.getCapabilities?.() as any;
@@ -287,7 +322,34 @@ export function VideoRecorder() {
           } else {
             setHasZoom(false);
           }
+
+          // Check for video stabilization
+          if (capabilities.videoStabilizationMode) {
+            setHasStabilization(true);
+            // Apply stabilization if enabled
+            if (stabilizationEnabled) {
+              try {
+                await videoTrack.applyConstraints({
+                  advanced: [{ videoStabilizationMode: "on" } as any],
+                });
+              } catch (e) {
+                console.warn("Failed to apply stabilization:", e);
+              }
+            }
+          } else {
+            setHasStabilization(false);
+          }
         }
+      }
+
+      // Set up audio level meter for video mode
+      if (captureMode === "video") {
+        setupAudioMeter(stream);
+      }
+
+      // Set up face detection if available and enabled
+      if (faceDetectionEnabled) {
+        setupFaceDetection();
       }
     } catch (error) {
       toast.error("Failed to access camera. Please check permissions.");
@@ -309,6 +371,7 @@ export function VideoRecorder() {
     setHasFlash(false);
     setHasZoom(false);
     setZoomLevel(1);
+    setHasStabilization(false);
     // Cancel any countdown
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
@@ -316,6 +379,10 @@ export function VideoRecorder() {
     }
     setIsCountingDown(false);
     setCountdownValue(null);
+    // Clean up audio meter
+    cleanupAudioMeter();
+    // Clean up face detection
+    cleanupFaceDetection();
   };
 
   const switchCamera = async () => {
@@ -737,6 +804,156 @@ export function VideoRecorder() {
     }
   };
 
+  // Audio level meter setup
+  const setupAudioMeter = (stream: MediaStream) => {
+    try {
+      const audioTrack = stream.getAudioTracks()[0];
+      if (!audioTrack) return;
+
+      const audioContext = new AudioContext();
+      const analyser = audioContext.createAnalyser();
+      const source = audioContext.createMediaStreamSource(stream);
+      
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.8;
+      source.connect(analyser);
+      
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      let peakDecay = 0;
+
+      const updateMeter = () => {
+        if (!analyserRef.current) return;
+        
+        analyserRef.current.getByteFrequencyData(dataArray);
+        
+        // Calculate RMS level
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i] * dataArray[i];
+        }
+        const rms = Math.sqrt(sum / dataArray.length);
+        const level = Math.min(100, (rms / 128) * 100);
+        
+        setAudioLevel(level);
+        
+        // Peak hold with decay
+        if (level > peakDecay) {
+          peakDecay = level;
+          setPeakAudioLevel(level);
+        } else {
+          peakDecay = Math.max(0, peakDecay - 0.5);
+          setPeakAudioLevel(peakDecay);
+        }
+        
+        audioAnimationRef.current = requestAnimationFrame(updateMeter);
+      };
+      
+      updateMeter();
+    } catch (error) {
+      console.warn("Failed to set up audio meter:", error);
+    }
+  };
+
+  const cleanupAudioMeter = () => {
+    if (audioAnimationRef.current) {
+      cancelAnimationFrame(audioAnimationRef.current);
+      audioAnimationRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    analyserRef.current = null;
+    setAudioLevel(0);
+    setPeakAudioLevel(0);
+  };
+
+  // Face detection setup
+  const setupFaceDetection = async () => {
+    try {
+      // Check if FaceDetector API is available (Chrome only)
+      if ('FaceDetector' in window) {
+        faceDetectorRef.current = new (window as any).FaceDetector({
+          fastMode: true,
+          maxDetectedFaces: 5,
+        });
+        setHasFaceDetection(true);
+        
+        // Start detection loop
+        faceDetectionIntervalRef.current = setInterval(async () => {
+          if (!videoRef.current || !faceDetectorRef.current) return;
+          
+          try {
+            const faces = await faceDetectorRef.current.detect(videoRef.current);
+            const videoWidth = videoRef.current.videoWidth;
+            const videoHeight = videoRef.current.videoHeight;
+            
+            setDetectedFaces(faces.map((face: any) => ({
+              x: (face.boundingBox.x / videoWidth) * 100,
+              y: (face.boundingBox.y / videoHeight) * 100,
+              width: (face.boundingBox.width / videoWidth) * 100,
+              height: (face.boundingBox.height / videoHeight) * 100,
+            })));
+          } catch (e) {
+            // Detection failed, ignore
+          }
+        }, 200);
+      } else {
+        setHasFaceDetection(false);
+        console.info("FaceDetector API not available in this browser");
+      }
+    } catch (error) {
+      console.warn("Failed to set up face detection:", error);
+      setHasFaceDetection(false);
+    }
+  };
+
+  const cleanupFaceDetection = () => {
+    if (faceDetectionIntervalRef.current) {
+      clearInterval(faceDetectionIntervalRef.current);
+      faceDetectionIntervalRef.current = null;
+    }
+    faceDetectorRef.current = null;
+    setDetectedFaces([]);
+  };
+
+  // Toggle stabilization
+  const toggleStabilization = async () => {
+    if (!streamRef.current || !hasStabilization) return;
+
+    const videoTrack = streamRef.current.getVideoTracks()[0];
+    if (videoTrack) {
+      try {
+        const newState = !stabilizationEnabled;
+        await videoTrack.applyConstraints({
+          advanced: [{ videoStabilizationMode: newState ? "on" : "off" } as any],
+        });
+        setStabilizationEnabled(newState);
+        toast.success(newState ? "Stabilization enabled" : "Stabilization disabled");
+      } catch (error) {
+        console.error("Failed to toggle stabilization:", error);
+        toast.error("Failed to toggle stabilization");
+      }
+    }
+  };
+
+  // Toggle face detection
+  const toggleFaceDetection = () => {
+    const newState = !faceDetectionEnabled;
+    setFaceDetectionEnabled(newState);
+    
+    if (newState && isPreviewing) {
+      setupFaceDetection();
+    } else {
+      cleanupFaceDetection();
+    }
+    
+    toast.success(newState ? "Face detection enabled" : "Face detection disabled");
+  };
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -831,6 +1048,40 @@ export function VideoRecorder() {
                 title="Burst mode"
               >
                 <Zap className="h-4 w-4" />
+              </Button>
+            )}
+
+            {/* Stabilization - video only, shown when camera supports it */}
+            {captureMode === "video" && hasStabilization && isPreviewing && (
+              <Button
+                variant={stabilizationEnabled ? "default" : "ghost"}
+                size="sm"
+                onClick={toggleStabilization}
+                title={stabilizationEnabled ? "Disable stabilization" : "Enable stabilization"}
+              >
+                <Vibrate className="h-4 w-4" />
+              </Button>
+            )}
+
+            {/* Face Detection */}
+            <Button
+              variant={faceDetectionEnabled ? "default" : "ghost"}
+              size="sm"
+              onClick={toggleFaceDetection}
+              title={faceDetectionEnabled ? "Disable face detection" : "Enable face detection"}
+            >
+              <Focus className="h-4 w-4" />
+            </Button>
+
+            {/* Audio Meter Toggle - video only */}
+            {captureMode === "video" && (
+              <Button
+                variant={showAudioMeter ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setShowAudioMeter(!showAudioMeter)}
+                title={showAudioMeter ? "Hide audio meter" : "Show audio meter"}
+              >
+                {showAudioMeter ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
               </Button>
             )}
             
@@ -1023,6 +1274,58 @@ export function VideoRecorder() {
               {/* Horizontal lines */}
               <div className="absolute top-1/3 left-0 right-0 h-px bg-white/30" />
               <div className="absolute top-2/3 left-0 right-0 h-px bg-white/30" />
+            </div>
+          )}
+
+          {/* Audio Level Meter - video mode only */}
+          {captureMode === "video" && showAudioMeter && isPreviewing && (
+            <div className="absolute left-2 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-1 bg-black/50 rounded-lg p-2">
+              <Mic className="h-4 w-4 text-white mb-1" />
+              <div className="h-24 w-3 bg-gray-700 rounded-full overflow-hidden relative">
+                {/* Audio level bar */}
+                <div
+                  className="absolute bottom-0 left-0 right-0 transition-all duration-75"
+                  style={{
+                    height: `${audioLevel}%`,
+                    background: audioLevel > 80 ? '#ef4444' : audioLevel > 60 ? '#eab308' : '#22c55e',
+                  }}
+                />
+                {/* Peak indicator */}
+                <div
+                  className="absolute left-0 right-0 h-0.5 bg-white transition-all duration-150"
+                  style={{ bottom: `${peakAudioLevel}%` }}
+                />
+              </div>
+              <span className="text-xs text-white font-mono">{Math.round(audioLevel)}%</span>
+            </div>
+          )}
+
+          {/* Face Detection Overlay */}
+          {faceDetectionEnabled && isPreviewing && detectedFaces.length > 0 && (
+            <div className="absolute inset-0 pointer-events-none z-10">
+              {detectedFaces.map((face, index) => (
+                <div
+                  key={index}
+                  className="absolute border-2 border-green-400 rounded-lg"
+                  style={{
+                    left: `${face.x}%`,
+                    top: `${face.y}%`,
+                    width: `${face.width}%`,
+                    height: `${face.height}%`,
+                  }}
+                >
+                  <div className="absolute -top-5 left-0 bg-green-400 text-black text-xs px-1 rounded">
+                    Face {index + 1}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Face Detection Indicator */}
+          {faceDetectionEnabled && isPreviewing && !hasFaceDetection && (
+            <div className="absolute top-2 left-2 z-20 bg-yellow-500/80 text-black text-xs px-2 py-1 rounded">
+              Face detection not supported
             </div>
           )}
 

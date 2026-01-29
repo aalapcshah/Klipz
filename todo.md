@@ -4265,3 +4265,16 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add flash/torch toggle for low-light capture
 - [x] Add zoom controls (vertical slider with zoom in/out buttons)
 - [x] Add aspect ratio options (16:9, 4:3, 1:1 square)
+
+
+## Advanced Camera Features - January 28, 2026 (Completed)
+- [x] Add video stabilization toggle for smoother recordings
+- [x] Implement digital stabilization using MediaStreamTrack constraints
+- [x] Add audio level meter showing real-time input levels
+- [x] Create visual audio meter component with peak indicators
+- [x] Add face detection autofocus capability (using FaceDetector API)
+- [x] Implement face tracking to keep subjects in focus
+- [x] Show face detection indicator on camera preview
+- [ ] Test stabilization on mobile devices (requires user testing)
+- [ ] Test audio meter accuracy (requires user testing)
+- [ ] Test face detection performance (requires user testing)
