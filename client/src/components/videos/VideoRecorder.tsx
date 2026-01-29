@@ -50,18 +50,47 @@ import {
   Pause,
   SkipBack,
   SkipForward,
+  Type,
+  ImagePlus,
+  Monitor,
+  Layers,
+  Plus,
+  Trash2,
+  GripVertical,
+  Move,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { uploadFileToStorage } from "@/lib/storage";
 
 type CameraFacing = "user" | "environment";
-type CaptureMode = "video" | "photo";
+type CaptureMode = "video" | "photo" | "screen";
 type VideoQuality = "720p" | "1080p" | "4k";
 type FilterPreset = "normal" | "vivid" | "warm" | "cool" | "bw" | "sepia";
 type TimerDuration = 0 | 3 | 5 | 10;
 type AspectRatio = "16:9" | "4:3" | "1:1";
 type SlowMotionFps = 30 | 60 | 120 | 240;
+type WatermarkPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center";
+type RecordingSource = "camera" | "screen" | "both";
+
+interface WatermarkSettings {
+  enabled: boolean;
+  text: string;
+  position: WatermarkPosition;
+  opacity: number;
+  fontSize: number;
+  color: string;
+  imageUrl?: string;
+  useImage: boolean;
+}
+
+interface VideoClip {
+  id: string;
+  blob: Blob;
+  url: string;
+  duration: number;
+  thumbnail?: string;
+}
 
 interface QualitySettings {
   width: number;
@@ -215,6 +244,28 @@ export function VideoRecorder() {
   // Picture-in-Picture
   const [isPipActive, setIsPipActive] = useState(false);
   const [pipSupported, setPipSupported] = useState(false);
+
+  // Watermark Settings
+  const [showWatermarkSettings, setShowWatermarkSettings] = useState(false);
+  const [watermark, setWatermark] = useState<WatermarkSettings>({
+    enabled: false,
+    text: "Synclips",
+    position: "bottom-right",
+    opacity: 70,
+    fontSize: 24,
+    color: "#ffffff",
+    useImage: false,
+  });
+
+  // Screen Recording
+  const [recordingSource, setRecordingSource] = useState<RecordingSource>("camera");
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+  const screenVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Video Clips (for concatenation)
+  const [videoClips, setVideoClips] = useState<VideoClip[]>([]);
+  const [showClipManager, setShowClipManager] = useState(false);
+  const [isMergingClips, setIsMergingClips] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1102,6 +1153,235 @@ export function VideoRecorder() {
     }
   };
 
+  // Screen Recording Functions
+  const startScreenRecording = async () => {
+    try {
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { ideal: QUALITY_PRESETS[videoQuality].width },
+          height: { ideal: QUALITY_PRESETS[videoQuality].height },
+        },
+        audio: true,
+      });
+      
+      setScreenStream(displayStream);
+      
+      if (recordingSource === "both" && streamRef.current) {
+        // Combine screen and camera streams
+        const combinedStream = new MediaStream([
+          ...displayStream.getVideoTracks(),
+          ...streamRef.current.getAudioTracks(),
+        ]);
+        startRecordingWithStream(combinedStream);
+      } else {
+        startRecordingWithStream(displayStream);
+      }
+      
+      // Handle screen share stop
+      displayStream.getVideoTracks()[0].addEventListener('ended', () => {
+        stopRecording();
+        setScreenStream(null);
+        toast.info("Screen sharing ended");
+      });
+      
+      setIsPreviewing(true);
+      toast.success("Screen recording started");
+    } catch (error) {
+      console.error("Screen recording error:", error);
+      toast.error("Failed to start screen recording");
+    }
+  };
+
+  const startRecordingWithStream = (stream: MediaStream) => {
+    chunksRef.current = [];
+    const mediaRecorder = new MediaRecorder(stream, {
+      mimeType: "video/webm;codecs=vp9",
+    });
+    
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        chunksRef.current.push(e.data);
+      }
+    };
+    
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      setRecordedBlob(blob);
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+        videoRef.current.src = URL.createObjectURL(blob);
+      }
+    };
+    
+    mediaRecorderRef.current = mediaRecorder;
+    mediaRecorder.start();
+    setIsRecording(true);
+    
+    timerRef.current = setInterval(() => {
+      setRecordingTime((prev) => prev + 1);
+    }, 1000);
+  };
+
+  // Watermark Functions
+  const applyWatermarkToVideo = async (videoBlob: Blob): Promise<Blob> => {
+    if (!watermark.enabled) return videoBlob;
+    
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.src = URL.createObjectURL(videoBlob);
+      video.muted = true;
+      
+      video.onloadedmetadata = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d')!;
+        
+        const chunks: Blob[] = [];
+        const stream = canvas.captureStream(30);
+        const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+        
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunks.push(e.data);
+        };
+        
+        recorder.onstop = () => {
+          resolve(new Blob(chunks, { type: 'video/webm' }));
+          URL.revokeObjectURL(video.src);
+        };
+        
+        const drawFrame = () => {
+          ctx.drawImage(video, 0, 0);
+          drawWatermark(ctx, canvas.width, canvas.height);
+          
+          if (!video.ended) {
+            requestAnimationFrame(drawFrame);
+          } else {
+            recorder.stop();
+          }
+        };
+        
+        recorder.start();
+        video.play();
+        drawFrame();
+      };
+    });
+  };
+
+  const drawWatermark = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    ctx.save();
+    ctx.globalAlpha = watermark.opacity / 100;
+    
+    const padding = 20;
+    let x = padding;
+    let y = padding;
+    
+    switch (watermark.position) {
+      case "top-right":
+        x = width - padding;
+        ctx.textAlign = "right";
+        break;
+      case "bottom-left":
+        y = height - padding;
+        break;
+      case "bottom-right":
+        x = width - padding;
+        y = height - padding;
+        ctx.textAlign = "right";
+        break;
+      case "center":
+        x = width / 2;
+        y = height / 2;
+        ctx.textAlign = "center";
+        break;
+      default:
+        ctx.textAlign = "left";
+    }
+    
+    ctx.font = `bold ${watermark.fontSize}px Arial`;
+    ctx.fillStyle = watermark.color;
+    ctx.shadowColor = "rgba(0,0,0,0.5)";
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+    ctx.fillText(watermark.text, x, y);
+    
+    ctx.restore();
+  };
+
+  // Video Clip Management Functions
+  const addCurrentVideoToClips = () => {
+    if (!recordedBlob) return;
+    
+    const newClip: VideoClip = {
+      id: Date.now().toString(),
+      blob: recordedBlob,
+      url: URL.createObjectURL(recordedBlob),
+      duration: recordingTime,
+    };
+    
+    setVideoClips((prev) => [...prev, newClip]);
+    setRecordedBlob(null);
+    setRecordingTime(0);
+    toast.success("Clip added to collection");
+  };
+
+  const removeClip = (clipId: string) => {
+    setVideoClips((prev) => {
+      const clip = prev.find((c) => c.id === clipId);
+      if (clip) URL.revokeObjectURL(clip.url);
+      return prev.filter((c) => c.id !== clipId);
+    });
+  };
+
+  const moveClip = (fromIndex: number, toIndex: number) => {
+    setVideoClips((prev) => {
+      const newClips = [...prev];
+      const [removed] = newClips.splice(fromIndex, 1);
+      newClips.splice(toIndex, 0, removed);
+      return newClips;
+    });
+  };
+
+  const mergeClips = async () => {
+    if (videoClips.length < 2) {
+      toast.error("Need at least 2 clips to merge");
+      return;
+    }
+    
+    setIsMergingClips(true);
+    toast.info("Merging clips...");
+    
+    try {
+      // Create a combined blob from all clips
+      const combinedBlobs = videoClips.map((c) => c.blob);
+      const mergedBlob = new Blob(combinedBlobs, { type: "video/webm" });
+      
+      // Calculate total duration
+      const totalDuration = videoClips.reduce((sum, c) => sum + c.duration, 0);
+      
+      // Clean up old clips
+      videoClips.forEach((c) => URL.revokeObjectURL(c.url));
+      setVideoClips([]);
+      
+      // Set merged video as current
+      setRecordedBlob(mergedBlob);
+      setRecordingTime(totalDuration);
+      
+      if (videoRef.current) {
+        videoRef.current.src = URL.createObjectURL(mergedBlob);
+      }
+      
+      setShowClipManager(false);
+      toast.success(`Merged ${combinedBlobs.length} clips (${formatTime(totalDuration)})`);
+    } catch (error) {
+      console.error("Merge error:", error);
+      toast.error("Failed to merge clips");
+    } finally {
+      setIsMergingClips(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -1125,6 +1405,15 @@ export function VideoRecorder() {
             >
               <Image className="h-4 w-4 mr-1" />
               Photo
+            </Button>
+            <Button
+              variant={captureMode === "screen" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCaptureMode("screen")}
+              disabled={isPreviewing || !!recordedBlob || !!capturedPhoto || burstPhotos.length > 0}
+            >
+              <Monitor className="h-4 w-4 mr-1" />
+              Screen
             </Button>
           </div>
           
@@ -1256,6 +1545,31 @@ export function VideoRecorder() {
                 title={isPipActive ? "Exit Picture-in-Picture" : "Picture-in-Picture"}
               >
                 <PictureInPicture2 className="h-4 w-4" />
+              </Button>
+            )}
+
+            {/* Watermark - video and screen modes */}
+            {(captureMode === "video" || captureMode === "screen") && (
+              <Button
+                variant={watermark.enabled ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setShowWatermarkSettings(!showWatermarkSettings)}
+                title="Watermark settings"
+              >
+                <Type className="h-4 w-4" />
+              </Button>
+            )}
+
+            {/* Clip Manager - video mode */}
+            {captureMode === "video" && videoClips.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowClipManager(!showClipManager)}
+                title={`Manage clips (${videoClips.length})`}
+              >
+                <Layers className="h-4 w-4" />
+                <span className="ml-1 text-xs">{videoClips.length}</span>
               </Button>
             )}
             
@@ -1429,6 +1743,189 @@ export function VideoRecorder() {
             
             <p className="text-xs text-muted-foreground">
               Note: Quality settings apply when you start the camera. 4K requires device support.
+            </p>
+          </div>
+        )}
+
+        {/* Watermark Settings Panel */}
+        {showWatermarkSettings && (captureMode === "video" || captureMode === "screen") && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Watermark</span>
+              <Button
+                variant={watermark.enabled ? "default" : "outline"}
+                size="sm"
+                onClick={() => setWatermark({ ...watermark, enabled: !watermark.enabled })}
+              >
+                {watermark.enabled ? "Enabled" : "Disabled"}
+              </Button>
+            </div>
+            
+            {watermark.enabled && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Text</label>
+                  <input
+                    type="text"
+                    value={watermark.text}
+                    onChange={(e) => setWatermark({ ...watermark, text: e.target.value })}
+                    className="w-full px-3 py-2 rounded-md border bg-background text-sm"
+                    placeholder="Enter watermark text"
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Position</span>
+                  <Select
+                    value={watermark.position}
+                    onValueChange={(v) => setWatermark({ ...watermark, position: v as WatermarkPosition })}
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="top-left">Top Left</SelectItem>
+                      <SelectItem value="top-right">Top Right</SelectItem>
+                      <SelectItem value="bottom-left">Bottom Left</SelectItem>
+                      <SelectItem value="bottom-right">Bottom Right</SelectItem>
+                      <SelectItem value="center">Center</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Opacity: {watermark.opacity}%</span>
+                  </div>
+                  <Slider
+                    value={[watermark.opacity]}
+                    onValueChange={([v]) => setWatermark({ ...watermark, opacity: v })}
+                    min={10}
+                    max={100}
+                    step={5}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Font Size: {watermark.fontSize}px</span>
+                  </div>
+                  <Slider
+                    value={[watermark.fontSize]}
+                    onValueChange={([v]) => setWatermark({ ...watermark, fontSize: v })}
+                    min={12}
+                    max={72}
+                    step={2}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Color</span>
+                  <input
+                    type="color"
+                    value={watermark.color}
+                    onChange={(e) => setWatermark({ ...watermark, color: e.target.value })}
+                    className="w-10 h-10 rounded cursor-pointer"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Clip Manager Panel */}
+        {showClipManager && videoClips.length > 0 && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Video Clips ({videoClips.length})</span>
+              <Button
+                size="sm"
+                onClick={mergeClips}
+                disabled={videoClips.length < 2 || isMergingClips}
+              >
+                {isMergingClips ? (
+                  <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Merging...</>
+                ) : (
+                  <><Layers className="h-4 w-4 mr-1" /> Merge All</>
+                )}
+              </Button>
+            </div>
+            
+            <div className="space-y-2">
+              {videoClips.map((clip, index) => (
+                <div
+                  key={clip.id}
+                  className="flex items-center gap-2 p-2 bg-background rounded-lg"
+                >
+                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
+                  <div className="w-16 h-10 bg-black rounded overflow-hidden">
+                    <video src={clip.url} className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Clip {index + 1}</p>
+                    <p className="text-xs text-muted-foreground">{formatTime(clip.duration)}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {index > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => moveClip(index, index - 1)}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {index < videoClips.length - 1 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => moveClip(index, index + 1)}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeClip(clip.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <p className="text-xs text-muted-foreground">
+              Total duration: {formatTime(videoClips.reduce((sum, c) => sum + c.duration, 0))}
+            </p>
+          </div>
+        )}
+
+        {/* Screen Recording Source Selection */}
+        {captureMode === "screen" && !isPreviewing && !recordedBlob && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-3">
+            <span className="text-sm font-medium">Recording Source</span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={recordingSource === "screen" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setRecordingSource("screen")}
+              >
+                <Monitor className="h-4 w-4 mr-1" />
+                Screen Only
+              </Button>
+              <Button
+                variant={recordingSource === "both" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setRecordingSource("both")}
+              >
+                <Layers className="h-4 w-4 mr-1" />
+                Screen + Mic
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Click "Start Recording" to select which screen, window, or tab to record.
             </p>
           </div>
         )}
@@ -1681,10 +2178,18 @@ export function VideoRecorder() {
         {/* Controls */}
         <div className="flex items-center justify-center gap-4 flex-wrap">
           {/* Start Camera */}
-          {!isPreviewing && !recordedBlob && !photoPreviewUrl && burstPhotos.length === 0 && (
+          {!isPreviewing && !recordedBlob && !photoPreviewUrl && burstPhotos.length === 0 && captureMode !== "screen" && (
             <Button onClick={startCamera} size="lg">
               <Camera className="h-5 w-5 mr-2" />
               Start Camera
+            </Button>
+          )}
+
+          {/* Start Screen Recording */}
+          {!isPreviewing && !recordedBlob && captureMode === "screen" && (
+            <Button onClick={startScreenRecording} size="lg">
+              <Monitor className="h-5 w-5 mr-2" />
+              Start Recording
             </Button>
           )}
 
@@ -1767,6 +2272,10 @@ export function VideoRecorder() {
               <Button onClick={openTrimmer} variant="outline">
                 <Scissors className="h-4 w-4 mr-2" />
                 Trim
+              </Button>
+              <Button onClick={addCurrentVideoToClips} variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Add to Clips
               </Button>
               <Button onClick={handleUploadVideo} size="lg">
                 <Upload className="h-5 w-5 mr-2" />

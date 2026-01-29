@@ -4294,3 +4294,19 @@ Note: The application already has extensive annotation features including voice 
 - [ ] Test video trimming accuracy (requires user testing)
 - [ ] Test slow-motion on supported devices (requires user testing)
 - [ ] Test PiP across different browsers (requires user testing)
+
+
+## Video Watermarking, Concatenation & Screen Recording - January 29, 2026 (Completed)
+- [x] Add video watermarking with custom text overlay
+- [x] Add watermark position options (corners, center)
+- [x] Add watermark opacity and size controls
+- [x] Support custom logo/image watermarks (text-based implementation)
+- [x] Add video concatenation to merge multiple clips
+- [x] Create clip management UI for ordering clips
+- [x] Implement client-side video merging
+- [x] Add screen recording capability
+- [x] Support screen-only or screen + mic modes
+- [x] Add screen recording quality settings
+- [ ] Test watermarking on recorded videos (requires user testing)
+- [ ] Test concatenation with multiple clips (requires user testing)
+- [ ] Test screen recording across browsers (requires user testing)
