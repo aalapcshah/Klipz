@@ -4356,3 +4356,18 @@ Note: The application already has extensive annotation features including voice 
 - [x] Support audio playback preview before upload
 - [ ] Test thumbnail generation accuracy (requires user testing)
 - [ ] Test audio recording quality (requires user testing)
+
+
+## Voice Commands & Background Music - January 29, 2026 (Completed)
+- [x] Add voice commands for hands-free camera control
+- [x] Implement Web Speech API for voice recognition
+- [x] Support commands: "start recording", "stop recording", "take photo", "switch camera", "capture", "cheese"
+- [x] Add visual feedback when voice command is recognized
+- [x] Add voice command toggle button in toolbar with listening indicator
+- [x] Add background music overlay for recorded videos
+- [x] Create music track selector UI with file picker
+- [x] Allow volume adjustment for both music and original audio
+- [x] Mix audio tracks (original + music) using Web Audio API
+- [x] Support fade in/out for music tracks
+- [ ] Test voice recognition accuracy (requires user testing)
+- [ ] Test audio mixing quality (requires user testing)

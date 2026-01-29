@@ -66,6 +66,9 @@ import {
   Headphones,
   Music,
   ImageIcon,
+  MessageCircle,
+  Music2,
+  Volume1,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -377,6 +380,24 @@ export function VideoRecorder() {
   const audioRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const waveformAnimationRef = useRef<number | null>(null);
+
+  // Voice Commands
+  const [voiceCommandsEnabled, setVoiceCommandsEnabled] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [lastVoiceCommand, setLastVoiceCommand] = useState<string | null>(null);
+  const [voiceCommandFeedback, setVoiceCommandFeedback] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+
+  // Background Music
+  const [showMusicPanel, setShowMusicPanel] = useState(false);
+  const [backgroundMusicUrl, setBackgroundMusicUrl] = useState<string | null>(null);
+  const [backgroundMusicFile, setBackgroundMusicFile] = useState<File | null>(null);
+  const [musicVolume, setMusicVolume] = useState(30);
+  const [originalVolume, setOriginalVolume] = useState(100);
+  const [musicFadeIn, setMusicFadeIn] = useState(true);
+  const [musicFadeOut, setMusicFadeOut] = useState(true);
+  const [isMixingAudio, setIsMixingAudio] = useState(false);
+  const musicInputRef = useRef<HTMLInputElement>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1866,6 +1887,277 @@ export function VideoRecorder() {
     setRecordingTime(0);
   };
 
+  // Voice Commands Functions
+  const initVoiceCommands = useCallback(() => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      toast.error("Voice commands not supported in this browser");
+      return;
+    }
+
+    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognitionAPI();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event: any) => {
+      const last = event.results.length - 1;
+      const command = event.results[last][0].transcript.toLowerCase().trim();
+      setLastVoiceCommand(command);
+      processVoiceCommand(command);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Voice recognition error:', event.error);
+      if (event.error === 'no-speech') {
+        // Restart listening
+        setTimeout(() => {
+          if (voiceCommandsEnabled && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+            } catch (e) {
+              // Already started
+            }
+          }
+        }, 100);
+      }
+    };
+
+    recognition.onend = () => {
+      if (voiceCommandsEnabled) {
+        try {
+          recognition.start();
+        } catch (e) {
+          // Already started
+        }
+      } else {
+        setIsListening(false);
+      }
+    };
+
+    recognitionRef.current = recognition;
+  }, [voiceCommandsEnabled]);
+
+  const processVoiceCommand = useCallback((command: string) => {
+    const showFeedback = (msg: string) => {
+      setVoiceCommandFeedback(msg);
+      setTimeout(() => setVoiceCommandFeedback(null), 2000);
+    };
+
+    if (command.includes('start') && command.includes('record')) {
+      if (isPreviewing && !isRecording && captureMode === 'video') {
+        showFeedback('Starting recording...');
+        handleRecordWithTimer();
+      } else if (!isPreviewing && captureMode !== 'screen' && captureMode !== 'audio') {
+        showFeedback('Starting camera...');
+        startCamera();
+      }
+    } else if (command.includes('stop') && command.includes('record')) {
+      if (isRecording) {
+        showFeedback('Stopping recording...');
+        stopRecording();
+      }
+    } else if (command.includes('take') && command.includes('photo')) {
+      if (isPreviewing && captureMode === 'photo') {
+        showFeedback('Taking photo...');
+        capturePhoto();
+      }
+    } else if (command.includes('switch') && command.includes('camera')) {
+      if (isPreviewing && hasMultipleCameras) {
+        showFeedback('Switching camera...');
+        switchCamera();
+      }
+    } else if (command.includes('stop') && command.includes('camera')) {
+      if (isPreviewing) {
+        showFeedback('Stopping camera...');
+        stopCamera();
+      }
+    } else if (command.includes('capture') || command.includes('cheese')) {
+      if (isPreviewing && captureMode === 'photo') {
+        showFeedback('Capturing...');
+        capturePhoto();
+      }
+    }
+  }, [isPreviewing, isRecording, captureMode, hasMultipleCameras]);
+
+  const toggleVoiceCommands = useCallback(() => {
+    if (!voiceCommandsEnabled) {
+      initVoiceCommands();
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+          setIsListening(true);
+          setVoiceCommandsEnabled(true);
+          toast.success('Voice commands enabled. Try saying "start recording" or "take photo"');
+        } catch (e) {
+          toast.error('Failed to start voice recognition');
+        }
+      }
+    } else {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsListening(false);
+      setVoiceCommandsEnabled(false);
+      toast.info('Voice commands disabled');
+    }
+  }, [voiceCommandsEnabled, initVoiceCommands]);
+
+  // Background Music Functions
+  const handleMusicFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('audio/')) {
+        toast.error('Please select an audio file');
+        return;
+      }
+      setBackgroundMusicFile(file);
+      if (backgroundMusicUrl) {
+        URL.revokeObjectURL(backgroundMusicUrl);
+      }
+      setBackgroundMusicUrl(URL.createObjectURL(file));
+      toast.success(`Music loaded: ${file.name}`);
+    }
+  };
+
+  const removeMusicTrack = () => {
+    if (backgroundMusicUrl) {
+      URL.revokeObjectURL(backgroundMusicUrl);
+    }
+    setBackgroundMusicFile(null);
+    setBackgroundMusicUrl(null);
+  };
+
+  const mixAudioWithMusic = async (): Promise<Blob | null> => {
+    if (!recordedBlob || !backgroundMusicFile) return null;
+
+    setIsMixingAudio(true);
+    try {
+      const audioContext = new AudioContext();
+      
+      // Load video audio
+      const videoArrayBuffer = await recordedBlob.arrayBuffer();
+      const videoAudioBuffer = await audioContext.decodeAudioData(videoArrayBuffer.slice(0));
+      
+      // Load music
+      const musicArrayBuffer = await backgroundMusicFile.arrayBuffer();
+      const musicAudioBuffer = await audioContext.decodeAudioData(musicArrayBuffer);
+      
+      // Create offline context for mixing
+      const duration = videoAudioBuffer.duration;
+      const offlineContext = new OfflineAudioContext(
+        2,
+        Math.ceil(duration * audioContext.sampleRate),
+        audioContext.sampleRate
+      );
+      
+      // Video audio source
+      const videoSource = offlineContext.createBufferSource();
+      videoSource.buffer = videoAudioBuffer;
+      const videoGain = offlineContext.createGain();
+      videoGain.gain.value = originalVolume / 100;
+      videoSource.connect(videoGain);
+      videoGain.connect(offlineContext.destination);
+      
+      // Music source
+      const musicSource = offlineContext.createBufferSource();
+      musicSource.buffer = musicAudioBuffer;
+      musicSource.loop = true;
+      const musicGain = offlineContext.createGain();
+      
+      // Apply fade in/out
+      const fadeTime = 1; // 1 second fade
+      if (musicFadeIn) {
+        musicGain.gain.setValueAtTime(0, 0);
+        musicGain.gain.linearRampToValueAtTime(musicVolume / 100, fadeTime);
+      } else {
+        musicGain.gain.value = musicVolume / 100;
+      }
+      
+      if (musicFadeOut) {
+        musicGain.gain.setValueAtTime(musicVolume / 100, duration - fadeTime);
+        musicGain.gain.linearRampToValueAtTime(0, duration);
+      }
+      
+      musicSource.connect(musicGain);
+      musicGain.connect(offlineContext.destination);
+      
+      // Start sources
+      videoSource.start(0);
+      musicSource.start(0);
+      
+      // Render
+      const renderedBuffer = await offlineContext.startRendering();
+      
+      // Convert to blob
+      const wavBlob = audioBufferToWav(renderedBuffer);
+      
+      toast.success('Audio mixed successfully!');
+      return wavBlob;
+    } catch (error) {
+      console.error('Audio mixing failed:', error);
+      toast.error('Failed to mix audio. Uploading original video.');
+      return null;
+    } finally {
+      setIsMixingAudio(false);
+    }
+  };
+
+  // Helper function to convert AudioBuffer to WAV blob
+  const audioBufferToWav = (buffer: AudioBuffer): Blob => {
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const format = 1; // PCM
+    const bitDepth = 16;
+    
+    const bytesPerSample = bitDepth / 8;
+    const blockAlign = numChannels * bytesPerSample;
+    
+    const dataLength = buffer.length * blockAlign;
+    const bufferLength = 44 + dataLength;
+    
+    const arrayBuffer = new ArrayBuffer(bufferLength);
+    const view = new DataView(arrayBuffer);
+    
+    // WAV header
+    const writeString = (offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) {
+        view.setUint8(offset + i, str.charCodeAt(i));
+      }
+    };
+    
+    writeString(0, 'RIFF');
+    view.setUint32(4, bufferLength - 8, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, format, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * blockAlign, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitDepth, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataLength, true);
+    
+    // Write audio data
+    const channels: Float32Array[] = [];
+    for (let i = 0; i < numChannels; i++) {
+      channels.push(buffer.getChannelData(i));
+    }
+    
+    let offset = 44;
+    for (let i = 0; i < buffer.length; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        const sample = Math.max(-1, Math.min(1, channels[ch][i]));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+        offset += 2;
+      }
+    }
+    
+    return new Blob([arrayBuffer], { type: 'audio/wav' });
+  };
+
   // Audio Ducking Functions
   const startVoiceDetection = () => {
     if (!audioDucking.enabled || !analyserRef.current) return;
@@ -2239,6 +2531,29 @@ export function VideoRecorder() {
             >
               <span className="text-xs font-mono">⌨</span>
             </Button>
+
+            {/* Voice Commands */}
+            <Button
+              variant={voiceCommandsEnabled ? "default" : "ghost"}
+              size="sm"
+              onClick={toggleVoiceCommands}
+              title={voiceCommandsEnabled ? "Disable voice commands" : "Enable voice commands"}
+              className={isListening ? "animate-pulse" : ""}
+            >
+              <MessageCircle className="h-4 w-4" />
+            </Button>
+
+            {/* Background Music - video mode */}
+            {(captureMode === "video" || captureMode === "screen") && (
+              <Button
+                variant={backgroundMusicFile ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setShowMusicPanel(!showMusicPanel)}
+                title="Background music"
+              >
+                <Music2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
 
@@ -2440,6 +2755,108 @@ export function VideoRecorder() {
             <p className="text-xs text-muted-foreground">
               Note: Quality settings apply when you start the camera. 4K requires device support.
             </p>
+          </div>
+        )}
+
+        {/* Background Music Panel */}
+        {showMusicPanel && (captureMode === "video" || captureMode === "screen") && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Background Music</span>
+              <input
+                ref={musicInputRef}
+                type="file"
+                accept="audio/*"
+                onChange={handleMusicFileSelect}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => musicInputRef.current?.click()}
+              >
+                <Music className="h-4 w-4 mr-2" />
+                {backgroundMusicFile ? "Change" : "Select"}
+              </Button>
+            </div>
+
+            {backgroundMusicFile && (
+              <>
+                <div className="flex items-center gap-2 p-2 bg-background rounded-md">
+                  <Music2 className="h-4 w-4 text-primary" />
+                  <span className="text-sm flex-1 truncate">{backgroundMusicFile.name}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={removeMusicTrack}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Music Volume: {musicVolume}%</span>
+                  </div>
+                  <Slider
+                    value={[musicVolume]}
+                    onValueChange={([v]) => setMusicVolume(v)}
+                    min={0}
+                    max={100}
+                    step={5}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Original Audio: {originalVolume}%</span>
+                  </div>
+                  <Slider
+                    value={[originalVolume]}
+                    onValueChange={([v]) => setOriginalVolume(v)}
+                    min={0}
+                    max={100}
+                    step={5}
+                  />
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={musicFadeIn}
+                      onChange={(e) => setMusicFadeIn(e.target.checked)}
+                      className="rounded"
+                    />
+                    Fade In
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={musicFadeOut}
+                      onChange={(e) => setMusicFadeOut(e.target.checked)}
+                      className="rounded"
+                    />
+                    Fade Out
+                  </label>
+                </div>
+
+                {backgroundMusicUrl && (
+                  <div className="space-y-2">
+                    <span className="text-sm">Preview:</span>
+                    <audio
+                      src={backgroundMusicUrl}
+                      controls
+                      className="w-full h-8"
+                    />
+                  </div>
+                )}
+
+                <p className="text-xs text-muted-foreground">
+                  Music will be mixed with your recording when you upload. Adjust volumes to balance audio.
+                </p>
+              </>
+            )}
           </div>
         )}
 
@@ -2931,6 +3348,24 @@ export function VideoRecorder() {
           {faceDetectionEnabled && isPreviewing && !hasFaceDetection && (
             <div className="absolute top-2 left-2 z-20 bg-yellow-500/80 text-black text-xs px-2 py-1 rounded">
               Face detection not supported
+            </div>
+          )}
+
+          {/* Voice Command Feedback */}
+          {voiceCommandFeedback && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 bg-primary text-primary-foreground px-6 py-3 rounded-lg text-lg font-medium animate-pulse shadow-lg">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="h-5 w-5" />
+                {voiceCommandFeedback}
+              </div>
+            </div>
+          )}
+
+          {/* Voice Command Listening Indicator */}
+          {isListening && !voiceCommandFeedback && isPreviewing && (
+            <div className="absolute top-2 right-2 z-20 bg-primary/80 text-primary-foreground text-xs px-2 py-1 rounded flex items-center gap-1">
+              <MessageCircle className="h-3 w-3 animate-pulse" />
+              Listening...
             </div>
           )}
 
