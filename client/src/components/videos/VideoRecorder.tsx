@@ -20,7 +20,7 @@ import {
   Camera,
   SwitchCamera,
   Settings,
-  Image,
+
   Zap,
   Sun,
   Contrast,
@@ -69,6 +69,9 @@ import {
   MessageCircle,
   Music2,
   Volume1,
+  Subtitles,
+  Eraser,
+  Paintbrush,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -87,6 +90,34 @@ type TransitionType = "none" | "fade" | "dissolve" | "wipe-left" | "wipe-right" 
 type PipPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 type RecordingTemplate = "screen-only" | "camera-only" | "pip-corner" | "pip-side";
 type ExportFormat = "webm" | "mp4" | "gif";
+type ChromaKeyColor = "green" | "blue" | "custom";
+type BackgroundType = "none" | "blur" | "color" | "image";
+
+interface CaptionSegment {
+  id: string;
+  text: string;
+  startTime: number;
+  endTime: number;
+}
+
+interface CaptionStyle {
+  fontSize: number;
+  color: string;
+  backgroundColor: string;
+  position: "top" | "bottom";
+}
+
+interface ChromaKeySettings {
+  enabled: boolean;
+  color: ChromaKeyColor;
+  customColor: string;
+  tolerance: number;
+  smoothness: number;
+  backgroundType: BackgroundType;
+  backgroundColor: string;
+  backgroundImage: string | null;
+  blurAmount: number;
+}
 
 interface KeyboardShortcuts {
   record: string;
@@ -398,6 +429,39 @@ export function VideoRecorder() {
   const [musicFadeOut, setMusicFadeOut] = useState(true);
   const [isMixingAudio, setIsMixingAudio] = useState(false);
   const musicInputRef = useRef<HTMLInputElement>(null);
+
+  // Captions/Subtitles
+  const [captionsEnabled, setCaptionsEnabled] = useState(false);
+  const [showCaptionSettings, setShowCaptionSettings] = useState(false);
+  const [captions, setCaptions] = useState<CaptionSegment[]>([]);
+  const [currentCaption, setCurrentCaption] = useState<string>("");
+  const [captionStyle, setCaptionStyle] = useState<CaptionStyle>({
+    fontSize: 24,
+    color: "#ffffff",
+    backgroundColor: "rgba(0,0,0,0.7)",
+    position: "bottom",
+  });
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const captionRecognitionRef = useRef<any>(null);
+  const captionStartTimeRef = useRef<number>(0);
+
+  // Chroma Key / Green Screen
+  const [showChromaKeySettings, setShowChromaKeySettings] = useState(false);
+  const [chromaKey, setChromaKey] = useState<ChromaKeySettings>({
+    enabled: false,
+    color: "green",
+    customColor: "#00ff00",
+    tolerance: 40,
+    smoothness: 10,
+    backgroundType: "blur",
+    backgroundColor: "#000000",
+    backgroundImage: null,
+    blurAmount: 15,
+  });
+  const chromaCanvasRef = useRef<HTMLCanvasElement>(null);
+  const chromaAnimationRef = useRef<number | null>(null);
+  const backgroundImageRef = useRef<HTMLImageElement | null>(null);
+  const chromaBackgroundInputRef = useRef<HTMLInputElement>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -2276,6 +2340,251 @@ export function VideoRecorder() {
     }
   };
 
+  // Caption/Subtitle Functions
+  const startCaptionTranscription = useCallback(() => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      toast.error("Speech recognition not supported in this browser");
+      return;
+    }
+
+    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognitionAPI();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    captionStartTimeRef.current = Date.now();
+
+    recognition.onresult = (event: any) => {
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+          // Add to captions array
+          const now = Date.now();
+          const startTime = (now - captionStartTimeRef.current - 2000) / 1000; // Approximate start
+          const endTime = (now - captionStartTimeRef.current) / 1000;
+          setCaptions(prev => [...prev, {
+            id: `caption-${Date.now()}`,
+            text: transcript.trim(),
+            startTime: Math.max(0, startTime),
+            endTime,
+          }]);
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      setCurrentCaption(interimTranscript || finalTranscript);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Caption recognition error:', event.error);
+      if (event.error === 'no-speech') {
+        // Continue listening
+        setTimeout(() => {
+          if (captionsEnabled && captionRecognitionRef.current) {
+            try {
+              captionRecognitionRef.current.start();
+            } catch (e) {
+              // Already started
+            }
+          }
+        }, 100);
+      }
+    };
+
+    recognition.onend = () => {
+      if (captionsEnabled && isRecording) {
+        try {
+          recognition.start();
+        } catch (e) {
+          // Already started
+        }
+      }
+    };
+
+    captionRecognitionRef.current = recognition;
+    recognition.start();
+    setIsTranscribing(true);
+    toast.success("Caption transcription started");
+  }, [captionsEnabled, isRecording]);
+
+  const stopCaptionTranscription = useCallback(() => {
+    if (captionRecognitionRef.current) {
+      captionRecognitionRef.current.stop();
+      captionRecognitionRef.current = null;
+    }
+    setIsTranscribing(false);
+    setCurrentCaption("");
+  }, []);
+
+  const toggleCaptions = useCallback(() => {
+    if (!captionsEnabled) {
+      setCaptionsEnabled(true);
+      if (isRecording) {
+        startCaptionTranscription();
+      }
+      toast.success("Captions enabled - will transcribe during recording");
+    } else {
+      setCaptionsEnabled(false);
+      stopCaptionTranscription();
+      toast.info("Captions disabled");
+    }
+  }, [captionsEnabled, isRecording, startCaptionTranscription, stopCaptionTranscription]);
+
+  const editCaption = useCallback((id: string, newText: string) => {
+    setCaptions(prev => prev.map(c => c.id === id ? { ...c, text: newText } : c));
+  }, []);
+
+  const deleteCaption = useCallback((id: string) => {
+    setCaptions(prev => prev.filter(c => c.id !== id));
+  }, []);
+
+  // Chroma Key / Green Screen Functions
+  const getChromaKeyColor = useCallback((): [number, number, number] => {
+    if (chromaKey.color === "green") return [0, 255, 0];
+    if (chromaKey.color === "blue") return [0, 0, 255];
+    // Parse custom color
+    const hex = chromaKey.customColor.replace('#', '');
+    return [
+      parseInt(hex.substring(0, 2), 16),
+      parseInt(hex.substring(2, 4), 16),
+      parseInt(hex.substring(4, 6), 16),
+    ];
+  }, [chromaKey.color, chromaKey.customColor]);
+
+  const applyChromaKey = useCallback(() => {
+    if (!chromaKey.enabled || !videoRef.current || !chromaCanvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = chromaCanvasRef.current;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    const [targetR, targetG, targetB] = getChromaKeyColor();
+    const tolerance = chromaKey.tolerance * 2.55; // Convert 0-100 to 0-255
+
+    const processFrame = () => {
+      if (!chromaKey.enabled || !videoRef.current) {
+        if (chromaAnimationRef.current) {
+          cancelAnimationFrame(chromaAnimationRef.current);
+          chromaAnimationRef.current = null;
+        }
+        return;
+      }
+
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      // Draw background first if using image or color
+      if (chromaKey.backgroundType === 'color') {
+        ctx.fillStyle = chromaKey.backgroundColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      } else if (chromaKey.backgroundType === 'image' && backgroundImageRef.current) {
+        ctx.drawImage(backgroundImageRef.current, 0, 0, canvas.width, canvas.height);
+      } else if (chromaKey.backgroundType === 'blur') {
+        ctx.filter = `blur(${chromaKey.blurAmount}px)`;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.filter = 'none';
+      }
+
+      // Get background for compositing
+      const bgImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const bgData = bgImageData.data;
+
+      // Redraw video frame
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const fgImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const fgData = fgImageData.data;
+
+      // Apply chroma key
+      for (let i = 0; i < fgData.length; i += 4) {
+        const r = fgData[i];
+        const g = fgData[i + 1];
+        const b = fgData[i + 2];
+
+        // Calculate color distance
+        const distance = Math.sqrt(
+          Math.pow(r - targetR, 2) +
+          Math.pow(g - targetG, 2) +
+          Math.pow(b - targetB, 2)
+        );
+
+        if (distance < tolerance) {
+          // Replace with background
+          const alpha = Math.min(1, distance / tolerance);
+          const smoothAlpha = Math.pow(alpha, chromaKey.smoothness / 10);
+          
+          fgData[i] = Math.round(fgData[i] * smoothAlpha + bgData[i] * (1 - smoothAlpha));
+          fgData[i + 1] = Math.round(fgData[i + 1] * smoothAlpha + bgData[i + 1] * (1 - smoothAlpha));
+          fgData[i + 2] = Math.round(fgData[i + 2] * smoothAlpha + bgData[i + 2] * (1 - smoothAlpha));
+        }
+      }
+
+      ctx.putImageData(fgImageData, 0, 0);
+      chromaAnimationRef.current = requestAnimationFrame(processFrame);
+    };
+
+    processFrame();
+  }, [chromaKey, getChromaKeyColor]);
+
+  const handleBackgroundImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select an image file');
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        backgroundImageRef.current = img;
+        setChromaKey(prev => ({ ...prev, backgroundImage: URL.createObjectURL(file) }));
+        toast.success('Background image loaded');
+      };
+      img.src = URL.createObjectURL(file);
+    }
+  };
+
+  const removeBackgroundImage = () => {
+    if (chromaKey.backgroundImage) {
+      URL.revokeObjectURL(chromaKey.backgroundImage);
+    }
+    backgroundImageRef.current = null;
+    setChromaKey(prev => ({ ...prev, backgroundImage: null }));
+  };
+
+  // Start/stop chroma key processing when enabled
+  useEffect(() => {
+    if (chromaKey.enabled && isPreviewing) {
+      applyChromaKey();
+    } else if (chromaAnimationRef.current) {
+      cancelAnimationFrame(chromaAnimationRef.current);
+      chromaAnimationRef.current = null;
+    }
+    return () => {
+      if (chromaAnimationRef.current) {
+        cancelAnimationFrame(chromaAnimationRef.current);
+      }
+    };
+  }, [chromaKey.enabled, isPreviewing, applyChromaKey]);
+
+  // Start caption transcription when recording starts
+  useEffect(() => {
+    if (isRecording && captionsEnabled && !isTranscribing) {
+      startCaptionTranscription();
+    } else if (!isRecording && isTranscribing) {
+      stopCaptionTranscription();
+    }
+  }, [isRecording, captionsEnabled, isTranscribing, startCaptionTranscription, stopCaptionTranscription]);
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -2297,7 +2606,7 @@ export function VideoRecorder() {
               onClick={() => setCaptureMode("photo")}
               disabled={isPreviewing || !!recordedBlob || !!capturedPhoto || burstPhotos.length > 0}
             >
-              <Image className="h-4 w-4 mr-1" />
+              <ImageIcon className="h-4 w-4 mr-1" />
               Photo
             </Button>
             <Button
@@ -2552,6 +2861,31 @@ export function VideoRecorder() {
                 title="Background music"
               >
                 <Music2 className="h-4 w-4" />
+              </Button>
+            )}
+
+            {/* Captions/Subtitles - video mode */}
+            {captureMode === "video" && (
+              <Button
+                variant={captionsEnabled ? "default" : "ghost"}
+                size="sm"
+                onClick={toggleCaptions}
+                title={captionsEnabled ? "Disable captions" : "Enable captions"}
+                className={isTranscribing ? "animate-pulse" : ""}
+              >
+                <Subtitles className="h-4 w-4" />
+              </Button>
+            )}
+
+            {/* Green Screen / Chroma Key - video and photo modes */}
+            {(captureMode === "video" || captureMode === "photo") && (
+              <Button
+                variant={chromaKey.enabled ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setShowChromaKeySettings(!showChromaKeySettings)}
+                title="Green screen / Chroma key"
+              >
+                <Eraser className="h-4 w-4" />
               </Button>
             )}
           </div>
@@ -3248,6 +3582,248 @@ export function VideoRecorder() {
                     step={2}
                   />
                 </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Caption Settings Panel */}
+        {showCaptionSettings && captureMode === "video" && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Caption Settings</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCaptionSettings(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Position</span>
+                <Select
+                  value={captionStyle.position}
+                  onValueChange={(v) => setCaptionStyle({ ...captionStyle, position: v as "top" | "bottom" })}
+                >
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="top">Top</SelectItem>
+                    <SelectItem value="bottom">Bottom</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Font Size: {captionStyle.fontSize}px</span>
+                </div>
+                <Slider
+                  value={[captionStyle.fontSize]}
+                  onValueChange={([v]) => setCaptionStyle({ ...captionStyle, fontSize: v })}
+                  min={14}
+                  max={48}
+                  step={2}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Text Color</span>
+                <input
+                  type="color"
+                  value={captionStyle.color}
+                  onChange={(e) => setCaptionStyle({ ...captionStyle, color: e.target.value })}
+                  className="w-10 h-10 rounded cursor-pointer"
+                />
+              </div>
+            </div>
+            
+            {/* Caption List */}
+            {captions.length > 0 && (
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                <span className="text-sm font-medium">Recorded Captions ({captions.length})</span>
+                {captions.map((caption) => (
+                  <div key={caption.id} className="flex items-center gap-2 p-2 bg-background rounded">
+                    <span className="text-xs text-muted-foreground w-16">
+                      {caption.startTime.toFixed(1)}s
+                    </span>
+                    <input
+                      type="text"
+                      value={caption.text}
+                      onChange={(e) => editCaption(caption.id, e.target.value)}
+                      className="flex-1 px-2 py-1 text-sm bg-transparent border rounded"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteCaption(caption.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Chroma Key / Green Screen Settings Panel */}
+        {showChromaKeySettings && (captureMode === "video" || captureMode === "photo") && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Green Screen / Chroma Key</span>
+              <Button
+                variant={chromaKey.enabled ? "default" : "outline"}
+                size="sm"
+                onClick={() => setChromaKey({ ...chromaKey, enabled: !chromaKey.enabled })}
+              >
+                {chromaKey.enabled ? "Enabled" : "Disabled"}
+              </Button>
+            </div>
+            
+            {chromaKey.enabled && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Key Color</span>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={chromaKey.color}
+                      onValueChange={(v) => setChromaKey({ ...chromaKey, color: v as ChromaKeyColor })}
+                    >
+                      <SelectTrigger className="w-[100px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="green">Green</SelectItem>
+                        <SelectItem value="blue">Blue</SelectItem>
+                        <SelectItem value="custom">Custom</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {chromaKey.color === "custom" && (
+                      <input
+                        type="color"
+                        value={chromaKey.customColor}
+                        onChange={(e) => setChromaKey({ ...chromaKey, customColor: e.target.value })}
+                        className="w-8 h-8 rounded cursor-pointer"
+                      />
+                    )}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Tolerance: {chromaKey.tolerance}%</span>
+                  </div>
+                  <Slider
+                    value={[chromaKey.tolerance]}
+                    onValueChange={([v]) => setChromaKey({ ...chromaKey, tolerance: v })}
+                    min={10}
+                    max={80}
+                    step={5}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Smoothness: {chromaKey.smoothness}</span>
+                  </div>
+                  <Slider
+                    value={[chromaKey.smoothness]}
+                    onValueChange={([v]) => setChromaKey({ ...chromaKey, smoothness: v })}
+                    min={1}
+                    max={30}
+                    step={1}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Background</span>
+                  <Select
+                    value={chromaKey.backgroundType}
+                    onValueChange={(v) => setChromaKey({ ...chromaKey, backgroundType: v as BackgroundType })}
+                  >
+                    <SelectTrigger className="w-[100px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="blur">Blur</SelectItem>
+                      <SelectItem value="color">Color</SelectItem>
+                      <SelectItem value="image">Image</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {chromaKey.backgroundType === "blur" && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Blur Amount: {chromaKey.blurAmount}px</span>
+                    </div>
+                    <Slider
+                      value={[chromaKey.blurAmount]}
+                      onValueChange={([v]) => setChromaKey({ ...chromaKey, blurAmount: v })}
+                      min={5}
+                      max={50}
+                      step={5}
+                    />
+                  </div>
+                )}
+                
+                {chromaKey.backgroundType === "color" && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Background Color</span>
+                    <input
+                      type="color"
+                      value={chromaKey.backgroundColor}
+                      onChange={(e) => setChromaKey({ ...chromaKey, backgroundColor: e.target.value })}
+                      className="w-10 h-10 rounded cursor-pointer"
+                    />
+                  </div>
+                )}
+                
+                {chromaKey.backgroundType === "image" && (
+                  <div className="space-y-2">
+                    <input
+                      ref={chromaBackgroundInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleBackgroundImageSelect}
+                      className="hidden"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => chromaBackgroundInputRef.current?.click()}
+                      className="w-full"
+                    >
+                      <ImageIcon className="h-4 w-4 mr-2" />
+                      {chromaKey.backgroundImage ? "Change Image" : "Select Image"}
+                    </Button>
+                    {chromaKey.backgroundImage && (
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={chromaKey.backgroundImage}
+                          alt="Background"
+                          className="w-16 h-10 object-cover rounded"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={removeBackgroundImage}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <p className="text-xs text-muted-foreground">
+                  Position yourself in front of a solid green or blue background for best results.
+                </p>
               </>
             )}
           </div>

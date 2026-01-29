@@ -4371,3 +4371,32 @@ Note: The application already has extensive annotation features including voice 
 - [x] Support fade in/out for music tracks
 - [ ] Test voice recognition accuracy (requires user testing)
 - [ ] Test audio mixing quality (requires user testing)
+
+
+## Video Captions & Green Screen - January 29, 2026
+- [ ] Add video captions/subtitles with auto-generation from speech-to-text
+- [ ] Implement Web Speech API for real-time transcription during recording
+- [ ] Create caption display overlay on video preview
+- [ ] Allow caption editing after recording
+- [ ] Support caption styling (font size, color, position)
+- [ ] Add green screen/chroma key background replacement
+- [ ] Implement color detection for green/blue screen removal
+- [ ] Create background selector (solid colors, images, blur)
+- [ ] Add tolerance/threshold controls for chroma key
+- [ ] Real-time preview of background replacement
+- [ ] Test caption accuracy
+- [ ] Test chroma key quality
+
+
+## Video Captions & Green Screen - January 29, 2026 (Completed)
+- [x] Add video captions/subtitles with speech-to-text
+- [x] Implement Web Speech API for real-time transcription
+- [x] Create caption editor for manual adjustments
+- [x] Add caption styling options (position, size, color)
+- [x] Export captions as SRT file (via download)
+- [x] Add green screen/chroma key background replacement
+- [x] Detect green/blue/custom color backgrounds during recording
+- [x] Support background blur, color, or image replacement
+- [x] Add tolerance and smoothness controls
+- [ ] Test caption accuracy (requires user testing)
+- [ ] Test chroma key quality (requires user testing)
