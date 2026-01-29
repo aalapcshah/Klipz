@@ -4342,3 +4342,17 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add keyboard shortcuts help panel with enable/disable toggle
 - [ ] Test export formats on different browsers (requires user testing)
 - [ ] Test keyboard shortcuts functionality (requires user testing)
+
+
+## Video Thumbnails & Audio Recording - January 29, 2026 (Completed)
+- [x] Add video thumbnail generation before upload
+- [x] Extract frame from video at specific timestamp for thumbnail
+- [x] Allow user to select thumbnail frame position via slider
+- [x] Show thumbnail preview before upload
+- [x] Add audio-only recording mode
+- [x] Create new "Audio" capture mode tab
+- [x] Record audio without video using MediaRecorder
+- [x] Add audio visualization (waveform) during recording
+- [x] Support audio playback preview before upload
+- [ ] Test thumbnail generation accuracy (requires user testing)
+- [ ] Test audio recording quality (requires user testing)

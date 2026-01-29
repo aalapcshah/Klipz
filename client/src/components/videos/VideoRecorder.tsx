@@ -63,13 +63,16 @@ import {
   Layout,
   VolumeX,
   ArrowRight,
+  Headphones,
+  Music,
+  ImageIcon,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { uploadFileToStorage } from "@/lib/storage";
 
 type CameraFacing = "user" | "environment";
-type CaptureMode = "video" | "photo" | "screen";
+type CaptureMode = "video" | "photo" | "screen" | "audio";
 type VideoQuality = "720p" | "1080p" | "4k";
 type FilterPreset = "normal" | "vivid" | "warm" | "cool" | "bw" | "sepia";
 type TimerDuration = 0 | 3 | 5 | 10;
@@ -357,6 +360,23 @@ export function VideoRecorder() {
     return saved ? JSON.parse(saved) : true;
   });
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+
+  // Video Thumbnail
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [thumbnailTime, setThumbnailTime] = useState(0);
+  const [showThumbnailSelector, setShowThumbnailSelector] = useState(false);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const thumbnailVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Audio Recording
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
+  const [audioWaveform, setAudioWaveform] = useState<number[]>([]);
+  const [isAudioRecording, setIsAudioRecording] = useState(false);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const audioRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const waveformAnimationRef = useRef<number | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1654,6 +1674,198 @@ export function VideoRecorder() {
     }
   };
 
+  // Thumbnail Generation Functions
+  const generateThumbnail = useCallback(async (blob: Blob, time: number = 0) => {
+    return new Promise<string>((resolve, reject) => {
+      const video = document.createElement("video");
+      video.src = URL.createObjectURL(blob);
+      video.muted = true;
+      video.preload = "metadata";
+      
+      video.onloadedmetadata = () => {
+        setVideoDuration(video.duration);
+        video.currentTime = Math.min(time, video.duration);
+      };
+      
+      video.onseeked = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(video, 0, 0);
+          const thumbnailDataUrl = canvas.toDataURL("image/jpeg", 0.8);
+          setThumbnailUrl(thumbnailDataUrl);
+          resolve(thumbnailDataUrl);
+        } else {
+          reject(new Error("Failed to get canvas context"));
+        }
+        URL.revokeObjectURL(video.src);
+      };
+      
+      video.onerror = () => {
+        reject(new Error("Failed to load video"));
+        URL.revokeObjectURL(video.src);
+      };
+    });
+  }, []);
+
+  const updateThumbnailTime = useCallback((time: number) => {
+    setThumbnailTime(time);
+    if (recordedBlob) {
+      generateThumbnail(recordedBlob, time);
+    }
+  }, [recordedBlob, generateThumbnail]);
+
+  // Generate thumbnail when video is recorded
+  useEffect(() => {
+    if (recordedBlob && !thumbnailUrl) {
+      generateThumbnail(recordedBlob, 0);
+    }
+  }, [recordedBlob, thumbnailUrl, generateThumbnail]);
+
+  // Audio Recording Functions
+  const startAudioRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video: false,
+      });
+      
+      audioStreamRef.current = stream;
+      audioChunksRef.current = [];
+      
+      // Set up audio visualization
+      const audioContext = new AudioContext();
+      const analyser = audioContext.createAnalyser();
+      const source = audioContext.createMediaStreamSource(stream);
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      
+      const updateWaveform = () => {
+        analyser.getByteFrequencyData(dataArray);
+        // Sample 32 bars for visualization
+        const bars: number[] = [];
+        const step = Math.floor(dataArray.length / 32);
+        for (let i = 0; i < 32; i++) {
+          bars.push(dataArray[i * step] / 255);
+        }
+        setAudioWaveform(bars);
+        waveformAnimationRef.current = requestAnimationFrame(updateWaveform);
+      };
+      updateWaveform();
+      
+      // Start recording
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") 
+        ? "audio/webm" 
+        : "audio/mp4";
+      const recorder = new MediaRecorder(stream, { mimeType });
+      
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+      
+      recorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        setAudioBlob(blob);
+        setAudioPreviewUrl(URL.createObjectURL(blob));
+        
+        // Clean up
+        if (waveformAnimationRef.current) {
+          cancelAnimationFrame(waveformAnimationRef.current);
+        }
+        audioContext.close();
+        setAudioWaveform([]);
+      };
+      
+      audioRecorderRef.current = recorder;
+      recorder.start(100);
+      setIsAudioRecording(true);
+      setRecordingTime(0);
+      
+      // Start timer
+      timerRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+      
+      toast.success("Audio recording started");
+    } catch (error) {
+      console.error("Failed to start audio recording:", error);
+      toast.error("Failed to access microphone");
+    }
+  };
+
+  const stopAudioRecording = () => {
+    if (audioRecorderRef.current && audioRecorderRef.current.state !== "inactive") {
+      audioRecorderRef.current.stop();
+    }
+    
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach(track => track.stop());
+      audioStreamRef.current = null;
+    }
+    
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    
+    setIsAudioRecording(false);
+    toast.success("Audio recording stopped");
+  };
+
+  const handleUploadAudio = async () => {
+    if (!audioBlob) return;
+    
+    setUploading(true);
+    try {
+      const fileName = `audio_${Date.now()}.webm`;
+      
+      const { url, fileKey } = await uploadFileToStorage(audioBlob, fileName, trpcUtils);
+      
+      await createFileMutation.mutateAsync({
+        filename: fileName,
+        url,
+        fileKey,
+        fileSize: audioBlob.size,
+        mimeType: audioBlob.type,
+      });
+      
+      toast.success("Audio uploaded successfully!");
+      trpcUtils.files.list.invalidate();
+      
+      // Reset
+      setAudioBlob(null);
+      if (audioPreviewUrl) {
+        URL.revokeObjectURL(audioPreviewUrl);
+        setAudioPreviewUrl(null);
+      }
+      setRecordingTime(0);
+    } catch (error) {
+      console.error("Upload failed:", error);
+      toast.error("Failed to upload audio");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDiscardAudio = () => {
+    if (audioPreviewUrl) {
+      URL.revokeObjectURL(audioPreviewUrl);
+    }
+    setAudioBlob(null);
+    setAudioPreviewUrl(null);
+    setRecordingTime(0);
+  };
+
   // Audio Ducking Functions
   const startVoiceDetection = () => {
     if (!audioDucking.enabled || !analyserRef.current) return;
@@ -1800,10 +2012,19 @@ export function VideoRecorder() {
               variant={captureMode === "screen" ? "default" : "outline"}
               size="sm"
               onClick={() => setCaptureMode("screen")}
-              disabled={isPreviewing || !!recordedBlob || !!capturedPhoto || burstPhotos.length > 0}
+              disabled={isPreviewing || !!recordedBlob || !!capturedPhoto || burstPhotos.length > 0 || isAudioRecording || !!audioBlob}
             >
               <Monitor className="h-4 w-4 mr-1" />
               Screen
+            </Button>
+            <Button
+              variant={captureMode === "audio" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCaptureMode("audio")}
+              disabled={isPreviewing || !!recordedBlob || !!capturedPhoto || burstPhotos.length > 0 || isAudioRecording || !!audioBlob}
+            >
+              <Headphones className="h-4 w-4 mr-1" />
+              Audio
             </Button>
           </div>
           
@@ -2874,15 +3095,68 @@ export function VideoRecorder() {
           )}
 
           {/* Status Badge */}
-          {!isPreviewing && !recordedBlob && !photoPreviewUrl && burstPhotos.length === 0 && (
+          {!isPreviewing && !recordedBlob && !photoPreviewUrl && burstPhotos.length === 0 && captureMode !== "audio" && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center text-white">
                 {captureMode === "video" ? (
                   <VideoOff className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                ) : captureMode === "screen" ? (
+                  <Monitor className="h-16 w-16 mx-auto mb-4 opacity-50" />
                 ) : (
                   <Camera className="h-16 w-16 mx-auto mb-4 opacity-50" />
                 )}
-                <p className="text-lg opacity-75">Camera Off</p>
+                <p className="text-lg opacity-75">{captureMode === "screen" ? "Ready to Record" : "Camera Off"}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Audio Mode UI */}
+          {captureMode === "audio" && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center text-white w-full px-8">
+                {!isAudioRecording && !audioBlob && (
+                  <>
+                    <Headphones className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg opacity-75">Ready to Record Audio</p>
+                  </>
+                )}
+                
+                {isAudioRecording && (
+                  <>
+                    <div className="flex items-center justify-center gap-2 mb-4">
+                      <Circle className="h-4 w-4 fill-red-500 text-red-500 animate-pulse" />
+                      <span className="font-mono font-bold text-2xl">{formatTime(recordingTime)}</span>
+                    </div>
+                    
+                    {/* Waveform Visualization */}
+                    <div className="flex items-center justify-center gap-1 h-24 mb-4">
+                      {audioWaveform.map((level, i) => (
+                        <div
+                          key={i}
+                          className="w-2 bg-primary rounded-full transition-all duration-75"
+                          style={{ height: `${Math.max(4, level * 96)}px` }}
+                        />
+                      ))}
+                    </div>
+                    
+                    <p className="text-sm opacity-75">Recording audio...</p>
+                  </>
+                )}
+                
+                {audioBlob && audioPreviewUrl && (
+                  <>
+                    <Music className="h-12 w-12 mx-auto mb-4 text-primary" />
+                    <p className="text-lg mb-4">Audio Recorded</p>
+                    <audio
+                      src={audioPreviewUrl}
+                      controls
+                      className="w-full max-w-md mx-auto mb-4"
+                    />
+                    <Badge variant="secondary">
+                      Duration: {formatTime(recordingTime)} • Size: {(audioBlob.size / 1024 / 1024).toFixed(2)} MB
+                    </Badge>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -2891,7 +3165,7 @@ export function VideoRecorder() {
         {/* Controls */}
         <div className="flex items-center justify-center gap-4 flex-wrap">
           {/* Start Camera */}
-          {!isPreviewing && !recordedBlob && !photoPreviewUrl && burstPhotos.length === 0 && captureMode !== "screen" && (
+          {!isPreviewing && !recordedBlob && !photoPreviewUrl && burstPhotos.length === 0 && captureMode !== "screen" && captureMode !== "audio" && (
             <Button onClick={startCamera} size="lg">
               <Camera className="h-5 w-5 mr-2" />
               Start Camera
@@ -2904,6 +3178,38 @@ export function VideoRecorder() {
               <Monitor className="h-5 w-5 mr-2" />
               Start Recording
             </Button>
+          )}
+
+          {/* Audio Recording Controls */}
+          {captureMode === "audio" && !isAudioRecording && !audioBlob && (
+            <Button onClick={startAudioRecording} size="lg" className="bg-primary hover:bg-primary/90">
+              <Mic className="h-5 w-5 mr-2" />
+              Start Recording
+            </Button>
+          )}
+
+          {captureMode === "audio" && isAudioRecording && (
+            <Button onClick={stopAudioRecording} size="lg" className="bg-destructive hover:bg-destructive/90">
+              <Square className="h-5 w-5 mr-2" />
+              Stop Recording
+            </Button>
+          )}
+
+          {captureMode === "audio" && audioBlob && (
+            <>
+              <Button onClick={handleDiscardAudio} variant="outline">
+                <X className="h-4 w-4 mr-2" />
+                Discard
+              </Button>
+              <Button onClick={handleUploadAudio} disabled={uploading} size="lg">
+                {uploading ? (
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="h-5 w-5 mr-2" />
+                )}
+                {uploading ? "Uploading..." : "Upload Audio"}
+              </Button>
+            </>
           )}
 
           {/* Camera Active - Video Mode */}
