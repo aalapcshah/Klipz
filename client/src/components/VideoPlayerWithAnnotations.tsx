@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine, Eye, EyeOff, Download, Repeat, Sparkles, FileDown, MoreHorizontal, ChevronUp } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine, Eye, EyeOff, Download, Repeat, Sparkles, FileDown, MoreHorizontal, ChevronUp, Zap, Palette, Headphones, Paintbrush } from "lucide-react";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { VideoDrawingCanvas, VideoDrawingCanvasHandle } from "./VideoDrawingCanvas";
 import { AnnotationTimeline } from "./AnnotationTimeline";
@@ -27,6 +27,10 @@ import { VideoChapters } from "./VideoChapters";
 import { VideoLoopRegion } from "./VideoLoopRegion";
 import { AutoHighlightDetection } from "./AutoHighlightDetection";
 import { BookmarkChapterExport } from "./BookmarkChapterExport";
+import { VideoSpeedRamping } from "./VideoSpeedRamping";
+import { VideoEffectsLibrary } from "./VideoEffectsLibrary";
+import { MultiTrackAudioMixer } from "./MultiTrackAudioMixer";
+import { GreenScreenChromaKey } from "./GreenScreenChromaKey";
 
 interface VideoPlayerWithAnnotationsProps {
   fileId: number;
@@ -994,6 +998,50 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
                 >
                   <FileDown className="h-5 w-5" />
                 </Button>
+                <Button 
+                  size="lg"
+                  className="h-12 w-12 rounded-full shadow-lg bg-orange-600 hover:bg-orange-700 text-white p-0"
+                  onClick={() => {
+                    setShowMobileTools(false);
+                    document.getElementById('speed-ramping-section')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  title="Speed Ramping"
+                >
+                  <Zap className="h-5 w-5" />
+                </Button>
+                <Button 
+                  size="lg"
+                  className="h-12 w-12 rounded-full shadow-lg bg-purple-600 hover:bg-purple-700 text-white p-0"
+                  onClick={() => {
+                    setShowMobileTools(false);
+                    document.getElementById('effects-section')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  title="Video Effects"
+                >
+                  <Palette className="h-5 w-5" />
+                </Button>
+                <Button 
+                  size="lg"
+                  className="h-12 w-12 rounded-full shadow-lg bg-cyan-600 hover:bg-cyan-700 text-white p-0"
+                  onClick={() => {
+                    setShowMobileTools(false);
+                    document.getElementById('audio-mixer-section')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  title="Audio Mixer"
+                >
+                  <Headphones className="h-5 w-5" />
+                </Button>
+                <Button 
+                  size="lg"
+                  className="h-12 w-12 rounded-full shadow-lg bg-emerald-600 hover:bg-emerald-700 text-white p-0"
+                  onClick={() => {
+                    setShowMobileTools(false);
+                    document.getElementById('green-screen-section')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  title="Green Screen"
+                >
+                  <Paintbrush className="h-5 w-5" />
+                </Button>
               </>
             )}
             <Button 
@@ -1740,6 +1788,51 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       <BookmarkChapterExport
         fileId={fileId}
         videoTitle={`Video_${fileId}`}
+      />
+      </div>
+
+      {/* Video Speed Ramping */}
+      <div id="speed-ramping-section">
+      <VideoSpeedRamping
+        videoRef={videoRef}
+        duration={duration}
+        currentTime={currentTime}
+        onTimeUpdate={(time: number) => {
+          if (videoRef.current) {
+            videoRef.current.currentTime = time;
+            setCurrentTime(time);
+          }
+        }}
+      />
+      </div>
+
+      {/* Video Effects Library */}
+      <div id="effects-section">
+      <VideoEffectsLibrary
+        videoRef={videoRef}
+        onEffectsChange={(effects) => {
+          console.log('Effects changed:', effects);
+        }}
+      />
+      </div>
+
+      {/* Multi-Track Audio Mixer */}
+      <div id="audio-mixer-section">
+      <MultiTrackAudioMixer
+        onTracksChange={(tracks) => {
+          console.log('Audio tracks changed:', tracks);
+        }}
+      />
+      </div>
+
+      {/* Green Screen / Chroma Key */}
+      <div id="green-screen-section">
+      <GreenScreenChromaKey
+        videoRef={videoRef}
+        canvasRef={drawingCanvasRef}
+        onSettingsChange={(settings) => {
+          console.log('Green screen settings changed:', settings);
+        }}
       />
       </div>
 
