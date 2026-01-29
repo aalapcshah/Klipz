@@ -76,6 +76,7 @@ export function GreenScreenChromaKey({
   const [showPreview, setShowPreview] = useState(true);
   const [customColorInput, setCustomColorInput] = useState('#00FF00');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [crossOriginError, setCrossOriginError] = useState(false);
 
   const outputCanvasRef = useRef<HTMLCanvasElement>(null);
   const backgroundImageRef = useRef<HTMLImageElement | null>(null);
@@ -114,17 +115,24 @@ export function GreenScreenChromaKey({
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
+    // Check if video is ready
+    if (video.readyState < 2) {
+      animationRef.current = requestAnimationFrame(processFrame);
+      return;
+    }
+
     // Set canvas size to match video
     if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
       canvas.width = video.videoWidth || 640;
       canvas.height = video.videoHeight || 480;
     }
 
-    // Draw video frame
-    ctx.drawImage(video, 0, 0);
+    try {
+      // Draw video frame
+      ctx.drawImage(video, 0, 0);
 
-    // Get image data
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      // Get image data - this may fail for cross-origin videos
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
     const keyRgb = hexToRgb(settings.keyColor);
 
@@ -204,6 +212,16 @@ export function GreenScreenChromaKey({
     }
 
     onProcessedFrame?.(canvas);
+    } catch (error) {
+      // Handle cross-origin or security errors
+      if (error instanceof DOMException && (error.name === 'SecurityError' || error.message.includes('cross-origin') || error.message.includes('tainted'))) {
+        console.warn('Green screen cannot process cross-origin video. This feature works best with camera input or same-origin videos.');
+        setCrossOriginError(true);
+        setSettings(prev => ({ ...prev, enabled: false }));
+        return;
+      }
+      console.error('Error processing video frame:', error);
+    }
     animationRef.current = requestAnimationFrame(processFrame);
   }, [settings, videoRef, hexToRgb, isKeyColor, onProcessedFrame]);
 
@@ -305,6 +323,19 @@ export function GreenScreenChromaKey({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Cross-origin error message */}
+        {crossOriginError && (
+          <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <p className="text-sm text-yellow-600 dark:text-yellow-500">
+              <strong>Note:</strong> Green screen processing is not available for this video due to cross-origin restrictions. This feature works best with:
+            </p>
+            <ul className="text-xs text-muted-foreground mt-2 ml-4 list-disc">
+              <li>Live camera feed during recording</li>
+              <li>Videos recorded directly in the app</li>
+            </ul>
+          </div>
+        )}
+
         {/* Preview Canvas */}
         {showPreview && settings.enabled && (
           <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">

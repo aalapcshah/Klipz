@@ -60,6 +60,10 @@ export function VideoRecorderWithTranscription() {
   // Feature panels state
   const [showAdvancedFeatures, setShowAdvancedFeatures] = useState(false);
   const [activeFeatureTab, setActiveFeatureTab] = useState<string>("effects");
+  
+  // Active effects state
+  const [activeEffects, setActiveEffects] = useState<string[]>([]);
+  const [greenScreenEnabled, setGreenScreenEnabled] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -425,6 +429,22 @@ export function VideoRecorderWithTranscription() {
                 </div>
               )}
 
+              {/* Active Effects Indicator */}
+              {isPreviewing && (activeEffects.length > 0 || greenScreenEnabled) && (
+                <div className="absolute bottom-4 left-4 flex flex-wrap gap-1 max-w-[60%]">
+                  {activeEffects.map((effect, idx) => (
+                    <span key={idx} className="px-2 py-1 bg-primary/80 text-primary-foreground text-xs rounded">
+                      {effect}
+                    </span>
+                  ))}
+                  {greenScreenEnabled && (
+                    <span className="px-2 py-1 bg-emerald-500/80 text-white text-xs rounded">
+                      Green Screen
+                    </span>
+                  )}
+                </div>
+              )}
+
               {!isPreviewing && !recordedBlob && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center text-white">
@@ -622,6 +642,12 @@ export function VideoRecorderWithTranscription() {
 
       {/* Advanced Recording Features Toggle */}
       <Card className="p-4">
+        {/* Info about features */}
+        {isPreviewing && !showAdvancedFeatures && (
+          <div className="mb-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded text-xs text-blue-600 dark:text-blue-400">
+            <strong>Tip:</strong> Video effects and filters are applied in real-time to your camera feed. Expand to configure.
+          </div>
+        )}
         <Button
           variant="outline"
           className="w-full flex items-center justify-between"
@@ -630,6 +656,11 @@ export function VideoRecorderWithTranscription() {
           <div className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             <span className="font-medium">Advanced Recording Features</span>
+            {(activeEffects.length > 0 || greenScreenEnabled) && (
+              <span className="px-1.5 py-0.5 bg-primary text-primary-foreground text-xs rounded">
+                {activeEffects.length + (greenScreenEnabled ? 1 : 0)} active
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
@@ -678,7 +709,8 @@ export function VideoRecorderWithTranscription() {
               <VideoEffectsLibrary
                 videoRef={videoRef}
                 onEffectsChange={(effects) => {
-                  console.log('Effects changed:', effects);
+                  const enabledEffects = effects.filter((e: any) => e.enabled).map((e: any) => e.name);
+                  setActiveEffects(enabledEffects);
                 }}
               />
             </TabsContent>
@@ -707,7 +739,7 @@ export function VideoRecorderWithTranscription() {
                 videoRef={videoRef}
                 canvasRef={canvasRef}
                 onSettingsChange={(settings) => {
-                  console.log('Green screen settings changed:', settings);
+                  setGreenScreenEnabled(settings.enabled);
                 }}
               />
             </TabsContent>
