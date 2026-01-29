@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +53,8 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   const [recordingTimestamp, setRecordingTimestamp] = useState(0);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [showMobileTools, setShowMobileTools] = useState(false);
+  const [isVideoSticky, setIsVideoSticky] = useState(false);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
   // Simple drawing state for direct canvas interaction
   const [isCanvasDrawing, setIsCanvasDrawing] = useState(false);
   const [lastDrawPoint, setLastDrawPoint] = useState<{x: number, y: number} | null>(null);
@@ -586,8 +588,30 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
     }
   };
 
+  // Handle sticky video on mobile scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!videoContainerRef.current) return;
+      // Only apply sticky behavior on mobile (< 768px)
+      if (window.innerWidth >= 768) {
+        setIsVideoSticky(false);
+        return;
+      }
+      const rect = videoContainerRef.current.getBoundingClientRect();
+      // Make video sticky when it scrolls out of view
+      setIsVideoSticky(rect.top < -100);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, []);
+
   return (
-    <div className="space-y-2 md:space-y-4 max-w-full overflow-x-hidden">
+    <div className="space-y-2 md:space-y-4 max-w-full overflow-x-hidden pb-32 md:pb-0">
       {/* User Presence Indicator */}
       {activeUsers.length > 0 && (
         <Card className="p-3 max-w-full overflow-x-hidden">
@@ -629,7 +653,52 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
         />
       )}
       
-      <Card className="overflow-hidden max-w-full">
+      {/* Sticky Video Player for Mobile */}
+      {isVideoSticky && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-black shadow-lg md:hidden">
+          <div className="relative">
+            <video
+              src={videoUrl}
+              className="w-full h-32 object-contain"
+              onClick={togglePlay}
+              ref={(el) => {
+                // Sync with main video
+                if (el && videoRef.current) {
+                  el.currentTime = videoRef.current.currentTime;
+                  el.muted = true; // Keep sticky video muted
+                  if (isPlaying) el.play().catch(() => {});
+                  else el.pause();
+                }
+              }}
+            />
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-white" onClick={togglePlay}>
+                    {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  </Button>
+                  <span className="text-xs text-white font-mono">{formatTime(currentTime)}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 px-2 text-white text-xs"
+                  onClick={() => {
+                    videoContainerRef.current?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
+                  Back to Video
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Spacer when video is sticky */}
+      {isVideoSticky && <div className="h-32 md:hidden" />}
+
+      <Card className="overflow-hidden max-w-full" ref={videoContainerRef}>
         <div className="relative bg-black" id="video-container" style={{ position: 'relative' }}>
           <video
             ref={videoRef}

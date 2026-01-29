@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Video,
   VideoOff,
@@ -14,10 +15,21 @@ import {
   MicOff,
   FileText,
   Sparkles,
+  Zap,
+  Palette,
+  Headphones,
+  Paintbrush,
+  ChevronDown,
+  ChevronUp,
+  Settings,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { uploadFileToStorage } from "@/lib/storage";
+import { VideoSpeedRamping } from "../VideoSpeedRamping";
+import { VideoEffectsLibrary } from "../VideoEffectsLibrary";
+import { MultiTrackAudioMixer } from "../MultiTrackAudioMixer";
+import { GreenScreenChromaKey } from "../GreenScreenChromaKey";
 
 interface TranscriptSegment {
   text: string;
@@ -44,8 +56,13 @@ export function VideoRecorderWithTranscription() {
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
   const [currentTranscript, setCurrentTranscript] = useState("");
   const [matchedFiles, setMatchedFiles] = useState<MatchedFile[]>([]);
+  
+  // Feature panels state
+  const [showAdvancedFeatures, setShowAdvancedFeatures] = useState(false);
+  const [activeFeatureTab, setActiveFeatureTab] = useState<string>("effects");
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -377,227 +394,326 @@ export function VideoRecorderWithTranscription() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Main Video Area */}
-      <div className="lg:col-span-2 space-y-4">
-        <Card className="p-6">
-          <div className="relative aspect-video bg-black rounded-lg overflow-hidden mb-4">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted={!recordedBlob}
-              controls={!!recordedBlob}
-              className="w-full h-full object-contain"
-            />
+    <div className="space-y-4">
+      {/* Main Recording Area */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+        {/* Video Area */}
+        <div className="lg:col-span-2 space-y-4">
+          <Card className="p-4 md:p-6">
+            <div className="relative aspect-video bg-black rounded-lg overflow-hidden mb-4">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted={!recordedBlob}
+                controls={!!recordedBlob}
+                className="w-full h-full object-contain"
+              />
+              <canvas ref={canvasRef} className="hidden" />
 
-            {isRecording && (
-              <div className="absolute top-4 left-4 flex items-center gap-2 bg-destructive text-destructive-foreground px-3 py-2 rounded-md">
-                <Circle className="h-4 w-4 fill-current animate-pulse" />
-                <span className="font-mono font-bold">{formatTime(recordingTime)}</span>
-              </div>
-            )}
-
-            {isTranscribing && (
-              <div className="absolute top-4 right-4 flex items-center gap-2 bg-primary text-primary-foreground px-3 py-2 rounded-md">
-                <Mic className="h-4 w-4 animate-pulse" />
-                <span className="text-sm font-medium">Transcribing</span>
-              </div>
-            )}
-
-            {!isPreviewing && !recordedBlob && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center text-white">
-                  <VideoOff className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg opacity-75">Camera Off</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-center gap-4">
-            {!isPreviewing && !recordedBlob && (
-              <Button onClick={startCamera} size="lg">
-                <Video className="h-5 w-5 mr-2" />
-                Start Camera
-              </Button>
-            )}
-
-            {isPreviewing && !isRecording && (
-              <>
-                <Button onClick={stopCamera} variant="outline">
-                  <VideoOff className="h-4 w-4 mr-2" />
-                  Stop Camera
-                </Button>
-                <Button onClick={startRecording} size="lg" className="bg-destructive hover:bg-destructive/90">
-                  <Circle className="h-5 w-5 mr-2" />
-                  Start Recording
-                </Button>
-              </>
-            )}
-
-            {isRecording && (
-              <Button onClick={stopRecording} size="lg" variant="destructive">
-                <Square className="h-5 w-5 mr-2" />
-                Stop Recording
-              </Button>
-            )}
-
-            {recordedBlob && !uploading && (
-              <>
-                <Button onClick={handleDiscard} variant="outline">
-                  Discard
-                </Button>
-                <Button onClick={handleUpload} size="lg">
-                  <Upload className="h-5 w-5 mr-2" />
-                  Upload Video
-                </Button>
-              </>
-            )}
-
-            {uploading && (
-              <Button disabled size="lg">
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                Uploading...
-              </Button>
-            )}
-          </div>
-
-          {recordedBlob && (
-            <>
-              <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-500 mb-2">
-                  <Upload className="h-4 w-4" />
-                  <span className="font-semibold">Don't forget to save your recording!</span>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Click "Upload Video" to save your recording permanently. Unsaved recordings will be lost if you leave this page.
-                </p>
-              </div>
-              <div className="mt-2 text-center">
-                <Badge variant="secondary">
-                  Duration: {formatTime(recordingTime)} • Size:{" "}
-                  {(recordedBlob.size / 1024 / 1024).toFixed(2)} MB
-                </Badge>
-              </div>
-            </>
-          )}
-        </Card>
-
-        {/* Live Transcript */}
-        {(isRecording || transcript.length > 0) && (
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <FileText className="h-4 w-4 text-primary" />
-              <h3 className="font-semibold">Live Transcript</h3>
               {isRecording && (
-                <Badge variant="outline" className="ml-auto">
-                  <Mic className="h-3 w-3 mr-1" />
-                  Listening
-                </Badge>
+                <div className="absolute top-4 left-4 flex items-center gap-2 bg-destructive text-destructive-foreground px-3 py-2 rounded-md">
+                  <Circle className="h-4 w-4 fill-current animate-pulse" />
+                  <span className="font-mono font-bold">{formatTime(recordingTime)}</span>
+                </div>
+              )}
+
+              {isTranscribing && (
+                <div className="absolute top-4 right-4 flex items-center gap-2 bg-primary text-primary-foreground px-3 py-2 rounded-md">
+                  <Mic className="h-4 w-4 animate-pulse" />
+                  <span className="text-sm font-medium">Transcribing</span>
+                </div>
+              )}
+
+              {!isPreviewing && !recordedBlob && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center text-white">
+                    <VideoOff className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg opacity-75">Camera Off</p>
+                  </div>
+                </div>
               )}
             </div>
-            <ScrollArea className="h-48">
-              <div className="space-y-2 pr-4">
-                {transcript.map((segment, idx) => (
-                  <div key={idx} className="flex gap-2">
-                    <Badge variant="secondary" className="shrink-0 text-xs">
-                      {formatTime(segment.timestamp)}
-                    </Badge>
-                    <p className="text-sm">{segment.text}</p>
+
+            <div className="flex items-center justify-center gap-4 flex-wrap">
+              {!isPreviewing && !recordedBlob && (
+                <Button onClick={startCamera} size="lg">
+                  <Video className="h-5 w-5 mr-2" />
+                  Start Camera
+                </Button>
+              )}
+
+              {isPreviewing && !isRecording && (
+                <>
+                  <Button onClick={stopCamera} variant="outline">
+                    <VideoOff className="h-4 w-4 mr-2" />
+                    Stop Camera
+                  </Button>
+                  <Button onClick={startRecording} size="lg" className="bg-destructive hover:bg-destructive/90">
+                    <Circle className="h-5 w-5 mr-2" />
+                    Start Recording
+                  </Button>
+                </>
+              )}
+
+              {isRecording && (
+                <Button onClick={stopRecording} size="lg" variant="destructive">
+                  <Square className="h-5 w-5 mr-2" />
+                  Stop Recording
+                </Button>
+              )}
+
+              {recordedBlob && !uploading && (
+                <>
+                  <Button onClick={handleDiscard} variant="outline">
+                    Discard
+                  </Button>
+                  <Button onClick={handleUpload} size="lg">
+                    <Upload className="h-5 w-5 mr-2" />
+                    Upload Video
+                  </Button>
+                </>
+              )}
+
+              {uploading && (
+                <Button disabled size="lg">
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Uploading...
+                </Button>
+              )}
+            </div>
+
+            {recordedBlob && (
+              <>
+                <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                  <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-500 mb-2">
+                    <Upload className="h-4 w-4" />
+                    <span className="font-semibold">Don't forget to save your recording!</span>
                   </div>
-                ))}
-                {currentTranscript && (
-                  <div className="flex gap-2">
-                    <Badge variant="outline" className="shrink-0 text-xs">
-                      {formatTime(recordingTime)}
-                    </Badge>
-                    <p className="text-sm text-muted-foreground italic">
-                      {currentTranscript}
-                    </p>
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Click "Upload Video" to save your recording permanently. Unsaved recordings will be lost if you leave this page.
+                  </p>
+                </div>
+                <div className="mt-2 text-center">
+                  <Badge variant="secondary">
+                    Duration: {formatTime(recordingTime)} • Size:{" "}
+                    {(recordedBlob.size / 1024 / 1024).toFixed(2)} MB
+                  </Badge>
+                </div>
+              </>
+            )}
+          </Card>
+
+          {/* Live Transcript */}
+          {(isRecording || transcript.length > 0) && (
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <FileText className="h-4 w-4 text-primary" />
+                <h3 className="font-semibold">Live Transcript</h3>
+                {isRecording && (
+                  <Badge variant="outline" className="ml-auto">
+                    <Mic className="h-3 w-3 mr-1" />
+                    Listening
+                  </Badge>
                 )}
               </div>
-            </ScrollArea>
-          </Card>
-        )}
-      </div>
-
-      {/* Matched Files Sidebar */}
-      <div className="space-y-4">
-        <Card className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold">Matched Files</h3>
-            <Badge variant="secondary" className="ml-auto">
-              {matchedFiles.length}
-            </Badge>
-          </div>
-          
-          {matchedFiles.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              {isRecording
-                ? "Start speaking to see matched files..."
-                : "No matches yet"}
-            </div>
-          ) : (
-            <ScrollArea className="h-[500px]">
-              <div className="space-y-3 pr-4">
-                {matchedFiles.map((file) => (
-                  <Card key={file.id} className="p-3 bg-accent/5">
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-medium text-sm line-clamp-2">
-                        {file.title}
-                      </h4>
-                      <Badge
-                        variant={
-                          file.confidence > 70
-                            ? "default"
-                            : file.confidence > 50
-                              ? "secondary"
-                              : "outline"
-                        }
-                        className="ml-2 shrink-0"
-                      >
-                        {file.confidence}%
+              <ScrollArea className="h-48">
+                <div className="space-y-2 pr-4">
+                  {transcript.map((segment, idx) => (
+                    <div key={idx} className="flex gap-2">
+                      <Badge variant="secondary" className="shrink-0 text-xs">
+                        {formatTime(segment.timestamp)}
                       </Badge>
+                      <p className="text-sm">{segment.text}</p>
                     </div>
-                    {file.matchedKeywords.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {file.matchedKeywords.map((keyword, idx) => (
-                          <Badge
-                            key={idx}
-                            variant="outline"
-                            className="text-xs"
-                          >
-                            {keyword}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </Card>
-                ))}
-              </div>
-            </ScrollArea>
+                  ))}
+                  {currentTranscript && (
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="shrink-0 text-xs">
+                        {formatTime(recordingTime)}
+                      </Badge>
+                      <p className="text-sm text-muted-foreground italic">
+                        {currentTranscript}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </Card>
           )}
-        </Card>
+        </div>
 
-        {recognitionRef.current === null && (
-          <Card className="p-4 bg-yellow-500/10 border-yellow-500/20">
-            <div className="flex items-start gap-2">
-              <MicOff className="h-4 w-4 text-yellow-600 mt-0.5 shrink-0" />
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-yellow-600">
-                  Transcription unavailable
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Your browser doesn't support live transcription. Try Chrome or Edge.
-                </p>
-              </div>
+        {/* Matched Files Sidebar */}
+        <div className="space-y-4">
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold">Matched Files</h3>
+              <Badge variant="secondary" className="ml-auto">
+                {matchedFiles.length}
+              </Badge>
             </div>
+            
+            {matchedFiles.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                {isRecording
+                  ? "Start speaking to see matched files..."
+                  : "No matches yet"}
+              </div>
+            ) : (
+              <ScrollArea className="h-[300px] lg:h-[500px]">
+                <div className="space-y-3 pr-4">
+                  {matchedFiles.map((file) => (
+                    <Card key={file.id} className="p-3 bg-accent/5">
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-medium text-sm line-clamp-2">
+                          {file.title}
+                        </h4>
+                        <Badge
+                          variant={
+                            file.confidence > 70
+                              ? "default"
+                              : file.confidence > 50
+                                ? "secondary"
+                                : "outline"
+                          }
+                          className="ml-2 shrink-0"
+                        >
+                          {file.confidence}%
+                        </Badge>
+                      </div>
+                      {file.matchedKeywords.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {file.matchedKeywords.map((keyword, idx) => (
+                            <Badge
+                              key={idx}
+                              variant="outline"
+                              className="text-xs"
+                            >
+                              {keyword}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
           </Card>
-        )}
+
+          {recognitionRef.current === null && (
+            <Card className="p-4 bg-yellow-500/10 border-yellow-500/20">
+              <div className="flex items-start gap-2">
+                <MicOff className="h-4 w-4 text-yellow-600 mt-0.5 shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-yellow-600">
+                    Transcription unavailable
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Your browser doesn't support live transcription. Try Chrome or Edge.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
       </div>
+
+      {/* Advanced Recording Features Toggle */}
+      <Card className="p-4">
+        <Button
+          variant="outline"
+          className="w-full flex items-center justify-between"
+          onClick={() => setShowAdvancedFeatures(!showAdvancedFeatures)}
+        >
+          <div className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            <span className="font-medium">Advanced Recording Features</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
+              <Zap className="h-3 w-3" />
+              <span>Speed</span>
+              <Palette className="h-3 w-3 ml-2" />
+              <span>Effects</span>
+              <Headphones className="h-3 w-3 ml-2" />
+              <span>Audio</span>
+              <Paintbrush className="h-3 w-3 ml-2" />
+              <span>Green Screen</span>
+            </div>
+            {showAdvancedFeatures ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </div>
+        </Button>
+      </Card>
+
+      {/* Advanced Features Panel */}
+      {showAdvancedFeatures && (
+        <Card className="p-4">
+          <Tabs value={activeFeatureTab} onValueChange={setActiveFeatureTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto gap-1">
+              <TabsTrigger value="effects" className="flex items-center gap-1 text-xs sm:text-sm py-2">
+                <Palette className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Effects</span>
+              </TabsTrigger>
+              <TabsTrigger value="speed" className="flex items-center gap-1 text-xs sm:text-sm py-2">
+                <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Speed</span>
+              </TabsTrigger>
+              <TabsTrigger value="audio" className="flex items-center gap-1 text-xs sm:text-sm py-2">
+                <Headphones className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Audio</span>
+              </TabsTrigger>
+              <TabsTrigger value="greenscreen" className="flex items-center gap-1 text-xs sm:text-sm py-2">
+                <Paintbrush className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Green Screen</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="effects" className="mt-4">
+              <VideoEffectsLibrary
+                videoRef={videoRef}
+                onEffectsChange={(effects) => {
+                  console.log('Effects changed:', effects);
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="speed" className="mt-4">
+              <VideoSpeedRamping
+                videoRef={videoRef}
+                duration={recordingTime}
+                currentTime={0}
+                onTimeUpdate={(time) => {
+                  console.log('Time update:', time);
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="audio" className="mt-4">
+              <MultiTrackAudioMixer
+                onTracksChange={(tracks) => {
+                  console.log('Audio tracks changed:', tracks);
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="greenscreen" className="mt-4">
+              <GreenScreenChromaKey
+                videoRef={videoRef}
+                canvasRef={canvasRef}
+                onSettingsChange={(settings) => {
+                  console.log('Green screen settings changed:', settings);
+                }}
+              />
+            </TabsContent>
+          </Tabs>
+        </Card>
+      )}
     </div>
   );
 }

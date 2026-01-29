@@ -4492,3 +4492,14 @@ Note: The application already has extensive annotation features including voice 
 - [x] Video Effects Library - Real-time video effects with LUTs (Cinematic, Vintage, Teal & Orange, etc.), Adjust (brightness, contrast, saturation), Effects (vignette, film grain, blur, sharpen)
 - [x] Multi-track Audio Mixing - Separate audio tracks (mic, system audio, music) with individual volume controls and mute toggles
 - [x] Green Screen/Chroma Key - Background replacement with color picker (Green Screen, Blue Screen, Lime Green, Chroma Green, Chroma Blue, Custom) and background options (blur, image, video, solid color)
+
+
+## Phase 47: Video Recording Features & Mobile Annotation UX
+- [x] Move Speed Ramping feature to recording interface (not just annotation)
+- [x] Move Video Effects Library to recording interface (not just annotation)
+- [x] Move Multi-Track Audio to recording interface (not just annotation)
+- [x] Move Green Screen/Chroma Key to recording interface (not just annotation)
+- [x] Implement floating/sticky video player for mobile annotation view
+- [x] Video player should stay visible at top while scrolling through options
+- [x] Test features during actual video recording
+- [x] Verify mobile sticky video works on all device sizes
