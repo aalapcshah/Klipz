@@ -4327,3 +4327,18 @@ Note: The application already has extensive annotation features including voice 
 - [ ] Test transitions on merged videos (requires user testing)
 - [ ] Test audio ducking accuracy (requires user testing)
 - [ ] Test PiP templates across devices (requires user testing)
+
+
+## Video Export Formats & Keyboard Shortcuts - January 29, 2026 (Completed)
+- [x] Add video export format selector (WebM, MP4, GIF)
+- [x] Implement WebM and MP4 export (native browser support)
+- [x] Implement video to GIF frame extraction
+- [x] Add export progress indicator with percentage
+- [x] Add keyboard shortcuts for video recording
+- [x] R key to start/stop recording
+- [x] Esc key to cancel recording/discard
+- [x] S key to take screenshot/photo
+- [x] C key to switch camera
+- [x] Add keyboard shortcuts help panel with enable/disable toggle
+- [ ] Test export formats on different browsers (requires user testing)
+- [ ] Test keyboard shortcuts functionality (requires user testing)

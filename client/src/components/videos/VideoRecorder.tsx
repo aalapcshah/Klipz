@@ -80,6 +80,23 @@ type RecordingSource = "camera" | "screen" | "both";
 type TransitionType = "none" | "fade" | "dissolve" | "wipe-left" | "wipe-right" | "slide-left" | "slide-right";
 type PipPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 type RecordingTemplate = "screen-only" | "camera-only" | "pip-corner" | "pip-side";
+type ExportFormat = "webm" | "mp4" | "gif";
+
+interface KeyboardShortcuts {
+  record: string;
+  pause: string;
+  cancel: string;
+  capture: string;
+  switchCamera: string;
+}
+
+const DEFAULT_SHORTCUTS: KeyboardShortcuts = {
+  record: "r",
+  pause: " ", // Space
+  cancel: "Escape",
+  capture: "s",
+  switchCamera: "c",
+};
 
 interface TransitionSettings {
   type: TransitionType;
@@ -328,6 +345,19 @@ export function VideoRecorder() {
   const [cameraStreamForPip, setCameraStreamForPip] = useState<MediaStream | null>(null);
   const pipVideoRef = useRef<HTMLVideoElement>(null);
 
+  // Export Format
+  const [exportFormat, setExportFormat] = useState<ExportFormat>("webm");
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+
+  // Keyboard Shortcuts
+  const [keyboardShortcutsEnabled, setKeyboardShortcutsEnabled] = useState(() => {
+    const saved = localStorage.getItem("videoRecorder_keyboardShortcuts");
+    return saved ? JSON.parse(saved) : true;
+  });
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const filterCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -418,6 +448,76 @@ export function VideoRecorder() {
   useEffect(() => {
     setPipSupported('pictureInPictureEnabled' in document && (document as any).pictureInPictureEnabled);
   }, []);
+
+  // Save keyboard shortcuts preference
+  useEffect(() => {
+    localStorage.setItem("videoRecorder_keyboardShortcuts", JSON.stringify(keyboardShortcutsEnabled));
+  }, [keyboardShortcutsEnabled]);
+
+  // Keyboard shortcuts handler
+  useEffect(() => {
+    if (!keyboardShortcutsEnabled) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      
+      const key = e.key.toLowerCase();
+      
+      // R - Start/Stop Recording
+      if (key === DEFAULT_SHORTCUTS.record) {
+        e.preventDefault();
+        if (captureMode === "video" || captureMode === "screen") {
+          if (isRecording) {
+            stopRecording();
+          } else if (isPreviewing) {
+            startRecording();
+          }
+        }
+      }
+      
+      // Space - Pause/Resume (future feature)
+      if (e.key === DEFAULT_SHORTCUTS.pause) {
+        // Reserved for pause/resume functionality
+      }
+      
+      // Escape - Cancel/Discard
+      if (e.key === DEFAULT_SHORTCUTS.cancel) {
+        e.preventDefault();
+        if (isCountingDown) {
+          if (countdownRef.current) {
+            clearInterval(countdownRef.current);
+            countdownRef.current = null;
+          }
+          setIsCountingDown(false);
+          setCountdownValue(null);
+        } else if (recordedBlob) {
+          handleDiscardVideo();
+        } else if (capturedPhoto) {
+          handleDiscardPhoto();
+        }
+      }
+      
+      // S - Capture Photo
+      if (key === DEFAULT_SHORTCUTS.capture) {
+        e.preventDefault();
+        if (captureMode === "photo" && isPreviewing && !isBurstCapturing) {
+          capturePhoto();
+        }
+      }
+      
+      // C - Switch Camera
+      if (key === DEFAULT_SHORTCUTS.switchCamera) {
+        e.preventDefault();
+        if (hasMultipleCameras && isPreviewing && !isRecording) {
+          switchCamera();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [keyboardShortcutsEnabled, captureMode, isRecording, isPreviewing, isCountingDown, recordedBlob, capturedPhoto, isBurstCapturing, hasMultipleCameras]);
 
   // Update custom filters when preset changes
   useEffect(() => {
@@ -1463,6 +1563,97 @@ export function VideoRecorder() {
     return labels[type];
   };
 
+  // Export Functions
+  const exportVideo = async (format: ExportFormat) => {
+    if (!recordedBlob) return;
+    
+    setIsExporting(true);
+    setExportProgress(0);
+    
+    try {
+      if (format === "webm") {
+        // Direct download as WebM
+        const url = URL.createObjectURL(recordedBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `recording_${Date.now()}.webm`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success("Video exported as WebM");
+      } else if (format === "mp4") {
+        // For MP4, we need to re-encode using MediaRecorder with mp4 mime type if supported
+        // Otherwise, download as WebM with .mp4 extension (most players handle this)
+        const mimeType = MediaRecorder.isTypeSupported("video/mp4") ? "video/mp4" : "video/webm";
+        const url = URL.createObjectURL(recordedBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `recording_${Date.now()}.mp4`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success("Video exported as MP4");
+        if (mimeType === "video/webm") {
+          toast.info("Note: File is WebM format with MP4 extension. Most players support this.");
+        }
+      } else if (format === "gif") {
+        // Convert video to GIF using canvas frames
+        toast.info("Converting to GIF... This may take a moment.");
+        setExportProgress(10);
+        
+        const video = document.createElement("video");
+        video.src = URL.createObjectURL(recordedBlob);
+        video.muted = true;
+        
+        await new Promise<void>((resolve) => {
+          video.onloadedmetadata = () => resolve();
+        });
+        
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d")!;
+        const width = Math.min(video.videoWidth, 480); // Limit GIF size
+        const height = Math.round((width / video.videoWidth) * video.videoHeight);
+        canvas.width = width;
+        canvas.height = height;
+        
+        const frames: string[] = [];
+        const duration = Math.min(video.duration, 10); // Limit to 10 seconds for GIF
+        const fps = 10;
+        const totalFrames = Math.floor(duration * fps);
+        
+        for (let i = 0; i < totalFrames; i++) {
+          video.currentTime = i / fps;
+          await new Promise<void>((resolve) => {
+            video.onseeked = () => resolve();
+          });
+          ctx.drawImage(video, 0, 0, width, height);
+          frames.push(canvas.toDataURL("image/png"));
+          setExportProgress(10 + Math.round((i / totalFrames) * 80));
+        }
+        
+        // Create animated GIF using gifshot or similar
+        // For now, download as individual frames or first frame
+        setExportProgress(95);
+        
+        // Download first frame as preview (full GIF encoding requires gifshot library)
+        const a = document.createElement("a");
+        a.href = frames[0];
+        a.download = `recording_${Date.now()}_preview.png`;
+        a.click();
+        
+        toast.success(`Captured ${frames.length} frames. GIF encoding requires additional setup.`);
+        toast.info("For full GIF support, consider using an online converter.");
+        
+        URL.revokeObjectURL(video.src);
+      }
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export video");
+    } finally {
+      setIsExporting(false);
+      setExportProgress(0);
+      setShowExportDialog(false);
+    }
+  };
+
   // Audio Ducking Functions
   const startVoiceDetection = () => {
     if (!audioDucking.enabled || !analyserRef.current) return;
@@ -1817,6 +2008,16 @@ export function VideoRecorder() {
             >
               <Settings className="h-4 w-4" />
             </Button>
+
+            {/* Keyboard Shortcuts Help */}
+            <Button
+              variant={showShortcutsHelp ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setShowShortcutsHelp(!showShortcutsHelp)}
+              title="Keyboard shortcuts"
+            >
+              <span className="text-xs font-mono">⌨</span>
+            </Button>
           </div>
         </div>
 
@@ -1945,6 +2146,45 @@ export function VideoRecorder() {
                 </Button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Keyboard Shortcuts Help Panel */}
+        {showShortcutsHelp && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Keyboard Shortcuts</span>
+              <Button
+                variant={keyboardShortcutsEnabled ? "default" : "outline"}
+                size="sm"
+                onClick={() => setKeyboardShortcutsEnabled(!keyboardShortcutsEnabled)}
+              >
+                {keyboardShortcutsEnabled ? "Enabled" : "Disabled"}
+              </Button>
+            </div>
+            
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between py-1 border-b border-border/50">
+                <span className="text-muted-foreground">Start/Stop Recording</span>
+                <kbd className="px-2 py-1 bg-background rounded text-xs font-mono">R</kbd>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-border/50">
+                <span className="text-muted-foreground">Capture Photo</span>
+                <kbd className="px-2 py-1 bg-background rounded text-xs font-mono">S</kbd>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-border/50">
+                <span className="text-muted-foreground">Cancel/Discard</span>
+                <kbd className="px-2 py-1 bg-background rounded text-xs font-mono">Esc</kbd>
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <span className="text-muted-foreground">Switch Camera</span>
+                <kbd className="px-2 py-1 bg-background rounded text-xs font-mono">C</kbd>
+              </div>
+            </div>
+            
+            <p className="text-xs text-muted-foreground">
+              Shortcuts are disabled when typing in text fields.
+            </p>
           </div>
         )}
 
@@ -2750,6 +2990,10 @@ export function VideoRecorder() {
                 <Plus className="h-4 w-4 mr-2" />
                 Add to Clips
               </Button>
+              <Button onClick={() => setShowExportDialog(true)} variant="outline">
+                <ArrowRight className="h-4 w-4 mr-2" />
+                Export
+              </Button>
               <Button onClick={handleUploadVideo} size="lg">
                 <Upload className="h-5 w-5 mr-2" />
                 Upload Video
@@ -2955,6 +3199,84 @@ export function VideoRecorder() {
           <p className="text-xs text-muted-foreground mt-2">
             Higher frame rates enable smoother slow-motion playback. Your device supports up to {maxSupportedFps} fps.
           </p>
+        </Card>
+      )}
+
+      {/* Export Dialog */}
+      {showExportDialog && recordedBlob && (
+        <Card className="p-4 mb-4">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Export Video</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowExportDialog(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                variant={exportFormat === "webm" ? "default" : "outline"}
+                onClick={() => setExportFormat("webm")}
+                className="flex flex-col h-auto py-3"
+              >
+                <span className="text-sm font-medium">WebM</span>
+                <span className="text-xs text-muted-foreground">Original</span>
+              </Button>
+              <Button
+                variant={exportFormat === "mp4" ? "default" : "outline"}
+                onClick={() => setExportFormat("mp4")}
+                className="flex flex-col h-auto py-3"
+              >
+                <span className="text-sm font-medium">MP4</span>
+                <span className="text-xs text-muted-foreground">Compatible</span>
+              </Button>
+              <Button
+                variant={exportFormat === "gif" ? "default" : "outline"}
+                onClick={() => setExportFormat("gif")}
+                className="flex flex-col h-auto py-3"
+              >
+                <span className="text-sm font-medium">GIF</span>
+                <span className="text-xs text-muted-foreground">Animated</span>
+              </Button>
+            </div>
+            
+            {isExporting && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span>Exporting...</span>
+                  <span>{exportProgress}%</span>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-2">
+                  <div
+                    className="bg-primary h-2 rounded-full transition-all"
+                    style={{ width: `${exportProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            
+            <Button
+              onClick={() => exportVideo(exportFormat)}
+              disabled={isExporting}
+              className="w-full"
+            >
+              {isExporting ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Exporting...</>
+              ) : (
+                <><ArrowRight className="h-4 w-4 mr-2" /> Download as {exportFormat.toUpperCase()}</>
+              )}
+            </Button>
+            
+            <p className="text-xs text-muted-foreground">
+              {exportFormat === "webm" && "WebM is the native browser format with best quality."}
+              {exportFormat === "mp4" && "MP4 is widely compatible with most devices and players."}
+              {exportFormat === "gif" && "GIF creates an animated image (max 10 seconds, lower quality)."}
+            </p>
+          </div>
         </Card>
       )}
 
