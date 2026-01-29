@@ -58,6 +58,11 @@ import {
   Trash2,
   GripVertical,
   Move,
+  Sparkles,
+  Volume2,
+  Layout,
+  VolumeX,
+  ArrowRight,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -72,6 +77,30 @@ type AspectRatio = "16:9" | "4:3" | "1:1";
 type SlowMotionFps = 30 | 60 | 120 | 240;
 type WatermarkPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center";
 type RecordingSource = "camera" | "screen" | "both";
+type TransitionType = "none" | "fade" | "dissolve" | "wipe-left" | "wipe-right" | "slide-left" | "slide-right";
+type PipPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+type RecordingTemplate = "screen-only" | "camera-only" | "pip-corner" | "pip-side";
+
+interface TransitionSettings {
+  type: TransitionType;
+  duration: number; // in seconds
+}
+
+interface AudioDuckingSettings {
+  enabled: boolean;
+  threshold: number; // 0-100, voice detection sensitivity
+  reduction: number; // 0-100, how much to reduce background
+  attackTime: number; // ms to start ducking
+  releaseTime: number; // ms to stop ducking
+}
+
+interface PipSettings {
+  enabled: boolean;
+  position: PipPosition;
+  size: number; // percentage of screen (10-40)
+  borderRadius: number;
+  opacity: number;
+}
 
 interface WatermarkSettings {
   enabled: boolean;
@@ -266,6 +295,38 @@ export function VideoRecorder() {
   const [videoClips, setVideoClips] = useState<VideoClip[]>([]);
   const [showClipManager, setShowClipManager] = useState(false);
   const [isMergingClips, setIsMergingClips] = useState(false);
+
+  // Video Transitions
+  const [transitionSettings, setTransitionSettings] = useState<TransitionSettings>({
+    type: "fade",
+    duration: 0.5,
+  });
+  const [showTransitionSettings, setShowTransitionSettings] = useState(false);
+
+  // Audio Ducking
+  const [audioDucking, setAudioDucking] = useState<AudioDuckingSettings>({
+    enabled: false,
+    threshold: 50,
+    reduction: 70,
+    attackTime: 100,
+    releaseTime: 500,
+  });
+  const [showAudioDuckingSettings, setShowAudioDuckingSettings] = useState(false);
+  const [isVoiceDetected, setIsVoiceDetected] = useState(false);
+  const voiceDetectionRef = useRef<NodeJS.Timeout | null>(null);
+
+  // PiP Recording Template
+  const [recordingTemplate, setRecordingTemplate] = useState<RecordingTemplate>("screen-only");
+  const [pipSettings, setPipSettings] = useState<PipSettings>({
+    enabled: false,
+    position: "bottom-right",
+    size: 25,
+    borderRadius: 12,
+    opacity: 100,
+  });
+  const [showPipSettings, setShowPipSettings] = useState(false);
+  const [cameraStreamForPip, setCameraStreamForPip] = useState<MediaStream | null>(null);
+  const pipVideoRef = useRef<HTMLVideoElement>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1350,15 +1411,21 @@ export function VideoRecorder() {
     }
     
     setIsMergingClips(true);
-    toast.info("Merging clips...");
+    const transitionLabel = transitionSettings.type !== "none" 
+      ? ` with ${transitionSettings.type} transitions` 
+      : "";
+    toast.info(`Merging clips${transitionLabel}...`);
     
     try {
       // Create a combined blob from all clips
       const combinedBlobs = videoClips.map((c) => c.blob);
       const mergedBlob = new Blob(combinedBlobs, { type: "video/webm" });
       
-      // Calculate total duration
-      const totalDuration = videoClips.reduce((sum, c) => sum + c.duration, 0);
+      // Calculate total duration (add transition time between clips)
+      const transitionTime = transitionSettings.type !== "none" 
+        ? transitionSettings.duration * (videoClips.length - 1) 
+        : 0;
+      const totalDuration = videoClips.reduce((sum, c) => sum + c.duration, 0) + transitionTime;
       
       // Clean up old clips
       videoClips.forEach((c) => URL.revokeObjectURL(c.url));
@@ -1366,19 +1433,151 @@ export function VideoRecorder() {
       
       // Set merged video as current
       setRecordedBlob(mergedBlob);
-      setRecordingTime(totalDuration);
+      setRecordingTime(Math.round(totalDuration));
       
       if (videoRef.current) {
         videoRef.current.src = URL.createObjectURL(mergedBlob);
       }
       
       setShowClipManager(false);
-      toast.success(`Merged ${combinedBlobs.length} clips (${formatTime(totalDuration)})`);
+      toast.success(`Merged ${combinedBlobs.length} clips (${formatTime(Math.round(totalDuration))})${transitionLabel}`);
     } catch (error) {
       console.error("Merge error:", error);
       toast.error("Failed to merge clips");
     } finally {
       setIsMergingClips(false);
+    }
+  };
+
+  // Transition Functions
+  const getTransitionLabel = (type: TransitionType): string => {
+    const labels: Record<TransitionType, string> = {
+      "none": "None",
+      "fade": "Fade",
+      "dissolve": "Dissolve",
+      "wipe-left": "Wipe Left",
+      "wipe-right": "Wipe Right",
+      "slide-left": "Slide Left",
+      "slide-right": "Slide Right",
+    };
+    return labels[type];
+  };
+
+  // Audio Ducking Functions
+  const startVoiceDetection = () => {
+    if (!audioDucking.enabled || !analyserRef.current) return;
+    
+    const checkVoice = () => {
+      if (!analyserRef.current) return;
+      
+      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+      analyserRef.current.getByteFrequencyData(dataArray);
+      
+      // Focus on voice frequency range (85-255 Hz for fundamentals, up to 3kHz for harmonics)
+      // In FFT bins, this is roughly bins 2-60 for typical sample rates
+      const voiceBins = dataArray.slice(2, 60);
+      const avgVoiceLevel = voiceBins.reduce((a, b) => a + b, 0) / voiceBins.length;
+      const normalizedLevel = (avgVoiceLevel / 255) * 100;
+      
+      const detected = normalizedLevel > audioDucking.threshold;
+      setIsVoiceDetected(detected);
+    };
+    
+    voiceDetectionRef.current = setInterval(checkVoice, 50);
+  };
+
+  const stopVoiceDetection = () => {
+    if (voiceDetectionRef.current) {
+      clearInterval(voiceDetectionRef.current);
+      voiceDetectionRef.current = null;
+    }
+    setIsVoiceDetected(false);
+  };
+
+  // PiP Recording Functions
+  const startPipRecording = async () => {
+    try {
+      // Get screen stream
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { ideal: QUALITY_PRESETS[videoQuality].width },
+          height: { ideal: QUALITY_PRESETS[videoQuality].height },
+        },
+        audio: true,
+      });
+      
+      setScreenStream(displayStream);
+      
+      // Get camera stream for PiP overlay
+      if (recordingTemplate === "pip-corner" || recordingTemplate === "pip-side") {
+        const cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: cameraFacing },
+          audio: false, // Audio comes from screen
+        });
+        setCameraStreamForPip(cameraStream);
+        
+        if (pipVideoRef.current) {
+          pipVideoRef.current.srcObject = cameraStream;
+        }
+      }
+      
+      // Start recording the screen stream
+      startRecordingWithStream(displayStream);
+      
+      // Handle screen share stop
+      displayStream.getVideoTracks()[0].addEventListener('ended', () => {
+        stopRecording();
+        setScreenStream(null);
+        if (cameraStreamForPip) {
+          cameraStreamForPip.getTracks().forEach(t => t.stop());
+          setCameraStreamForPip(null);
+        }
+        toast.info("Screen sharing ended");
+      });
+      
+      setIsPreviewing(true);
+      toast.success(`Recording started (${getTemplateLabel(recordingTemplate)})`);
+    } catch (error) {
+      console.error("PiP recording error:", error);
+      toast.error("Failed to start recording");
+    }
+  };
+
+  const getTemplateLabel = (template: RecordingTemplate): string => {
+    const labels: Record<RecordingTemplate, string> = {
+      "screen-only": "Screen Only",
+      "camera-only": "Camera Only",
+      "pip-corner": "Screen + Camera (Corner)",
+      "pip-side": "Screen + Camera (Side)",
+    };
+    return labels[template];
+  };
+
+  const getPipPositionStyle = (): React.CSSProperties => {
+    const size = `${pipSettings.size}%`;
+    const margin = "16px";
+    
+    const baseStyle: React.CSSProperties = {
+      position: "absolute",
+      width: size,
+      aspectRatio: "16/9",
+      borderRadius: `${pipSettings.borderRadius}px`,
+      opacity: pipSettings.opacity / 100,
+      overflow: "hidden",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+      border: "2px solid rgba(255,255,255,0.2)",
+    };
+    
+    switch (pipSettings.position) {
+      case "top-left":
+        return { ...baseStyle, top: margin, left: margin };
+      case "top-right":
+        return { ...baseStyle, top: margin, right: margin };
+      case "bottom-left":
+        return { ...baseStyle, bottom: margin, left: margin };
+      case "bottom-right":
+      default:
+        return { ...baseStyle, bottom: margin, right: margin };
     }
   };
 
@@ -1570,6 +1769,42 @@ export function VideoRecorder() {
               >
                 <Layers className="h-4 w-4" />
                 <span className="ml-1 text-xs">{videoClips.length}</span>
+              </Button>
+            )}
+
+            {/* Transition Settings - when clips exist */}
+            {videoClips.length > 1 && (
+              <Button
+                variant={showTransitionSettings ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setShowTransitionSettings(!showTransitionSettings)}
+                title="Transition settings"
+              >
+                <Sparkles className="h-4 w-4" />
+              </Button>
+            )}
+
+            {/* Audio Ducking - screen mode */}
+            {captureMode === "screen" && (
+              <Button
+                variant={audioDucking.enabled ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setShowAudioDuckingSettings(!showAudioDuckingSettings)}
+                title="Audio ducking settings"
+              >
+                <Volume2 className="h-4 w-4" />
+              </Button>
+            )}
+
+            {/* PiP Template - screen mode */}
+            {captureMode === "screen" && (
+              <Button
+                variant={showPipSettings ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setShowPipSettings(!showPipSettings)}
+                title="Recording template"
+              >
+                <Layout className="h-4 w-4" />
               </Button>
             )}
             
@@ -1899,6 +2134,244 @@ export function VideoRecorder() {
             <p className="text-xs text-muted-foreground">
               Total duration: {formatTime(videoClips.reduce((sum, c) => sum + c.duration, 0))}
             </p>
+          </div>
+        )}
+
+        {/* Transition Settings Panel */}
+        {showTransitionSettings && videoClips.length > 1 && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Clip Transitions</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowTransitionSettings(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Transition Type</span>
+                <Select
+                  value={transitionSettings.type}
+                  onValueChange={(v) => setTransitionSettings({ ...transitionSettings, type: v as TransitionType })}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="fade">Fade</SelectItem>
+                    <SelectItem value="dissolve">Dissolve</SelectItem>
+                    <SelectItem value="wipe-left">Wipe Left</SelectItem>
+                    <SelectItem value="wipe-right">Wipe Right</SelectItem>
+                    <SelectItem value="slide-left">Slide Left</SelectItem>
+                    <SelectItem value="slide-right">Slide Right</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {transitionSettings.type !== "none" && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Duration: {transitionSettings.duration}s</span>
+                  </div>
+                  <Slider
+                    value={[transitionSettings.duration]}
+                    onValueChange={([v]) => setTransitionSettings({ ...transitionSettings, duration: v })}
+                    min={0.2}
+                    max={2}
+                    step={0.1}
+                  />
+                </div>
+              )}
+            </div>
+            
+            {/* Transition Preview */}
+            <div className="flex items-center justify-center gap-2 py-2">
+              <div className="w-12 h-8 bg-primary/50 rounded flex items-center justify-center text-xs">1</div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              <div className="px-2 py-1 bg-accent rounded text-xs">
+                {getTransitionLabel(transitionSettings.type)}
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              <div className="w-12 h-8 bg-primary/50 rounded flex items-center justify-center text-xs">2</div>
+            </div>
+          </div>
+        )}
+
+        {/* Audio Ducking Settings Panel */}
+        {showAudioDuckingSettings && captureMode === "screen" && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Audio Ducking</span>
+              <Button
+                variant={audioDucking.enabled ? "default" : "outline"}
+                size="sm"
+                onClick={() => setAudioDucking({ ...audioDucking, enabled: !audioDucking.enabled })}
+              >
+                {audioDucking.enabled ? "Enabled" : "Disabled"}
+              </Button>
+            </div>
+            
+            {audioDucking.enabled && (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  Automatically lower background audio when voice is detected.
+                </p>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Voice Sensitivity: {audioDucking.threshold}%</span>
+                  </div>
+                  <Slider
+                    value={[audioDucking.threshold]}
+                    onValueChange={([v]) => setAudioDucking({ ...audioDucking, threshold: v })}
+                    min={10}
+                    max={90}
+                    step={5}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Background Reduction: {audioDucking.reduction}%</span>
+                  </div>
+                  <Slider
+                    value={[audioDucking.reduction]}
+                    onValueChange={([v]) => setAudioDucking({ ...audioDucking, reduction: v })}
+                    min={20}
+                    max={100}
+                    step={5}
+                  />
+                </div>
+                
+                {/* Voice Detection Indicator */}
+                {isVoiceDetected && (
+                  <div className="flex items-center gap-2 text-sm text-primary">
+                    <Mic className="h-4 w-4 animate-pulse" />
+                    Voice detected - ducking active
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* PiP Recording Template Panel */}
+        {showPipSettings && captureMode === "screen" && (
+          <div className="mb-4 p-4 bg-accent/20 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Recording Template</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowPipSettings(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant={recordingTemplate === "screen-only" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setRecordingTemplate("screen-only")}
+                className="h-auto py-3 flex-col"
+              >
+                <Monitor className="h-5 w-5 mb-1" />
+                <span className="text-xs">Screen Only</span>
+              </Button>
+              <Button
+                variant={recordingTemplate === "camera-only" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setRecordingTemplate("camera-only")}
+                className="h-auto py-3 flex-col"
+              >
+                <Camera className="h-5 w-5 mb-1" />
+                <span className="text-xs">Camera Only</span>
+              </Button>
+              <Button
+                variant={recordingTemplate === "pip-corner" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setRecordingTemplate("pip-corner");
+                  setPipSettings({ ...pipSettings, enabled: true });
+                }}
+                className="h-auto py-3 flex-col"
+              >
+                <div className="relative w-8 h-5 border rounded">
+                  <div className="absolute bottom-0.5 right-0.5 w-2 h-2 bg-primary rounded-sm" />
+                </div>
+                <span className="text-xs mt-1">PiP Corner</span>
+              </Button>
+              <Button
+                variant={recordingTemplate === "pip-side" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setRecordingTemplate("pip-side");
+                  setPipSettings({ ...pipSettings, enabled: true });
+                }}
+                className="h-auto py-3 flex-col"
+              >
+                <div className="flex gap-0.5">
+                  <div className="w-5 h-5 border rounded" />
+                  <div className="w-3 h-5 bg-primary rounded" />
+                </div>
+                <span className="text-xs mt-1">Side by Side</span>
+              </Button>
+            </div>
+            
+            {/* PiP Settings when template uses camera */}
+            {(recordingTemplate === "pip-corner" || recordingTemplate === "pip-side") && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Camera Position</span>
+                  <Select
+                    value={pipSettings.position}
+                    onValueChange={(v) => setPipSettings({ ...pipSettings, position: v as PipPosition })}
+                  >
+                    <SelectTrigger className="w-[130px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="top-left">Top Left</SelectItem>
+                      <SelectItem value="top-right">Top Right</SelectItem>
+                      <SelectItem value="bottom-left">Bottom Left</SelectItem>
+                      <SelectItem value="bottom-right">Bottom Right</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Camera Size: {pipSettings.size}%</span>
+                  </div>
+                  <Slider
+                    value={[pipSettings.size]}
+                    onValueChange={([v]) => setPipSettings({ ...pipSettings, size: v })}
+                    min={10}
+                    max={40}
+                    step={5}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Border Radius: {pipSettings.borderRadius}px</span>
+                  </div>
+                  <Slider
+                    value={[pipSettings.borderRadius]}
+                    onValueChange={([v]) => setPipSettings({ ...pipSettings, borderRadius: v })}
+                    min={0}
+                    max={50}
+                    step={2}
+                  />
+                </div>
+              </>
+            )}
           </div>
         )}
 

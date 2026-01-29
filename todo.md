@@ -4310,3 +4310,20 @@ Note: The application already has extensive annotation features including voice 
 - [ ] Test watermarking on recorded videos (requires user testing)
 - [ ] Test concatenation with multiple clips (requires user testing)
 - [ ] Test screen recording across browsers (requires user testing)
+
+
+## Video Transitions, Audio Ducking & Templates - January 29, 2026 (Completed)
+- [x] Add video transition options (fade, dissolve, wipe, slide)
+- [x] Create transition selector UI in clip manager
+- [x] Implement transition rendering between clips
+- [x] Add transition duration control (0.2s - 2s)
+- [x] Add audio ducking for screen recordings
+- [x] Implement voice activity detection
+- [x] Auto-lower background audio when voice detected
+- [x] Add ducking sensitivity and reduction controls
+- [x] Add video templates with picture-in-picture layouts
+- [x] Create template selector (screen only, camera only, PiP corner, PiP side)
+- [x] Add PiP size, position, and border radius controls
+- [ ] Test transitions on merged videos (requires user testing)
+- [ ] Test audio ducking accuracy (requires user testing)
+- [ ] Test PiP templates across devices (requires user testing)
