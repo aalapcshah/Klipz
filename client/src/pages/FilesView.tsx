@@ -15,6 +15,7 @@ import { trpc } from "@/lib/trpc";
 import { StorageCleanupWizard } from "@/components/StorageCleanupWizard";
 import { UsageOverviewCompact } from "@/components/UsageOverviewCompact";
 import { CameraCapture } from "@/components/CameraCapture";
+import { FilesFAB } from "@/components/FloatingActionButton";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -552,6 +553,20 @@ export default function FilesView() {
           onOpenChange={setCameraDialogOpen}
           onCaptureComplete={() => {
             utils.files.list.invalidate();
+          }}
+        />
+
+        {/* Floating Action Button for Mobile */}
+        <FilesFAB
+          onCameraClick={() => setCameraDialogOpen(true)}
+          onUploadClick={() => setUploadDialogOpen(true)}
+          onSearchClick={() => {
+            // Scroll to search bar and focus
+            const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+            if (searchInput) {
+              searchInput.scrollIntoView({ behavior: 'smooth' });
+              searchInput.focus();
+            }
           }}
         />
       </div>

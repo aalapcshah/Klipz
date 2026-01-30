@@ -41,6 +41,7 @@ import { TrialBanner } from "@/components/TrialBanner";
 import { UsageDashboardWidget } from "@/components/UsageDashboardWidget";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { UsageOverviewCompact } from "@/components/UsageOverviewCompact";
+import { VideosFAB } from "@/components/FloatingActionButton";
 
 export default function Dashboard() {
   const { user, loading, isAuthenticated, logout } = useAuth();
@@ -469,6 +470,20 @@ function VideosView() {
       <div className="mt-8 pt-6 border-t">
         <RecentlyRecorded />
       </div>
+
+      {/* Floating Action Button for Mobile */}
+      <VideosFAB
+        onRecordClick={() => {
+          // Switch to record tab
+          const recordTab = document.querySelector('[value="record"]') as HTMLButtonElement;
+          if (recordTab) recordTab.click();
+        }}
+        onUploadClick={() => {
+          // Switch to upload tab
+          const uploadTab = document.querySelector('[value="upload"]') as HTMLButtonElement;
+          if (uploadTab) uploadTab.click();
+        }}
+      />
     </div>
   );
 }
