@@ -14,7 +14,13 @@ import {
   Activity,
   RotateCcw,
   Link,
-  Unlink
+  Unlink,
+  Play,
+  Pause,
+  Library,
+  ChevronDown,
+  ChevronUp,
+  Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -53,6 +59,21 @@ export function MultiTrackAudioMixer({
   const [masterMuted, setMasterMuted] = useState(false);
   const [linkedVolumes, setLinkedVolumes] = useState(false);
   const [musicFile, setMusicFile] = useState<File | null>(null);
+  const [showMusicLibrary, setShowMusicLibrary] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  // Background music presets (royalty-free placeholder URLs)
+  const MUSIC_PRESETS = [
+    { id: 'upbeat', name: 'Upbeat Corporate', genre: 'Corporate', duration: '2:30', mood: 'Energetic' },
+    { id: 'ambient', name: 'Ambient Dreams', genre: 'Ambient', duration: '3:15', mood: 'Calm' },
+    { id: 'cinematic', name: 'Epic Cinematic', genre: 'Cinematic', duration: '2:45', mood: 'Dramatic' },
+    { id: 'lofi', name: 'Lo-Fi Chill', genre: 'Lo-Fi', duration: '3:00', mood: 'Relaxed' },
+    { id: 'electronic', name: 'Electronic Pulse', genre: 'Electronic', duration: '2:20', mood: 'Modern' },
+    { id: 'acoustic', name: 'Acoustic Morning', genre: 'Acoustic', duration: '2:50', mood: 'Warm' },
+    { id: 'jazz', name: 'Smooth Jazz', genre: 'Jazz', duration: '3:30', mood: 'Sophisticated' },
+    { id: 'inspiring', name: 'Inspiring Piano', genre: 'Piano', duration: '2:15', mood: 'Uplifting' },
+  ];
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const destinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
@@ -517,6 +538,118 @@ export function MultiTrackAudioMixer({
               )}
             </div>
           ))}
+        </div>
+
+        {/* Background Music Library */}
+        <div className="border rounded-lg overflow-hidden">
+          <Button
+            variant="ghost"
+            className="w-full flex items-center justify-between p-3 h-auto"
+            onClick={() => setShowMusicLibrary(!showMusicLibrary)}
+          >
+            <div className="flex items-center gap-2">
+              <Library className="h-4 w-4 text-purple-500" />
+              <span className="text-sm font-medium">Background Music Library</span>
+              <span className="text-xs text-muted-foreground">({MUSIC_PRESETS.length} tracks)</span>
+            </div>
+            {showMusicLibrary ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+          
+          {showMusicLibrary && (
+            <div className="p-3 pt-0 space-y-2">
+              <p className="text-xs text-muted-foreground mb-3">
+                Select a royalty-free track to add background music to your recording.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[200px] overflow-y-auto">
+                {MUSIC_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    onClick={() => {
+                      setSelectedPreset(preset.id);
+                      // Enable music track with preset
+                      setTracks(prev => prev.map(t => 
+                        t.id === 'music' ? { ...t, enabled: true } : t
+                      ));
+                    }}
+                    className={cn(
+                      "p-2 rounded-lg border text-left transition-all hover:border-primary/50",
+                      selectedPreset === preset.id 
+                        ? "border-primary bg-primary/10" 
+                        : "border-border bg-background"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium truncate">{preset.name}</span>
+                      {selectedPreset === preset.id && (
+                        <Sparkles className="h-3 w-3 text-primary" />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] px-1.5 py-0.5 bg-muted rounded">{preset.genre}</span>
+                      <span className="text-[10px] text-muted-foreground">{preset.duration}</span>
+                      <span className="text-[10px] text-muted-foreground">• {preset.mood}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              
+              {selectedPreset && (
+                <div className="flex items-center justify-between p-2 bg-muted rounded-lg mt-2">
+                  <div className="flex items-center gap-2">
+                    <Music className="h-4 w-4 text-purple-500" />
+                    <span className="text-xs font-medium">
+                      {MUSIC_PRESETS.find(p => p.id === selectedPreset)?.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => setIsPlaying(!isPlaying)}
+                    >
+                      {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => {
+                        setSelectedPreset(null);
+                        setIsPlaying(false);
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex items-center gap-2 pt-2 border-t">
+                <span className="text-xs text-muted-foreground">Or upload your own:</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'audio/*';
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) {
+                        loadMusicFile(file);
+                        setSelectedPreset(null);
+                      }
+                    };
+                    input.click();
+                  }}
+                >
+                  Upload Audio
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Help Text */}

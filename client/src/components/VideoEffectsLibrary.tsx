@@ -97,9 +97,18 @@ export function VideoEffectsLibrary({
     const filterString = generateFilterString();
     videoRef.current.style.filter = filterString;
     
-    // Notify parent of changes
-    onEffectsChange?.(effects);
-  }, [videoRef, effects, generateFilterString, onEffectsChange]);
+    // Notify parent of changes with LUT info
+    const effectsWithLUT = [...effects];
+    if (selectedLUT > 0) {
+      effectsWithLUT.push({
+        id: 'lut',
+        name: LUT_PRESETS[selectedLUT].name,
+        enabled: true,
+        intensity: 100
+      });
+    }
+    onEffectsChange?.(effectsWithLUT);
+  }, [videoRef, effects, generateFilterString, onEffectsChange, selectedLUT]);
 
   // Film grain animation
   useEffect(() => {

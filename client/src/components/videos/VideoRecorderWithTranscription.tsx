@@ -431,14 +431,16 @@ export function VideoRecorderWithTranscription() {
 
               {/* Active Effects Indicator */}
               {isPreviewing && (activeEffects.length > 0 || greenScreenEnabled) && (
-                <div className="absolute bottom-4 left-4 flex flex-wrap gap-1 max-w-[60%]">
+                <div className="absolute bottom-4 left-4 flex flex-wrap gap-1 max-w-[70%]">
                   {activeEffects.map((effect, idx) => (
-                    <span key={idx} className="px-2 py-1 bg-primary/80 text-primary-foreground text-xs rounded">
+                    <span key={idx} className="px-2 py-1 bg-primary/80 text-primary-foreground text-xs rounded flex items-center gap-1">
+                      <Palette className="h-3 w-3" />
                       {effect}
                     </span>
                   ))}
                   {greenScreenEnabled && (
-                    <span className="px-2 py-1 bg-emerald-500/80 text-white text-xs rounded">
+                    <span className="px-2 py-1 bg-emerald-500/80 text-white text-xs rounded flex items-center gap-1">
+                      <Paintbrush className="h-3 w-3" />
                       Green Screen
                     </span>
                   )}
