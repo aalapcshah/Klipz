@@ -355,7 +355,8 @@ export default function Settings() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <h4 className="text-sm font-semibold text-muted-foreground mb-3">File Management</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div className="flex items-center justify-between p-3 border rounded-lg">
                     <span className="text-sm font-medium">Select all files</span>
                     <kbd className="px-2 py-1 bg-muted border rounded text-sm font-mono">Ctrl+A</kbd>
@@ -371,6 +372,22 @@ export default function Settings() {
                   <div className="flex items-center justify-between p-3 border rounded-lg">
                     <span className="text-sm font-medium">Clear selection</span>
                     <kbd className="px-2 py-1 bg-muted border rounded text-sm font-mono">Esc</kbd>
+                  </div>
+                </div>
+
+                <h4 className="text-sm font-semibold text-muted-foreground mb-3">Video Recording</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">                  
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <span className="text-sm font-medium">Start camera</span>
+                    <kbd className="px-2 py-1 bg-muted border rounded text-sm font-mono">C</kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <span className="text-sm font-medium">Start/Stop recording</span>
+                    <kbd className="px-2 py-1 bg-muted border rounded text-sm font-mono">R</kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <span className="text-sm font-medium">Toggle advanced features</span>
+                    <kbd className="px-2 py-1 bg-muted border rounded text-sm font-mono">E</kbd>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground mt-4">

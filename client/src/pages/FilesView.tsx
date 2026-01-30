@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
-import { Upload, LayoutGrid, List, FileIcon, Camera } from "lucide-react";
+import { Upload, LayoutGrid, List, FileIcon, Camera, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileUploadDialog } from "@/components/files/FileUploadDialog";
@@ -47,6 +47,12 @@ export default function FilesView() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
     const saved = localStorage.getItem('filesViewMode');
     return (saved as 'grid' | 'list') || 'grid';
+  });
+  const [recentlyViewedExpanded, setRecentlyViewedExpanded] = useState(() => {
+    // On mobile, default to collapsed; on desktop, default to expanded
+    const isMobile = window.innerWidth < 768;
+    const saved = localStorage.getItem('recentlyViewedExpanded');
+    return saved !== null ? JSON.parse(saved) : !isMobile;
   });
   const searchParams = useSearch();
   const [, setLocation] = useLocation();
@@ -451,11 +457,32 @@ export default function FilesView() {
             </div>
           )}
 
-          {/* Recently Viewed Files - At Bottom */}
+          {/* Recently Viewed Files - At Bottom (Collapsible on Mobile) */}
           {recentlyViewed && recentlyViewed.length > 0 && (
             <div className="space-y-3 mt-8 pt-6 border-t">
-              <h2 className="text-lg font-semibold text-muted-foreground">Recently Viewed</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 max-w-full overflow-hidden">
+              <button
+                className="flex items-center justify-between w-full text-left"
+                onClick={() => {
+                  const newValue = !recentlyViewedExpanded;
+                  setRecentlyViewedExpanded(newValue);
+                  localStorage.setItem('recentlyViewedExpanded', JSON.stringify(newValue));
+                }}
+              >
+                <h2 className="text-lg font-semibold text-muted-foreground flex items-center gap-2">
+                  Recently Viewed
+                  <span className="text-xs font-normal bg-muted px-2 py-0.5 rounded-full">
+                    {recentlyViewed.length}
+                  </span>
+                </h2>
+                <div className="md:hidden">
+                  {recentlyViewedExpanded ? (
+                    <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+              </button>
+              <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 max-w-full overflow-hidden transition-all duration-300 ${!recentlyViewedExpanded ? 'hidden md:grid' : ''}`}>
                 {recentlyViewed.map(({ file, viewedAt }) => (
                   <div
                     key={file.id}

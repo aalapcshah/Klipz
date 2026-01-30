@@ -58,8 +58,19 @@ export function VideoRecorderWithTranscription() {
   const [matchedFiles, setMatchedFiles] = useState<MatchedFile[]>([]);
   
   // Feature panels state
-  const [showAdvancedFeatures, setShowAdvancedFeatures] = useState(false);
+  const [showAdvancedFeatures, setShowAdvancedFeatures] = useState(() => {
+    // Restore from localStorage
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('videoAdvancedFeaturesExpanded') : null;
+    return saved !== null ? JSON.parse(saved) : false;
+  });
   const [activeFeatureTab, setActiveFeatureTab] = useState<string>("effects");
+
+  // Toggle advanced features and persist to localStorage
+  const toggleAdvancedFeatures = () => {
+    const newValue = !showAdvancedFeatures;
+    setShowAdvancedFeatures(newValue);
+    localStorage.setItem('videoAdvancedFeaturesExpanded', JSON.stringify(newValue));
+  };
   
   // Active effects state
   const [activeEffects, setActiveEffects] = useState<string[]>([]);
@@ -91,6 +102,46 @@ export function VideoRecorderWithTranscription() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [recordedBlob]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in input fields
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      switch (e.key.toLowerCase()) {
+        case 'r':
+          // R - Start/Stop recording
+          if (!recordedBlob) {
+            if (isRecording) {
+              stopRecording();
+              toast.success('Recording stopped (R)');
+            } else if (isPreviewing) {
+              startRecording();
+              toast.success('Recording started (R)');
+            }
+          }
+          break;
+        case 'c':
+          // C - Start camera
+          if (!isPreviewing && !recordedBlob) {
+            startCamera();
+            toast.success('Camera started (C)');
+          }
+          break;
+        case 'e':
+          // E - Expand/collapse advanced features
+          toggleAdvancedFeatures();
+          toast.success(showAdvancedFeatures ? 'Advanced features collapsed (E)' : 'Advanced features expanded (E)');
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isRecording, isPreviewing, recordedBlob, showAdvancedFeatures]);
 
   useEffect(() => {
     // Initialize Web Speech API
@@ -410,11 +461,12 @@ export function VideoRecorderWithTranscription() {
         <Button
           variant="outline"
           className="w-full flex items-center justify-between"
-          onClick={() => setShowAdvancedFeatures(!showAdvancedFeatures)}
+          onClick={toggleAdvancedFeatures}
         >
           <div className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             <span className="font-medium">Advanced Recording Features</span>
+            <span className="hidden md:inline text-xs text-muted-foreground">(E)</span>
             {(activeEffects.length > 0 || greenScreenEnabled) && (
               <span className="px-1.5 py-0.5 bg-primary text-primary-foreground text-xs rounded">
                 {activeEffects.length + (greenScreenEnabled ? 1 : 0)} active

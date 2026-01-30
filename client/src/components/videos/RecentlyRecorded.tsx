@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { VideoIcon, Clock, MessageSquare, PenLine, Play } from "lucide-react";
+import { VideoIcon, Clock, MessageSquare, PenLine, Play, ChevronDown, ChevronUp } from "lucide-react";
 import { formatDuration } from "@/lib/videoUtils";
 import { useState } from "react";
 import { VideoPlayerWithAnnotations } from "@/components/VideoPlayerWithAnnotations";
@@ -22,6 +22,18 @@ export function RecentlyRecorded() {
     url: string;
     title: string;
   } | null>(null);
+  const [expanded, setExpanded] = useState(() => {
+    // On mobile, default to collapsed; on desktop, default to expanded
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('recentlyRecordedExpanded') : null;
+    return saved !== null ? JSON.parse(saved) : !isMobile;
+  });
+
+  const toggleExpanded = () => {
+    const newValue = !expanded;
+    setExpanded(newValue);
+    localStorage.setItem('recentlyRecordedExpanded', JSON.stringify(newValue));
+  };
 
   if (isLoading) {
     return (
@@ -46,14 +58,29 @@ export function RecentlyRecorded() {
   return (
     <>
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Clock className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold">Recently Recorded</h2>
-          <Badge variant="secondary" className="text-xs">
-            Last 7 days
-          </Badge>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <button
+          className="flex items-center justify-between w-full text-left"
+          onClick={toggleExpanded}
+        >
+          <div className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold">Recently Recorded</h2>
+            <Badge variant="secondary" className="text-xs">
+              Last 7 days
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              ({recentVideos?.length || 0})
+            </span>
+          </div>
+          <div className="md:hidden">
+            {expanded ? (
+              <ChevronUp className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+            )}
+          </div>
+        </button>
+        <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 transition-all duration-300 ${!expanded ? 'hidden md:grid' : ''}`}>
           {recentVideos.map((video) => (
             <Card
               key={video.id}

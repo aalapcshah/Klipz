@@ -4558,3 +4558,19 @@ Note: The application already has extensive annotation features including voice 
 - [x] Move "Recently Viewed" and "Recently Uploaded" sections to bottom of Videos page
 - [x] Move "Advanced Recording Features" above "Matched Files" section in video recording
 - [x] Test all reordered sections display correctly
+
+
+## Phase 53: UX Enhancements - Collapsible Sections, Shortcuts & State Persistence
+- [ ] Make Recently Viewed section collapsible on mobile (Files page)
+- [ ] Make Recently Viewed section collapsible on mobile (Videos page)
+- [ ] Default to collapsed state on mobile devices
+- [ ] Add expand/collapse toggle button with icon
+- [ ] Add keyboard shortcut "R" to start/stop recording
+- [ ] Add keyboard shortcut "E" to expand/collapse Advanced Features
+- [ ] Add keyboard shortcut "C" to start camera
+- [ ] Add keyboard shortcuts help section in Settings
+- [ ] Persist Advanced Features panel expanded/collapsed state to localStorage
+- [ ] Restore panel state on component mount
+- [ ] Test collapsible sections on mobile viewport
+- [ ] Test keyboard shortcuts functionality
+- [ ] Test state persistence across page refreshes
