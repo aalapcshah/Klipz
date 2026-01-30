@@ -1410,3 +1410,52 @@ export const shareAccessLog = mysqlTable("share_access_log", {
 
 export type ShareAccessLog = typeof shareAccessLog.$inferSelect;
 export type InsertShareAccessLog = typeof shareAccessLog.$inferInsert;
+
+
+/**
+ * Video Effect Presets table - stores user-saved video effect configurations
+ */
+export const videoEffectPresets = mysqlTable("video_effect_presets", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  
+  // Preset info
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  
+  // Effect settings stored as JSON
+  settings: json("settings").notNull().$type<{
+    selectedLUT: number;
+    lutIntensity: number;
+    brightness: number;
+    contrast: number;
+    saturation: number;
+    hue: number;
+    effects: Array<{
+      id: string;
+      name: string;
+      enabled: boolean;
+      intensity: number;
+      settings?: Record<string, number>;
+    }>;
+  }>(),
+  
+  // Metadata
+  isDefault: boolean("isDefault").default(false).notNull(), // System default presets
+  usageCount: int("usageCount").default(0).notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  userIdIndex: index("video_effect_presets_user_id_idx").on(table.userId),
+}));
+
+export type VideoEffectPreset = typeof videoEffectPresets.$inferSelect;
+export type InsertVideoEffectPreset = typeof videoEffectPresets.$inferInsert;
+
+export const videoEffectPresetsRelations = relations(videoEffectPresets, ({ one }) => ({
+  user: one(users, {
+    fields: [videoEffectPresets.userId],
+    references: [users.id],
+  }),
+}));

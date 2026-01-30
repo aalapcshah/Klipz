@@ -5,7 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sparkles, Sun, Contrast, Palette, Film, Circle, Square, RotateCcw } from 'lucide-react';
+import { Sparkles, Sun, Contrast, Palette, Film, Circle, Square, RotateCcw, Save, FolderOpen, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { trpc } from '@/lib/trpc';
+import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 interface VideoEffect {
@@ -59,12 +71,38 @@ export function VideoEffectsLibrary({
 }: VideoEffectsLibraryProps) {
   const [effects, setEffects] = useState<VideoEffect[]>(DEFAULT_EFFECTS);
   const [selectedLUT, setSelectedLUT] = useState<number>(0);
+  const [lutIntensity, setLutIntensity] = useState(100);
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
   const [saturation, setSaturation] = useState(100);
   const [hue, setHue] = useState(0);
   const overlayRef = useRef<HTMLDivElement>(null);
   const grainAnimationRef = useRef<number | null>(null);
+  const [showPresets, setShowPresets] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [presetName, setPresetName] = useState('');
+  const [presetDescription, setPresetDescription] = useState('');
+  // Fetch user's saved presets
+  const { data: savedPresets, refetch: refetchPresets } = trpc.effectPresets.list.useQuery();
+  const createPresetMutation = trpc.effectPresets.create.useMutation({
+    onSuccess: () => {
+      toast.success('Preset saved successfully');
+      refetchPresets();
+      setSaveDialogOpen(false);
+      setPresetName('');
+      setPresetDescription('');
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+  const deletePresetMutation = trpc.effectPresets.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Preset deleted');
+      refetchPresets();
+    },
+  });
+  const trackUsageMutation = trpc.effectPresets.trackUsage.useMutation();
 
   // Generate CSS filter string from all settings
   const generateFilterString = useCallback(() => {
@@ -76,9 +114,18 @@ export function VideoEffectsLibrary({
     if (saturation !== 100) filters.push(`saturate(${saturation / 100})`);
     if (hue !== 0) filters.push(`hue-rotate(${hue}deg)`);
     
-    // LUT preset
+    // LUT preset with intensity
     if (selectedLUT > 0 && LUT_PRESETS[selectedLUT].filter !== 'none') {
-      filters.push(LUT_PRESETS[selectedLUT].filter);
+      // Apply LUT with intensity by blending with original
+      // At 100% intensity, use full LUT; at 0%, use no LUT
+      if (lutIntensity === 100) {
+        filters.push(LUT_PRESETS[selectedLUT].filter);
+      } else if (lutIntensity > 0) {
+        // Parse and scale the LUT filter values based on intensity
+        const lutFilter = LUT_PRESETS[selectedLUT].filter;
+        const scaledFilter = scaleLutIntensity(lutFilter, lutIntensity / 100);
+        filters.push(scaledFilter);
+      }
     }
     
     // Blur effect
@@ -88,7 +135,45 @@ export function VideoEffectsLibrary({
     }
     
     return filters.length > 0 ? filters.join(' ') : 'none';
-  }, [brightness, contrast, saturation, hue, selectedLUT, effects]);
+  }, [brightness, contrast, saturation, hue, selectedLUT, lutIntensity, effects]);
+
+  // Helper function to scale LUT filter intensity
+  const scaleLutIntensity = (filter: string, intensity: number): string => {
+    // Parse filter functions and scale their values
+    return filter.replace(/(\w+)\(([^)]+)\)/g, (match, fn, value) => {
+      const numMatch = value.match(/([\d.]+)/);
+      if (!numMatch) return match;
+      
+      const originalValue = parseFloat(numMatch[1]);
+      let scaledValue: number;
+      
+      switch (fn) {
+        case 'contrast':
+        case 'saturate':
+        case 'brightness':
+          // These have a neutral value of 1
+          scaledValue = 1 + (originalValue - 1) * intensity;
+          break;
+        case 'sepia':
+        case 'grayscale':
+          // These have a neutral value of 0
+          scaledValue = originalValue * intensity;
+          break;
+        case 'hue-rotate':
+          // Scale the degree value
+          const degMatch = value.match(/(-?[\d.]+)deg/);
+          if (degMatch) {
+            const deg = parseFloat(degMatch[1]) * intensity;
+            return `hue-rotate(${deg}deg)`;
+          }
+          return match;
+        default:
+          scaledValue = originalValue;
+      }
+      
+      return `${fn}(${scaledValue}${value.replace(/[\d.]+/, '')})`;
+    });
+  };
 
   // Apply effects to video element
   useEffect(() => {
@@ -96,8 +181,10 @@ export function VideoEffectsLibrary({
     
     const filterString = generateFilterString();
     videoRef.current.style.filter = filterString;
-    
-    // Notify parent of changes with LUT info
+  }, [videoRef, generateFilterString]);
+
+  // Notify parent of changes separately to avoid infinite loops
+  useEffect(() => {
     const effectsWithLUT = [...effects];
     if (selectedLUT > 0) {
       effectsWithLUT.push({
@@ -108,7 +195,8 @@ export function VideoEffectsLibrary({
       });
     }
     onEffectsChange?.(effectsWithLUT);
-  }, [videoRef, effects, generateFilterString, onEffectsChange, selectedLUT]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effects, selectedLUT]);
 
   // Film grain animation
   useEffect(() => {
@@ -179,6 +267,7 @@ export function VideoEffectsLibrary({
   const resetAll = () => {
     setEffects(DEFAULT_EFFECTS);
     setSelectedLUT(0);
+    setLutIntensity(100);
     setBrightness(100);
     setContrast(100);
     setSaturation(100);
@@ -200,13 +289,156 @@ export function VideoEffectsLibrary({
             <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500" />
             Video Effects
           </CardTitle>
-          <Button variant="ghost" size="sm" onClick={resetAll} className="h-8">
-            <RotateCcw className="h-3 w-3 mr-1" />
-            Reset
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Presets Toggle */}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowPresets(!showPresets)} 
+              className="h-8"
+            >
+              <FolderOpen className="h-3 w-3 mr-1" />
+              Presets
+              {showPresets ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
+            </Button>
+            
+            {/* Save Preset Dialog */}
+            <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8">
+                  <Save className="h-3 w-3 mr-1" />
+                  Save
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Save Effect Preset</DialogTitle>
+                  <DialogDescription>
+                    Save your current effect settings as a preset for quick reuse.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="presetName">Preset Name</Label>
+                    <Input
+                      id="presetName"
+                      placeholder="My Custom Look"
+                      value={presetName}
+                      onChange={(e) => setPresetName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="presetDescription">Description (optional)</Label>
+                    <Input
+                      id="presetDescription"
+                      placeholder="Warm cinematic look with high contrast"
+                      value={presetDescription}
+                      onChange={(e) => setPresetDescription(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      if (!presetName.trim()) {
+                        toast.error('Please enter a preset name');
+                        return;
+                      }
+                      createPresetMutation.mutate({
+                        name: presetName,
+                        description: presetDescription || undefined,
+                        settings: {
+                          selectedLUT,
+                          lutIntensity,
+                          brightness,
+                          contrast,
+                          saturation,
+                          hue,
+                          effects: effects.map(e => ({
+                            id: e.id,
+                            name: e.name,
+                            enabled: e.enabled,
+                            intensity: e.intensity,
+                            settings: e.settings,
+                          })),
+                        },
+                      });
+                    }}
+                    disabled={createPresetMutation.isPending}
+                  >
+                    {createPresetMutation.isPending ? 'Saving...' : 'Save Preset'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
+            <Button variant="ghost" size="sm" onClick={resetAll} className="h-8">
+              <RotateCcw className="h-3 w-3 mr-1" />
+              Reset
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
+        {/* Saved Presets Section */}
+        {showPresets && (
+          <div className="mb-4 p-3 bg-muted/30 rounded-lg border">
+            <Label className="text-sm font-medium mb-2 block">Your Saved Presets</Label>
+            {savedPresets && savedPresets.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {savedPresets.map((preset) => (
+                  <div
+                    key={preset.id}
+                    className="flex items-center justify-between p-2 rounded-lg border bg-background hover:bg-muted/50 transition-colors"
+                  >
+                    <button
+                      className="flex-1 text-left"
+                      onClick={() => {
+                        // Load preset settings
+                        const settings = preset.settings as any;
+                        if (settings) {
+                          setSelectedLUT(settings.selectedLUT || 0);
+                          setLutIntensity(settings.lutIntensity || 100);
+                          setBrightness(settings.brightness || 100);
+                          setContrast(settings.contrast || 100);
+                          setSaturation(settings.saturation || 100);
+                          setHue(settings.hue || 0);
+                          if (settings.effects) {
+                            setEffects(settings.effects);
+                          }
+                          trackUsageMutation.mutate({ id: preset.id });
+                          toast.success(`Loaded preset: ${preset.name}`);
+                        }
+                      }}
+                    >
+                      <div className="text-sm font-medium">{preset.name}</div>
+                      {preset.description && (
+                        <div className="text-xs text-muted-foreground truncate">{preset.description}</div>
+                      )}
+                    </button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deletePresetMutation.mutate({ id: preset.id });
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No saved presets yet. Adjust effects and click Save to create one.</p>
+            )}
+          </div>
+        )}
+        
         <Tabs defaultValue="luts" className="w-full">
           <TabsList className="grid w-full grid-cols-3 h-9">
             <TabsTrigger value="luts" className="text-xs sm:text-sm">LUTs</TabsTrigger>
@@ -236,6 +468,28 @@ export function VideoEffectsLibrary({
                 </button>
               ))}
             </div>
+            
+            {/* LUT Intensity Slider */}
+            {selectedLUT > 0 && (
+              <div className="space-y-2 p-3 bg-muted/50 rounded-lg mt-3">
+                <div className="flex justify-between text-xs sm:text-sm">
+                  <Label className="flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" /> Effect Intensity
+                  </Label>
+                  <span className="font-medium">{lutIntensity}%</span>
+                </div>
+                <Slider
+                  value={[lutIntensity]}
+                  min={0}
+                  max={100}
+                  step={1}
+                  onValueChange={([v]) => setLutIntensity(v)}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Adjust how strongly the {LUT_PRESETS[selectedLUT].name} effect is applied
+                </p>
+              </div>
+            )}
           </TabsContent>
 
           {/* Basic Adjustments Tab */}
