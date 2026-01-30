@@ -4533,3 +4533,21 @@ Note: The application already has extensive annotation features including voice 
 - [x] Test music API integration
 - [x] Test effect intensity slider
 - [x] Test preset save/load functionality
+
+
+## Phase 51: In-App Camera Capture & Screenshot Auto-Import (Premium)
+- [x] Create CameraCapture component with device camera access
+- [x] Implement photo capture with preview and retake options
+- [x] Add camera flip (front/back) functionality for mobile
+- [x] Integrate captured photos with file upload pipeline
+- [x] Auto-enrich captured photos with AI metadata
+- [x] Create ScreenshotMonitor service for auto-import
+- [x] Implement file system watcher for screenshot directories
+- [x] Add background sync for new screenshots on mobile
+- [x] Create screenshot import settings (enable/disable, folder paths)
+- [x] Add subscription check for premium feature gating
+- [x] Show upgrade prompt for free users trying to access features
+- [x] Add camera capture button to Files page header
+- [x] Add screenshot sync toggle in Settings
+- [x] Test camera capture on desktop and mobile
+- [x] Test screenshot auto-import functionality

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
-import { Upload, LayoutGrid, List, FileIcon } from "lucide-react";
+import { Upload, LayoutGrid, List, FileIcon, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileUploadDialog } from "@/components/files/FileUploadDialog";
@@ -14,12 +14,14 @@ import { AdvancedFiltersPanel, type AdvancedFilters } from "@/components/files/A
 import { trpc } from "@/lib/trpc";
 import { StorageCleanupWizard } from "@/components/StorageCleanupWizard";
 import { UsageOverviewCompact } from "@/components/UsageOverviewCompact";
+import { CameraCapture } from "@/components/CameraCapture";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function FilesView() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [showCleanupWizard, setShowCleanupWizard] = useState(false);
+  const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
   const [selectedFileId, setSelectedFileId] = useState<number | null>(null);
   const [selectedFileIds, setSelectedFileIds] = useState<number[]>([]);
   const [isPulling, setIsPulling] = useState(false);
@@ -195,6 +197,15 @@ export default function FilesView() {
                   <Button variant="outline" size="sm" onClick={() => setShowCleanupWizard(true)}>
                     <Trash2 className="h-4 w-4 mr-1" />
                     <span className="hidden sm:inline">Clean Up</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setCameraDialogOpen(true)}
+                    title="Take Photo"
+                  >
+                    <Camera className="h-4 w-4 mr-1" />
+                    <span className="hidden sm:inline">Capture</span>
                   </Button>
                   <Button id="upload-files-button" size="sm" onClick={() => setUploadDialogOpen(true)}>
                     <Upload className="h-4 w-4 mr-1" />
@@ -505,6 +516,14 @@ export default function FilesView() {
           open={showCleanupWizard}
           onOpenChange={setShowCleanupWizard}
           onComplete={() => {
+            utils.files.list.invalidate();
+          }}
+        />
+
+        <CameraCapture
+          open={cameraDialogOpen}
+          onOpenChange={setCameraDialogOpen}
+          onCaptureComplete={() => {
             utils.files.list.invalidate();
           }}
         />

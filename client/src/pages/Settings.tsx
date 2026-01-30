@@ -29,6 +29,7 @@ import { AccountSettings } from "@/components/AccountSettings";
 import { NotificationPreferencesSettings } from "@/components/NotificationPreferencesSettings";
 import { BrowserNotificationSettings } from "@/components/BrowserNotificationSettings";
 import { StorageUsageDashboard } from "@/components/StorageUsageDashboard";
+import { ScreenshotMonitor } from "@/components/ScreenshotMonitor";
 
 type KnowledgeGraphType = "dbpedia" | "wikidata" | "schema_org" | "custom";
 
@@ -332,6 +333,7 @@ export default function Settings() {
           <TabsTrigger value="keyboard">Keyboard Shortcuts</TabsTrigger>
           <TabsTrigger value="storage">Storage</TabsTrigger>
           <TabsTrigger value="knowledge-graphs">Knowledge Graphs</TabsTrigger>
+          <TabsTrigger value="auto-import">Auto Import</TabsTrigger>
         </TabsList>
 
         <TabsContent value="account" className="space-y-6 mt-6">
@@ -664,6 +666,20 @@ export default function Settings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+
+        <TabsContent value="auto-import" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Screenshot Auto-Import</CardTitle>
+              <CardDescription>
+                Automatically import screenshots from your device to your library
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScreenshotMonitor />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
