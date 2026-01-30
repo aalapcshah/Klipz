@@ -448,9 +448,6 @@ function VideosView() {
         </p>
       </div>
 
-      {/* Recently Recorded Section */}
-      <RecentlyRecorded />
-
       <Tabs defaultValue="record" className="w-full">
         <TabsList>
           <TabsTrigger value="record">Record New</TabsTrigger>
@@ -467,6 +464,11 @@ function VideosView() {
           <VideoList />
         </TabsContent>
       </Tabs>
+
+      {/* Recently Recorded Section - At Bottom */}
+      <div className="mt-8 pt-6 border-t">
+        <RecentlyRecorded />
+      </div>
     </div>
   );
 }

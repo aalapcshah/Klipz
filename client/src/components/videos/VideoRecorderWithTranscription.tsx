@@ -399,6 +399,113 @@ export function VideoRecorderWithTranscription() {
 
   return (
     <div className="space-y-4">
+      {/* Advanced Recording Features Toggle - Now at Top */}
+      <Card className="p-4">
+        {/* Info about features */}
+        {isPreviewing && !showAdvancedFeatures && (
+          <div className="mb-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded text-xs text-blue-600 dark:text-blue-400">
+            <strong>Tip:</strong> Video effects and filters are applied in real-time to your camera feed. Expand to configure.
+          </div>
+        )}
+        <Button
+          variant="outline"
+          className="w-full flex items-center justify-between"
+          onClick={() => setShowAdvancedFeatures(!showAdvancedFeatures)}
+        >
+          <div className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            <span className="font-medium">Advanced Recording Features</span>
+            {(activeEffects.length > 0 || greenScreenEnabled) && (
+              <span className="px-1.5 py-0.5 bg-primary text-primary-foreground text-xs rounded">
+                {activeEffects.length + (greenScreenEnabled ? 1 : 0)} active
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
+              <Zap className="h-3 w-3" />
+              <span>Speed</span>
+              <Palette className="h-3 w-3 ml-2" />
+              <span>Effects</span>
+              <Headphones className="h-3 w-3 ml-2" />
+              <span>Audio</span>
+              <Paintbrush className="h-3 w-3 ml-2" />
+              <span>Green Screen</span>
+            </div>
+            {showAdvancedFeatures ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </div>
+        </Button>
+      </Card>
+
+      {/* Advanced Features Panel - Now at Top */}
+      {showAdvancedFeatures && (
+        <Card className="p-4">
+          <Tabs value={activeFeatureTab} onValueChange={setActiveFeatureTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto gap-1">
+              <TabsTrigger value="effects" className="flex items-center gap-1 text-xs sm:text-sm py-2">
+                <Palette className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Effects</span>
+              </TabsTrigger>
+              <TabsTrigger value="speed" className="flex items-center gap-1 text-xs sm:text-sm py-2">
+                <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Speed</span>
+              </TabsTrigger>
+              <TabsTrigger value="audio" className="flex items-center gap-1 text-xs sm:text-sm py-2">
+                <Headphones className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Audio</span>
+              </TabsTrigger>
+              <TabsTrigger value="greenscreen" className="flex items-center gap-1 text-xs sm:text-sm py-2">
+                <Paintbrush className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Green Screen</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="effects" className="mt-4">
+              <VideoEffectsLibrary
+                videoRef={videoRef}
+                onEffectsChange={(effects) => {
+                  const enabledEffects = effects.filter((e: any) => e.enabled).map((e: any) => e.name);
+                  setActiveEffects(enabledEffects);
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="speed" className="mt-4">
+              <VideoSpeedRamping
+                videoRef={videoRef}
+                duration={recordingTime}
+                currentTime={0}
+                onTimeUpdate={(time) => {
+                  console.log('Time update:', time);
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="audio" className="mt-4">
+              <MultiTrackAudioMixer
+                onTracksChange={(tracks) => {
+                  console.log('Audio tracks changed:', tracks);
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="greenscreen" className="mt-4">
+              <GreenScreenChromaKey
+                videoRef={videoRef}
+                canvasRef={canvasRef}
+                onSettingsChange={(settings) => {
+                  setGreenScreenEnabled(settings.enabled);
+                }}
+              />
+            </TabsContent>
+          </Tabs>
+        </Card>
+      )}
+
       {/* Main Recording Area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
         {/* Video Area */}
@@ -642,112 +749,6 @@ export function VideoRecorderWithTranscription() {
         </div>
       </div>
 
-      {/* Advanced Recording Features Toggle */}
-      <Card className="p-4">
-        {/* Info about features */}
-        {isPreviewing && !showAdvancedFeatures && (
-          <div className="mb-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded text-xs text-blue-600 dark:text-blue-400">
-            <strong>Tip:</strong> Video effects and filters are applied in real-time to your camera feed. Expand to configure.
-          </div>
-        )}
-        <Button
-          variant="outline"
-          className="w-full flex items-center justify-between"
-          onClick={() => setShowAdvancedFeatures(!showAdvancedFeatures)}
-        >
-          <div className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            <span className="font-medium">Advanced Recording Features</span>
-            {(activeEffects.length > 0 || greenScreenEnabled) && (
-              <span className="px-1.5 py-0.5 bg-primary text-primary-foreground text-xs rounded">
-                {activeEffects.length + (greenScreenEnabled ? 1 : 0)} active
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
-              <Zap className="h-3 w-3" />
-              <span>Speed</span>
-              <Palette className="h-3 w-3 ml-2" />
-              <span>Effects</span>
-              <Headphones className="h-3 w-3 ml-2" />
-              <span>Audio</span>
-              <Paintbrush className="h-3 w-3 ml-2" />
-              <span>Green Screen</span>
-            </div>
-            {showAdvancedFeatures ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </div>
-        </Button>
-      </Card>
-
-      {/* Advanced Features Panel */}
-      {showAdvancedFeatures && (
-        <Card className="p-4">
-          <Tabs value={activeFeatureTab} onValueChange={setActiveFeatureTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto gap-1">
-              <TabsTrigger value="effects" className="flex items-center gap-1 text-xs sm:text-sm py-2">
-                <Palette className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Effects</span>
-              </TabsTrigger>
-              <TabsTrigger value="speed" className="flex items-center gap-1 text-xs sm:text-sm py-2">
-                <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Speed</span>
-              </TabsTrigger>
-              <TabsTrigger value="audio" className="flex items-center gap-1 text-xs sm:text-sm py-2">
-                <Headphones className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Audio</span>
-              </TabsTrigger>
-              <TabsTrigger value="greenscreen" className="flex items-center gap-1 text-xs sm:text-sm py-2">
-                <Paintbrush className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Green Screen</span>
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="effects" className="mt-4">
-              <VideoEffectsLibrary
-                videoRef={videoRef}
-                onEffectsChange={(effects) => {
-                  const enabledEffects = effects.filter((e: any) => e.enabled).map((e: any) => e.name);
-                  setActiveEffects(enabledEffects);
-                }}
-              />
-            </TabsContent>
-
-            <TabsContent value="speed" className="mt-4">
-              <VideoSpeedRamping
-                videoRef={videoRef}
-                duration={recordingTime}
-                currentTime={0}
-                onTimeUpdate={(time) => {
-                  console.log('Time update:', time);
-                }}
-              />
-            </TabsContent>
-
-            <TabsContent value="audio" className="mt-4">
-              <MultiTrackAudioMixer
-                onTracksChange={(tracks) => {
-                  console.log('Audio tracks changed:', tracks);
-                }}
-              />
-            </TabsContent>
-
-            <TabsContent value="greenscreen" className="mt-4">
-              <GreenScreenChromaKey
-                videoRef={videoRef}
-                canvasRef={canvasRef}
-                onSettingsChange={(settings) => {
-                  setGreenScreenEnabled(settings.enabled);
-                }}
-              />
-            </TabsContent>
-          </Tabs>
-        </Card>
-      )}
     </div>
   );
 }

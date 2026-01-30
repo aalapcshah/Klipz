@@ -4551,3 +4551,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add screenshot sync toggle in Settings
 - [x] Test camera capture on desktop and mobile
 - [x] Test screenshot auto-import functionality
+
+
+## Phase 52: UI Section Reordering
+- [x] Move "Recently Viewed" section to bottom of Files page
+- [x] Move "Recently Viewed" and "Recently Uploaded" sections to bottom of Videos page
+- [x] Move "Advanced Recording Features" above "Matched Files" section in video recording
+- [x] Test all reordered sections display correctly
