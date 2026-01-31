@@ -16,6 +16,9 @@ import { StorageCleanupWizard } from "@/components/StorageCleanupWizard";
 import { UsageOverviewCompact } from "@/components/UsageOverviewCompact";
 import { CameraCapture } from "@/components/CameraCapture";
 import { FilesFAB } from "@/components/FloatingActionButton";
+import { PullToRefresh } from "@/components/PullToRefresh";
+import { GestureTutorial } from "@/components/GestureTutorial";
+import { VoiceCommands, useFileCommands } from "@/components/VoiceCommands";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -101,6 +104,25 @@ export default function FilesView() {
   }, [viewMode]);
 
   const trackViewMutation = trpc.recentlyViewed.trackView.useMutation();
+
+  // Voice commands for hands-free control
+  const fileCommands = useFileCommands({
+    onTakePhoto: () => setCameraDialogOpen(true),
+    onUpload: () => setUploadDialogOpen(true),
+    onSearch: (query) => {
+      const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+      if (searchInput) {
+        searchInput.value = query;
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    },
+    onSelectAll: () => {
+      if (filesData?.files) {
+        setSelectedFileIds(filesData.files.map((f: any) => f.id));
+      }
+    },
+    onClearSelection: () => setSelectedFileIds([]),
+  });
 
   // Pull-to-refresh handlers
   const pullThreshold = 80;
@@ -218,6 +240,18 @@ export default function FilesView() {
                     <Upload className="h-4 w-4 mr-1" />
                     <span className="hidden sm:inline">Upload</span>
                   </Button>
+                  {/* Voice Commands Button */}
+                  <VoiceCommands
+                    commands={fileCommands}
+                    onSearchCommand={(query) => {
+                      const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+                      if (searchInput) {
+                        searchInput.value = query;
+                        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        searchInput.focus();
+                      }
+                    }}
+                  />
                 </div>
               </div>
               
@@ -569,6 +603,9 @@ export default function FilesView() {
             }
           }}
         />
+
+        {/* Gesture Tutorial for First-Time Mobile Users */}
+        <GestureTutorial onComplete={() => {}} />
       </div>
     </div>
   );

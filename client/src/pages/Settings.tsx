@@ -30,6 +30,7 @@ import { NotificationPreferencesSettings } from "@/components/NotificationPrefer
 import { BrowserNotificationSettings } from "@/components/BrowserNotificationSettings";
 import { StorageUsageDashboard } from "@/components/StorageUsageDashboard";
 import { ScreenshotMonitor } from "@/components/ScreenshotMonitor";
+import { resetGestureTutorial, GestureTutorial } from "@/components/GestureTutorial";
 
 type KnowledgeGraphType = "dbpedia" | "wikidata" | "schema_org" | "custom";
 
@@ -423,6 +424,29 @@ export default function Settings() {
                 ) : (
                   "Restart Tutorial"
                 )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Mobile Gestures Tutorial</CardTitle>
+              <CardDescription>
+                Learn how to use swipe gestures, pull-to-refresh, and the floating action button on mobile devices
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                The gesture tutorial shows you how to use swipe-to-delete, swipe-to-favorite, pull-to-refresh, and voice commands on mobile.
+              </p>
+              <Button
+                onClick={() => {
+                  resetGestureTutorial();
+                  toast.success('Gesture tutorial reset! Visit the Files page on mobile to see it again.');
+                }}
+                variant="outline"
+              >
+                Show Gesture Tutorial Again
               </Button>
             </CardContent>
           </Card>
