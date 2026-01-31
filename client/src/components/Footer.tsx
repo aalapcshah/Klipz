@@ -9,7 +9,10 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* About Section */}
           <div>
-            <h3 className="font-semibold text-lg mb-4">Klipz</h3>
+            <div className="flex items-center gap-2 mb-4">
+              <img src="/klipz-icon.png" alt="Klipz" className="h-6 w-6" />
+              <h3 className="font-semibold text-lg">Klipz</h3>
+            </div>
             <p className="text-sm text-muted-foreground">
               AI-powered media management platform for organizing, enriching, and exporting your visual content.
             </p>

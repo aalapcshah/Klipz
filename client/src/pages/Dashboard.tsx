@@ -153,7 +153,7 @@ export default function Dashboard() {
             
             {/* Logo - Centered */}
             <Link href="/" className="flex items-center gap-1.5 font-bold text-lg absolute left-1/2 transform -translate-x-1/2">
-              <Sparkles className="h-5 w-5 text-primary" />
+              <img src="/klipz-icon.png" alt="Klipz" className="h-6 w-6" />
               <span>Klipz</span>
             </Link>
             
@@ -186,8 +186,8 @@ export default function Dashboard() {
           
           {/* Desktop: Logo (left) + Nav (center) + User Info (right) */}
           <div className="hidden md:flex items-center gap-8 w-full">
-            <Link href="/" className="flex items-center gap-1.5 font-bold text-xl">
-              <Sparkles className="h-6 w-6 text-primary" />
+            <Link href="/" className="flex items-center gap-2 font-bold text-xl">
+              <img src="/klipz-icon.png" alt="Klipz" className="h-7 w-7" />
               <span>Klipz</span>
             </Link>
             
