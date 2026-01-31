@@ -56,6 +56,20 @@ const trpcClient = trpc.createClient({
   ],
 });
 
+// Hide splash screen after app loads
+const hideSplashScreen = () => {
+  const splash = document.getElementById('splash-screen');
+  if (splash) {
+    splash.style.opacity = '0';
+    setTimeout(() => {
+      splash.style.display = 'none';
+    }, 300);
+  }
+};
+
+// Hide splash after a short delay to ensure smooth transition
+setTimeout(hideSplashScreen, 800);
+
 createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>
     <QueryClientProvider client={queryClient}>
