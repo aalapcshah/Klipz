@@ -38,7 +38,7 @@ export function BrowserNotificationSettings() {
       if (result === 'granted') {
         toast.success("Notifications enabled!");
         // Send a test notification
-        new Notification("Synclips Notifications", {
+        new Notification("Klipz Notifications", {
           body: "You'll now receive notifications for upload events.",
           icon: "/favicon.ico",
         });
@@ -219,7 +219,7 @@ export function BrowserNotificationSettings() {
                 variant="outline"
                 onClick={() => {
                   new Notification("Test Notification", {
-                    body: "This is a test notification from Synclips.",
+                    body: "This is a test notification from Klipz.",
                     icon: "/favicon.ico",
                   });
                   toast.success("Test notification sent!");

@@ -65,7 +65,7 @@ export function KeyboardShortcutsHelp() {
         <DialogHeader>
           <DialogTitle>Keyboard Shortcuts</DialogTitle>
           <DialogDescription>
-            Use these shortcuts to navigate and interact with Synclips more efficiently
+            Use these shortcuts to navigate and interact with Klipz more efficiently
           </DialogDescription>
         </DialogHeader>
 

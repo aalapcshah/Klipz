@@ -30,9 +30,9 @@ export function FilesEmptyState({ onUploadClick }: FilesEmptyStateProps) {
 
             {/* Content */}
             <div className="space-y-3">
-              <h2 className="text-2xl font-bold">Welcome to Synclips!</h2>
+              <h2 className="text-2xl font-bold">Welcome to Klipz!</h2>
               <p className="text-muted-foreground max-w-md">
-                Start your journey by uploading your first media file. Synclips will automatically enrich it with AI-powered metadata, making it easy to search and organize.
+                Start your journey by uploading your first media file. Klipz will automatically enrich it with AI-powered metadata, making it easy to search and organize.
               </p>
             </div>
 

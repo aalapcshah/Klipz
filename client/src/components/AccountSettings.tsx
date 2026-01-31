@@ -202,7 +202,7 @@ export function AccountSettings() {
             </div>
 
             <div className="col-span-2">
-              <Label htmlFor="reasonForUse">What do you use Synclips for?</Label>
+              <Label htmlFor="reasonForUse">What do you use Klipz for?</Label>
               <Textarea
                 id="reasonForUse"
                 value={reasonForUse}
@@ -308,7 +308,7 @@ export function AccountSettings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Synclips works best with access to your device features. Grant permissions to enable features like photo uploads, voice recording, and location tagging.
+            Klipz works best with access to your device features. Grant permissions to enable features like photo uploads, voice recording, and location tagging.
           </p>
           
           <div className="space-y-3">

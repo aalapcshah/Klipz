@@ -72,7 +72,7 @@ export function PermissionsDialog({ open, onOpenChange, onComplete }: Permission
         <DialogHeader>
           <DialogTitle>App Permissions</DialogTitle>
           <DialogDescription>
-            Synclips needs access to certain features to provide the best experience.
+            Klipz needs access to certain features to provide the best experience.
             You can manage these permissions anytime in your device settings.
           </DialogDescription>
         </DialogHeader>

@@ -31,7 +31,7 @@ export function OnboardingTutorial() {
         {
           element: '#files-nav',
           popover: {
-            title: 'Welcome to Synclips! 🎬',
+            title: 'Welcome to Klipz! 🎬',
             description: 'Let\'s take a quick tour of the key features. This will only take a minute!',
             side: "bottom",
             align: 'start'
@@ -41,7 +41,7 @@ export function OnboardingTutorial() {
           element: '#upload-files-button',
           popover: {
             title: 'Upload Your Media',
-            description: 'Start by uploading videos or images. Synclips will automatically enrich them with AI-powered metadata.',
+            description: 'Start by uploading videos or images. Klipz will automatically enrich them with AI-powered metadata.',
             side: "bottom",
             align: 'start'
           }

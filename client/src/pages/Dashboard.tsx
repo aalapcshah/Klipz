@@ -91,7 +91,7 @@ export default function Dashboard() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-6 max-w-md">
           <div className="space-y-2">
-            <h1 className="text-4xl font-bold gradient-text">Synclips</h1>
+            <h1 className="text-4xl font-bold gradient-text">Klipz</h1>
             <p className="text-muted-foreground">
               AI-Powered Media Management & Video Annotation Platform
             </p>
@@ -154,7 +154,7 @@ export default function Dashboard() {
             {/* Logo - Centered */}
             <Link href="/" className="flex items-center gap-1.5 font-bold text-lg absolute left-1/2 transform -translate-x-1/2">
               <Sparkles className="h-5 w-5 text-primary" />
-              <span>Synclips</span>
+              <span>Klipz</span>
             </Link>
             
             {/* Quick Action Buttons - Right */}
@@ -188,7 +188,7 @@ export default function Dashboard() {
           <div className="hidden md:flex items-center gap-8 w-full">
             <Link href="/" className="flex items-center gap-1.5 font-bold text-xl">
               <Sparkles className="h-6 w-6 text-primary" />
-              <span>Synclips</span>
+              <span>Klipz</span>
             </Link>
             
             {/* Desktop Navigation with dropdown menus */}

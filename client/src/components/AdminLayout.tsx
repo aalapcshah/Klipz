@@ -67,7 +67,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Shield className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold">Synclips Admin</h1>
+            <h1 className="text-xl font-bold">Klipz Admin</h1>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">
