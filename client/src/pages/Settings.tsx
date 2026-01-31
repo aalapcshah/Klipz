@@ -31,6 +31,7 @@ import { BrowserNotificationSettings } from "@/components/BrowserNotificationSet
 import { StorageUsageDashboard } from "@/components/StorageUsageDashboard";
 import { ScreenshotMonitor } from "@/components/ScreenshotMonitor";
 import { resetGestureTutorial, GestureTutorial } from "@/components/GestureTutorial";
+import { getAudioEnabled, setAudioEnabled, testAllSounds } from "@/lib/audioFeedback";
 
 type KnowledgeGraphType = "dbpedia" | "wikidata" | "schema_org" | "custom";
 
@@ -424,6 +425,42 @@ export default function Settings() {
                 ) : (
                   "Restart Tutorial"
                 )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Audio Feedback</CardTitle>
+              <CardDescription>
+                Enable sound effects for voice commands and actions
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Enable Audio Feedback</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Play sounds when voice commands are recognized and actions complete
+                  </p>
+                </div>
+                <Switch
+                  checked={getAudioEnabled()}
+                  onCheckedChange={(checked) => {
+                    setAudioEnabled(checked);
+                    toast.success(checked ? 'Audio feedback enabled' : 'Audio feedback disabled');
+                  }}
+                />
+              </div>
+              <Button
+                onClick={() => {
+                  testAllSounds();
+                  toast.info('Playing all sound effects...');
+                }}
+                variant="outline"
+                size="sm"
+              >
+                Test Sounds
               </Button>
             </CardContent>
           </Card>

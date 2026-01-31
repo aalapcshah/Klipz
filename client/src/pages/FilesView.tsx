@@ -19,6 +19,8 @@ import { FilesFAB } from "@/components/FloatingActionButton";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { GestureTutorial } from "@/components/GestureTutorial";
 import { VoiceCommands, useFileCommands } from "@/components/VoiceCommands";
+import { OfflineIndicator, OfflineBanner } from "@/components/OfflineIndicator";
+import { useOffline } from "@/hooks/useOffline";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -252,6 +254,8 @@ export default function FilesView() {
                       }
                     }}
                   />
+                  {/* Offline Indicator */}
+                  <OfflineIndicator showDetails />
                 </div>
               </div>
               

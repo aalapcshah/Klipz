@@ -3,6 +3,7 @@ import { Mic, MicOff, Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/lib/haptics';
+import { voiceFeedback } from '@/lib/audioFeedback';
 import { toast } from 'sonner';
 
 interface VoiceCommand {
@@ -88,6 +89,7 @@ export function VoiceCommands({
         setTranscript('');
         setLastCommand(null);
         triggerHaptic('light');
+        voiceFeedback.startListening();
         toast.info('Listening for voice commands...', { duration: 2000 });
       };
 
@@ -100,10 +102,14 @@ export function VoiceCommands({
         
         // Process final results
         if (result.isFinal) {
+          voiceFeedback.commandRecognized();
           const commandRecognized = processCommand(text);
           if (!commandRecognized) {
             toast.error(`Command not recognized: "${text}"`, { duration: 3000 });
             triggerHaptic('warning');
+            voiceFeedback.commandError();
+          } else {
+            voiceFeedback.commandSuccess();
           }
         }
       };
