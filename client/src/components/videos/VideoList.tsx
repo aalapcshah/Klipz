@@ -112,6 +112,7 @@ export function VideoList() {
   const batchExportMutation = trpc.videoExport.batchExport.useMutation();
   const batchExportWithAnnotationsMutation = trpc.videoExport.batchExportWithAnnotations.useMutation();
   const transcribeMutation = trpc.videoTranscription.transcribeVideo.useMutation();
+  const linkVideoToFileMutation = trpc.videos.linkToFile.useMutation();
   const [transcribingVideos, setTranscribingVideos] = useState<Set<number>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
@@ -723,14 +724,24 @@ export function VideoList() {
                     variant="ghost"
                     size="sm"
                     className="h-6 px-1.5 text-[10px] text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                    onClick={() => {
+                    onClick={async () => {
                       if (video.fileId) {
                         setAnnotatingVideo({ id: video.id, fileId: video.fileId, url: video.url, title: video.title || video.filename });
                       } else {
-                        toast.error("This video needs to be re-uploaded to enable annotations. Please delete and re-upload the video.");
+                        // Try to create a file record for this video
+                        try {
+                          toast.info("Setting up annotations for this video...");
+                          const result = await linkVideoToFileMutation.mutateAsync({ videoId: video.id });
+                          if (result.fileId) {
+                            setAnnotatingVideo({ id: video.id, fileId: result.fileId, url: video.url, title: video.title || video.filename });
+                            refetch();
+                          }
+                        } catch (error) {
+                          toast.error("Failed to enable annotations. Please try again.");
+                        }
                       }
                     }}
-                    title={video.fileId ? "Annotate (Voice, Drawing, Text)" : "Re-upload required for annotations"}
+                    title="Annotate (Voice, Drawing, Text)"
                   >
                     <MessageSquare className="h-2.5 w-2.5 mr-0.5" />
                     Annotate

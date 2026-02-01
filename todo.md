@@ -4696,3 +4696,8 @@ Note: The application already has extensive annotation features including voice 
 
 ## Bug Fix: Compression Progress Bar
 - [x] Fix compression progress bar visual fill not matching actual percentage (shows 77% but bar only fills ~25%)
+
+## Bug Fixes: Progress Bars and Annotations
+- [x] Fix compression progress bar - amber bar now fills to match percentage (changed background to bg-muted)
+- [x] Fix annotation error "This video needs to be re-uploaded" - added linkToFile mutation to auto-create file record
+- [x] Fix upload progress display - simplified to show only during active upload

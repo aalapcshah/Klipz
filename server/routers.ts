@@ -1653,6 +1653,39 @@ export const appRouter = router({
         
         return { success: true, count: input.ids.length };
       }),
+
+    // Link video to files table for annotation support
+    linkToFile: protectedProcedure
+      .input(z.object({ videoId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const video = await db.getVideoById(input.videoId);
+        if (!video || video.userId !== ctx.user.id) {
+          throw new Error("Video not found");
+        }
+        
+        // If already linked, return existing fileId
+        if (video.fileId) {
+          return { fileId: video.fileId, alreadyLinked: true };
+        }
+        
+        // Create a file record for this video
+        const fileId = await db.createFile({
+          userId: ctx.user.id,
+          fileKey: video.fileKey,
+          url: video.url,
+          filename: video.filename,
+          mimeType: "video/mp4",
+          fileSize: 0, // Size not tracked for legacy videos
+          title: video.title || video.filename,
+          description: video.description,
+          enrichmentStatus: "completed",
+        });
+        
+        // Update video with fileId
+        await db.updateVideo(input.videoId, { fileId });
+        
+        return { fileId, alreadyLinked: false };
+      }),
   }),
 
   // ============= ANNOTATIONS ROUTER =============

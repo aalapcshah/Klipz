@@ -1,0 +1,17 @@
+{
+  "query": "SELECT id, title, filename, fileId, createdAt FROM videos ORDER BY createdAt DESC LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, title, filename, fileId, createdAt FROM videos ORDER BY createdAt DESC LIMIT 20;",
+  "rows": [
+    {
+      "id": "360004",
+      "title": "Ree1 - The Financial Head Start.mp4",
+      "filename": "Ree1 - The Financial Head Start.mp4",
+      "fileId": "NULL",
+      "createdAt": "2026-02-01 21:05:22"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitle\tfilename\tfileId\tcreatedAt\n360004\tRee1 - The Financial Head Start.mp4\tRee1 - The Financial Head Start.mp4\tNULL\t2026-02-01 21:05:22\n",
+  "stderr": "",
+  "execution_time_ms": 55
+}
