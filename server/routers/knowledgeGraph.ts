@@ -6,6 +6,12 @@ import { z } from "zod";
 import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
 import { getAllTags, getTagRelationships, getFilesForUser } from "../db";
 import {
+  buildAllTagRelationships,
+  getRelatedTags,
+  getAllTagRelationshipsForGraph,
+  updateTagRelationships,
+} from "../services/tagRelationshipService";
+import {
   getUnifiedTagSuggestions,
   analyzeTagsWithKnowledgeGraph,
   searchKnowledgeGraph,
@@ -262,5 +268,65 @@ export const knowledgeGraphRouter = router({
           internal: tags.length,
         },
       };
+    }),
+
+  /**
+   * Build tag relationships based on co-occurrence and semantic similarity
+   */
+  buildRelationships: protectedProcedure
+    .input(z.object({
+      useCoOccurrence: z.boolean().default(true),
+      useEmbeddings: z.boolean().default(true),
+      minCoOccurrence: z.number().min(0).max(1).default(0.1),
+      minSimilarity: z.number().min(0).max(1).default(0.6),
+      maxRelationshipsPerTag: z.number().min(1).max(50).default(10),
+    }).optional())
+    .mutation(async ({ ctx, input }) => {
+      const result = await buildAllTagRelationships(ctx.user.id, input || {});
+      return {
+        success: true,
+        created: result.created,
+        updated: result.updated,
+        message: `Created ${result.created} new relationships, updated ${result.updated} existing ones.`,
+      };
+    }),
+
+  /**
+   * Get related tags for a specific tag
+   */
+  getRelatedTags: protectedProcedure
+    .input(z.object({
+      tagName: z.string().min(1),
+      minConfidence: z.number().min(0).max(1).default(0.3),
+      limit: z.number().min(1).max(50).default(10),
+    }))
+    .query(async ({ input }) => {
+      return await getRelatedTags(input.tagName, input.minConfidence, input.limit);
+    }),
+
+  /**
+   * Update relationships for a single tag (after tag creation/modification)
+   */
+  updateTagRelationships: protectedProcedure
+    .input(z.object({
+      tagName: z.string().min(1),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const count = await updateTagRelationships(input.tagName, ctx.user.id);
+      return {
+        success: true,
+        relationshipsCreated: count,
+      };
+    }),
+
+  /**
+   * Get all tag relationships for graph visualization (using new service)
+   */
+  getTagRelationshipsForGraph: protectedProcedure
+    .input(z.object({
+      minConfidence: z.number().min(0).max(1).default(0.3),
+    }))
+    .query(async ({ ctx, input }) => {
+      return await getAllTagRelationshipsForGraph(ctx.user.id, input.minConfidence);
     }),
 });

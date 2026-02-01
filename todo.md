@@ -4659,3 +4659,13 @@ Note: The application already has extensive annotation features including voice 
 - [x] Implement auto-tagging on file upload with confidence threshold
 - [x] Add settings for auto-tagging preferences
 - [x] Test all knowledge graph features (19 tests passing)
+
+## Phase 65: Knowledge Graph Enhancements
+- [x] Build tag relationships service for co-occurrence analysis
+- [x] Calculate semantic similarity between tags using embeddings
+- [x] Store tag relationships in database automatically
+- [x] Pre-configure Wikidata connection with default SPARQL endpoint
+- [x] Pre-configure DBpedia connection with default SPARQL endpoint
+- [x] Add user-configurable auto-tagging threshold in settings
+- [x] Persist auto-tagging preferences per user (localStorage)
+- [x] Test all knowledge graph enhancements (26 tests passing)

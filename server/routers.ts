@@ -1989,6 +1989,62 @@ For each suggestion, provide:
           responseTime: 150 // ms
         };
       }),
+
+    // Initialize default knowledge sources (Wikidata, DBpedia, Schema.org)
+    initializeDefaults: protectedProcedure
+      .mutation(async ({ ctx }) => {
+        const existingSources = await db.getExternalKnowledgeGraphsByUser(ctx.user.id);
+        const existingTypes = new Set(existingSources.map(s => s.type));
+        
+        const defaultSources = [
+          {
+            name: "Wikidata",
+            type: "wikidata" as const,
+            endpoint: "https://query.wikidata.org/sparql",
+            enabled: true,
+            priority: 1,
+          },
+          {
+            name: "DBpedia",
+            type: "dbpedia" as const,
+            endpoint: "https://dbpedia.org/sparql",
+            enabled: true,
+            priority: 2,
+          },
+          {
+            name: "Schema.org",
+            type: "schema_org" as const,
+            endpoint: "",
+            enabled: true,
+            priority: 3,
+          },
+        ];
+        
+        const created: string[] = [];
+        const skipped: string[] = [];
+        
+        for (const source of defaultSources) {
+          if (existingTypes.has(source.type)) {
+            skipped.push(source.name);
+            continue;
+          }
+          
+          await db.createExternalKnowledgeGraph({
+            userId: ctx.user.id,
+            ...source,
+          });
+          created.push(source.name);
+        }
+        
+        return {
+          success: true,
+          created,
+          skipped,
+          message: created.length > 0 
+            ? `Added ${created.join(", ")} as knowledge sources.`
+            : "All default sources already configured.",
+        };
+      }),
   }),
 
   // Cloud Export Router
