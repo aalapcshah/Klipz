@@ -13,6 +13,9 @@ export interface CompressionProgress {
   stage: 'loading' | 'processing' | 'encoding' | 'complete';
   progress: number; // 0-100
   estimatedSize?: number;
+  elapsedMs?: number; // Time elapsed since compression started
+  etaMs?: number; // Estimated time remaining in milliseconds
+  videoDuration?: number; // Video duration in seconds for ETA calculation
 }
 
 export const COMPRESSION_PRESETS: Record<string, CompressionSettings> = {
@@ -98,7 +101,8 @@ export async function compressVideo(
     return file;
   }
 
-  onProgress?.({ stage: 'loading', progress: 0 });
+  const startTime = Date.now();
+  onProgress?.({ stage: 'loading', progress: 0, elapsedMs: 0 });
 
   // Get video metadata
   const metadata = await getVideoMetadata(file);
@@ -117,7 +121,7 @@ export async function compressVideo(
   targetWidth = Math.round(targetWidth / 2) * 2;
   targetHeight = Math.round(targetHeight / 2) * 2;
 
-  onProgress?.({ stage: 'processing', progress: 10 });
+  onProgress?.({ stage: 'processing', progress: 10, elapsedMs: Date.now() - startTime, videoDuration: metadata.duration });
 
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
@@ -198,7 +202,7 @@ export async function compressVideo(
       video.muted = true;
       video.play();
 
-      onProgress?.({ stage: 'encoding', progress: 20 });
+      onProgress?.({ stage: 'encoding', progress: 20, elapsedMs: Date.now() - startTime, videoDuration: metadata.duration });
 
       // Draw frames to canvas
       const drawFrame = () => {
@@ -209,9 +213,18 @@ export async function compressVideo(
         
         ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
         
-        // Update progress
+        // Update progress with ETA calculation
         const progress = 20 + (video.currentTime / video.duration) * 75;
-        onProgress?.({ stage: 'encoding', progress: Math.min(progress, 95) });
+        const elapsedMs = Date.now() - startTime;
+        // ETA based on video playback position vs total duration
+        const remainingVideoTime = (video.duration - video.currentTime) * 1000; // Compression runs at ~1x speed
+        onProgress?.({ 
+          stage: 'encoding', 
+          progress: Math.min(progress, 95),
+          elapsedMs,
+          etaMs: remainingVideoTime,
+          videoDuration: metadata.duration
+        });
         
         requestAnimationFrame(drawFrame);
       };

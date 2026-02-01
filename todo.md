@@ -4707,3 +4707,9 @@ Note: The application already has extensive annotation features including voice 
 
 ## Bug Fix: Compression Progress Bar (Round 2)
 - [x] Fix compression progress bar width - changed layout to use w-full instead of flex-1
+
+## Phase 68: Compression UX Enhancements
+- [x] Add compression time estimate showing ETA based on video duration and progress
+- [x] Add compression cancel button to abort compression and upload original file
+- [x] Track compression start time for accurate ETA calculation
+- [x] Show elapsed time and video duration during compression

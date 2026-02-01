@@ -39,6 +39,20 @@ const MAX_FILE_SIZE = 6 * 1024 * 1024 * 1024; // 6GB - supports large video file
 const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks for better performance with large files
 const LARGE_FILE_THRESHOLD = 500 * 1024 * 1024; // 500MB - use large file upload for files above this
 
+// Format time duration for ETA display
+function formatTimeDuration(ms: number): string {
+  if (ms < 0 || !isFinite(ms)) return '--:--';
+  const totalSeconds = Math.ceil(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes > 60) {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}m`;
+  }
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
 const QUALITY_SETTINGS = {
   original: { label: "Original Quality", maxHeight: null, bitrate: null },
   high: { label: "High (1080p)", maxHeight: 1080, bitrate: 5000 },
@@ -986,9 +1000,31 @@ export function VideoUploadSection() {
                              compressionProgress.get(upload.id)?.stage === 'processing' ? 'Processing...' :
                              compressionProgress.get(upload.id)?.stage === 'encoding' ? 'Compressing...' :
                              'Compressing...'}
+                            {/* ETA display */}
+                            {compressionProgress.get(upload.id)?.etaMs !== undefined && compressionProgress.get(upload.id)?.stage === 'encoding' && (
+                              <span className="text-amber-400 ml-2">
+                                (ETA: {formatTimeDuration(compressionProgress.get(upload.id)?.etaMs || 0)})
+                              </span>
+                            )}
                           </span>
-                          <span className="text-amber-500 font-medium">
+                          <span className="text-amber-500 font-medium flex items-center gap-2">
                             {(compressionProgress.get(upload.id)?.progress || 0).toFixed(0)}%
+                            {/* Cancel compression button */}
+                            <button
+                              onClick={() => {
+                                cancelUpload(upload.id);
+                                setCompressionProgress(prev => {
+                                  const newMap = new Map(prev);
+                                  newMap.delete(upload.id);
+                                  return newMap;
+                                });
+                                toast.info('Compression cancelled. You can re-upload with original quality.');
+                              }}
+                              className="text-amber-400 hover:text-amber-300 transition-colors"
+                              title="Cancel compression and upload original"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
                           </span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
@@ -1000,6 +1036,15 @@ export function VideoUploadSection() {
                             }}
                           />
                         </div>
+                        {/* Elapsed time display */}
+                        {compressionProgress.get(upload.id)?.elapsedMs !== undefined && (
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Elapsed: {formatTimeDuration(compressionProgress.get(upload.id)?.elapsedMs || 0)}</span>
+                            {compressionProgress.get(upload.id)?.videoDuration && (
+                              <span>Video: {Math.round(compressionProgress.get(upload.id)?.videoDuration || 0)}s</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       {/* Upload waiting row */}
                       <div className="space-y-1">
