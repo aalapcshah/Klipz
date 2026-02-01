@@ -4693,3 +4693,6 @@ Note: The application already has extensive annotation features including voice 
 - [x] NEVER upload test files to the user's Files page
 - [x] All test data must be kept in test files only, never in production database
 - [x] Deleted all test files from Files page (user request)
+
+## Bug Fix: Compression Progress Bar
+- [x] Fix compression progress bar visual fill not matching actual percentage (shows 77% but bar only fills ~25%)

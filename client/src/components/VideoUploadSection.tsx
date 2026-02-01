@@ -1017,13 +1017,15 @@ export function VideoUploadSection() {
                         {upload.status === "paused" && (
                           <span className="text-xs text-yellow-500 font-medium">Paused</span>
                         )}
-                        <div className="flex-1 bg-secondary rounded-full h-2 overflow-hidden">
+                        <div className={`flex-1 rounded-full h-2 overflow-hidden ${
+                          compressionProgress.has(upload.id) ? "bg-primary" : "bg-secondary"
+                        }`}>
                           <div
                             className={`h-full transition-all duration-300 ${
                               upload.status === "paused" ? "bg-yellow-500" : 
-                              compressionProgress.has(upload.id) ? "bg-muted-foreground" : "bg-primary"
+                              compressionProgress.has(upload.id) ? "bg-primary" : "bg-primary"
                             }`}
-                            style={{ width: `${compressionProgress.has(upload.id) ? 0 : Math.max(0, ((upload.progress - 30) / 70) * 100)}%` }}
+                            style={{ width: `${compressionProgress.has(upload.id) ? 100 : Math.max(0, ((upload.progress - 30) / 70) * 100)}%` }}
                           />
                         </div>
                         <span className="text-xs text-muted-foreground">
