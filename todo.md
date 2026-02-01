@@ -4669,3 +4669,13 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add user-configurable auto-tagging threshold in settings
 - [x] Persist auto-tagging preferences per user (localStorage)
 - [x] Test all knowledge graph enhancements (26 tests passing)
+
+## Phase 66: Knowledge Graph Advanced Features
+- [x] Create sample tagged files for knowledge graph testing
+- [x] Build relationships between sample tags automatically
+- [x] Enhance auto-tagging with threshold preview/visualization
+- [x] Show confidence scores during upload with threshold indicator
+- [x] Implement tag hierarchy with parent-child relationships (database schema + API)
+- [x] Add UI for managing tag hierarchies (TagHierarchyManager component)
+- [x] Enable hierarchical tag browsing and inheritance (tree view + set parent)
+- [x] Test all new features (15 tests passing)

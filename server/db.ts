@@ -490,6 +490,100 @@ export async function getFileTagsWithNames(fileId: number) {
     .where(eq(fileTags.fileId, fileId));
 }
 
+// ============= TAG HIERARCHY FUNCTIONS =============
+
+export async function updateTagParent(tagId: number, parentId: number | null, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Verify tag belongs to user
+  const tag = await db
+    .select()
+    .from(tags)
+    .where(and(eq(tags.id, tagId), eq(tags.userId, userId))!)
+    .limit(1);
+
+  if (tag.length === 0) {
+    throw new Error("Tag not found");
+  }
+
+  // Prevent circular references
+  if (parentId) {
+    let currentParent = parentId;
+    const visited = new Set<number>();
+    while (currentParent) {
+      if (visited.has(currentParent) || currentParent === tagId) {
+        throw new Error("Circular reference detected");
+      }
+      visited.add(currentParent);
+      const parent = await db
+        .select({ parentId: tags.parentId })
+        .from(tags)
+        .where(eq(tags.id, currentParent))
+        .limit(1);
+      currentParent = parent[0]?.parentId || 0;
+    }
+  }
+
+  await db
+    .update(tags)
+    .set({ parentId })
+    .where(eq(tags.id, tagId));
+}
+
+export async function getTagHierarchy(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const allTags = await db
+    .select({
+      id: tags.id,
+      name: tags.name,
+      parentId: tags.parentId,
+      color: tags.color,
+      icon: tags.icon,
+      source: tags.source,
+    })
+    .from(tags)
+    .where(eq(tags.userId, userId));
+
+  return allTags;
+}
+
+export async function getChildTags(tagId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(tags)
+    .where(and(eq(tags.parentId, tagId), eq(tags.userId, userId))!);
+}
+
+export async function getRootTags(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(tags)
+    .where(and(eq(tags.userId, userId), sql`${tags.parentId} IS NULL`)!);
+}
+
+export async function updateTagVisuals(tagId: number, userId: number, color?: string, icon?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const updates: { color?: string; icon?: string } = {};
+  if (color !== undefined) updates.color = color;
+  if (icon !== undefined) updates.icon = icon;
+
+  await db
+    .update(tags)
+    .set(updates)
+    .where(and(eq(tags.id, tagId), eq(tags.userId, userId))!);
+}
+
 // ============= VIDEO QUERIES =============
 
 export async function createVideo(video: InsertVideo) {

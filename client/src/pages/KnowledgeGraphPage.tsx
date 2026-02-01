@@ -40,7 +40,9 @@ import {
   Share2,
   Loader2,
   Info,
+  FolderTree,
 } from "lucide-react";
+import { TagHierarchyManager } from "@/components/TagHierarchyManager";
 import {
   Tooltip,
   TooltipContent,
@@ -380,6 +382,8 @@ export default function KnowledgeGraphPage() {
     setSelectedNode(null);
   };
 
+  const [activeTab, setActiveTab] = useState<"graph" | "hierarchy">("graph");
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -393,7 +397,19 @@ export default function KnowledgeGraphPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "graph" | "hierarchy")}>
+            <TabsList>
+              <TabsTrigger value="graph" className="gap-2">
+                <Network className="h-4 w-4" />
+                Graph View
+              </TabsTrigger>
+              <TabsTrigger value="hierarchy" className="gap-2">
+                <FolderTree className="h-4 w-4" />
+                Tag Hierarchy
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4 mr-1" />
             Refresh
@@ -401,6 +417,11 @@ export default function KnowledgeGraphPage() {
         </div>
       </div>
 
+      {activeTab === "hierarchy" ? (
+        <div className="flex-1 p-6 overflow-auto">
+          <TagHierarchyManager />
+        </div>
+      ) : (
       <div className="flex-1 flex">
         {/* Sidebar */}
         <div className="w-80 border-r p-4 space-y-4 overflow-y-auto">
@@ -720,6 +741,7 @@ export default function KnowledgeGraphPage() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -414,8 +414,19 @@ export const tags = mysqlTable("tags", {
   name: varchar("name", { length: 100 }).notNull(),
   userId: int("userId").notNull(),
   source: mysqlEnum("source", ["manual", "ai", "voice", "metadata"]).notNull(), // How tag was created
+  
+  // Hierarchy support
+  parentId: int("parent_id"), // Self-referencing for parent-child relationships
+  
+  // Visual customization
+  color: varchar("color", { length: 7 }), // Hex color for tag display
+  icon: varchar("icon", { length: 50 }), // Lucide icon name
+  
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  nameUserIndex: index("tags_name_user_idx").on(table.name, table.userId),
+  parentIdIndex: index("tags_parent_id_idx").on(table.parentId),
+}));
 
 export type Tag = typeof tags.$inferSelect;
 export type InsertTag = typeof tags.$inferInsert;

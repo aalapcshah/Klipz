@@ -1304,6 +1304,48 @@ export const appRouter = router({
         const result = JSON.parse(typeof content === 'string' ? content : '{}');
         return result.suggestions || [];
       }),
+
+    // Get tag hierarchy for tree view
+    getHierarchy: protectedProcedure
+      .query(async ({ ctx }) => {
+        return await db.getTagHierarchy(ctx.user.id);
+      }),
+
+    // Get root tags (no parent)
+    getRootTags: protectedProcedure
+      .query(async ({ ctx }) => {
+        return await db.getRootTags(ctx.user.id);
+      }),
+
+    // Get child tags of a parent
+    getChildren: protectedProcedure
+      .input(z.object({ tagId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        return await db.getChildTags(input.tagId, ctx.user.id);
+      }),
+
+    // Set parent for a tag (create hierarchy)
+    setParent: protectedProcedure
+      .input(z.object({
+        tagId: z.number(),
+        parentId: z.number().nullable(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await db.updateTagParent(input.tagId, input.parentId, ctx.user.id);
+        return { success: true };
+      }),
+
+    // Update tag visuals (color, icon)
+    updateVisuals: protectedProcedure
+      .input(z.object({
+        tagId: z.number(),
+        color: z.string().optional(),
+        icon: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await db.updateTagVisuals(input.tagId, ctx.user.id, input.color, input.icon);
+        return { success: true };
+      }),
   }),
 
   // ============= VIDEOS ROUTER =============
