@@ -490,6 +490,8 @@ function VideosView() {
 
 import { KnowledgeGraphView as KnowledgeGraphComponent } from "@/components/knowledge-graph/KnowledgeGraphView";
 import { ExternalKnowledgeSourcesManager } from "@/components/knowledge-graph/ExternalKnowledgeSourcesManager";
+import KnowledgeGraphPageComponent from "@/pages/KnowledgeGraphPage";
+import { KnowledgeGraphSettings } from "@/components/KnowledgeGraphSettings";
 import SettingsPage from "./Settings";
 import { Analytics as AnalyticsPage } from "./Analytics";
 import CollectionsPage from "./Collections";
@@ -502,37 +504,44 @@ function UploadHistoryView() {
 }
 
 function KnowledgeGraphView() {
-  const [showExternalSources, setShowExternalSources] = useState(false);
+  const [activeTab, setActiveTab] = useState<"graph" | "sources" | "settings">("graph");
   
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Knowledge Graph</h1>
         <p className="text-muted-foreground">
-          Explore semantic relationships between your files
+          Explore semantic relationships between your files, tags, and external knowledge sources
         </p>
       </div>
       
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <Button
-          variant={!showExternalSources ? "default" : "outline"}
-          onClick={() => setShowExternalSources(false)}
+          variant={activeTab === "graph" ? "default" : "outline"}
+          onClick={() => setActiveTab("graph")}
         >
-          Internal Graph
+          <NetworkIcon className="h-4 w-4 mr-2" />
+          Interactive Graph
         </Button>
         <Button
-          variant={showExternalSources ? "default" : "outline"}
-          onClick={() => setShowExternalSources(true)}
+          variant={activeTab === "sources" ? "default" : "outline"}
+          onClick={() => setActiveTab("sources")}
         >
-          External Knowledge Sources
+          <Link2 className="h-4 w-4 mr-2" />
+          External Sources
+        </Button>
+        <Button
+          variant={activeTab === "settings" ? "default" : "outline"}
+          onClick={() => setActiveTab("settings")}
+        >
+          <SettingsIcon className="h-4 w-4 mr-2" />
+          Settings
         </Button>
       </div>
       
-      {!showExternalSources ? (
-        <KnowledgeGraphComponent />
-      ) : (
-        <ExternalKnowledgeSourcesManager />
-      )}
+      {activeTab === "graph" && <KnowledgeGraphPageComponent />}
+      {activeTab === "sources" && <ExternalKnowledgeSourcesManager />}
+      {activeTab === "settings" && <KnowledgeGraphSettings />}
     </div>
   );
 }

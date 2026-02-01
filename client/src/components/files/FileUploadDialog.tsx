@@ -286,6 +286,9 @@ export function FileUploadDialog({
   const linkTagMutation = trpc.tags.linkToFile.useMutation();
   const { data: existingTags = [] } = trpc.tags.list.useQuery();
   
+  // Knowledge graph auto-tagging
+  const getSmartTagsMutation = trpc.knowledgeGraph.getSuggestions.useMutation();
+  
   // Get metadata suggestions based on file type
   const fileType = files.length > 0 ? files[0].file.type.split('/')[0] : '';
   const { data: metadataSuggestions = [] } = trpc.metadataTemplates.getSuggestions.useQuery(
@@ -816,6 +819,52 @@ export function FileUploadDialog({
                 // Continue with other tags even if one fails
               }
             }
+          }
+
+          // Knowledge Graph Auto-Tagging: Get smart suggestions based on filename and content type
+          try {
+            const filenameWithoutExt = fileData.file.name.replace(/\.[^/.]+$/, "");
+            const smartTags = await getSmartTagsMutation.mutateAsync({
+              existingTags: extractedKeywords,
+              context: `Filename: ${filenameWithoutExt}, File type: ${fileData.file.type}`,
+              settings: {
+                enableWikidata: true,
+                enableDBpedia: true,
+                enableSchemaOrg: true,
+                enableLLM: true,
+                maxSuggestionsPerSource: 3,
+                confidenceThreshold: 0.5,
+              },
+            });
+            
+            // Apply high-confidence suggestions (>= 0.7) automatically
+            for (const suggestion of smartTags.suggestions || []) {
+              if (suggestion.confidence >= 0.7) {
+                try {
+                  const existingTag = existingTags.find(
+                    (t: any) => t.name.toLowerCase() === suggestion.tag.toLowerCase()
+                  );
+                  
+                  if (existingTag) {
+                    await linkTagMutation.mutateAsync({ fileId: id, tagId: existingTag.id });
+                  } else {
+                    // Map knowledge graph source to valid tag source
+                    const tagSource: "manual" | "ai" | "voice" = "ai";
+                    const { id: tagId } = await createTagMutation.mutateAsync({
+                      name: suggestion.tag,
+                      source: tagSource,
+                    });
+                    await linkTagMutation.mutateAsync({ fileId: id, tagId });
+                  }
+                  console.log('[Upload] Auto-tagged with:', suggestion.tag, 'confidence:', suggestion.confidence);
+                } catch (tagError) {
+                  console.warn('[Upload] Failed to auto-tag:', suggestion.tag, tagError);
+                }
+              }
+            }
+          } catch (smartTagError) {
+            console.log('[Upload] Knowledge graph auto-tagging skipped:', smartTagError);
+            // Non-critical, continue without smart tags
           }
 
           // Enrich with AI if requested

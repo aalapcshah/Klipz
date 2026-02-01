@@ -2,20 +2,20 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, RefreshCw, Network } from "lucide-react";
+import { Loader2, RefreshCw, Network, Tag, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 export function KnowledgeGraphView() {
-  const { data: graph, isLoading, refetch } = trpc.knowledgeGraph.get.useQuery();
-  const rebuildMutation = trpc.knowledgeGraph.rebuild.useMutation();
+  const { data: graph, isLoading, refetch } = trpc.knowledgeGraph.getGraphData.useQuery(
+    { includeFiles: true, minSimilarity: 0.3 }
+  );
 
-  const handleRebuild = async () => {
+  const handleRefresh = async () => {
     try {
-      await rebuildMutation.mutateAsync();
-      toast.success("Knowledge graph rebuilt!");
-      refetch();
+      await refetch();
+      toast.success("Knowledge graph refreshed!");
     } catch (error) {
-      toast.error("Failed to rebuild knowledge graph");
+      toast.error("Failed to refresh knowledge graph");
     }
   };
 
@@ -35,10 +35,7 @@ export function KnowledgeGraphView() {
         <p className="text-muted-foreground mb-4">
           Upload and enrich files to build semantic relationships
         </p>
-        <Button onClick={handleRebuild} disabled={rebuildMutation.isPending}>
-          {rebuildMutation.isPending && (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          )}
+        <Button onClick={handleRefresh}>
           <RefreshCw className="h-4 w-4 mr-2" />
           Build Graph
         </Button>
@@ -46,123 +43,142 @@ export function KnowledgeGraphView() {
     );
   }
 
+  // Separate tags and files
+  const tagNodes = graph.nodes.filter(n => n.type === 'tag');
+  const fileNodes = graph.nodes.filter(n => n.type === 'file');
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-muted-foreground">
-            {graph.nodes.length} files • {graph.edges.length} connections
+            {tagNodes.length} tags • {fileNodes.length} files • {graph.edges.length} connections
           </p>
         </div>
         <Button
-          onClick={handleRebuild}
-          disabled={rebuildMutation.isPending}
+          onClick={handleRefresh}
           variant="outline"
         >
-          {rebuildMutation.isPending && (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          )}
           <RefreshCw className="h-4 w-4 mr-2" />
-          Rebuild Graph
+          Refresh Graph
         </Button>
       </div>
 
-      {/* Simple List View (Interactive visualization would require D3.js or similar) */}
+      {/* Simple List View */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Nodes */}
+        {/* Tags */}
         <Card className="p-4">
-          <h3 className="font-semibold mb-4">Files in Graph</h3>
+          <h3 className="font-semibold mb-4 flex items-center gap-2">
+            <Tag className="h-4 w-4" />
+            Tags ({tagNodes.length})
+          </h3>
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {graph.nodes.map((node) => (
+            {tagNodes.map((node) => {
+              const connectionCount = graph.edges.filter(
+                (e) => e.source === node.id || e.target === node.id
+              ).length;
+              
+              return (
+                <div
+                  key={node.id}
+                  className="p-3 bg-muted rounded-md flex items-center justify-between"
+                >
+                  <div>
+                    <p className="font-medium text-sm">{node.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Weight: {node.weight}
+                    </p>
+                  </div>
+                  <Badge variant="outline">
+                    {connectionCount} connections
+                  </Badge>
+                </div>
+              );
+            })}
+            {tagNodes.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No tags yet. Add tags to your files to build the graph.
+              </p>
+            )}
+          </div>
+        </Card>
+
+        {/* Files */}
+        <Card className="p-4">
+          <h3 className="font-semibold mb-4 flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Files ({fileNodes.length})
+          </h3>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {fileNodes.map((node) => (
               <div
                 key={node.id}
                 className="p-3 bg-muted rounded-md flex items-center justify-between"
               >
                 <div>
-                  <p className="font-medium text-sm">{node.title}</p>
-                  <p className="text-xs text-muted-foreground">{node.type}</p>
+                  <p className="font-medium text-sm truncate max-w-[200px]">
+                    {node.label}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {node.metadata.fileType}
+                  </p>
                 </div>
-                <Badge variant="outline">
-                  {
-                    graph.edges.filter(
-                      (e) =>
-                        e.sourceFileId === node.id ||
-                        e.targetFileId === node.id
-                    ).length
-                  }{" "}
-                  connections
-                </Badge>
               </div>
             ))}
+            {fileNodes.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No files yet. Upload files to see them in the graph.
+              </p>
+            )}
           </div>
         </Card>
+      </div>
 
-        {/* Edges */}
+      {/* Relationships */}
+      {graph.edges.length > 0 && (
         <Card className="p-4">
-          <h3 className="font-semibold mb-4">Relationships</h3>
+          <h3 className="font-semibold mb-4">Tag Relationships</h3>
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {graph.edges.map((edge) => {
-              const sourceNode = graph.nodes.find(
-                (n) => n.id === edge.sourceFileId
-              );
-              const targetNode = graph.nodes.find(
-                (n) => n.id === edge.targetFileId
-              );
+            {graph.edges.map((edge, index) => {
+              const sourceNode = graph.nodes.find(n => n.id === edge.source);
+              const targetNode = graph.nodes.find(n => n.id === edge.target);
 
               return (
                 <div
-                  key={edge.id}
+                  key={`${edge.source}-${edge.target}-${index}`}
                   className="p-3 bg-muted rounded-md space-y-2"
                 >
                   <div className="flex items-center justify-between">
                     <div className="text-sm">
                       <span className="font-medium">
-                        {sourceNode?.title || `File #${edge.sourceFileId}`}
+                        {sourceNode?.label || edge.source}
                       </span>
-                      <span className="text-muted-foreground mx-2">→</span>
+                      <span className="text-muted-foreground mx-2">↔</span>
                       <span className="font-medium">
-                        {targetNode?.title || `File #${edge.targetFileId}`}
+                        {targetNode?.label || edge.target}
                       </span>
                     </div>
                     <Badge
                       variant={
-                        edge.strength > 75
+                        edge.weight > 0.75
                           ? "default"
-                          : edge.strength > 50
+                          : edge.weight > 0.5
                             ? "secondary"
                             : "outline"
                       }
                     >
-                      {edge.strength}%
+                      {Math.round(edge.weight * 100)}%
                     </Badge>
                   </div>
-
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{edge.relationshipType}</span>
-                    {edge.sharedTags && edge.sharedTags.length > 0 && (
-                      <>
-                        <span>•</span>
-                        <div className="flex gap-1">
-                          {edge.sharedTags.slice(0, 3).map((tag, idx) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
-                          {edge.sharedTags.length > 3 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{edge.sharedTags.length - 3}
-                            </Badge>
-                          )}
-                        </div>
-                      </>
-                    )}
+                  <div className="text-xs text-muted-foreground">
+                    {edge.type}
                   </div>
                 </div>
               );
             })}
           </div>
         </Card>
-      </div>
+      )}
 
       {/* Info Card */}
       <Card className="p-4 bg-accent/10 border-accent">
@@ -171,9 +187,9 @@ export function KnowledgeGraphView() {
           <div className="space-y-1">
             <p className="text-sm font-medium">About the Knowledge Graph</p>
             <p className="text-sm text-muted-foreground">
-              The knowledge graph shows semantic relationships between your files
-              based on shared tags, keywords, and AI analysis. Stronger
-              connections indicate higher similarity.
+              The knowledge graph shows semantic relationships between your tags and files
+              based on shared keywords and AI analysis. Stronger connections indicate 
+              higher similarity. Add more tags to your files to build richer relationships.
             </p>
           </div>
         </div>

@@ -28,6 +28,7 @@ import { FileVersionHistory } from "./FileVersionHistory";
 import { VideoPlayerWithAnnotations } from "../VideoPlayerWithAnnotations";
 import { QualityImprovementPanel } from "../QualityImprovementPanel";
 import { ShareDialog } from "../ShareDialog";
+import { SmartTagSuggestions } from "../SmartTagSuggestions";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
@@ -644,6 +645,26 @@ export function FileDetailDialog({
                     </Badge>
                   ))}
                 </div>
+
+                {/* Smart Tag Suggestions from Knowledge Graphs */}
+                <SmartTagSuggestions
+                  existingTags={file.tags?.map((t) => t.name) || []}
+                  context={file.description || file.title || file.filename}
+                    onAddTag={async (tagName) => {
+                      try {
+                        const { id: tagId } = await createTagMutation.mutateAsync({
+                          name: tagName,
+                          source: "ai",
+                        });
+                        await linkTagMutation.mutateAsync({ fileId: fileId!, tagId });
+                        toast.success(`Tag "${tagName}" added from knowledge graph`);
+                        refetch();
+                      } catch (error) {
+                        toast.error("Failed to add tag");
+                      }
+                    }}
+                  className="mt-4"
+                />
               </div>
 
               {/* Knowledge Graph Connections */}

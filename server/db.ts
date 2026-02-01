@@ -3066,3 +3066,73 @@ export async function getFilesInCollection(collectionId: number) {
     .where(eq(collectionFiles.collectionId, collectionId));
   return result;
 }
+
+
+// ============= KNOWLEDGE GRAPH QUERIES =============
+
+export async function getAllTags(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  // Get all tags with their usage counts
+  const result = await db
+    .select({
+      id: tags.id,
+      name: tags.name,
+      usageCount: sql<number>`COUNT(DISTINCT ${fileTags.fileId})`,
+    })
+    .from(tags)
+    .leftJoin(fileTags, eq(tags.id, fileTags.tagId))
+    .where(eq(tags.userId, userId))
+    .groupBy(tags.id, tags.name);
+  
+  return result.map(r => ({
+    id: r.id,
+    name: r.name,
+    usageCount: Number(r.usageCount) || 0,
+  }));
+}
+
+export async function getTagRelationships(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  // Get tag relationships from knowledge graph edges
+  // The edges table uses sourceFileId/targetFileId, so we need to find files owned by user
+  const result = await db
+    .select({
+      sourceFileId: knowledgeGraphEdges.sourceFileId,
+      targetFileId: knowledgeGraphEdges.targetFileId,
+      similarity: knowledgeGraphEdges.strength,
+      relationshipType: knowledgeGraphEdges.relationshipType,
+    })
+    .from(knowledgeGraphEdges)
+    .innerJoin(files, eq(knowledgeGraphEdges.sourceFileId, files.id))
+    .where(eq(files.userId, userId));
+  
+  return result.map(r => ({
+    sourceTagId: r.sourceFileId, // Using file IDs as node IDs
+    targetTagId: r.targetFileId,
+    similarity: Number(r.similarity) || 0,
+    relationshipType: r.relationshipType || 'semantic',
+  }));
+}
+
+export async function getFilesForUser(userId: number, options?: { limit?: number }) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  const limit = options?.limit || 100;
+  
+  const result = await db
+    .select({
+      id: files.id,
+      name: files.filename,
+      fileType: files.mimeType,
+    })
+    .from(files)
+    .where(eq(files.userId, userId))
+    .limit(limit);
+  
+  return result;
+}

@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
+import { getAllTags, getTagRelationships, getFilesForUser } from "../db";
 import {
   getUnifiedTagSuggestions,
   analyzeTagsWithKnowledgeGraph,
@@ -179,5 +180,87 @@ export const knowledgeGraphRouter = router({
     }))
     .query(async ({ input }) => {
       return await searchDBpediaEntities(input.query, input.limit);
+    }),
+
+  /**
+   * Get graph data for visualization
+   */
+  getGraphData: protectedProcedure
+    .input(z.object({
+      includeFiles: z.boolean().default(true),
+      minSimilarity: z.number().min(0).max(1).default(0.3),
+    }))
+    .query(async ({ ctx }) => {
+      // Get all tags with their usage counts
+      const tags = await getAllTags(ctx.user.id);
+      
+      // Get tag relationships from embeddings
+      const tagRelationships = await getTagRelationships(ctx.user.id);
+      
+      // Get files if requested
+      const files = await getFilesForUser(ctx.user.id, { limit: 100 });
+      
+      // Build nodes from tags
+      const tagNodes = tags.map((tag: { id: number; name: string; usageCount: number }) => ({
+        id: `tag-${tag.id}`,
+        type: 'tag' as const,
+        label: tag.name,
+        weight: tag.usageCount || 1,
+        metadata: { tagId: tag.id },
+      }));
+      
+      // Build nodes from files
+      const fileNodes = files.map((file: { id: number; name: string; fileType: string }) => ({
+        id: `file-${file.id}`,
+        type: 'file' as const,
+        label: file.name,
+        weight: 1,
+        metadata: { fileId: file.id, fileType: file.fileType },
+      }));
+      
+      // Build edges from tag relationships
+      const edges = tagRelationships.map((rel: { sourceTagId: number; targetTagId: number; similarity: number; relationshipType: string }) => ({
+        source: `tag-${rel.sourceTagId}`,
+        target: `tag-${rel.targetTagId}`,
+        weight: rel.similarity,
+        type: rel.relationshipType,
+      }));
+      
+      return {
+        nodes: [...tagNodes, ...fileNodes],
+        edges,
+        stats: {
+          totalTags: tags.length,
+          totalFiles: files.length,
+          totalRelationships: edges.length,
+        },
+      };
+    }),
+
+  /**
+   * Get knowledge graph statistics
+   */
+  getStats: protectedProcedure
+    .query(async ({ ctx }) => {
+      const tags = await getAllTags(ctx.user.id);
+      const tagRelationships = await getTagRelationships(ctx.user.id);
+      const files = await getFilesForUser(ctx.user.id, { limit: 1000 });
+      
+      // Count unique sources
+      const sources = new Set<string>();
+      sources.add('internal');
+      
+      return {
+        totalTags: tags.length,
+        totalFiles: files.length,
+        totalRelationships: tagRelationships.length,
+        totalSources: sources.size,
+        sourceCounts: {
+          wikidata: 0,
+          dbpedia: 0,
+          schemaOrg: 0,
+          internal: tags.length,
+        },
+      };
     }),
 });

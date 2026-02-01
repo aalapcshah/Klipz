@@ -50,7 +50,7 @@ export function SmartTagSuggestions({
 
   const handleAddTag = (tag: string) => {
     onAddTag(tag);
-    setAddedTags(prev => new Set([...prev, tag.toLowerCase()]));
+    setAddedTags(prev => new Set([...Array.from(prev), tag.toLowerCase()]));
   };
 
   const getSourceKey = (source: string): string => {
@@ -77,7 +77,7 @@ export function SmartTagSuggestions({
             size="sm"
             variant="outline"
             onClick={handleGetSuggestions}
-            disabled={getSuggestions.isPending || existingTags.length === 0}
+            disabled={getSuggestions.isPending}
           >
             {getSuggestions.isPending ? (
               <>
@@ -94,11 +94,7 @@ export function SmartTagSuggestions({
         </div>
       </CardHeader>
       <CardContent>
-        {existingTags.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            Add some tags first to get AI-powered suggestions
-          </p>
-        ) : !getSuggestions.data ? (
+        {!getSuggestions.data ? (
           <p className="text-sm text-muted-foreground text-center py-4">
             Click "Get Suggestions" to analyze your tags with Wikidata, DBpedia, Schema.org, and AI
           </p>

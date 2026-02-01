@@ -4652,3 +4652,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Create email notification templates
 - [x] Test PWA installation
 - [x] Test splash screen display
+
+## Phase 64: Knowledge Graph Integration & Auto-Tagging
+- [x] Integrate SmartTagSuggestions into file enrichment modal
+- [x] Create Knowledge Graph visualization page under Tools menu
+- [x] Implement auto-tagging on file upload with confidence threshold
+- [x] Add settings for auto-tagging preferences
+- [x] Test all knowledge graph features (19 tests passing)
