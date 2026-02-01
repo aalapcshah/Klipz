@@ -1,0 +1,181 @@
+{
+  "query": "SHOW TABLES;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SHOW TABLES;",
+  "rows": [
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "__drizzle_migrations"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "activity_notification_preferences"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "alert_notification_log"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "annotation_approvals"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "annotation_comments"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "annotation_history"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "annotation_templates"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "annotations"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "cloud_storage_tokens"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "collection_files"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "collections"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "dashboard_layout_preferences"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "emailPreferences"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "engagement_alerts"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "enrichment_queue"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "export_history"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "external_knowledge_graphs"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "fileTags"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "file_activity_logs"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "file_suggestions"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "file_versions"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "files"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "generated_reports"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "image_annotations"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "keyboard_shortcuts"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "knowledgeGraphEdges"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "knowledge_graph_settings"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "metadata_history"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "metadata_templates"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "notification_preferences"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "notifications"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "recently_viewed_files"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "saved_cohort_comparisons"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "saved_searches"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "scheduled_exports"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "scheduled_reports"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "share_access_log"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "share_links"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "smart_collections"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "tag_categories"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "tag_category_mappings"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "tag_embeddings"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "tag_relationships"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "tags"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "upload_history"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "userConsents"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "user_onboarding"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "users"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "video_bookmarks"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "video_chapters"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "video_effect_presets"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "video_tag_assignments"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "video_tags"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "video_transcripts"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "videos"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "visual_annotations"
+    },
+    {
+      "Tables_in_SaoZcd7riW2zyxorRaqL7d": "voice_annotations"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_SaoZcd7riW2zyxorRaqL7d\n__drizzle_migrations\nactivity_notification_preferences\nalert_notification_log\nannotation_approvals\nannotation_comments\nannotation_history\nannotation_templates\nannotations\ncloud_storage_tokens\ncollection_files\ncollections\ndashboard_layout_preferences\nemailPreferences\nengagement_alerts\nenrichment_queue\nexport_history\nexternal_knowledge_graphs\nfileTags\nfile_activity_logs\nfile_suggestions\nfile_versions\nfiles\ngenerated_reports\nimage_annotations\nkeyboard_shortcuts\nknowledgeGraphEdges\nknowledge_graph_settings\nmetadata_history\nmetadata_templates\nnotification_preferences\nnotifications\nrecently_viewed_files\nsaved_cohort_comparisons\nsaved_searches\nscheduled_exports\nscheduled_reports\nshare_access_log\nshare_links\nsmart_collections\ntag_categories\ntag_category_mappings\ntag_embeddings\ntag_relationships\ntags\nupload_history\nuserConsents\nuser_onboarding\nusers\nvideo_bookmarks\nvideo_chapters\nvideo_effect_presets\nvideo_tag_assignments\nvideo_tags\nvideo_transcripts\nvideos\nvisual_annotations\nvoice_annotations\n",
+  "stderr": "",
+  "execution_time_ms": 53
+}

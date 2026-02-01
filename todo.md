@@ -4688,3 +4688,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Implement parent tag suggestions when child tags are applied
 - [x] Show suggestion toast when applying child tag without parent
 - [x] Test all hierarchy enhancement features (12 tests passing)
+
+## IMPORTANT: Development Guidelines
+- [x] NEVER upload test files to the user's Files page
+- [x] All test data must be kept in test files only, never in production database
+- [x] Deleted all test files from Files page (user request)
