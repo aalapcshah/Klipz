@@ -1459,3 +1459,140 @@ export const videoEffectPresetsRelations = relations(videoEffectPresets, ({ one 
     references: [users.id],
   }),
 }));
+
+
+// ============= KNOWLEDGE GRAPH TABLES =============
+
+/**
+ * Tag embeddings table - stores vector embeddings for semantic tag similarity
+ */
+export const tagEmbeddings = mysqlTable("tag_embeddings", {
+  id: int("id").autoincrement().primaryKey(),
+  tagName: varchar("tagName", { length: 255 }).notNull().unique(),
+  
+  // Wikidata enrichment
+  wikidataId: varchar("wikidataId", { length: 20 }), // e.g., Q12345
+  wikidataLabel: varchar("wikidataLabel", { length: 255 }),
+  wikidataDescription: text("wikidataDescription"),
+  
+  // LLM-generated embedding (stored as JSON array of floats)
+  embedding: json("embedding").$type<number[]>(),
+  embeddingModel: varchar("embeddingModel", { length: 100 }), // Model used to generate embedding
+  
+  // Usage statistics
+  usageCount: int("usageCount").default(0).notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  tagNameIndex: index("tag_embeddings_tag_name_idx").on(table.tagName),
+  wikidataIdIndex: index("tag_embeddings_wikidata_id_idx").on(table.wikidataId),
+}));
+
+export type TagEmbedding = typeof tagEmbeddings.$inferSelect;
+export type InsertTagEmbedding = typeof tagEmbeddings.$inferInsert;
+
+/**
+ * Tag relationships table - stores semantic relationships between tags
+ */
+export const tagRelationships = mysqlTable("tag_relationships", {
+  id: int("id").autoincrement().primaryKey(),
+  sourceTag: varchar("sourceTag", { length: 255 }).notNull(),
+  targetTag: varchar("targetTag", { length: 255 }).notNull(),
+  
+  // Relationship type
+  relationshipType: mysqlEnum("relationshipType", ["parent", "child", "related", "synonym"]).notNull(),
+  
+  // Confidence score (0.0 to 1.0)
+  confidence: float("confidence").default(0.5).notNull(),
+  
+  // Source of the relationship
+  source: mysqlEnum("source", ["wikidata", "llm", "user", "auto"]).default("auto").notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  sourceTagIndex: index("tag_relationships_source_tag_idx").on(table.sourceTag),
+  targetTagIndex: index("tag_relationships_target_tag_idx").on(table.targetTag),
+  relationshipIndex: index("tag_relationships_type_idx").on(table.relationshipType),
+}));
+
+export type TagRelationship = typeof tagRelationships.$inferSelect;
+export type InsertTagRelationship = typeof tagRelationships.$inferInsert;
+
+/**
+ * Tag categories table - hierarchical organization of tags
+ */
+export const tagCategories = mysqlTable("tag_categories", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  parentId: int("parentId"), // Self-referencing for hierarchy
+  
+  // Visual customization
+  color: varchar("color", { length: 7 }).default("#3b82f6"),
+  icon: varchar("icon", { length: 50 }),
+  
+  // Ordering
+  sortOrder: int("sortOrder").default(0).notNull(),
+  
+  // Wikidata mapping
+  wikidataId: varchar("wikidataId", { length: 20 }),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  nameIndex: index("tag_categories_name_idx").on(table.name),
+  parentIdIndex: index("tag_categories_parent_id_idx").on(table.parentId),
+}));
+
+export type TagCategory = typeof tagCategories.$inferSelect;
+export type InsertTagCategory = typeof tagCategories.$inferInsert;
+
+/**
+ * Tag to category mappings
+ */
+export const tagCategoryMappings = mysqlTable("tag_category_mappings", {
+  id: int("id").autoincrement().primaryKey(),
+  tagName: varchar("tagName", { length: 255 }).notNull(),
+  categoryId: int("categoryId").notNull(),
+  
+  // Confidence of the mapping
+  confidence: float("confidence").default(1.0).notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  tagNameIndex: index("tag_category_mappings_tag_name_idx").on(table.tagName),
+  categoryIdIndex: index("tag_category_mappings_category_id_idx").on(table.categoryId),
+  uniqueMapping: index("tag_category_mappings_unique_idx").on(table.tagName, table.categoryId),
+}));
+
+export type TagCategoryMapping = typeof tagCategoryMappings.$inferSelect;
+export type InsertTagCategoryMapping = typeof tagCategoryMappings.$inferInsert;
+
+/**
+ * Knowledge graph settings - user preferences for knowledge graph features
+ */
+export const knowledgeGraphSettings = mysqlTable("knowledge_graph_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  
+  // Feature toggles
+  enableWikidataEnrichment: boolean("enableWikidataEnrichment").default(true).notNull(),
+  enableLLMSuggestions: boolean("enableLLMSuggestions").default(true).notNull(),
+  enableAutoTagging: boolean("enableAutoTagging").default(false).notNull(),
+  
+  // Suggestion settings
+  suggestionConfidenceThreshold: float("suggestionConfidenceThreshold").default(0.5).notNull(),
+  maxSuggestionsPerTag: int("maxSuggestionsPerTag").default(10).notNull(),
+  
+  // Language preference
+  preferredLanguage: varchar("preferredLanguage", { length: 5 }).default("en").notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  userIdIndex: index("knowledge_graph_settings_user_id_idx").on(table.userId),
+}));
+
+export type KnowledgeGraphSetting = typeof knowledgeGraphSettings.$inferSelect;
+export type InsertKnowledgeGraphSetting = typeof knowledgeGraphSettings.$inferInsert;

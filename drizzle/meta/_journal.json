@@ -365,6 +365,13 @@
       "when": 1769740504754,
       "tag": "0051_odd_guardsmen",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "5",
+      "when": 1769914288793,
+      "tag": "0052_shiny_blazing_skull",
+      "breakpoints": true
     }
   ]
 }

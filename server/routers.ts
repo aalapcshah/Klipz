@@ -42,6 +42,7 @@ import { shareLinksRouter } from "./routers/shareLinks";
 import { subscriptionRouter } from "./routers/subscription";
 import { musicLibraryRouter } from "./routers/musicLibrary";
 import { effectPresetsRouter } from "./routers/effectPresets";
+import { knowledgeGraphRouter } from "./routers/knowledgeGraph";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { sendUploadEmail, sendEditEmail, sendDeleteEmail, sendEnrichEmail } from "./_core/activityEmailNotifications";
 import { TRPCError } from "@trpc/server";
@@ -57,6 +58,7 @@ import { voiceAnnotations, visualAnnotations, files } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 
 export const appRouter = router({
+  knowledgeGraph: knowledgeGraphRouter,
   musicLibrary: musicLibraryRouter,
   effectPresets: effectPresetsRouter,
   subscription: subscriptionRouter,
@@ -1831,8 +1833,8 @@ For each suggestion, provide:
       }),
   }),
 
-  // ============= KNOWLEDGE GRAPH ROUTER =============
-  knowledgeGraph: router({
+  // ============= FILE KNOWLEDGE GRAPH ROUTER =============
+  fileKnowledgeGraph: router({
     // Get full knowledge graph for user
     get: protectedProcedure.query(async ({ ctx }) => {
       const edges = await db.getKnowledgeGraphForUser(ctx.user.id);
