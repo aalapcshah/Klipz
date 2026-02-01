@@ -29,6 +29,7 @@ import { AccountSettings } from "@/components/AccountSettings";
 import { NotificationPreferencesSettings } from "@/components/NotificationPreferencesSettings";
 import { BrowserNotificationSettings } from "@/components/BrowserNotificationSettings";
 import { StorageUsageDashboard } from "@/components/StorageUsageDashboard";
+import { VideoUploadSettings } from "@/components/VideoUploadSettings";
 import { ScreenshotMonitor } from "@/components/ScreenshotMonitor";
 import { resetGestureTutorial, GestureTutorial } from "@/components/GestureTutorial";
 import { getAudioEnabled, setAudioEnabled, testAllSounds } from "@/lib/audioFeedback";
@@ -335,6 +336,7 @@ export default function Settings() {
           <TabsTrigger value="keyboard">Keyboard Shortcuts</TabsTrigger>
           <TabsTrigger value="storage">Storage</TabsTrigger>
           <TabsTrigger value="knowledge-graphs">Knowledge Graphs</TabsTrigger>
+          <TabsTrigger value="video">Video</TabsTrigger>
           <TabsTrigger value="auto-import">Auto Import</TabsTrigger>
         </TabsList>
 
@@ -491,6 +493,10 @@ export default function Settings() {
 
         <TabsContent value="storage" className="space-y-6 mt-6">
           <StorageUsageDashboard />
+        </TabsContent>
+
+        <TabsContent value="video" className="space-y-6 mt-6">
+          <VideoUploadSettings />
         </TabsContent>
 
         <TabsContent value="knowledge-graphs" className="space-y-6 mt-6">

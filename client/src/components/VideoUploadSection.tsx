@@ -23,6 +23,8 @@ import { compressVideo, estimateCompressedSize, getVideoMetadata, isCompressionS
 import { useFeatureAccess, useVideoLimit } from "@/components/FeatureGate";
 import { Link } from "wouter";
 import { Lock, Crown, Sparkles } from "lucide-react";
+import { CompressionPreviewDialog } from "@/components/CompressionPreviewDialog";
+import { getVideoUploadPreferences } from "@/components/VideoUploadSettings";
 
 type VideoQuality = "original" | "high" | "medium" | "low" | "custom";
 
@@ -82,6 +84,19 @@ export function VideoUploadSection() {
   const [compressionProgress, setCompressionProgress] = useState<Map<string, CompressionProgress>>(new Map());
   const [estimatedSizes, setEstimatedSizes] = useState<Map<string, { original: number; compressed: number }>>(new Map());
   const [previewEstimate, setPreviewEstimate] = useState<{ filename: string; original: number; estimated: number; savings: string } | null>(null);
+  
+  // Compression preview dialog state
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [pendingPreviewFiles, setPendingPreviewFiles] = useState<File[]>([]);
+  
+  // Load default preferences on mount
+  useEffect(() => {
+    const prefs = getVideoUploadPreferences();
+    setSelectedQuality(prefs.defaultQuality);
+    setCustomBitrate(prefs.customBitrate);
+    setCustomResolution(prefs.customResolution);
+  }, []);
   
   const {
     uploads,
@@ -516,8 +531,26 @@ export function VideoUploadSection() {
       return;
     }
     
-    // Calculate estimated compression for first file
     const fileArray = Array.from(files);
+    const prefs = getVideoUploadPreferences();
+    
+    // Show preview dialog if enabled and compression is supported
+    if (prefs.showPreviewDialog && prefs.autoCompress && isCompressionSupported() && fileArray.length > 0) {
+      // For single file, show preview dialog
+      if (fileArray.length === 1) {
+        setPreviewFile(fileArray[0]);
+        setPendingPreviewFiles([]);
+        setPreviewDialogOpen(true);
+        return;
+      }
+      // For multiple files, show preview for first file and queue the rest
+      setPreviewFile(fileArray[0]);
+      setPendingPreviewFiles(fileArray.slice(1));
+      setPreviewDialogOpen(true);
+      return;
+    }
+    
+    // Calculate estimated compression for first file (when preview is disabled)
     if (fileArray.length > 0 && selectedQuality !== 'original' && isCompressionSupported()) {
       const firstFile = fileArray[0];
       try {
@@ -537,6 +570,28 @@ export function VideoUploadSection() {
     }
     
     await checkAndAddFiles(fileArray);
+  };
+  
+  // Handle preview dialog confirmation
+  const handlePreviewConfirm = async (quality: VideoQuality, customBitrateVal?: number, customResolutionVal?: number) => {
+    // Update quality settings
+    setSelectedQuality(quality);
+    if (customBitrateVal) setCustomBitrate(customBitrateVal);
+    if (customResolutionVal) setCustomResolution(customResolutionVal);
+    
+    // Process the preview file
+    if (previewFile) {
+      await checkAndAddFiles([previewFile]);
+    }
+    
+    // Process any pending files with the same quality
+    if (pendingPreviewFiles.length > 0) {
+      await checkAndAddFiles(pendingPreviewFiles);
+    }
+    
+    // Reset state
+    setPreviewFile(null);
+    setPendingPreviewFiles([]);
   };
 
   const handleFolderSelect = async (files: FileList | null) => {
@@ -1180,6 +1235,21 @@ export function VideoUploadSection() {
         duplicates={duplicateFiles}
         onConfirm={handleDuplicateConfirm}
         onCancel={handleDuplicateCancel}
+      />
+
+      {/* Compression Preview Dialog */}
+      <CompressionPreviewDialog
+        open={previewDialogOpen}
+        onOpenChange={(open) => {
+          setPreviewDialogOpen(open);
+          if (!open) {
+            setPreviewFile(null);
+            setPendingPreviewFiles([]);
+          }
+        }}
+        file={previewFile}
+        onConfirm={handlePreviewConfirm}
+        defaultQuality={selectedQuality}
       />
 
       {/* Schedule Dialog */}

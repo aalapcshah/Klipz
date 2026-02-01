@@ -4713,3 +4713,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add compression cancel button to abort compression and upload original file
 - [x] Track compression start time for accurate ETA calculation
 - [x] Show elapsed time and video duration during compression
+
+## Phase 69: Compression Settings & Preview
+- [x] Add compression quality preview with side-by-side comparison before upload
+- [x] Generate preview thumbnails at different quality levels
+- [x] Show estimated file size for each quality option
+- [x] Add default compression settings in Settings page (Settings > Video tab)
+- [x] Persist default compression quality preference (localStorage)
+- [x] Auto-apply default quality when uploading videos
