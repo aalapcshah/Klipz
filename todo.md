@@ -4704,3 +4704,6 @@ Note: The application already has extensive annotation features including voice 
 
 ## Branding Fix: MetaClips → Klipz
 - [x] Update all references from "MetaClips" to "Klipz" throughout the application
+
+## Bug Fix: Compression Progress Bar (Round 2)
+- [x] Fix compression progress bar width - changed layout to use w-full instead of flex-1

@@ -976,16 +976,22 @@ export function VideoUploadSection() {
 
                   {/* Compression Progress Bar - shown during compression phase */}
                   {compressionProgress.has(upload.id) && (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-amber-500 font-medium flex items-center gap-1 min-w-[100px]">
-                          <span className="inline-block w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
-                          {compressionProgress.get(upload.id)?.stage === 'loading' ? 'Loading video...' :
-                           compressionProgress.get(upload.id)?.stage === 'processing' ? 'Processing...' :
-                           compressionProgress.get(upload.id)?.stage === 'encoding' ? 'Compressing...' :
-                           'Compressing...'}
-                        </span>
-                        <div className="flex-1 bg-muted rounded-full h-2.5 overflow-hidden">
+                    <div className="space-y-2">
+                      {/* Compression row */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-amber-500 font-medium flex items-center gap-1">
+                            <span className="inline-block w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
+                            {compressionProgress.get(upload.id)?.stage === 'loading' ? 'Loading video...' :
+                             compressionProgress.get(upload.id)?.stage === 'processing' ? 'Processing...' :
+                             compressionProgress.get(upload.id)?.stage === 'encoding' ? 'Compressing...' :
+                             'Compressing...'}
+                          </span>
+                          <span className="text-amber-500 font-medium">
+                            {(compressionProgress.get(upload.id)?.progress || 0).toFixed(0)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
                           <div
                             className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full"
                             style={{ 
@@ -994,20 +1000,19 @@ export function VideoUploadSection() {
                             }}
                           />
                         </div>
-                        <span className="text-xs text-amber-500 font-medium min-w-[3rem] text-right">
-                          {(compressionProgress.get(upload.id)?.progress || 0).toFixed(0)}%
-                        </span>
                       </div>
-                      {/* Upload waiting indicator below compression */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground min-w-[100px]">Upload (waiting)</span>
-                        <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                      {/* Upload waiting row */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Upload (waiting)</span>
+                          <span>0%</span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                           <div className="h-full bg-primary rounded-full" style={{ width: '0%' }} />
                         </div>
-                        <span className="text-xs text-muted-foreground min-w-[3rem] text-right">0%</span>
-                      </div>
-                      <div className="flex justify-end text-xs text-muted-foreground">
-                        <span>0 B / {formatFileSize(upload.fileSize)}</span>
+                        <div className="flex justify-end text-xs text-muted-foreground">
+                          <span>0 B / {formatFileSize(upload.fileSize)}</span>
+                        </div>
                       </div>
                     </div>
                   )}
