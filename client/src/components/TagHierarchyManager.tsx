@@ -98,6 +98,18 @@ export function TagHierarchyManager({ className }: TagHierarchyManagerProps) {
     },
   });
 
+  const createSampleCategoriesMutation = trpc.tags.createSampleCategories.useMutation({
+    onSuccess: () => {
+      toast.success("Sample categories created! Expand the tree to explore.");
+      refetch();
+      // Auto-expand root nodes
+      setExpandedNodes(new Set([1, 2, 3, 4]));
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
   // Build tree structure from flat list
   const tagTree = useMemo(() => {
     if (!tags) return [];
@@ -216,14 +228,29 @@ export function TagHierarchyManager({ className }: TagHierarchyManagerProps) {
   return (
     <div className={cn("space-y-4", className)}>
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FolderTree className="h-5 w-5" />
-            Tag Hierarchy
-          </CardTitle>
-          <CardDescription>
-            Organize tags into parent-child relationships for better categorization
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <FolderTree className="h-5 w-5" />
+              Tag Hierarchy
+            </CardTitle>
+            <CardDescription>
+              Organize tags into parent-child relationships for better categorization
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => createSampleCategoriesMutation.mutate()}
+            disabled={createSampleCategoriesMutation.isPending}
+          >
+            {createSampleCategoriesMutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4 mr-2" />
+            )}
+            Create Sample Categories
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -906,6 +906,7 @@ export const appRouter = router({
           query: z.string().optional(),
           fileType: z.string().optional(),
           tagIds: z.array(z.number()).optional(),
+          includeChildTags: z.boolean().optional(), // Include child tags in hierarchy
           enrichmentStatus: z.enum(["pending", "processing", "completed", "failed"]).optional(),
           dateFrom: z.number().optional(), // Unix timestamp
           dateTo: z.number().optional(), // Unix timestamp
@@ -914,7 +915,29 @@ export const appRouter = router({
         })
       )
       .query(async ({ input, ctx }) => {
-        return await db.advancedSearchFiles(ctx.user.id, input);
+        let expandedTagIds = input.tagIds;
+        
+        // If includeChildTags is true, expand tag IDs to include all descendants
+        if (input.includeChildTags && input.tagIds && input.tagIds.length > 0) {
+          const allTags = await db.getTagHierarchy(ctx.user.id);
+          const expandedSet = new Set<number>();
+          
+          const addDescendants = (tagId: number) => {
+            expandedSet.add(tagId);
+            const children = allTags.filter(t => t.parentId === tagId);
+            for (const child of children) {
+              addDescendants(child.id);
+            }
+          };
+          
+          for (const tagId of input.tagIds) {
+            addDescendants(tagId);
+          }
+          
+          expandedTagIds = Array.from(expandedSet);
+        }
+        
+        return await db.advancedSearchFiles(ctx.user.id, { ...input, tagIds: expandedTagIds });
       }),
 
     // Enrich file with AI
@@ -1345,6 +1368,126 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         await db.updateTagVisuals(input.tagId, ctx.user.id, input.color, input.icon);
         return { success: true };
+      }),
+
+    // Create sample tag categories with hierarchies
+    createSampleCategories: protectedProcedure
+      .mutation(async ({ ctx }) => {
+        const sampleCategories = [
+          // Animals hierarchy
+          { name: 'Animals', color: '#22c55e', children: [
+            { name: 'Mammals', children: [
+              { name: 'Dogs', children: ['Golden Retriever', 'Labrador', 'German Shepherd'] },
+              { name: 'Cats', children: ['Persian', 'Siamese', 'Maine Coon'] },
+            ]},
+            { name: 'Birds', children: ['Eagle', 'Parrot', 'Owl'] },
+          ]},
+          // Locations hierarchy
+          { name: 'Locations', color: '#3b82f6', children: [
+            { name: 'Countries', children: ['USA', 'UK', 'Japan', 'France'] },
+            { name: 'Cities', children: ['New York', 'London', 'Tokyo', 'Paris'] },
+          ]},
+          // Events hierarchy
+          { name: 'Events', color: '#a855f7', children: [
+            { name: 'Personal', children: ['Birthday', 'Wedding', 'Anniversary'] },
+            { name: 'Holidays', children: ['Christmas', 'New Year', 'Thanksgiving'] },
+          ]},
+          // Media Types hierarchy
+          { name: 'Media Types', color: '#f97316', children: [
+            { name: 'Photos', children: ['Portrait', 'Landscape', 'Macro'] },
+            { name: 'Documents', children: ['Invoice', 'Receipt', 'Contract'] },
+          ]},
+        ];
+
+        const createTagWithChildren = async (item: any, parentId: number | null = null): Promise<number> => {
+          const name = typeof item === 'string' ? item : item.name;
+          const color = typeof item === 'object' ? item.color : null;
+          
+          // Check if tag already exists
+          const existingTags = await db.getTagsByUserId(ctx.user.id);
+          let existingTag = existingTags.find(t => t.name.toLowerCase() === name.toLowerCase());
+          let tagId: number;
+          
+          if (!existingTag) {
+            tagId = await db.createTag({ userId: ctx.user.id, name, source: 'manual' });
+          } else {
+            tagId = existingTag.id;
+          }
+          
+          // Update parent and color if needed
+          if (parentId !== null || color) {
+            await db.updateTagParent(tagId, parentId, ctx.user.id);
+            if (color) {
+              await db.updateTagVisuals(tagId, ctx.user.id, color, undefined);
+            }
+          }
+          
+          // Create children
+          if (typeof item === 'object' && item.children) {
+            for (const child of item.children) {
+              await createTagWithChildren(child, tagId);
+            }
+          }
+          
+          return tagId;
+        };
+
+        for (const category of sampleCategories) {
+          await createTagWithChildren(category);
+        }
+
+        return { success: true, message: 'Sample categories created successfully' };
+      }),
+
+    // Get tag with all its descendants (for hierarchical filtering)
+    getTagWithDescendants: protectedProcedure
+      .input(z.object({ tagId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const allTags = await db.getTagHierarchy(ctx.user.id);
+        const descendants: number[] = [input.tagId];
+        const queue = [input.tagId];
+
+        while (queue.length > 0) {
+          const currentId = queue.shift()!;
+          const children = allTags.filter(t => t.parentId === currentId);
+          for (const child of children) {
+            descendants.push(child.id);
+            queue.push(child.id);
+          }
+        }
+
+        return descendants;
+      }),
+
+    // Get parent tag suggestions for a given tag
+    getParentSuggestions: protectedProcedure
+      .input(z.object({ tagId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const allTags = await db.getTagHierarchy(ctx.user.id);
+        const currentTag = allTags.find(t => t.id === input.tagId);
+        
+        if (!currentTag || currentTag.parentId) {
+          return []; // Already has a parent or tag not found
+        }
+
+        // Find potential parents based on name similarity or common patterns
+        const suggestions: { id: number; name: string; reason: string }[] = [];
+        
+        // Look for tags that could be parents (root tags with children)
+        const rootTags = allTags.filter(t => t.parentId === null && t.id !== input.tagId);
+        
+        for (const rootTag of rootTags) {
+          const hasChildren = allTags.some(t => t.parentId === rootTag.id);
+          if (hasChildren) {
+            suggestions.push({
+              id: rootTag.id,
+              name: rootTag.name,
+              reason: `${rootTag.name} is a category with existing children`,
+            });
+          }
+        }
+
+        return suggestions.slice(0, 5);
       }),
   }),
 

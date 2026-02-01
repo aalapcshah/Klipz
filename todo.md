@@ -4679,3 +4679,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add UI for managing tag hierarchies (TagHierarchyManager component)
 - [x] Enable hierarchical tag browsing and inheritance (tree view + set parent)
 - [x] Test all new features (15 tests passing)
+
+## Phase 67: Tag Hierarchy Enhancements
+- [x] Create sample tag categories with predefined hierarchies (Animals, Locations, Events, Media Types)
+- [x] Add "Create Sample Categories" button in TagHierarchyManager
+- [x] Implement tag filtering by hierarchy to include all child tags in search (includeChildTags option)
+- [x] Update file filtering to expand parent tags to include children
+- [x] Implement parent tag suggestions when child tags are applied
+- [x] Show suggestion toast when applying child tag without parent
+- [x] Test all hierarchy enhancement features (12 tests passing)

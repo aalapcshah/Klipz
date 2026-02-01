@@ -79,6 +79,47 @@ export function FileDetailDialog({
   const utils = trpc.useUtils();
 
   const { data: allTags } = trpc.tags.list.useQuery();
+  const { data: tagHierarchy } = trpc.tags.getHierarchy.useQuery();
+
+  // Helper to check if a tag has a parent and suggest adding it
+  const checkAndSuggestParentTag = async (tagId: number, tagName: string) => {
+    if (!tagHierarchy || !fileId || !file?.tags) return;
+    
+    const tag = tagHierarchy.find(t => t.id === tagId);
+    if (!tag || !tag.parentId) return;
+    
+    const parentTag = tagHierarchy.find(t => t.id === tag.parentId);
+    if (!parentTag) return;
+    
+    // Check if parent tag is already applied to the file
+    const hasParent = file.tags.some(t => t.id === parentTag.id);
+    if (hasParent) return;
+    
+    // Suggest adding the parent tag
+    toast(
+      <div className="flex flex-col gap-2">
+        <span>Add parent tag "{parentTag.name}"?</span>
+        <span className="text-xs text-muted-foreground">
+          "{tagName}" is a child of "{parentTag.name}"
+        </span>
+      </div>,
+      {
+        action: {
+          label: "Add Parent",
+          onClick: async () => {
+            try {
+              await linkTagMutation.mutateAsync({ fileId: fileId!, tagId: parentTag.id });
+              toast.success(`Parent tag "${parentTag.name}" added`);
+              refetch();
+            } catch (error) {
+              toast.error("Failed to add parent tag");
+            }
+          },
+        },
+        duration: 8000,
+      }
+    );
+  };
 
   const handleEnrich = async () => {
     if (!fileId) return;
@@ -107,6 +148,9 @@ export function FileDetailDialog({
       setIsAddingTag(false);
       toast.success("Tag added");
       refetch();
+      
+      // Check if we should suggest adding a parent tag
+      checkAndSuggestParentTag(tagId, newTagName.trim());
     } catch (error) {
       toast.error("Failed to add tag");
     }
@@ -143,13 +187,18 @@ export function FileDetailDialog({
     }
   };
 
-  const handleLinkExistingTag = async (tagId: number) => {
+  const handleLinkExistingTag = async (tagId: number, tagName?: string) => {
     if (!fileId) return;
 
     try {
       await linkTagMutation.mutateAsync({ fileId, tagId });
       toast.success("Tag linked");
       refetch();
+      
+      // Check if we should suggest adding a parent tag
+      if (tagName) {
+        checkAndSuggestParentTag(tagId, tagName);
+      }
     } catch (error) {
       toast.error("Failed to link tag");
     }
