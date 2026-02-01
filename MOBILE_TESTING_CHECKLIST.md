@@ -1,7 +1,7 @@
-# MetaClips Mobile Testing Checklist
+# Klipz Mobile Testing Checklist
 
 ## Overview
-This document provides a comprehensive checklist for testing MetaClips on mobile devices to ensure optimal user experience across iOS and Android platforms.
+This document provides a comprehensive checklist for testing Klipz on mobile devices to ensure optimal user experience across iOS and Android platforms.
 
 ## Test Devices
 - **iOS**: iPhone (Safari, Chrome)

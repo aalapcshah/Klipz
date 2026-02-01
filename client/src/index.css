@@ -43,7 +43,7 @@
 }
 
 :root {
-  /* MetaClips Light Theme (fallback) */
+  /* Klipz Light Theme (fallback) */
   --primary: oklch(0.65 0.15 180); /* Teal */
   --primary-foreground: oklch(0.98 0.01 180);
   --sidebar-primary: oklch(0.65 0.15 180);
@@ -80,7 +80,7 @@
 }
 
 .dark {
-  /* MetaClips Dark Theme - Professional */
+  /* Klipz Dark Theme - Professional */
   --primary: oklch(0.65 0.15 180); /* Teal */
   --primary-foreground: oklch(0.98 0.01 180);
   --sidebar-primary: oklch(0.65 0.15 180);

@@ -4701,3 +4701,6 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix compression progress bar - amber bar now fills to match percentage (changed background to bg-muted)
 - [x] Fix annotation error "This video needs to be re-uploaded" - added linkToFile mutation to auto-create file record
 - [x] Fix upload progress display - simplified to show only during active upload
+
+## Branding Fix: MetaClips → Klipz
+- [x] Update all references from "MetaClips" to "Klipz" throughout the application

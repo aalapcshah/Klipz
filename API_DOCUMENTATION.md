@@ -1,8 +1,8 @@
-# MetaClips API Documentation
+# Klipz API Documentation
 
 ## Overview
 
-MetaClips provides a comprehensive tRPC API for managing media files, AI enrichment, video annotations, and knowledge graphs. All endpoints require authentication via Manus OAuth.
+Klipz provides a comprehensive tRPC API for managing media files, AI enrichment, video annotations, and knowledge graphs. All endpoints require authentication via Manus OAuth.
 
 ## Base URL
 

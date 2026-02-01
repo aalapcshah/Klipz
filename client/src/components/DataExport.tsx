@@ -20,7 +20,7 @@ export function DataExport() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `metaclips-data-export-${new Date().toISOString().split("T")[0]}.json`;
+      link.download = `klipz-data-export-${new Date().toISOString().split("T")[0]}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
