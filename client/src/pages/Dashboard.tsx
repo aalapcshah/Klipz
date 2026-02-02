@@ -201,7 +201,7 @@ export default function Dashboard() {
                     key={item.href} 
                     href={item.href}
                     id={item.label === "Files" ? "files-nav" : item.label === "Collections" ? "collections-nav" : undefined}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors text-sm whitespace-nowrap ${
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors text-sm ${
                       isActive
                         ? "bg-primary text-primary-foreground"
                         : "hover:bg-muted text-muted-foreground hover:text-foreground"

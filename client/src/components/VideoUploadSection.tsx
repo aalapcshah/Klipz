@@ -1082,11 +1082,13 @@ export function VideoUploadSection() {
                             </button>
                           </span>
                         </div>
-                        <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
+                        <div style={{ width: '100%', backgroundColor: 'hsl(var(--muted))', borderRadius: '9999px', height: '10px', overflow: 'hidden' }}>
                           <div
-                            className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full"
                             style={{ 
                               width: `${Math.max(2, compressionProgress.get(upload.id)?.progress || 0)}%`,
+                              height: '100%',
+                              background: 'linear-gradient(to right, #f59e0b, #fbbf24)',
+                              borderRadius: '9999px',
                               transition: 'width 0.3s ease-out'
                             }}
                           />

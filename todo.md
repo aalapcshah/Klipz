@@ -4721,3 +4721,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add default compression settings in Settings page (Settings > Video tab)
 - [x] Persist default compression quality preference (localStorage)
 - [x] Auto-apply default quality when uploading videos
+
+## Bug Fixes: UI Issues (Round 3)
+- [x] Fix Collections tab green styling overflow past the text (removed whitespace-nowrap)
+- [x] Make Upload & Tag Files dialog wider (max-w-7xl w-[98vw])
+- [x] Fix compression progress bar to match percentage (switched to inline styles for reliable rendering)

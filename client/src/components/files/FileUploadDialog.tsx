@@ -925,7 +925,7 @@ export function FileUploadDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl w-[98vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Upload & Tag Files</DialogTitle>
           <DialogDescription>
