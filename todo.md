@@ -4726,3 +4726,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix Collections tab green styling overflow past the text (removed whitespace-nowrap)
 - [x] Make Upload & Tag Files dialog wider (max-w-7xl w-[98vw])
 - [x] Fix compression progress bar to match percentage (switched to inline styles for reliable rendering)
+
+## Upload Dialog Improvements
+- [x] Add Save Files button at top of upload dialog (in addition to bottom)
+- [x] Persistent upload state already implemented in UploadManagerContext (saves to localStorage, shows toast on reload)

@@ -933,6 +933,36 @@ export function FileUploadDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {/* Top Action Buttons - visible when files are uploaded */}
+        {files.length > 0 && (
+          <div className="flex justify-between gap-2 sticky top-0 bg-background z-10 py-2 border-b border-border -mx-6 px-6">
+            <Button 
+              variant="outline" 
+              onClick={() => uploading ? handleCancelUpload() : onOpenChange(false)}
+            >
+              {uploading ? "Cancel Upload" : "Cancel"}
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => handleUpload(false)}
+                disabled={uploading || files.length === 0}
+              >
+                {uploading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Save Files
+              </Button>
+              <Button
+                onClick={() => handleUpload(true)}
+                disabled={uploading || files.length === 0}
+                className="bg-accent hover:bg-accent/90"
+              >
+                {uploading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                <Sparkles className="h-4 w-4 mr-2" />
+                Enrich with AI
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Drag & Drop Zone */}
         <div
           onDragOver={handleDragOver}
