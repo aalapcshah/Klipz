@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Trash2,
@@ -10,6 +10,7 @@ import {
   Archive,
   Sparkles,
   Video,
+  MoreHorizontal,
 } from "lucide-react";
 import { BatchCompressionDialog } from "@/components/BatchCompressionDialog";
 import {
@@ -27,6 +28,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
@@ -56,6 +64,14 @@ export function BulkOperationsToolbar({
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [progress, setProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const utils = trpc.useUtils();
   const deleteFilesMutation = trpc.bulkOperations.deleteFiles.useMutation();
@@ -63,7 +79,7 @@ export function BulkOperationsToolbar({
   const removeTagsMutation = trpc.bulkOperations.removeTags.useMutation();
   const addToCollectionMutation = trpc.bulkOperations.addToCollection.useMutation();
   const reEnrichMutation = trpc.bulkOperations.reEnrichFiles.useMutation();
-  const { data: allFilesData } = trpc.files.list.useQuery({ page: 1, pageSize: 1000 }); // Get more files for bulk operations
+  const { data: allFilesData } = trpc.files.list.useQuery({ page: 1, pageSize: 1000 });
   const allFiles = allFilesData?.files || [];
   const { data: allFileIds } = trpc.files.getAllIds.useQuery();
 
@@ -75,7 +91,6 @@ export function BulkOperationsToolbar({
     setProgress(0);
 
     try {
-      // Simulate progress for better UX
       const progressInterval = setInterval(() => {
         setProgress((prev) => Math.min(prev + 10, 90));
       }, 100);
@@ -196,7 +211,6 @@ export function BulkOperationsToolbar({
 
       toast.info(`Preparing ${selectedFiles.length} file(s) for export...`);
 
-      // Download and add files to ZIP
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
         try {
@@ -204,7 +218,6 @@ export function BulkOperationsToolbar({
           const blob = await response.blob();
           zip.file(file.filename, blob);
 
-          // Update progress
           const progressPercent = Math.round(((i + 1) / selectedFiles.length) * 90);
           setProgress(progressPercent);
         } catch (error) {
@@ -216,11 +229,9 @@ export function BulkOperationsToolbar({
       setProgress(95);
       toast.info("Creating ZIP file...");
 
-      // Generate ZIP
       const zipBlob = await zip.generateAsync({ type: "blob" });
       setProgress(100);
 
-      // Download ZIP
       const url = URL.createObjectURL(zipBlob);
       const link = document.createElement("a");
       link.href = url;
@@ -246,7 +257,7 @@ export function BulkOperationsToolbar({
     setProgress(0);
 
     try {
-      toast.info(`Starting re-enrichment for ${selectedFileIds.length} file(s)...`);
+      toast.info(`Starting AI enrichment for ${selectedFileIds.length} file(s)...`);
 
       const progressInterval = setInterval(() => {
         setProgress((prev) => Math.min(prev + 10, 90));
@@ -259,12 +270,12 @@ export function BulkOperationsToolbar({
       clearInterval(progressInterval);
       setProgress(100);
 
-      toast.success(`Re-enrichment queued for ${result.count} file(s)`);
+      toast.success(`AI enrichment queued for ${result.count} file(s)`);
       await utils.files.list.invalidate();
       onOperationComplete();
       onClearSelection();
     } catch (error) {
-      toast.error("Failed to queue re-enrichment");
+      toast.error("Failed to queue AI enrichment");
       console.error(error);
     } finally {
       setIsProcessing(false);
@@ -311,6 +322,87 @@ export function BulkOperationsToolbar({
 
   if (selectedFileIds.length === 0) return null;
 
+  // Mobile: Compact bottom bar with dropdown menu
+  if (isMobile) {
+    return (
+      <>
+        <div className="fixed bottom-4 left-2 right-2 z-50">
+          <div className="bg-card border border-border rounded-lg shadow-lg p-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium">{selectedFileIds.length} selected</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClearSelection}
+                className="h-6 w-6 p-0"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-1">
+              {/* Primary action: Enrich with AI */}
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleBulkReEnrich}
+                disabled={isProcessing}
+                className="h-7 px-2 text-xs"
+              >
+                <Sparkles className="h-3 w-3 mr-1" />
+                Enrich
+              </Button>
+
+              {/* Secondary actions in dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 w-7 p-0">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem onClick={() => setShowTagDialog(true)}>
+                    <Tag className="h-3 w-3 mr-2" />
+                    Add Tags
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowRemoveTagDialog(true)}>
+                    <X className="h-3 w-3 mr-2" />
+                    Remove Tags
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowCollectionDialog(true)}>
+                    <FolderPlus className="h-3 w-3 mr-2" />
+                    Add to Collection
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleBulkExportZip}>
+                    <Archive className="h-3 w-3 mr-2" />
+                    Export ZIP
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowCompressionDialog(true)}>
+                    <Video className="h-3 w-3 mr-2" />
+                    Compress
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => setShowDeleteDialog(true)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-3 w-3 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </div>
+
+        {/* Dialogs */}
+        {renderDialogs()}
+      </>
+    );
+  }
+
+  // Desktop: Full toolbar
   return (
     <>
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
@@ -375,13 +467,13 @@ export function BulkOperationsToolbar({
             </Button>
 
             <Button
-              variant="outline"
+              variant="default"
               size="sm"
               onClick={handleBulkReEnrich}
               disabled={isProcessing}
             >
               <Sparkles className="w-4 h-4 mr-2" />
-              Re-enrich
+              Enrich with AI
             </Button>
 
             <Button
@@ -418,280 +510,272 @@ export function BulkOperationsToolbar({
         </div>
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Files</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete {selectedFileIds.length} file(s)?
-              This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
+      {renderDialogs()}
+    </>
+  );
 
-          {isProcessing && (
-            <div className="space-y-2">
-              <Progress value={progress} />
-              <p className="text-sm text-muted-foreground text-center">
-                Deleting files... {progress}%
-              </p>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowDeleteDialog(false)}
-              disabled={isProcessing}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleBulkDelete}
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Tags Dialog */}
-      <Dialog open={showTagDialog} onOpenChange={setShowTagDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Tags to Files</DialogTitle>
-            <DialogDescription>
-              Select tags to add to {selectedFileIds.length} file(s)
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Select Tags</label>
-              <div className="flex flex-wrap gap-2">
-                {tags?.map((tag) => (
-                  <button
-                    key={tag.id}
-                    onClick={() => {
-                      setSelectedTagIds((prev) =>
-                        prev.includes(tag.id)
-                          ? prev.filter((id) => id !== tag.id)
-                          : [...prev, tag.id]
-                      );
-                    }}
-                    className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                      selectedTagIds.includes(tag.id)
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                    }`}
-                  >
-                    {tag.name}
-                  </button>
-                ))}
-              </div>
-            </div>
+  function renderDialogs() {
+    return (
+      <>
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Files</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete {selectedFileIds.length} file(s)?
+                This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
 
             {isProcessing && (
               <div className="space-y-2">
                 <Progress value={progress} />
                 <p className="text-sm text-muted-foreground text-center">
-                  Adding tags... {progress}%
+                  Deleting files... {progress}%
                 </p>
               </div>
             )}
-          </div>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowTagDialog(false);
-                setSelectedTagIds([]);
-              }}
-              disabled={isProcessing}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleBulkAddTags} disabled={isProcessing}>
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                "Add Tags"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteDialog(false)}
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleBulkDelete}
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* Remove Tags Dialog */}
-      <Dialog open={showRemoveTagDialog} onOpenChange={setShowRemoveTagDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Remove Tags from Files</DialogTitle>
-            <DialogDescription>
-              Select tags to remove from {selectedFileIds.length} file(s)
-            </DialogDescription>
-          </DialogHeader>
+        {/* Add Tags Dialog */}
+        <Dialog open={showTagDialog} onOpenChange={setShowTagDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Tags</DialogTitle>
+              <DialogDescription>
+                Select tags to add to {selectedFileIds.length} file(s)
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Select Tags to Remove</label>
-              <div className="flex flex-wrap gap-2">
-                {tags?.map((tag) => (
-                  <button
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2 max-h-60 overflow-y-auto">
+                {tags?.map((tag: any) => (
+                  <Button
                     key={tag.id}
+                    variant={selectedTagIds.includes(tag.id) ? "default" : "outline"}
+                    size="sm"
                     onClick={() => {
-                      setRemoveTagIds((prev) =>
-                        prev.includes(tag.id)
-                          ? prev.filter((id) => id !== tag.id)
-                          : [...prev, tag.id]
-                      );
+                      if (selectedTagIds.includes(tag.id)) {
+                        setSelectedTagIds(selectedTagIds.filter((id) => id !== tag.id));
+                      } else {
+                        setSelectedTagIds([...selectedTagIds, tag.id]);
+                      }
                     }}
-                    className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                      removeTagIds.includes(tag.id)
-                        ? "bg-destructive text-destructive-foreground"
-                        : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                    }`}
                   >
                     {tag.name}
-                  </button>
+                  </Button>
                 ))}
               </div>
+
+              {isProcessing && (
+                <div className="space-y-2">
+                  <Progress value={progress} />
+                  <p className="text-sm text-muted-foreground text-center">
+                    Adding tags... {progress}%
+                  </p>
+                </div>
+              )}
             </div>
 
-            {isProcessing && (
-              <div className="space-y-2">
-                <Progress value={progress} />
-                <p className="text-sm text-muted-foreground text-center">
-                  Removing tags... {progress}%
-                </p>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowTagDialog(false);
+                  setSelectedTagIds([]);
+                }}
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleBulkAddTags} disabled={isProcessing}>
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  `Add ${selectedTagIds.length} Tag(s)`
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Remove Tags Dialog */}
+        <Dialog open={showRemoveTagDialog} onOpenChange={setShowRemoveTagDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Remove Tags</DialogTitle>
+              <DialogDescription>
+                Select tags to remove from {selectedFileIds.length} file(s)
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2 max-h-60 overflow-y-auto">
+                {tags?.map((tag: any) => (
+                  <Button
+                    key={tag.id}
+                    variant={removeTagIds.includes(tag.id) ? "destructive" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      if (removeTagIds.includes(tag.id)) {
+                        setRemoveTagIds(removeTagIds.filter((id) => id !== tag.id));
+                      } else {
+                        setRemoveTagIds([...removeTagIds, tag.id]);
+                      }
+                    }}
+                  >
+                    {tag.name}
+                  </Button>
+                ))}
               </div>
-            )}
-          </div>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowRemoveTagDialog(false);
-                setRemoveTagIds([]);
-              }}
-              disabled={isProcessing}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleBulkRemoveTags} 
-              disabled={isProcessing}
-              variant="destructive"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Removing...
-                </>
-              ) : (
-                "Remove Tags"
+              {isProcessing && (
+                <div className="space-y-2">
+                  <Progress value={progress} />
+                  <p className="text-sm text-muted-foreground text-center">
+                    Removing tags... {progress}%
+                  </p>
+                </div>
               )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </div>
 
-      {/* Add to Collection Dialog */}
-      <Dialog open={showCollectionDialog} onOpenChange={setShowCollectionDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add to Collection</DialogTitle>
-            <DialogDescription>
-              Select a collection to add {selectedFileIds.length} file(s)
-            </DialogDescription>
-          </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowRemoveTagDialog(false);
+                  setRemoveTagIds([]);
+                }}
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleBulkRemoveTags}
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Removing...
+                  </>
+                ) : (
+                  `Remove ${removeTagIds.length} Tag(s)`
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Select Collection</label>
+        {/* Add to Collection Dialog */}
+        <Dialog open={showCollectionDialog} onOpenChange={setShowCollectionDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add to Collection</DialogTitle>
+              <DialogDescription>
+                Select a collection to add {selectedFileIds.length} file(s) to
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
               <Select
                 value={selectedCollectionId}
                 onValueChange={setSelectedCollectionId}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a collection" />
+                  <SelectValue placeholder="Select a collection" />
                 </SelectTrigger>
                 <SelectContent>
-                  {collections?.map((collection) => (
+                  {collections?.map((collection: any) => (
                     <SelectItem key={collection.id} value={collection.id.toString()}>
                       {collection.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
+              {isProcessing && (
+                <div className="space-y-2">
+                  <Progress value={progress} />
+                  <p className="text-sm text-muted-foreground text-center">
+                    Adding to collection... {progress}%
+                  </p>
+                </div>
+              )}
             </div>
 
-            {isProcessing && (
-              <div className="space-y-2">
-                <Progress value={progress} />
-                <p className="text-sm text-muted-foreground text-center">
-                  Adding to collection... {progress}%
-                </p>
-              </div>
-            )}
-          </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowCollectionDialog(false);
+                  setSelectedCollectionId("");
+                }}
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleBulkAddToCollection} disabled={isProcessing}>
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  "Add to Collection"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowCollectionDialog(false);
-                setSelectedCollectionId("");
-              }}
-              disabled={isProcessing}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleBulkAddToCollection} disabled={isProcessing}>
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                "Add to Collection"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Batch Compression Dialog */}
-      <BatchCompressionDialog
-        open={showCompressionDialog}
-        onOpenChange={setShowCompressionDialog}
-        selectedFiles={allFiles.filter((f: any) => selectedFileIds.includes(f.id)).map((f: any) => ({
-          id: f.id,
-          filename: f.filename,
-          url: f.url,
-          fileSize: f.fileSize,
-          mimeType: f.mimeType,
-        }))}
-        onComplete={() => {
-          setShowCompressionDialog(false);
-          onOperationComplete();
-          onClearSelection();
-        }}
-      />
-    </>
-  );
+        {/* Batch Compression Dialog */}
+        <BatchCompressionDialog
+          open={showCompressionDialog}
+          onOpenChange={setShowCompressionDialog}
+          selectedFiles={allFiles.filter((f: any) => selectedFileIds.includes(f.id)).map((f: any) => ({
+            id: f.id,
+            filename: f.filename,
+            url: f.url,
+            fileSize: f.fileSize,
+            mimeType: f.mimeType,
+          }))}
+          onComplete={() => {
+            onOperationComplete();
+            onClearSelection();
+          }}
+        />
+      </>
+    );
+  }
 }

@@ -10,9 +10,16 @@ import {
   Calendar,
   HardDrive,
   Sparkles,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 export interface AdvancedFilters {
   dateFrom: string;
@@ -49,6 +56,20 @@ export function AdvancedFiltersPanel({
     filters.fileSizeMin,
     filters.fileSizeMax,
   ]);
+  const [isMobile, setIsMobile] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({
+    date: false,
+    size: false,
+    enrichment: true,
+    quality: false,
+  });
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     setFileSizeRange([filters.fileSizeMin, filters.fileSizeMax]);
@@ -97,11 +118,183 @@ export function AdvancedFiltersPanel({
 
   const activeFilterCount = getActiveFilterCount();
 
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  // Mobile: Compact collapsible panel that doesn't take full screen
+  if (isMobile) {
+    if (!isOpen) return null;
+
+    return (
+      <div className="bg-card border-b border-border p-3 space-y-2">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold">Filters</h3>
+          <div className="flex items-center gap-2">
+            {activeFilterCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearAllFilters}
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-3 h-3 mr-1" />
+                Clear
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggle}
+              className="h-7 px-2"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Date Range - Collapsible */}
+        <Collapsible open={expandedSections.date} onOpenChange={() => toggleSection('date')}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="w-full justify-between h-8 px-2">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-3 h-3 text-muted-foreground" />
+                <span className="text-xs font-medium">Date Range</span>
+                {(filters.dateFrom || filters.dateTo) && (
+                  <Badge variant="secondary" className="h-4 px-1 text-[10px]">Active</Badge>
+                )}
+              </div>
+              {expandedSections.date ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2 px-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="date-from-mobile" className="text-[10px] text-muted-foreground">From</Label>
+                <Input
+                  id="date-from-mobile"
+                  type="date"
+                  value={filters.dateFrom}
+                  onChange={(e) => onFiltersChange({ ...filters, dateFrom: e.target.value })}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div>
+                <Label htmlFor="date-to-mobile" className="text-[10px] text-muted-foreground">To</Label>
+                <Input
+                  id="date-to-mobile"
+                  type="date"
+                  value={filters.dateTo}
+                  onChange={(e) => onFiltersChange({ ...filters, dateTo: e.target.value })}
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* File Size - Collapsible */}
+        <Collapsible open={expandedSections.size} onOpenChange={() => toggleSection('size')}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="w-full justify-between h-8 px-2">
+              <div className="flex items-center gap-2">
+                <HardDrive className="w-3 h-3 text-muted-foreground" />
+                <span className="text-xs font-medium">File Size</span>
+                {(filters.fileSizeMin > 0 || filters.fileSizeMax < 100) && (
+                  <Badge variant="secondary" className="h-4 px-1 text-[10px]">{fileSizeRange[0]}-{fileSizeRange[1]}MB</Badge>
+                )}
+              </div>
+              {expandedSections.size ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2 px-2">
+            <Slider
+              min={0}
+              max={100}
+              step={1}
+              value={fileSizeRange}
+              onValueChange={handleFileSizeChange}
+              onValueCommit={handleFileSizeCommit}
+              className="w-full"
+            />
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1">
+              <span>{fileSizeRange[0]} MB</span>
+              <span>{fileSizeRange[1]} MB</span>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Enrichment Status - Collapsible with inline checkboxes */}
+        <Collapsible open={expandedSections.enrichment} onOpenChange={() => toggleSection('enrichment')}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="w-full justify-between h-8 px-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-3 h-3 text-muted-foreground" />
+                <span className="text-xs font-medium">Enrichment</span>
+                {filters.enrichmentStatus.length > 0 && (
+                  <Badge variant="secondary" className="h-4 px-1 text-[10px]">{filters.enrichmentStatus.length}</Badge>
+                )}
+              </div>
+              {expandedSections.enrichment ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2 px-2">
+            <div className="flex flex-wrap gap-3">
+              {["not_enriched", "enriched", "failed"].map((status) => (
+                <label key={status} className="flex items-center gap-1.5 cursor-pointer">
+                  <Checkbox
+                    id={`enrichment-mobile-${status}`}
+                    checked={filters.enrichmentStatus.includes(status)}
+                    onCheckedChange={(checked) => handleEnrichmentStatusChange(status, checked as boolean)}
+                    className="h-3.5 w-3.5"
+                  />
+                  <span className="text-xs">
+                    {status === "not_enriched" ? "Not Enriched" : status === "enriched" ? "Enriched" : "Failed"}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Quality Score - Collapsible with inline checkboxes */}
+        <Collapsible open={expandedSections.quality} onOpenChange={() => toggleSection('quality')}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="w-full justify-between h-8 px-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium">Quality Score</span>
+                {filters.qualityScore.length > 0 && (
+                  <Badge variant="secondary" className="h-4 px-1 text-[10px]">{filters.qualityScore.length}</Badge>
+                )}
+              </div>
+              {expandedSections.quality ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2 px-2">
+            <div className="flex flex-wrap gap-3">
+              {["high", "medium", "low"].map((score) => (
+                <label key={score} className="flex items-center gap-1.5 cursor-pointer">
+                  <Checkbox
+                    id={`quality-mobile-${score}`}
+                    checked={filters.qualityScore.includes(score)}
+                    onCheckedChange={(checked) => handleQualityScoreChange(score, checked as boolean)}
+                    className="h-3.5 w-3.5"
+                  />
+                  <span className="text-xs capitalize">{score}</span>
+                </label>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
+    );
+  }
+
+  // Desktop: Sidebar layout
   return (
     <>
-      {/* Filters Panel - Full screen overlay on mobile, sidebar on desktop */}
       {isOpen && (
-        <div className="fixed md:relative inset-0 md:inset-auto md:w-80 w-full md:border-r border-border bg-card p-6 space-y-6 overflow-y-auto z-40">
+        <div className="w-80 border-r border-border bg-card p-6 space-y-6 overflow-y-auto">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Advanced Filters</h3>
             {activeFilterCount > 0 && (

@@ -1,0 +1,110 @@
+{
+  "query": "SELECT id, filename, title FROM files LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, filename, title FROM files LIMIT 20;",
+  "rows": [
+    {
+      "id": "990002",
+      "filename": "Reel 6 - The Heart Behind It.mp4",
+      "title": "NULL"
+    },
+    {
+      "id": "990003",
+      "filename": "Reel 5 - The Grandparent Loophole.mp4",
+      "title": "NULL"
+    },
+    {
+      "id": "990004",
+      "filename": "Ree1 - The Financial Head Start.mp4",
+      "title": "NULL"
+    },
+    {
+      "id": "990005",
+      "filename": "Video 25 - HSA - Reel 1 - Why HSA's Still Matter in 2025.mp4",
+      "title": "NULL"
+    },
+    {
+      "id": "1020001",
+      "filename": "Screenshot 2026-02-01 at 5.30.06 PM.png",
+      "title": "Screenshot 2026-02-01 at 5.30.06 PM"
+    },
+    {
+      "id": "1020002",
+      "filename": "Utah Birth Injury Verdict 2025_08_29.jpg",
+      "title": "News article from Nurse.org outlines a $951 million malpractice verdict in Utah—one of the largest birth injury awards in U.S. history—due to negligent delivery care by nurses-in-training and an allegedly sleeping doctor. The piece underscores systemic fa"
+    },
+    {
+      "id": "1020003",
+      "filename": "Vitamin A Surveillance Overreach 2025_08_31.jpg",
+      "title": "A physician-led forum presents a dialogue between a medical oncologist and a PA who expresses concern about a rising Vitamin A level in a patient with stable stage IV cancer. The physician expresses frustration at the fixation on a marginal lab value, par"
+    },
+    {
+      "id": "1020004",
+      "filename": "Salary vs Cost of Living 2025_10_10.jpg",
+      "title": "Physician Side Gigs cross-compares physician salary rankings against cost-of-living (COL) indexes by U.S. state. While states like Iowa and Indiana rank high for salary and low for cost, states like California and Hawaii rank poorly due to high COL despit"
+    },
+    {
+      "id": "1020005",
+      "filename": "Shortage and Reimbursement Stressors 2025_08_18.jpg",
+      "title": "Dual themes of physician burnout and structural disruption due to both staffing shortages and reimbursement policy. The top half visualizes that 81% of physicians cite reimbursement policy as a significant factor in the decline of private practice, echoin"
+    },
+    {
+      "id": "1020006",
+      "filename": "Spanish Anesthesia Consent 2025_09_25.jpg",
+      "title": "The bottom portion of a Spanish-language anesthesia consent form, including highlighted fields for date, time, and anesthesiologist’s signature—signed here on 9/25/25 at 10:30 a.m. It includes clear sections for translator identification, legal consent af"
+    },
+    {
+      "id": "1020007",
+      "filename": "Specialty Income Correlates 2025_09_05.jpg",
+      "title": "Multipanel visualization examines the correlates of physician specialty income, comparing earnings across work hours, training length, research output, and U.S. degree status. Fields like neurosurgery, orthopedic surgery, and dermatology top the income sc"
+    },
+    {
+      "id": "1020008",
+      "filename": "Subscription Pricing 2025_11_05.jpg",
+      "title": "Hulu’s subscription management portal. It compares two bundle options: one priced at $82.99/month for Hulu (With Ads) + Live TV + Disney+ (With Ads) + ESPN+ (With Ads), and another at $95.99/month for Hulu Premium (No Ads) + Live TV + Disney+ Premium + ES"
+    },
+    {
+      "id": "1020009",
+      "filename": "Term Insurance Strategy 2025_08_28.jpg",
+      "title": "The concept of temporary term life insurance as a financial bridge while building wealth. It shows a $1.0M term policy covering a family until personal invested assets reach equivalent or greater value—essentially achieving \"self-insurance.\" The graph cov"
+    },
+    {
+      "id": "1020010",
+      "filename": "Think Like an Investor 2025_08_28.jpg",
+      "title": "potential return of a $100 investment with the opportunity cost of spending the same amount on consumer goods (e.g., Nike shoes). It underscores the principle that spending money is not just a simple transaction—it is a forfeiture of potential gains. This"
+    },
+    {
+      "id": "1020011",
+      "filename": "US Healthcare OECD Comparison - 2017.jpg",
+      "title": "This chart compares the US healthcare system's performance to OECD averages, showcasing strengths in resource allocation but weaknesses in access and quality metrics. It is valuable for illustrating systemic disparities, facilitating discussions in public"
+    },
+    {
+      "id": "1020012",
+      "filename": "US Healthcare Spending Trends 2025-01-15.jpg",
+      "title": "This graph and analysis detail trends in U.S. healthcare spending as a percentage of GDP from 1970 to 2022, providing a comprehensive look at financial allocation in healthcare. Useful for teaching healthcare economics and fiscal policies' impact on clini"
+    },
+    {
+      "id": "1020013",
+      "filename": "TWITTER POST_yesterday you said tomorrow.jpg",
+      "title": "Nike ad emphasizing action over procrastination with bold messaging."
+    },
+    {
+      "id": "1020014",
+      "filename": "TWITTER_eric levitz.jpg",
+      "title": "A Twitter thread discussing public reactions to systemic healthcare issues, following the assassination of a health insurance CEO. Relevant for exploring societal attitudes toward healthcare reform and public policy discussions, aiding curriculum elements"
+    },
+    {
+      "id": "1020015",
+      "filename": "TWITTER_We Are Looking For Designer.jpg",
+      "title": "A humorous take on hiring designers, highlighting digital presentation challenges."
+    },
+    {
+      "id": "1020016",
+      "filename": "UCI Health Acquisition News.jpg",
+      "title": "The announcement details UCI Health's acquisition of four Southern California hospitals from Tenet Healthcare Corporation, expanding access to healthcare services in the region. It underscores strategic healthcare growth, useful in discussing hospital net"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfilename\ttitle\n990002\tReel 6 - The Heart Behind It.mp4\tNULL\n990003\tReel 5 - The Grandparent Loophole.mp4\tNULL\n990004\tRee1 - The Financial Head Start.mp4\tNULL\n990005\tVideo 25 - HSA - Reel 1 - Why HSA's Still Matter in 2025.mp4\tNULL\n1020001\tScreenshot 2026-02-01 at 5.30.06 PM.png\tScreenshot 2026-02-01 at 5.30.06 PM\n1020002\tUtah Birth Injury Verdict 2025_08_29.jpg\tNews article from Nurse.org outlines a $951 million malpractice verdict in Utah—one of the largest birth injury awards in U.S. history—due to negligent delivery care by nurses-in-training and an allegedly sleeping doctor. The piece underscores systemic fa\n1020003\tVitamin A Surveillance Overreach 2025_08_31.jpg\tA physician-led forum presents a dialogue between a medical oncologist and a PA who expresses concern about a rising Vitamin A level in a patient with stable stage IV cancer. The physician expresses frustration at the fixation on a marginal lab value, par\n1020004\tSalary vs Cost of Living 2025_10_10.jpg\tPhysician Side Gigs cross-compares physician salary rankings against cost-of-living (COL) indexes by U.S. state. While states like Iowa and Indiana rank high for salary and low for cost, states like California and Hawaii rank poorly due to high COL despit\n1020005\tShortage and Reimbursement Stressors 2025_08_18.jpg\tDual themes of physician burnout and structural disruption due to both staffing shortages and reimbursement policy. The top half visualizes that 81% of physicians cite reimbursement policy as a significant factor in the decline of private practice, echoin\n1020006\tSpanish Anesthesia Consent 2025_09_25.jpg\tThe bottom portion of a Spanish-language anesthesia consent form, including highlighted fields for date, time, and anesthesiologist’s signature—signed here on 9/25/25 at 10:30 a.m. It includes clear sections for translator identification, legal consent af\n1020007\tSpecialty Income Correlates 2025_09_05.jpg\tMultipanel visualization examines the correlates of physician specialty income, comparing earnings across work hours, training length, research output, and U.S. degree status. Fields like neurosurgery, orthopedic surgery, and dermatology top the income sc\n1020008\tSubscription Pricing 2025_11_05.jpg\tHulu’s subscription management portal. It compares two bundle options: one priced at $82.99/month for Hulu (With Ads) + Live TV + Disney+ (With Ads) + ESPN+ (With Ads), and another at $95.99/month for Hulu Premium (No Ads) + Live TV + Disney+ Premium + ES\n1020009\tTerm Insurance Strategy 2025_08_28.jpg\tThe concept of temporary term life insurance as a financial bridge while building wealth. It shows a $1.0M term policy covering a family until personal invested assets reach equivalent or greater value—essentially achieving \"self-insurance.\" The graph cov\n1020010\tThink Like an Investor 2025_08_28.jpg\tpotential return of a $100 investment with the opportunity cost of spending the same amount on consumer goods (e.g., Nike shoes). It underscores the principle that spending money is not just a simple transaction—it is a forfeiture of potential gains. This\n1020011\tUS Healthcare OECD Comparison - 2017.jpg\tThis chart compares the US healthcare system's performance to OECD averages, showcasing strengths in resource allocation but weaknesses in access and quality metrics. It is valuable for illustrating systemic disparities, facilitating discussions in public\n1020012\tUS Healthcare Spending Trends 2025-01-15.jpg\tThis graph and analysis detail trends in U.S. healthcare spending as a percentage of GDP from 1970 to 2022, providing a comprehensive look at financial allocation in healthcare. Useful for teaching healthcare economics and fiscal policies' impact on clini\n1020013\tTWITTER POST_yesterday you said tomorrow.jpg\tNike ad emphasizing action over procrastination with bold messaging.\n1020014\tTWITTER_eric levitz.jpg\tA Twitter thread discussing public reactions to systemic healthcare issues, following the assassination of a health insurance CEO. Relevant for exploring societal attitudes toward healthcare reform and public policy discussions, aiding curriculum elements\n1020015\tTWITTER_We Are Looking For Designer.jpg\tA humorous take on hiring designers, highlighting digital presentation challenges.\n1020016\tUCI Health Acquisition News.jpg\tThe announcement details UCI Health's acquisition of four Southern California hospitals from Tenet Healthcare Corporation, expanding access to healthcare services in the region. It underscores strategic healthcare growth, useful in discussing hospital net\n",
+  "stderr": "",
+  "execution_time_ms": 204
+}

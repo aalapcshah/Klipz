@@ -4842,3 +4842,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Bug fix: Prevent canvas rendering issues on resize with high DPI support
 - [x] Bug fix: Ensure responsive layout works on all screen sizes
 - [x] Bug fix: Add proper error boundaries for graph component with retry functionality
+
+
+## Phase 104: Files Tab Mobile UI Bug Fixes
+- [x] Fix "Show Filters" dropdown taking full screen on mobile - compact slide-down panel
+- [x] Reduce checkbox sizes on mobile - smaller checkboxes with compact layout
+- [x] Delete all test files from database (tagtest.jpg, test.jpg, test2.jpg, test4.jpg, etc.)
+- [x] Add filter to exclude test files from user-facing file list
+- [x] Add "Batch Enrich with AI" button - mobile: compact toolbar with Enrich button + dropdown menu
