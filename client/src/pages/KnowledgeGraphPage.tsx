@@ -479,8 +479,8 @@ export default function KnowledgeGraphPage() {
             const other = newNodes.find((n) => n.id === otherId);
             if (!other || !other.x || !other.y) return;
 
-            const dx = other.x - node.x;
-            const dy = other.y - node.y;
+            const dx = other.x - node.x!;
+            const dy = other.y - node.y!;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1;
             const force = dist * 0.01 * edge.weight;
 
