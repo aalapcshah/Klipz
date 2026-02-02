@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Upload, Mic, X, Loader2, Sparkles, AlertCircle, FileText, Edit3 } from "lucide-react";
+import { Upload, Mic, X, Loader2, Sparkles, AlertCircle, FileText, Edit3, RefreshCw } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -1208,8 +1208,22 @@ export function FileUploadDialog({
                       </div>
                     )}
                     {fileData.uploadStatus === 'error' && (
-                      <div className="text-xs text-red-500 font-medium">
-                        ✗ Failed
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-red-500 font-medium">✗ Failed</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => {
+                            // Reset status to pending for retry
+                            updateFileMetadata(index, { uploadStatus: 'pending', uploadProgress: 0 });
+                            toast.info(`${fileData.file.name} queued for retry`);
+                          }}
+                          disabled={uploading}
+                        >
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                          Retry
+                        </Button>
                       </div>
                     )}
                   </div>

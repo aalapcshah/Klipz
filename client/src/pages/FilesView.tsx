@@ -22,6 +22,7 @@ import { VoiceCommands, useFileCommands } from "@/components/VoiceCommands";
 import { OfflineIndicator, OfflineBanner } from "@/components/OfflineIndicator";
 import { useOffline } from "@/hooks/useOffline";
 import { Trash2 } from "lucide-react";
+import { ResumableUploadsBanner } from "@/components/ResumableUploadsBanner";
 import { toast } from "sonner";
 
 export default function FilesView() {
@@ -211,6 +212,9 @@ export default function FilesView() {
             </div>
           )}
           <div className="space-y-4">
+            {/* Resumable Uploads Banner */}
+            <ResumableUploadsBanner onUploadComplete={() => utils.files.list.invalidate()} />
+            
             {/* Header Row */}
             <div className="flex flex-col gap-3">
               {/* Title and Actions Row */}

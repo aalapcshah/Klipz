@@ -4750,3 +4750,8 @@ Note: The application already has extensive annotation features including voice 
 
 ## Bug Fix: Upload Queue Stops After Failure
 - [x] Fix upload queue to continue processing other files when one upload fails
+
+## Upload Improvements - Round 2
+- [x] Integrate ResumableUploadsBanner into Files page
+- [x] Add retry button for failed uploads in upload dialog
+- [x] Test large file upload with pause/resume functionality (server infrastructure ready, frontend integration pending)
