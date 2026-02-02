@@ -4730,3 +4730,13 @@ Note: The application already has extensive annotation features including voice 
 ## Upload Dialog Improvements
 - [x] Add Save Files button at top of upload dialog (in addition to bottom)
 - [x] Persistent upload state already implemented in UploadManagerContext (saves to localStorage, shows toast on reload)
+
+## Resumable Uploads Feature
+- [x] Design database schema for upload sessions and chunks
+- [x] Implement server-side upload session creation endpoint
+- [x] Implement chunk upload and storage endpoint
+- [x] Implement upload resume endpoint (get session status)
+- [x] Implement chunk assembly and finalization endpoint
+- [ ] Update frontend UploadManagerContext to use resumable protocol
+- [ ] Add UI to show resumable uploads on page reload
+- [ ] Test cross-browser/cross-session upload persistence

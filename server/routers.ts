@@ -43,6 +43,7 @@ import { subscriptionRouter } from "./routers/subscription";
 import { musicLibraryRouter } from "./routers/musicLibrary";
 import { effectPresetsRouter } from "./routers/effectPresets";
 import { knowledgeGraphRouter } from "./routers/knowledgeGraph";
+import { resumableUploadRouter } from "./routers/resumableUpload";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { sendUploadEmail, sendEditEmail, sendDeleteEmail, sendEnrichEmail } from "./_core/activityEmailNotifications";
 import { TRPCError } from "@trpc/server";
@@ -58,6 +59,7 @@ import { voiceAnnotations, visualAnnotations, files } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 
 export const appRouter = router({
+  resumableUpload: resumableUploadRouter,
   knowledgeGraph: knowledgeGraphRouter,
   musicLibrary: musicLibraryRouter,
   effectPresets: effectPresetsRouter,

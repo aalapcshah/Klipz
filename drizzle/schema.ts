@@ -1607,3 +1607,110 @@ export const knowledgeGraphSettings = mysqlTable("knowledge_graph_settings", {
 
 export type KnowledgeGraphSetting = typeof knowledgeGraphSettings.$inferSelect;
 export type InsertKnowledgeGraphSetting = typeof knowledgeGraphSettings.$inferInsert;
+
+
+// ============= RESUMABLE UPLOAD SESSIONS TABLE =============
+
+/**
+ * Resumable upload sessions - tracks upload sessions for cross-browser persistence
+ * Implements a resumable upload protocol similar to tus.io
+ */
+export const resumableUploadSessions = mysqlTable("resumable_upload_sessions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  
+  // Session identifier (used by client to resume)
+  sessionToken: varchar("sessionToken", { length: 64 }).notNull().unique(),
+  
+  // File metadata
+  filename: varchar("filename", { length: 255 }).notNull(),
+  fileSize: bigint("fileSize", { mode: "number" }).notNull(), // Total file size in bytes
+  mimeType: varchar("mimeType", { length: 100 }).notNull(),
+  uploadType: mysqlEnum("uploadType", ["video", "file"]).notNull(),
+  
+  // Upload progress
+  uploadedBytes: bigint("uploadedBytes", { mode: "number" }).default(0).notNull(),
+  chunkSize: int("chunkSize").default(5242880).notNull(), // 5MB default chunk size
+  totalChunks: int("totalChunks").notNull(),
+  uploadedChunks: int("uploadedChunks").default(0).notNull(),
+  
+  // Storage location for chunks
+  chunkStoragePrefix: varchar("chunkStoragePrefix", { length: 512 }).notNull(), // S3 prefix for chunks
+  
+  // Final file location (set after assembly)
+  finalFileKey: varchar("finalFileKey", { length: 512 }),
+  finalFileUrl: text("finalFileUrl"),
+  
+  // User-provided metadata (stored for later use)
+  metadata: json("metadata").$type<{
+    title?: string;
+    description?: string;
+    quality?: string;
+    collectionId?: number;
+    tags?: string[];
+  }>(),
+  
+  // Session status
+  status: mysqlEnum("status", ["active", "paused", "completed", "failed", "expired"]).default("active").notNull(),
+  errorMessage: text("errorMessage"),
+  
+  // Timing
+  expiresAt: timestamp("expiresAt").notNull(), // Sessions expire after 24 hours of inactivity
+  lastActivityAt: timestamp("lastActivityAt").defaultNow().notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  completedAt: timestamp("completedAt"),
+}, (table) => ({
+  userIdIndex: index("resumable_upload_sessions_user_id_idx").on(table.userId),
+  sessionTokenIndex: index("resumable_upload_sessions_token_idx").on(table.sessionToken),
+  statusIndex: index("resumable_upload_sessions_status_idx").on(table.status),
+  expiresAtIndex: index("resumable_upload_sessions_expires_at_idx").on(table.expiresAt),
+}));
+
+export type ResumableUploadSession = typeof resumableUploadSessions.$inferSelect;
+export type InsertResumableUploadSession = typeof resumableUploadSessions.$inferInsert;
+
+export const resumableUploadSessionsRelations = relations(resumableUploadSessions, ({ one }) => ({
+  user: one(users, {
+    fields: [resumableUploadSessions.userId],
+    references: [users.id],
+  }),
+}));
+
+/**
+ * Resumable upload chunks - tracks individual chunks for a session
+ */
+export const resumableUploadChunks = mysqlTable("resumable_upload_chunks", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull(),
+  
+  // Chunk details
+  chunkIndex: int("chunkIndex").notNull(), // 0-based index
+  chunkSize: int("chunkSize").notNull(), // Actual size of this chunk
+  
+  // Storage location
+  storageKey: varchar("storageKey", { length: 512 }).notNull(), // S3 key for this chunk
+  
+  // Verification
+  checksum: varchar("checksum", { length: 64 }), // MD5 or SHA256 hash
+  
+  // Status
+  status: mysqlEnum("status", ["pending", "uploaded", "verified", "failed"]).default("pending").notNull(),
+  
+  uploadedAt: timestamp("uploadedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  sessionIdIndex: index("resumable_upload_chunks_session_id_idx").on(table.sessionId),
+  chunkIndexIndex: index("resumable_upload_chunks_chunk_index_idx").on(table.chunkIndex),
+  uniqueSessionChunk: uniqueIndex("resumable_upload_chunks_unique_idx").on(table.sessionId, table.chunkIndex),
+}));
+
+export type ResumableUploadChunk = typeof resumableUploadChunks.$inferSelect;
+export type InsertResumableUploadChunk = typeof resumableUploadChunks.$inferInsert;
+
+export const resumableUploadChunksRelations = relations(resumableUploadChunks, ({ one }) => ({
+  session: one(resumableUploadSessions, {
+    fields: [resumableUploadChunks.sessionId],
+    references: [resumableUploadSessions.id],
+  }),
+}));
