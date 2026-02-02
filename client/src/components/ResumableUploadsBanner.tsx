@@ -72,6 +72,12 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
     pauseUpload,
     resumeUpload,
     cancelUpload,
+    pauseAll,
+    resumeAll,
+    retryAllFailed,
+    activeCount,
+    pausedCount,
+    errorCount,
     resumableCount,
   } = useResumableUpload({
     onComplete: () => {
@@ -141,6 +147,51 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
 
         {isExpanded && (
           <div className="px-3 pb-3 space-y-2">
+            {/* Bulk action buttons */}
+            <div className="flex items-center gap-2 pb-2 border-b border-border">
+              {activeCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    pauseAll();
+                  }}
+                  className="text-amber-500 border-amber-500 hover:bg-amber-500/10"
+                >
+                  <Pause className="h-4 w-4 mr-1" />
+                  Pause All ({activeCount})
+                </Button>
+              )}
+              {pausedCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    resumeAll();
+                  }}
+                  className="text-green-500 border-green-500 hover:bg-green-500/10"
+                >
+                  <Play className="h-4 w-4 mr-1" />
+                  Resume All ({pausedCount})
+                </Button>
+              )}
+              {errorCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    retryAllFailed();
+                  }}
+                  className="text-red-500 border-red-500 hover:bg-red-500/10"
+                >
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Retry All Failed ({errorCount})
+                </Button>
+              )}
+            </div>
             {resumableSessions.map((session) => (
               <div
                 key={session.sessionToken}

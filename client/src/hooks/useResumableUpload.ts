@@ -353,9 +353,75 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     }
   }, [cancelSessionMutation]);
 
+  // Pause all active uploads
+  const pauseAll = useCallback(async () => {
+    const activeUploads = sessions.filter(s => s.status === "active");
+    for (const session of activeUploads) {
+      await pauseUpload(session.sessionToken);
+    }
+    if (activeUploads.length > 0) {
+      toast.info(`${activeUploads.length} upload(s) paused`);
+    }
+  }, [sessions, pauseUpload]);
+
+  // Resume all paused uploads (requires files to be re-selected)
+  const resumeAll = useCallback(async (fileMap?: Map<string, File>) => {
+    const pausedUploads = sessions.filter(s => s.status === "paused");
+    let resumed = 0;
+    let needsFile = 0;
+    
+    for (const session of pausedUploads) {
+      const file = fileMap?.get(session.sessionToken) || session.file;
+      if (file) {
+        await resumeUpload(session.sessionToken, file);
+        resumed++;
+      } else {
+        needsFile++;
+      }
+    }
+    
+    if (resumed > 0) {
+      toast.info(`${resumed} upload(s) resumed`);
+    }
+    if (needsFile > 0) {
+      toast.warning(`${needsFile} upload(s) need files to be re-selected`);
+    }
+  }, [sessions, resumeUpload]);
+
+  // Retry all failed uploads
+  const retryAllFailed = useCallback(async (fileMap?: Map<string, File>) => {
+    const failedUploads = sessions.filter(s => s.status === "error");
+    let retried = 0;
+    let needsFile = 0;
+    
+    for (const session of failedUploads) {
+      const file = fileMap?.get(session.sessionToken) || session.file;
+      if (file) {
+        // Reset status and restart
+        setSessions(prev => prev.map(s => 
+          s.sessionToken === session.sessionToken
+            ? { ...s, status: "active" as const, error: undefined }
+            : s
+        ));
+        uploadChunks({ ...session, status: "active", file }, file);
+        retried++;
+      } else {
+        needsFile++;
+      }
+    }
+    
+    if (retried > 0) {
+      toast.info(`${retried} failed upload(s) retrying`);
+    }
+    if (needsFile > 0) {
+      toast.warning(`${needsFile} upload(s) need files to be re-selected`);
+    }
+  }, [sessions, uploadChunks]);
+
   // Get active/resumable sessions count
   const activeCount = sessions.filter(s => s.status === "active").length;
   const pausedCount = sessions.filter(s => s.status === "paused").length;
+  const errorCount = sessions.filter(s => s.status === "error").length;
   const resumableCount = sessions.filter(s => s.status === "active" || s.status === "paused").length;
 
   return {
@@ -365,9 +431,13 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     pauseUpload,
     resumeUpload,
     cancelUpload,
+    pauseAll,
+    resumeAll,
+    retryAllFailed,
     refetchSessions,
     activeCount,
     pausedCount,
+    errorCount,
     resumableCount,
   };
 }

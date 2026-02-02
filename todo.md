@@ -4760,3 +4760,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Integrate ResumableUploadsBanner into Files page
 - [x] Add retry button for failed uploads in upload dialog
 - [x] Test large file upload with pause/resume functionality (server infrastructure ready, frontend integration pending)
+
+## Upload Improvements - Round 3
+- [ ] Wire ResumableUploadsBanner to chunked upload flow for true cross-session persistence
+- [x] Add drag-to-reorder functionality to upload queue
+- [x] Add Pause All and Resume All buttons for bulk upload control
