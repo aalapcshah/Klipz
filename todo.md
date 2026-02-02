@@ -4858,3 +4858,11 @@ Note: The application already has extensive annotation features including voice 
 - [ ] Add feedback/progress indicator for quality improvement actions (Sharpen, Contrast, etc.)
 - [ ] Fix enrichment score badge (yellow "55") to use real calculated data instead of placeholder
 - [ ] Verify quality score calculation is connected to database and updates after enhancements
+
+
+## Phase 106: Batch Enrichment Progress Indicator
+- [x] Add progress tracking state to batch enrichment mutation
+- [x] Create progress dialog/modal component for batch enrichment (BatchEnrichmentProgressDialog)
+- [x] Show current file being processed and percentage complete
+- [x] Add cancel button to stop batch enrichment mid-process
+- [x] Update UI in real-time as each file completes with success/fail indicators

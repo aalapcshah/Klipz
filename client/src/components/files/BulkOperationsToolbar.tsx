@@ -13,6 +13,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { BatchCompressionDialog } from "@/components/BatchCompressionDialog";
+import { BatchEnrichmentProgressDialog } from "@/components/files/BatchEnrichmentProgressDialog";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +60,7 @@ export function BulkOperationsToolbar({
   const [showRemoveTagDialog, setShowRemoveTagDialog] = useState(false);
   const [showCollectionDialog, setShowCollectionDialog] = useState(false);
   const [showCompressionDialog, setShowCompressionDialog] = useState(false);
+  const [showEnrichmentDialog, setShowEnrichmentDialog] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [removeTagIds, setRemoveTagIds] = useState<number[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
@@ -252,42 +254,14 @@ export function BulkOperationsToolbar({
     }
   };
 
-  const handleBulkReEnrich = async () => {
-    setIsProcessing(true);
-    setProgress(0);
+  const handleBulkReEnrich = () => {
+    // Open the progress dialog which handles the enrichment
+    setShowEnrichmentDialog(true);
+  };
 
-    try {
-      toast.info(`Processing AI enrichment for ${selectedFileIds.length} file(s)... This may take a few minutes.`, {
-        duration: 10000,
-      });
-
-      // Slower progress since actual AI processing takes time
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => Math.min(prev + 2, 85));
-      }, 1000);
-
-      const result = await reEnrichMutation.mutateAsync({
-        fileIds: selectedFileIds,
-      });
-
-      clearInterval(progressInterval);
-      setProgress(100);
-
-      if (result.failed && result.failed > 0) {
-        toast.warning(`AI enrichment completed: ${result.count} succeeded, ${result.failed} failed`);
-      } else {
-        toast.success(`AI enrichment completed for ${result.count} file(s)`);
-      }
-      await utils.files.list.invalidate();
-      onOperationComplete();
-      onClearSelection();
-    } catch (error) {
-      toast.error("Failed to process AI enrichment");
-      console.error(error);
-    } finally {
-      setIsProcessing(false);
-      setProgress(0);
-    }
+  const handleEnrichmentComplete = () => {
+    onOperationComplete();
+    onClearSelection();
   };
 
   const handleBulkAddToCollection = async () => {
@@ -781,6 +755,14 @@ export function BulkOperationsToolbar({
             onOperationComplete();
             onClearSelection();
           }}
+        />
+
+        {/* Batch Enrichment Progress Dialog */}
+        <BatchEnrichmentProgressDialog
+          open={showEnrichmentDialog}
+          onOpenChange={setShowEnrichmentDialog}
+          fileIds={selectedFileIds}
+          onComplete={handleEnrichmentComplete}
         />
       </>
     );
