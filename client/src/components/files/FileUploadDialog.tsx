@@ -945,12 +945,31 @@ export function FileUploadDialog({
         {/* Top Action Buttons - visible when files are uploaded */}
         {files.length > 0 && (
           <div className="flex justify-between gap-2 sticky top-0 bg-background z-10 py-2 border-b border-border -mx-6 px-6">
-            <Button 
-              variant="outline" 
-              onClick={() => uploading ? handleCancelUpload() : onOpenChange(false)}
-            >
-              {uploading ? "Cancel Upload" : "Cancel"}
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => uploading ? handleCancelUpload() : onOpenChange(false)}
+              >
+                {uploading ? "Cancel Upload" : "Cancel"}
+              </Button>
+              {/* Retry All Failed Button */}
+              {files.some(f => f.uploadStatus === 'error') && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const failedFiles = files.filter(f => f.uploadStatus === 'error');
+                    setFiles(prev => prev.map(pf => 
+                      pf.uploadStatus === 'error' ? { ...pf, uploadStatus: 'pending' as const } : pf
+                    ));
+                    toast.info(`${failedFiles.length} failed file(s) queued for retry`);
+                  }}
+                  className="text-red-500 border-red-500 hover:bg-red-500/10"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Retry All Failed ({files.filter(f => f.uploadStatus === 'error').length})
+                </Button>
+              )}
+            </div>
             <div className="flex gap-2">
               <Button
                 onClick={() => handleUpload(false)}

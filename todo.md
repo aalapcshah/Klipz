@@ -4752,6 +4752,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix upload queue to continue processing other files when one upload fails
 
 ## Upload Improvements - Round 2
+- [x] Add Retry All Failed button to file upload dialog
+- [x] Add Retry All Failed button to video upload dialog
+- [x] Upload progress notifications in header (already implemented via GlobalUploadProgress)
+
+## Previous Upload Improvements - Round 2
 - [x] Integrate ResumableUploadsBanner into Files page
 - [x] Add retry button for failed uploads in upload dialog
 - [x] Test large file upload with pause/resume functionality (server infrastructure ready, frontend integration pending)

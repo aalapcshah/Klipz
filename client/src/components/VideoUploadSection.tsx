@@ -942,7 +942,26 @@ export function VideoUploadSection() {
       {/* Uploading Files List */}
       {videoUploads.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-lg font-semibold">Uploads ({videoUploads.length})</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Uploads ({videoUploads.length})</h3>
+            {/* Retry All Failed Button */}
+            {videoUploads.some(u => u.status === 'error') && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const failedUploads = videoUploads.filter(u => u.status === 'error');
+                  failedUploads.forEach(u => retryUpload(u.id));
+                  toast.info(`${failedUploads.length} failed upload(s) queued for retry`);
+                  triggerHaptic("light");
+                }}
+                className="text-red-500 border-red-500 hover:bg-red-500/10"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry All Failed ({videoUploads.filter(u => u.status === 'error').length})
+              </Button>
+            )}
+          </div>
           {videoUploads.map((upload) => (
             <Card key={upload.id} className="p-4">
               <div className="flex items-start gap-3">
