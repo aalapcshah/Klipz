@@ -1,7 +1,7 @@
 /**
  * Knowledge Graph Visualization Page
  * Interactive network visualization of tag relationships and file connections
- * Features: Clustering, relationship filtering, export (JSON/CSV)
+ * Features: Clustering with smart labels, search highlighting, mobile optimization
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
@@ -29,6 +29,13 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
   Network,
   Search,
   ZoomIn,
@@ -52,6 +59,8 @@ import {
   Layers,
   FileJson,
   FileSpreadsheet,
+  Menu,
+  X,
 } from "lucide-react";
 import { TagHierarchyManager } from "@/components/TagHierarchyManager";
 import {
@@ -76,6 +85,8 @@ interface GraphNode {
   fileCount?: number;
   confidence?: number;
   cluster?: number;
+  isHighlighted?: boolean;
+  isConnectedToHighlighted?: boolean;
 }
 
 interface GraphEdge {
@@ -92,6 +103,7 @@ interface Cluster {
   centerY: number;
   color: string;
   label: string;
+  dominantTags: string[];
 }
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -114,7 +126,21 @@ const CLUSTER_COLORS = [
   "#EC4899", "#14B8A6", "#F97316", "#6366F1", "#84CC16",
 ];
 
-// Simple clustering algorithm based on edge connections
+// Category keywords for smart cluster naming
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  "Healthcare": ["health", "medical", "hospital", "patient", "doctor", "nurse", "clinic", "medicine", "therapy", "treatment", "diagnosis", "care"],
+  "Finance": ["finance", "money", "bank", "investment", "stock", "trading", "budget", "accounting", "tax", "loan", "credit", "payment"],
+  "Technology": ["tech", "software", "computer", "digital", "data", "code", "programming", "app", "web", "cloud", "ai", "machine learning"],
+  "Education": ["education", "school", "university", "learning", "student", "teacher", "course", "training", "academic", "study"],
+  "Entertainment": ["entertainment", "movie", "music", "game", "video", "film", "show", "media", "streaming", "concert"],
+  "Business": ["business", "company", "corporate", "management", "marketing", "sales", "strategy", "enterprise", "startup"],
+  "Science": ["science", "research", "experiment", "laboratory", "biology", "chemistry", "physics", "scientific"],
+  "Legal": ["legal", "law", "court", "attorney", "lawyer", "contract", "regulation", "compliance", "policy"],
+  "Real Estate": ["real estate", "property", "housing", "building", "construction", "architecture", "home"],
+  "Food & Beverage": ["food", "restaurant", "cooking", "recipe", "beverage", "drink", "nutrition", "diet"],
+};
+
+// Smart clustering algorithm with dominant tag detection
 function clusterNodes(nodes: GraphNode[], edges: GraphEdge[], maxClusters: number = 10): Cluster[] {
   const adjacencyMap = new Map<string, Set<string>>();
   
@@ -152,13 +178,61 @@ function clusterNodes(nodes: GraphNode[], edges: GraphEdge[], maxClusters: numbe
     }
     
     if (clusterNodes.length > 0) {
+      // Find dominant tags for this cluster
+      const tagLabels = clusterNodes
+        .map(id => nodes.find(n => n.id === id))
+        .filter(n => n && n.type === 'tag')
+        .map(n => n!.label.toLowerCase());
+      
+      // Determine cluster category based on keywords
+      let clusterLabel = `Cluster ${clusters.length + 1}`;
+      let dominantTags: string[] = [];
+      
+      // Try to match category keywords
+      for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+        const matchCount = tagLabels.filter(label => 
+          keywords.some(kw => label.includes(kw))
+        ).length;
+        
+        if (matchCount >= 2 || (matchCount >= 1 && tagLabels.length <= 5)) {
+          clusterLabel = category;
+          dominantTags = tagLabels.filter(label => 
+            keywords.some(kw => label.includes(kw))
+          ).slice(0, 3);
+          break;
+        }
+      }
+      
+      // If no category matched, use most frequent words
+      if (clusterLabel.startsWith("Cluster")) {
+        const wordFreq = new Map<string, number>();
+        tagLabels.forEach(label => {
+          const words = label.split(/[\s_-]+/).filter(w => w.length > 3);
+          words.forEach(word => {
+            wordFreq.set(word, (wordFreq.get(word) || 0) + 1);
+          });
+        });
+        
+        const sortedWords = Array.from(wordFreq.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([word]) => word);
+        
+        if (sortedWords.length > 0) {
+          // Capitalize first letter
+          clusterLabel = sortedWords[0].charAt(0).toUpperCase() + sortedWords[0].slice(1);
+          dominantTags = sortedWords;
+        }
+      }
+      
       clusters.push({
         id: clusters.length,
         nodes: clusterNodes,
         centerX: 0,
         centerY: 0,
         color: CLUSTER_COLORS[clusters.length % CLUSTER_COLORS.length],
-        label: `Cluster ${clusters.length + 1}`,
+        label: clusterLabel,
+        dominantTags,
       });
     }
   });
@@ -189,6 +263,22 @@ export default function KnowledgeGraphPage() {
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [relationshipTypeFilter, setRelationshipTypeFilter] = useState<"all" | "co-occurrence" | "semantic">("all");
   const [maxNodes, setMaxNodes] = useState(500);
+  const [isMobile, setIsMobile] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  // Touch state for mobile
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [lastTouchDistance, setLastTouchDistance] = useState<number | null>(null);
+
+  // Detect mobile viewport
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Fetch graph data
   const { data: graphData, isLoading, refetch } = trpc.knowledgeGraph.getGraphData.useQuery(
@@ -202,7 +292,6 @@ export default function KnowledgeGraphPage() {
   const exportMutation = trpc.knowledgeGraph.exportGraphData.useMutation({
     onSuccess: (data) => {
       if (data.format === 'json' && data.data && data.filename) {
-        // Download JSON file
         const blob = new Blob([data.data], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -212,7 +301,6 @@ export default function KnowledgeGraphPage() {
         URL.revokeObjectURL(url);
         toast.success('Graph exported as JSON');
       } else if (data.nodesData && data.edgesData && data.nodesFilename && data.edgesFilename) {
-        // Download CSV files (nodes and edges)
         const nodesBlob = new Blob([data.nodesData], { type: 'text/csv' });
         const nodesUrl = URL.createObjectURL(nodesBlob);
         const nodesA = document.createElement('a');
@@ -248,6 +336,41 @@ export default function KnowledgeGraphPage() {
     });
   };
 
+  // Search highlighting - find matching nodes and their connections
+  const highlightedNodeIds = useMemo(() => {
+    if (!searchQuery.trim()) return new Set<string>();
+    
+    const query = searchQuery.toLowerCase();
+    const matchingIds = new Set<string>();
+    
+    nodes.forEach(node => {
+      if (node.label.toLowerCase().includes(query)) {
+        matchingIds.add(node.id);
+      }
+    });
+    
+    return matchingIds;
+  }, [nodes, searchQuery]);
+
+  const connectedToHighlightedIds = useMemo(() => {
+    if (highlightedNodeIds.size === 0) return new Set<string>();
+    
+    const connectedIds = new Set<string>();
+    edges.forEach(edge => {
+      if (highlightedNodeIds.has(edge.source)) {
+        connectedIds.add(edge.target);
+      }
+      if (highlightedNodeIds.has(edge.target)) {
+        connectedIds.add(edge.source);
+      }
+    });
+    
+    // Remove the highlighted nodes themselves from connected set
+    highlightedNodeIds.forEach(id => connectedIds.delete(id));
+    
+    return connectedIds;
+  }, [edges, highlightedNodeIds]);
+
   // Initialize nodes from graph data
   useEffect(() => {
     if (!graphData) return;
@@ -256,7 +379,6 @@ export default function KnowledgeGraphPage() {
     const newEdges: GraphEdge[] = [];
     const nodeMap = new Map<string, GraphNode>();
 
-    // Add nodes from graph data (tags and files are combined in nodes array)
     graphData.nodes?.forEach((nodeData: { id: string; type: string; label: string; weight?: number; metadata?: any }) => {
       const graphNode: GraphNode = {
         id: nodeData.id,
@@ -270,7 +392,6 @@ export default function KnowledgeGraphPage() {
       nodeMap.set(graphNode.id, graphNode);
     });
 
-    // Add edges
     graphData.edges?.forEach((edge: { source: string; target: string; weight: number; type: string }) => {
       if (nodeMap.has(edge.source) && nodeMap.has(edge.target)) {
         newEdges.push({
@@ -282,7 +403,6 @@ export default function KnowledgeGraphPage() {
       }
     });
 
-    // Initialize positions using force-directed layout
     const width = containerRef.current?.clientWidth || 800;
     const height = containerRef.current?.clientHeight || 600;
     
@@ -295,10 +415,8 @@ export default function KnowledgeGraphPage() {
       node.vy = 0;
     });
 
-    // Calculate clusters
     const newClusters = clusterNodes(newNodes, newEdges);
     
-    // Assign cluster IDs to nodes
     newClusters.forEach(cluster => {
       cluster.nodes.forEach(nodeId => {
         const node = newNodes.find(n => n.id === nodeId);
@@ -329,71 +447,71 @@ export default function KnowledgeGraphPage() {
     const simulate = () => {
       const width = containerRef.current?.clientWidth || 800;
       const height = containerRef.current?.clientHeight || 600;
-      const centerX = width / 2;
-      const centerY = height / 2;
 
-      // Apply forces
-      nodes.forEach((node) => {
-        if (!node.x || !node.y) return;
+      setNodes((prevNodes) => {
+        const newNodes = [...prevNodes];
+        
+        // Apply forces
+        for (let i = 0; i < newNodes.length; i++) {
+          const node = newNodes[i];
+          if (!node.x || !node.y) continue;
 
-        // Center gravity
-        node.vx = (node.vx || 0) + (centerX - node.x) * 0.001;
-        node.vy = (node.vy || 0) + (centerY - node.y) * 0.001;
+          // Repulsion from other nodes
+          for (let j = i + 1; j < newNodes.length; j++) {
+            const other = newNodes[j];
+            if (!other.x || !other.y) continue;
 
-        // Repulsion from other nodes
-        nodes.forEach((other) => {
-          if (node.id === other.id || !other.x || !other.y) return;
-          const dx = node.x! - other.x;
-          const dy = node.y! - other.y;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const force = 500 / (dist * dist);
-          node.vx! += (dx / dist) * force;
-          node.vy! += (dy / dist) * force;
-        });
+            const dx = node.x - other.x;
+            const dy = node.y - other.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const force = 500 / (dist * dist);
+
+            node.vx = (node.vx || 0) + (dx / dist) * force;
+            node.vy = (node.vy || 0) + (dy / dist) * force;
+            other.vx = (other.vx || 0) - (dx / dist) * force;
+            other.vy = (other.vy || 0) - (dy / dist) * force;
+          }
+
+          // Attraction along edges
+          filteredEdges.forEach((edge) => {
+            if (edge.source !== node.id && edge.target !== node.id) return;
+            const otherId = edge.source === node.id ? edge.target : edge.source;
+            const other = newNodes.find((n) => n.id === otherId);
+            if (!other || !other.x || !other.y) return;
+
+            const dx = other.x - node.x;
+            const dy = other.y - node.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const force = dist * 0.01 * edge.weight;
+
+            node.vx = (node.vx || 0) + (dx / dist) * force;
+            node.vy = (node.vy || 0) + (dy / dist) * force;
+          });
+
+          // Center gravity
+          node.vx = (node.vx || 0) + (width / 2 - node.x) * 0.001;
+          node.vy = (node.vy || 0) + (height / 2 - node.y) * 0.001;
+
+          // Apply velocity with damping
+          node.x += (node.vx || 0) * 0.1;
+          node.y += (node.vy || 0) * 0.1;
+          node.vx = (node.vx || 0) * 0.9;
+          node.vy = (node.vy || 0) * 0.9;
+
+          // Boundary constraints
+          node.x = Math.max(50, Math.min(width - 50, node.x));
+          node.y = Math.max(50, Math.min(height - 50, node.y));
+        }
+
+        return newNodes;
       });
 
-      // Apply edge forces (attraction)
-      filteredEdges.forEach((edge) => {
-        const source = nodes.find((n) => n.id === edge.source);
-        const target = nodes.find((n) => n.id === edge.target);
-        if (!source || !target || !source.x || !target.x || !source.y || !target.y) return;
-
-        const dx = target.x - source.x;
-        const dy = target.y - source.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const force = (dist - 100) * 0.01 * edge.weight;
-
-        source.vx! += (dx / dist) * force;
-        source.vy! += (dy / dist) * force;
-        target.vx! -= (dx / dist) * force;
-        target.vy! -= (dy / dist) * force;
-      });
-
-      // Update positions with damping
-      nodes.forEach((node) => {
-        if (!node.x || !node.y) return;
-        node.vx = (node.vx || 0) * 0.9;
-        node.vy = (node.vy || 0) * 0.9;
-        node.x += node.vx;
-        node.y += node.vy;
-
-        // Keep within bounds
-        node.x = Math.max(50, Math.min(width - 50, node.x));
-        node.y = Math.max(50, Math.min(height - 50, node.y));
-      });
-
-      setNodes([...nodes]);
       animationRef.current = requestAnimationFrame(simulate);
     };
 
     animationRef.current = requestAnimationFrame(simulate);
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [nodes.length, filteredEdges.length]);
+    return () => cancelAnimationFrame(animationRef.current);
+  }, [nodes.length, filteredEdges]);
 
   // Canvas rendering
   useEffect(() => {
@@ -408,11 +526,9 @@ export default function KnowledgeGraphPage() {
     canvas.width = width;
     canvas.height = height;
 
-    // Clear canvas
     ctx.fillStyle = "#0a0a0a";
     ctx.fillRect(0, 0, width, height);
 
-    // Apply zoom and offset
     ctx.save();
     ctx.translate(offset.x, offset.y);
     ctx.scale(zoom, zoom);
@@ -421,13 +537,11 @@ export default function KnowledgeGraphPage() {
     let filteredNodes = nodes.filter((node) => {
       if (nodeFilter !== "all" && node.type !== nodeFilter.slice(0, -1)) return false;
       if (sourceFilter !== "all" && node.source !== sourceFilter) return false;
-      if (searchQuery && !node.label.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       return true;
     });
 
-    // Apply max nodes limit for performance
+    // Apply max nodes limit
     if (filteredNodes.length > maxNodes) {
-      // Sort by weight/importance and take top N
       filteredNodes = filteredNodes
         .sort((a, b) => (b.size || 15) - (a.size || 15))
         .slice(0, maxNodes);
@@ -435,13 +549,12 @@ export default function KnowledgeGraphPage() {
 
     const filteredNodeIds = new Set(filteredNodes.map((n) => n.id));
 
-    // Draw cluster backgrounds if enabled
+    // Draw cluster backgrounds
     if (showClusters && clusters.length > 0) {
       clusters.forEach(cluster => {
         const clusterNodes = filteredNodes.filter(n => n.cluster === cluster.id);
         if (clusterNodes.length < 2) return;
         
-        // Calculate cluster bounds
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         clusterNodes.forEach(node => {
           if (node.x && node.y) {
@@ -452,24 +565,30 @@ export default function KnowledgeGraphPage() {
           }
         });
         
-        // Draw cluster background
         const padding = 40;
         ctx.beginPath();
         ctx.roundRect(minX - padding, minY - padding, maxX - minX + padding * 2, maxY - minY + padding * 2, 20);
-        ctx.fillStyle = cluster.color + "15"; // 15% opacity
+        ctx.fillStyle = cluster.color + "15";
         ctx.fill();
         ctx.strokeStyle = cluster.color + "40";
         ctx.lineWidth = 2;
         ctx.stroke();
         
-        // Draw cluster label
+        // Draw smart cluster label
         ctx.fillStyle = cluster.color;
         ctx.font = "bold 14px sans-serif";
         ctx.fillText(cluster.label, minX - padding + 10, minY - padding + 20);
+        
+        // Draw dominant tags as subtitle
+        if (cluster.dominantTags.length > 0) {
+          ctx.fillStyle = cluster.color + "80";
+          ctx.font = "11px sans-serif";
+          ctx.fillText(cluster.dominantTags.slice(0, 3).join(", "), minX - padding + 10, minY - padding + 36);
+        }
       });
     }
 
-    // Draw edges
+    // Draw edges with highlighting
     if (showEdges) {
       filteredEdges.forEach((edge) => {
         if (!filteredNodeIds.has(edge.source) || !filteredNodeIds.has(edge.target)) return;
@@ -479,54 +598,103 @@ export default function KnowledgeGraphPage() {
         const target = nodes.find((n) => n.id === edge.target);
         if (!source || !target || !source.x || !target.x || !source.y || !target.y) return;
 
+        const isHighlightedEdge = searchQuery && (
+          highlightedNodeIds.has(edge.source) || highlightedNodeIds.has(edge.target)
+        );
+
         ctx.beginPath();
         ctx.moveTo(source.x, source.y);
         ctx.lineTo(target.x, target.y);
         
-        // Color edges by type
-        if (edge.type === 'co-occurrence') {
-          ctx.strokeStyle = `rgba(59, 130, 246, ${edge.weight * 0.5})`; // Blue
+        if (searchQuery && !isHighlightedEdge) {
+          // Dim non-highlighted edges when searching
+          ctx.strokeStyle = `rgba(50, 50, 50, 0.2)`;
+          ctx.lineWidth = 1;
+        } else if (isHighlightedEdge) {
+          // Highlight edges connected to search results
+          ctx.strokeStyle = `rgba(255, 200, 0, ${0.6 + edge.weight * 0.4})`;
+          ctx.lineWidth = edge.weight * 3;
+        } else if (edge.type === 'co-occurrence') {
+          ctx.strokeStyle = `rgba(59, 130, 246, ${edge.weight * 0.5})`;
+          ctx.lineWidth = edge.weight * 2;
         } else if (edge.type === 'semantic') {
-          ctx.strokeStyle = `rgba(34, 197, 94, ${edge.weight * 0.5})`; // Green
+          ctx.strokeStyle = `rgba(34, 197, 94, ${edge.weight * 0.5})`;
+          ctx.lineWidth = edge.weight * 2;
         } else {
           ctx.strokeStyle = `rgba(100, 100, 100, ${edge.weight * 0.5})`;
+          ctx.lineWidth = edge.weight * 2;
         }
-        ctx.lineWidth = edge.weight * 2;
         ctx.stroke();
       });
     }
 
-    // Draw nodes
+    // Draw nodes with highlighting
     filteredNodes.forEach((node) => {
       if (!node.x || !node.y) return;
 
       const isSelected = selectedNode?.id === node.id;
       const isHovered = hoveredNode?.id === node.id;
+      const isHighlighted = highlightedNodeIds.has(node.id);
+      const isConnectedToHighlighted = connectedToHighlightedIds.has(node.id);
       const size = node.size || 15;
+
+      // Determine node opacity based on search
+      let nodeOpacity = 1;
+      if (searchQuery) {
+        if (isHighlighted) {
+          nodeOpacity = 1;
+        } else if (isConnectedToHighlighted) {
+          nodeOpacity = 0.7;
+        } else {
+          nodeOpacity = 0.15;
+        }
+      }
+
+      // Draw glow for highlighted nodes
+      if (isHighlighted) {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, size * 1.8, 0, Math.PI * 2);
+        const gradient = ctx.createRadialGradient(node.x, node.y, size, node.x, node.y, size * 1.8);
+        gradient.addColorStop(0, "rgba(255, 200, 0, 0.5)");
+        gradient.addColorStop(1, "rgba(255, 200, 0, 0)");
+        ctx.fillStyle = gradient;
+        ctx.fill();
+      }
 
       // Node circle
       ctx.beginPath();
       ctx.arc(node.x, node.y, size * (isHovered ? 1.2 : 1), 0, Math.PI * 2);
-      ctx.fillStyle = node.color || "#666";
+      
+      if (isHighlighted) {
+        ctx.fillStyle = "#FFD700"; // Gold for highlighted
+      } else if (isConnectedToHighlighted) {
+        ctx.fillStyle = "#FFA500"; // Orange for connected
+      } else {
+        // Apply opacity to node color
+        const baseColor = node.color || "#666";
+        ctx.fillStyle = nodeOpacity < 1 ? baseColor + Math.round(nodeOpacity * 255).toString(16).padStart(2, '0') : baseColor;
+      }
       ctx.fill();
 
-      if (isSelected || isHovered) {
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2;
+      if (isSelected || isHovered || isHighlighted) {
+        ctx.strokeStyle = isHighlighted ? "#FFD700" : "#fff";
+        ctx.lineWidth = isHighlighted ? 3 : 2;
         ctx.stroke();
       }
 
       // Node label
-      if (showLabels || isHovered) {
-        ctx.fillStyle = "#fff";
-        ctx.font = `${isHovered ? "bold " : ""}12px sans-serif`;
+      if (showLabels || isHovered || isHighlighted) {
+        ctx.globalAlpha = nodeOpacity;
+        ctx.fillStyle = isHighlighted ? "#FFD700" : "#fff";
+        ctx.font = `${isHovered || isHighlighted ? "bold " : ""}12px sans-serif`;
         ctx.textAlign = "center";
         ctx.fillText(node.label, node.x, node.y + size + 15);
+        ctx.globalAlpha = 1;
       }
     });
 
     ctx.restore();
-  }, [nodes, filteredEdges, selectedNode, hoveredNode, zoom, offset, showLabels, showEdges, showClusters, minEdgeWeight, nodeFilter, sourceFilter, searchQuery, clusters, maxNodes]);
+  }, [nodes, filteredEdges, selectedNode, hoveredNode, zoom, offset, showLabels, showEdges, showClusters, minEdgeWeight, nodeFilter, sourceFilter, searchQuery, clusters, maxNodes, highlightedNodeIds, connectedToHighlightedIds]);
 
   // Mouse event handlers
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -546,7 +714,6 @@ export default function KnowledgeGraphPage() {
       return;
     }
 
-    // Check for node hover
     const hovered = nodes.find((node) => {
       if (!node.x || !node.y) return false;
       const dx = x - node.x;
@@ -576,6 +743,44 @@ export default function KnowledgeGraphPage() {
     setZoom((z) => Math.max(0.1, Math.min(5, z * delta)));
   }, []);
 
+  // Touch event handlers for mobile
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      setTouchStart({ x: touch.clientX, y: touch.clientY });
+      setDragStart({ x: touch.clientX, y: touch.clientY });
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      setLastTouchDistance(Math.sqrt(dx * dx + dy * dy));
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    
+    if (e.touches.length === 1 && touchStart) {
+      const touch = e.touches[0];
+      setOffset({
+        x: offset.x + (touch.clientX - dragStart.x),
+        y: offset.y + (touch.clientY - dragStart.y),
+      });
+      setDragStart({ x: touch.clientX, y: touch.clientY });
+    } else if (e.touches.length === 2 && lastTouchDistance) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const newDistance = Math.sqrt(dx * dx + dy * dy);
+      const scale = newDistance / lastTouchDistance;
+      setZoom((z) => Math.max(0.1, Math.min(5, z * scale)));
+      setLastTouchDistance(newDistance);
+    }
+  }, [touchStart, dragStart, offset, lastTouchDistance]);
+
+  const handleTouchEnd = useCallback(() => {
+    setTouchStart(null);
+    setLastTouchDistance(null);
+  }, []);
+
   const resetView = () => {
     setZoom(1);
     setOffset({ x: 0, y: 0 });
@@ -595,43 +800,264 @@ export default function KnowledgeGraphPage() {
     return counts;
   }, [edges]);
 
+  // Sidebar content component (reused for both desktop and mobile)
+  const SidebarContent = () => (
+    <div className="space-y-4">
+      {/* Search */}
+      <div className="space-y-2">
+        <Label>Search Nodes</Label>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search tags, files, entities..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
+              onClick={() => setSearchQuery("")}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+        {searchQuery && highlightedNodeIds.size > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Found {highlightedNodeIds.size} matching nodes, {connectedToHighlightedIds.size} connected
+          </p>
+        )}
+      </div>
+
+      {/* Filters - 2 column grid on mobile */}
+      <div className={`grid gap-2 ${isMobile ? 'grid-cols-2' : 'space-y-2 grid-cols-1'}`}>
+        <div className="space-y-1">
+          <Label className="text-xs">Node Type</Label>
+          <Select value={nodeFilter} onValueChange={(v: "all" | "tags" | "files" | "entities") => setNodeFilter(v)}>
+            <SelectTrigger className="h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="tags">Tags Only</SelectItem>
+              <SelectItem value="files">Files Only</SelectItem>
+              <SelectItem value="entities">Entities Only</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-xs">Relationship</Label>
+          <Select value={relationshipTypeFilter} onValueChange={(v: "all" | "co-occurrence" | "semantic") => setRelationshipTypeFilter(v)}>
+            <SelectTrigger className="h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All ({edges.length})</SelectItem>
+              <SelectItem value="co-occurrence">Co-occur ({edgeTypeCounts['co-occurrence']})</SelectItem>
+              <SelectItem value="semantic">Semantic ({edgeTypeCounts['semantic']})</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-xs">Knowledge Source</Label>
+        <Select value={sourceFilter} onValueChange={setSourceFilter}>
+          <SelectTrigger className="h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Sources</SelectItem>
+            <SelectItem value="wikidata">Wikidata</SelectItem>
+            <SelectItem value="dbpedia">DBpedia</SelectItem>
+            <SelectItem value="schema.org">Schema.org</SelectItem>
+            <SelectItem value="llm">AI Generated</SelectItem>
+            <SelectItem value="manual">Manual Tags</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Display Options */}
+      <div className="space-y-3 pt-3 border-t">
+        <Label className="text-sm font-semibold">Display Options</Label>
+        
+        <div className="grid grid-cols-3 gap-2">
+          <div className="flex flex-col items-center gap-1">
+            <Switch
+              id="show-labels"
+              checked={showLabels}
+              onCheckedChange={setShowLabels}
+            />
+            <Label htmlFor="show-labels" className="text-xs">Labels</Label>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <Switch
+              id="show-edges"
+              checked={showEdges}
+              onCheckedChange={setShowEdges}
+            />
+            <Label htmlFor="show-edges" className="text-xs">Edges</Label>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <Switch
+              id="show-clusters"
+              checked={showClusters}
+              onCheckedChange={setShowClusters}
+            />
+            <Label htmlFor="show-clusters" className="text-xs">Clusters</Label>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Min Strength</Label>
+            <span className="text-xs text-muted-foreground">{Math.round(minEdgeWeight * 100)}%</span>
+          </div>
+          <Slider
+            value={[minEdgeWeight]}
+            onValueChange={([v]) => setMinEdgeWeight(v)}
+            min={0}
+            max={1}
+            step={0.1}
+          />
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Max Nodes</Label>
+            <span className="text-xs text-muted-foreground">{maxNodes}</span>
+          </div>
+          <Slider
+            value={[maxNodes]}
+            onValueChange={([v]) => setMaxNodes(v)}
+            min={100}
+            max={2000}
+            step={100}
+          />
+        </div>
+      </div>
+
+      {/* Stats - compact grid */}
+      {stats && (
+        <div className="space-y-2 pt-3 border-t">
+          <Label className="text-sm font-semibold">Statistics</Label>
+          <div className="grid grid-cols-4 gap-1">
+            <div className="text-center p-2 bg-muted rounded">
+              <div className="text-lg font-bold">{stats.totalTags || 0}</div>
+              <div className="text-[10px] text-muted-foreground">Tags</div>
+            </div>
+            <div className="text-center p-2 bg-muted rounded">
+              <div className="text-lg font-bold">{stats.totalFiles || 0}</div>
+              <div className="text-[10px] text-muted-foreground">Files</div>
+            </div>
+            <div className="text-center p-2 bg-muted rounded">
+              <div className="text-lg font-bold">{filteredEdges.length}</div>
+              <div className="text-[10px] text-muted-foreground">Edges</div>
+            </div>
+            <div className="text-center p-2 bg-muted rounded">
+              <div className="text-lg font-bold">{clusters.length}</div>
+              <div className="text-[10px] text-muted-foreground">Clusters</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Selected Node Details */}
+      {selectedNode && (
+        <div className="space-y-2 pt-3 border-t">
+          <Label className="text-sm font-semibold">Selected Node</Label>
+          <Card>
+            <CardContent className="p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                {selectedNode.type === "tag" && <Tag className="h-4 w-4" />}
+                {selectedNode.type === "file" && <FileText className="h-4 w-4" />}
+                {selectedNode.type === "entity" && <Link2 className="h-4 w-4" />}
+                <span className="font-medium text-sm truncate">{selectedNode.label}</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                <Badge variant="outline" className="text-xs capitalize">{selectedNode.type}</Badge>
+                {selectedNode.cluster !== undefined && (
+                  <Badge 
+                    variant="outline"
+                    className="text-xs"
+                    style={{ borderColor: clusters[selectedNode.cluster]?.color }}
+                  >
+                    {clusters[selectedNode.cluster]?.label}
+                  </Badge>
+                )}
+              </div>
+              <div className="pt-1">
+                <div className="text-xs text-muted-foreground mb-1">Connected to:</div>
+                <div className="flex flex-wrap gap-1">
+                  {filteredEdges
+                    .filter((e) => e.source === selectedNode.id || e.target === selectedNode.id)
+                    .slice(0, 6)
+                    .map((edge) => {
+                      const connectedId = edge.source === selectedNode.id ? edge.target : edge.source;
+                      const connectedNode = nodes.find((n) => n.id === connectedId);
+                      return connectedNode ? (
+                        <Badge
+                          key={connectedId}
+                          variant="secondary"
+                          className="text-xs cursor-pointer"
+                          onClick={() => setSelectedNode(connectedNode)}
+                        >
+                          {connectedNode.label.length > 15 ? connectedNode.label.slice(0, 15) + '...' : connectedNode.label}
+                        </Badge>
+                      ) : null;
+                    })}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="border-b p-4 flex items-center justify-between bg-background/95 backdrop-blur">
-        <div className="flex items-center gap-3">
-          <Network className="h-6 w-6 text-primary" />
+      <div className="border-b p-3 md:p-4 flex items-center justify-between bg-background/95 backdrop-blur">
+        <div className="flex items-center gap-2 md:gap-3">
+          <Network className="h-5 w-5 md:h-6 md:w-6 text-primary" />
           <div>
-            <h1 className="text-xl font-bold">Knowledge Graph</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-lg md:text-xl font-bold">Knowledge Graph</h1>
+            <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">
               Explore relationships between tags, files, and entities
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "graph" | "hierarchy")}>
-            <TabsList>
-              <TabsTrigger value="graph" className="gap-2">
-                <Network className="h-4 w-4" />
-                Graph View
-              </TabsTrigger>
-              <TabsTrigger value="hierarchy" className="gap-2">
-                <FolderTree className="h-4 w-4" />
-                Tag Hierarchy
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+        <div className="flex items-center gap-2 md:gap-4">
+          {!isMobile && (
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "graph" | "hierarchy")}>
+              <TabsList>
+                <TabsTrigger value="graph" className="gap-2">
+                  <Network className="h-4 w-4" />
+                  Graph View
+                </TabsTrigger>
+                <TabsTrigger value="hierarchy" className="gap-2">
+                  <FolderTree className="h-4 w-4" />
+                  Tag Hierarchy
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
           
           {/* Export Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" disabled={exportMutation.isPending}>
                 {exportMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Download className="h-4 w-4 mr-1" />
+                  <Download className="h-4 w-4" />
                 )}
-                Export
+                <span className="hidden sm:inline ml-1">Export</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -647,9 +1073,28 @@ export default function KnowledgeGraphPage() {
           </DropdownMenu>
           
           <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4 mr-1" />
-            Refresh
+            <RefreshCw className="h-4 w-4" />
+            <span className="hidden sm:inline ml-1">Refresh</span>
           </Button>
+
+          {/* Mobile sidebar toggle */}
+          {isMobile && (
+            <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Filter className="h-4 w-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[300px] overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Graph Controls</SheetTitle>
+                </SheetHeader>
+                <div className="mt-4">
+                  <SidebarContent />
+                </div>
+              </SheetContent>
+            </Sheet>
+          )}
         </div>
       </div>
 
@@ -659,292 +1104,12 @@ export default function KnowledgeGraphPage() {
         </div>
       ) : (
       <div className="flex-1 flex">
-        {/* Sidebar */}
-        <div className="w-80 border-r p-4 space-y-4 overflow-y-auto">
-          {/* Search */}
-          <div className="space-y-2">
-            <Label>Search Nodes</Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search tags, files, entities..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+        {/* Desktop Sidebar */}
+        {!isMobile && (
+          <div className="w-72 border-r p-4 space-y-4 overflow-y-auto">
+            <SidebarContent />
           </div>
-
-          {/* Filters */}
-          <div className="space-y-2">
-            <Label>Node Type</Label>
-            <Select value={nodeFilter} onValueChange={(v: "all" | "tags" | "files" | "entities") => setNodeFilter(v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="tags">Tags Only</SelectItem>
-                <SelectItem value="files">Files Only</SelectItem>
-                <SelectItem value="entities">Entities Only</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Relationship Type</Label>
-            <Select value={relationshipTypeFilter} onValueChange={(v: "all" | "co-occurrence" | "semantic") => setRelationshipTypeFilter(v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">
-                  All Types ({edges.length})
-                </SelectItem>
-                <SelectItem value="co-occurrence">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-blue-500" />
-                    Co-occurrence ({edgeTypeCounts['co-occurrence']})
-                  </div>
-                </SelectItem>
-                <SelectItem value="semantic">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500" />
-                    Semantic ({edgeTypeCounts['semantic']})
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Knowledge Source</Label>
-            <Select value={sourceFilter} onValueChange={setSourceFilter}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sources</SelectItem>
-                <SelectItem value="wikidata">
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-blue-500" />
-                    Wikidata
-                  </div>
-                </SelectItem>
-                <SelectItem value="dbpedia">
-                  <div className="flex items-center gap-2">
-                    <Database className="h-4 w-4 text-green-500" />
-                    DBpedia
-                  </div>
-                </SelectItem>
-                <SelectItem value="schema.org">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="h-4 w-4 text-purple-500" />
-                    Schema.org
-                  </div>
-                </SelectItem>
-                <SelectItem value="llm">
-                  <div className="flex items-center gap-2">
-                    <Brain className="h-4 w-4 text-amber-500" />
-                    AI Generated
-                  </div>
-                </SelectItem>
-                <SelectItem value="manual">Manual Tags</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Display Options */}
-          <div className="space-y-4 pt-4 border-t">
-            <Label className="text-base font-semibold">Display Options</Label>
-            
-            <div className="flex items-center justify-between">
-              <Label htmlFor="show-labels">Show Labels</Label>
-              <Switch
-                id="show-labels"
-                checked={showLabels}
-                onCheckedChange={setShowLabels}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Label htmlFor="show-edges">Show Connections</Label>
-              <Switch
-                id="show-edges"
-                checked={showEdges}
-                onCheckedChange={setShowEdges}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Label htmlFor="show-clusters">Show Clusters</Label>
-              <Switch
-                id="show-clusters"
-                checked={showClusters}
-                onCheckedChange={setShowClusters}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Min Connection Strength</Label>
-                <span className="text-sm text-muted-foreground">{Math.round(minEdgeWeight * 100)}%</span>
-              </div>
-              <Slider
-                value={[minEdgeWeight]}
-                onValueChange={([v]) => setMinEdgeWeight(v)}
-                min={0}
-                max={1}
-                step={0.1}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Max Nodes (Performance)</Label>
-                <span className="text-sm text-muted-foreground">{maxNodes}</span>
-              </div>
-              <Slider
-                value={[maxNodes]}
-                onValueChange={([v]) => setMaxNodes(v)}
-                min={100}
-                max={2000}
-                step={100}
-              />
-            </div>
-          </div>
-
-          {/* Stats */}
-          {stats && (
-            <div className="space-y-3 pt-4 border-t">
-              <Label className="text-base font-semibold">Graph Statistics</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <Card className="p-3">
-                  <div className="text-2xl font-bold">{stats.totalTags || 0}</div>
-                  <div className="text-xs text-muted-foreground">Tags</div>
-                </Card>
-                <Card className="p-3">
-                  <div className="text-2xl font-bold">{stats.totalFiles || 0}</div>
-                  <div className="text-xs text-muted-foreground">Files</div>
-                </Card>
-                <Card className="p-3">
-                  <div className="text-2xl font-bold">{filteredEdges.length}</div>
-                  <div className="text-xs text-muted-foreground">Connections</div>
-                </Card>
-                <Card className="p-3">
-                  <div className="text-2xl font-bold">{clusters.length}</div>
-                  <div className="text-xs text-muted-foreground">Clusters</div>
-                </Card>
-              </div>
-            </div>
-          )}
-
-          {/* Selected Node Details */}
-          {selectedNode && (
-            <div className="space-y-3 pt-4 border-t">
-              <Label className="text-base font-semibold">Selected Node</Label>
-              <Card>
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    {selectedNode.type === "tag" && <Tag className="h-4 w-4" />}
-                    {selectedNode.type === "file" && <FileText className="h-4 w-4" />}
-                    {selectedNode.type === "entity" && <Link2 className="h-4 w-4" />}
-                    <span className="font-medium">{selectedNode.label}</span>
-                  </div>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Type:</span>
-                      <Badge variant="outline" className="capitalize">{selectedNode.type}</Badge>
-                    </div>
-                    {selectedNode.cluster !== undefined && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Cluster:</span>
-                        <Badge 
-                          variant="outline"
-                          style={{ borderColor: clusters[selectedNode.cluster]?.color }}
-                        >
-                          {clusters[selectedNode.cluster]?.label}
-                        </Badge>
-                      </div>
-                    )}
-                    {selectedNode.source && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Source:</span>
-                        <Badge 
-                          variant="outline"
-                          style={{ borderColor: SOURCE_COLORS[selectedNode.source] }}
-                        >
-                          {selectedNode.source}
-                        </Badge>
-                      </div>
-                    )}
-                    {selectedNode.fileCount !== undefined && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Files:</span>
-                        <span>{selectedNode.fileCount}</span>
-                      </div>
-                    )}
-                    {selectedNode.confidence !== undefined && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Confidence:</span>
-                        <span>{Math.round(selectedNode.confidence * 100)}%</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="pt-2">
-                    <div className="text-xs text-muted-foreground mb-2">Connected to:</div>
-                    <div className="flex flex-wrap gap-1">
-                      {filteredEdges
-                        .filter((e) => e.source === selectedNode.id || e.target === selectedNode.id)
-                        .slice(0, 10)
-                        .map((edge) => {
-                          const connectedId = edge.source === selectedNode.id ? edge.target : edge.source;
-                          const connectedNode = nodes.find((n) => n.id === connectedId);
-                          return connectedNode ? (
-                            <Badge
-                              key={connectedId}
-                              variant="secondary"
-                              className="text-xs cursor-pointer"
-                              onClick={() => setSelectedNode(connectedNode)}
-                            >
-                              {connectedNode.label}
-                            </Badge>
-                          ) : null;
-                        })}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Legend */}
-          <div className="space-y-3 pt-4 border-t">
-            <Label className="text-base font-semibold">Legend</Label>
-            <div className="space-y-2">
-              <div className="text-xs text-muted-foreground font-medium">Node Types</div>
-              <div className="flex items-center gap-2 text-sm">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: NODE_TYPE_COLORS.tag }} />
-                <Tag className="h-3 w-3" />
-                <span>Tags</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: NODE_TYPE_COLORS.file }} />
-                <FileText className="h-3 w-3" />
-                <span>Files</span>
-              </div>
-              <div className="text-xs text-muted-foreground font-medium mt-3">Edge Types</div>
-              <div className="flex items-center gap-2 text-sm">
-                <div className="w-6 h-0.5 bg-blue-500" />
-                <span>Co-occurrence</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <div className="w-6 h-0.5 bg-green-500" />
-                <span>Semantic</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* Graph Canvas */}
         <div className="flex-1 relative" ref={containerRef}>
@@ -957,10 +1122,10 @@ export default function KnowledgeGraphPage() {
             </div>
           ) : nodes.length === 0 ? (
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center space-y-3 max-w-md">
+              <div className="text-center space-y-3 max-w-md p-4">
                 <Network className="h-12 w-12 mx-auto text-muted-foreground" />
                 <h3 className="text-lg font-semibold">No Graph Data</h3>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-sm">
                   Add tags to your files and enable knowledge graph enrichment to see relationships here.
                 </p>
               </div>
@@ -969,12 +1134,15 @@ export default function KnowledgeGraphPage() {
             <>
               <canvas
                 ref={canvasRef}
-                className="w-full h-full cursor-grab active:cursor-grabbing"
+                className="w-full h-full cursor-grab active:cursor-grabbing touch-none"
                 onMouseMove={handleMouseMove}
                 onMouseDown={handleMouseDown}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
                 onWheel={handleWheel}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
               />
 
               {/* Zoom Controls */}
@@ -1029,6 +1197,16 @@ export default function KnowledgeGraphPage() {
                   {showClusters && ` • ${clusters.length} clusters`}
                 </Badge>
               </div>
+
+              {/* Search results indicator */}
+              {searchQuery && highlightedNodeIds.size > 0 && (
+                <div className="absolute top-4 right-4 md:right-auto md:left-1/2 md:-translate-x-1/2">
+                  <Badge variant="default" className="gap-2 bg-yellow-600">
+                    <Search className="h-3 w-3" />
+                    {highlightedNodeIds.size} matches
+                  </Badge>
+                </div>
+              )}
             </>
           )}
         </div>
