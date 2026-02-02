@@ -4850,3 +4850,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Delete all test files from database (tagtest.jpg, test.jpg, test2.jpg, test4.jpg, etc.)
 - [x] Add filter to exclude test files from user-facing file list
 - [x] Add "Batch Enrich with AI" button - mobile: compact toolbar with Enrich button + dropdown menu
+
+
+## Phase 105: Files Tab Critical Bug Fixes
+- [ ] Fix batch AI enrichment - "Enrich" button queues but doesn't actually process files
+- [ ] Reduce checkbox sizes on mobile to match other pages (currently ~60x60px, should be ~20x20px)
+- [ ] Add feedback/progress indicator for quality improvement actions (Sharpen, Contrast, etc.)
+- [ ] Fix enrichment score badge (yellow "55") to use real calculated data instead of placeholder
+- [ ] Verify quality score calculation is connected to database and updates after enhancements

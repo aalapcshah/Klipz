@@ -1040,12 +1040,35 @@ export const appRouter = router({
           // Extract detected objects (simple keyword extraction)
           const detectedObjects = extractKeywords(aiAnalysis);
           
-          // Update file with AI analysis
+          // Calculate new quality score after enrichment
+          const tags = await db.getFileTagsWithNames(input.id);
+          let score = 0;
+          let maxScore = 100;
+          
+          // Title (20 points)
+          if (file.title && file.title.trim().length > 0) score += 20;
+          // Description (20 points)
+          if (file.description && file.description.trim().length > 0) score += 20;
+          // Tags (15 points)
+          if (tags && tags.length > 0) score += Math.min(tags.length * 5, 15);
+          // AI Analysis (15 points)
+          if (aiAnalysis) score += 15;
+          // Detected objects (10 points)
+          if (detectedObjects && detectedObjects.length > 0) score += 10;
+          // OCR text (10 points)
+          if (file.ocrText) score += 10;
+          // Voice transcript (10 points)
+          if (file.voiceTranscript) score += 10;
+          
+          const qualityScore = Math.round((score / maxScore) * 100);
+          
+          // Update file with AI analysis and quality score
           await db.updateFile(input.id, {
             aiAnalysis,
             detectedObjects,
             enrichmentStatus: "completed",
             enrichedAt: new Date(),
+            qualityScore,
           });
           
           // Send email notification asynchronously
@@ -2750,12 +2773,129 @@ For each suggestion, provide:
         return result;
       }),
 
-    // Batch re-enrich files
+    // Batch re-enrich files - actually processes files with AI
     reEnrichFiles: protectedProcedure
       .input(z.object({ fileIds: z.array(z.number()) }))
       .mutation(async ({ input, ctx }) => {
-        const result = await db.batchReEnrichFiles(input.fileIds, ctx.user.id);
-        return { success: true, count: result.count };
+        // Get files to enrich
+        const filesToEnrich = await Promise.all(
+          input.fileIds.map(id => db.getFileById(id))
+        );
+        
+        const validFiles = filesToEnrich.filter(
+          (f): f is NonNullable<typeof f> => f !== null && f !== undefined && f.userId === ctx.user.id
+        );
+        
+        let successCount = 0;
+        let failedCount = 0;
+        
+        // Process each file with AI enrichment
+        for (const file of validFiles) {
+          try {
+            // Update status to processing
+            await db.updateFile(file.id, { enrichmentStatus: "processing" });
+            
+            let aiAnalysis = "";
+            
+            // Only analyze images with vision API
+            if (file.mimeType.startsWith("image/")) {
+              const response = await invokeLLM({
+                messages: [
+                  {
+                    role: "system",
+                    content: "You are an AI assistant that analyzes media files and extracts metadata. Provide detailed descriptions, identify objects, and extract any visible text.",
+                  },
+                  {
+                    role: "user",
+                    content: [
+                      {
+                        type: "text",
+                        text: `Analyze this file: ${file.filename}. User description: ${file.description || "None"}. Voice transcript: ${file.voiceTranscript || "None"}`,
+                      },
+                      {
+                        type: "image_url",
+                        image_url: {
+                          url: file.url,
+                        },
+                      },
+                    ],
+                  },
+                ],
+              });
+              const content = response.choices[0]?.message?.content;
+              aiAnalysis = typeof content === 'string' ? content : "";
+            } else {
+              // For non-images, use text-based analysis
+              const response = await invokeLLM({
+                messages: [
+                  {
+                    role: "system",
+                    content: "You are an AI assistant that analyzes media files and extracts metadata. Provide detailed descriptions and identify key topics.",
+                  },
+                  {
+                    role: "user",
+                    content: `Analyze this file: ${file.filename}. Type: ${file.mimeType}. User description: ${file.description || "None"}. Voice transcript: ${file.voiceTranscript || "None"}`,
+                  },
+                ],
+              });
+              const content = response.choices[0]?.message?.content;
+              aiAnalysis = typeof content === 'string' ? content : "";
+            }
+            
+            // Extract detected objects (simple keyword extraction)
+            const detectedObjects = extractKeywords(aiAnalysis);
+            
+            // Auto-generate tags from AI analysis first (before calculating score)
+            const autoTags = detectedObjects.slice(0, 5); // Top 5 keywords as tags
+            for (const tagName of autoTags) {
+              const tagId = await db.createTag({
+                name: tagName,
+                userId: ctx.user.id,
+                source: "ai",
+              });
+              await db.linkFileTag(file.id, tagId);
+            }
+            
+            // Calculate new quality score after enrichment
+            const tags = await db.getFileTagsWithNames(file.id);
+            let score = 0;
+            const maxScore = 100;
+            
+            // Title (20 points)
+            if (file.title && file.title.trim().length > 0) score += 20;
+            // Description (20 points)
+            if (file.description && file.description.trim().length > 0) score += 20;
+            // Tags (15 points)
+            if (tags && tags.length > 0) score += Math.min(tags.length * 5, 15);
+            // AI Analysis (15 points)
+            if (aiAnalysis) score += 15;
+            // Detected objects (10 points)
+            if (detectedObjects && detectedObjects.length > 0) score += 10;
+            // OCR text (10 points)
+            if (file.ocrText) score += 10;
+            // Voice transcript (10 points)
+            if (file.voiceTranscript) score += 10;
+            
+            const qualityScore = Math.round((score / maxScore) * 100);
+            
+            // Update file with AI analysis and quality score
+            await db.updateFile(file.id, {
+              aiAnalysis,
+              detectedObjects,
+              enrichmentStatus: "completed",
+              enrichedAt: new Date(),
+              qualityScore,
+            });
+            
+            successCount++;
+          } catch (error) {
+            console.error(`[BatchEnrich] Failed to enrich file ${file.id}:`, error);
+            await db.updateFile(file.id, { enrichmentStatus: "failed" });
+            failedCount++;
+          }
+        }
+        
+        return { success: true, count: successCount, failed: failedCount };
       }),
 
     // Get enrichment status for files

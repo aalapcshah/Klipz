@@ -17,6 +17,7 @@ export function QualityImprovementPanel({ fileId, currentScore }: QualityImprove
   const [selectedEnhancement, setSelectedEnhancement] = useState<string | null>(null);
   const [enhancedUrl, setEnhancedUrl] = useState<string | null>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [enhancementSuccess, setEnhancementSuccess] = useState(false);
 
   // Get suggestions
   const { data: suggestions, isLoading } = trpc.qualityImprovement.getSuggestions.useQuery(
@@ -29,11 +30,19 @@ export function QualityImprovementPanel({ fileId, currentScore }: QualityImprove
     onSuccess: (data) => {
       setEnhancedUrl(data.enhancedUrl || null);
       setIsEnhancing(false);
-      // Enhancement complete
+      setEnhancementSuccess(true);
+      // Show success toast
+      import('sonner').then(({ toast }) => {
+        toast.success(`Enhancement applied successfully! Preview the result below.`);
+      });
     },
     onError: (error) => {
       setIsEnhancing(false);
+      setEnhancementSuccess(false);
       console.error("Enhancement failed:", error);
+      import('sonner').then(({ toast }) => {
+        toast.error(`Enhancement failed: ${error.message}`);
+      });
     },
   });
 

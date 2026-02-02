@@ -257,11 +257,14 @@ export function BulkOperationsToolbar({
     setProgress(0);
 
     try {
-      toast.info(`Starting AI enrichment for ${selectedFileIds.length} file(s)...`);
+      toast.info(`Processing AI enrichment for ${selectedFileIds.length} file(s)... This may take a few minutes.`, {
+        duration: 10000,
+      });
 
+      // Slower progress since actual AI processing takes time
       const progressInterval = setInterval(() => {
-        setProgress((prev) => Math.min(prev + 10, 90));
-      }, 200);
+        setProgress((prev) => Math.min(prev + 2, 85));
+      }, 1000);
 
       const result = await reEnrichMutation.mutateAsync({
         fileIds: selectedFileIds,
@@ -270,12 +273,16 @@ export function BulkOperationsToolbar({
       clearInterval(progressInterval);
       setProgress(100);
 
-      toast.success(`AI enrichment queued for ${result.count} file(s)`);
+      if (result.failed && result.failed > 0) {
+        toast.warning(`AI enrichment completed: ${result.count} succeeded, ${result.failed} failed`);
+      } else {
+        toast.success(`AI enrichment completed for ${result.count} file(s)`);
+      }
       await utils.files.list.invalidate();
       onOperationComplete();
       onClearSelection();
     } catch (error) {
-      toast.error("Failed to queue AI enrichment");
+      toast.error("Failed to process AI enrichment");
       console.error(error);
     } finally {
       setIsProcessing(false);
