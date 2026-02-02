@@ -4790,3 +4790,18 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add detectPlatform endpoint with platform info
 - [ ] Implement actual video extraction from social platforms (requires external API)
 - [x] Show platform icons for detected social media links (in Share page)
+
+## Social Media Video Extraction & PWA Improvements
+- [ ] Implement video extraction from YouTube, TikTok, Instagram using external API
+- [ ] Add PWA install prompt banner for users who haven't installed Klipz
+- [ ] Add batch URL import (paste multiple URLs at once)
+
+
+## Phase 100: Social Media Video Extraction & PWA
+- [x] Create socialMediaExtract router with YouTube and TikTok Data API integration
+- [x] Add getYouTubeVideoInfo endpoint for video metadata
+- [x] Add getTikTokVideoInfo endpoint for video metadata
+- [x] Add downloadSocialMedia endpoint for downloading available videos
+- [x] Add batchExtractInfo endpoint for processing multiple URLs
+- [x] Add PWA install prompt banner
+- [x] Add batch URL import feature (paste multiple URLs)

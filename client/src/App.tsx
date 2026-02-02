@@ -36,6 +36,7 @@ import { trpc } from "./lib/trpc";
 import { useState, useEffect } from "react";
 import { CookieConsent } from "./components/CookieConsent";
 import { GlobalSearchModal } from "./components/GlobalSearchModal";
+import { PWAInstallBanner } from "./components/PWAInstallBanner";
 import { useCallback } from "react";
 // SearchWithSaved is now rendered inside Dashboard
 
@@ -125,6 +126,7 @@ function App() {
               onComplete={() => setShowOnboarding(false)}
             />
             <CookieConsent />
+            <PWAInstallBanner />
             <OnboardingTutorial />
             <NotificationPrompt />
             <NotificationListener />

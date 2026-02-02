@@ -240,6 +240,9 @@ export function FileUploadDialog({
   const [pendingFileHash, setPendingFileHash] = useState<string>("");
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [urlToUpload, setUrlToUpload] = useState("");
+  const [batchUrlMode, setBatchUrlMode] = useState(false);
+  const [batchUrls, setBatchUrls] = useState("");
+  const [batchUrlProgress, setBatchUrlProgress] = useState<{ current: number; total: number; results: Array<{ url: string; success: boolean; error?: string }> } | null>(null);
   const [urlValidating, setUrlValidating] = useState(false);
   const [urlUploading, setUrlUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1266,87 +1269,229 @@ export function FileUploadDialog({
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2">
                   <Globe className="h-4 w-4" />
-                  Upload from URL
+                  Upload from URL{batchUrlMode ? "s (Batch)" : ""}
                 </Label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setShowUrlInput(false);
-                    setUrlToUpload("");
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="https://example.com/image.jpg"
-                  value={urlToUpload}
-                  onChange={(e) => setUrlToUpload(e.target.value)}
-                  disabled={urlUploading}
-                />
-                <Button
-                  onClick={async () => {
-                    if (!urlToUpload.trim()) {
-                      toast.error("Please enter a URL");
-                      return;
-                    }
-                    
-                    setUrlUploading(true);
-                    try {
-                      // First validate the URL
-                      const validation = await validateUrlMutation.mutateAsync({ url: urlToUpload });
-                      
-                      if (!validation.valid) {
-                        toast.error(validation.error || "Invalid URL");
-                        setUrlUploading(false);
-                        return;
-                      }
-                      
-                      if (!validation.isSupported) {
-                        toast.error("Unsupported file type");
-                        setUrlUploading(false);
-                        return;
-                      }
-                      
-                      // Upload the file
-                      const result = await uploadFromUrlMutation.mutateAsync({ url: urlToUpload });
-                      
-                      // Create file record in database
-                      await createFileMutation.mutateAsync({
-                        fileKey: result.fileKey,
-                        url: result.url,
-                        filename: result.filename,
-                        mimeType: result.mimeType,
-                        fileSize: result.fileSize,
-                        title: result.title,
-                        description: result.description,
-                      });
-                      
-                      toast.success(`Uploaded ${result.filename} from URL`);
-                      setUrlToUpload("");
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setBatchUrlMode(!batchUrlMode)}
+                    className="text-xs"
+                  >
+                    {batchUrlMode ? "Single URL" : "Batch Import"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
                       setShowUrlInput(false);
-                      onUploadComplete?.();
-                    } catch (error) {
-                      console.error("URL upload error:", error);
-                      toast.error(error instanceof Error ? error.message : "Failed to upload from URL");
-                    } finally {
-                      setUrlUploading(false);
-                    }
-                  }}
-                  disabled={urlUploading || !urlToUpload.trim()}
-                >
-                  {urlUploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Upload"
-                  )}
-                </Button>
+                      setUrlToUpload("");
+                      setBatchUrls("");
+                      setBatchUrlMode(false);
+                      setBatchUrlProgress(null);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Paste a direct link to an image, video, or document (max 100MB)
-              </p>
+              
+              {batchUrlMode ? (
+                /* Batch URL Mode */
+                <>
+                  <Textarea
+                    placeholder="Paste multiple URLs (one per line):\nhttps://example.com/image1.jpg\nhttps://youtube.com/watch?v=...\nhttps://instagram.com/p/..."
+                    value={batchUrls}
+                    onChange={(e) => setBatchUrls(e.target.value)}
+                    disabled={urlUploading}
+                    rows={6}
+                    className="font-mono text-sm"
+                  />
+                  {batchUrlProgress && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Processing {batchUrlProgress.current} of {batchUrlProgress.total}</span>
+                        <span>{Math.round((batchUrlProgress.current / batchUrlProgress.total) * 100)}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div 
+                          className="bg-primary h-2 rounded-full transition-all"
+                          style={{ width: `${(batchUrlProgress.current / batchUrlProgress.total) * 100}%` }}
+                        />
+                      </div>
+                      {batchUrlProgress.results.length > 0 && (
+                        <div className="max-h-32 overflow-y-auto text-xs space-y-1">
+                          {batchUrlProgress.results.map((r, i) => (
+                            <div key={i} className={`flex items-center gap-2 ${r.success ? 'text-green-500' : 'text-red-500'}`}>
+                              <span>{r.success ? '✓' : '✗'}</span>
+                              <span className="truncate flex-1">{r.url}</span>
+                              {r.error && <span className="text-muted-foreground">({r.error})</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <Button
+                    onClick={async () => {
+                      const urls = batchUrls.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+                      if (urls.length === 0) {
+                        toast.error("Please enter at least one URL");
+                        return;
+                      }
+                      
+                      setUrlUploading(true);
+                      setBatchUrlProgress({ current: 0, total: urls.length, results: [] });
+                      
+                      let successCount = 0;
+                      let failCount = 0;
+                      
+                      for (let i = 0; i < urls.length; i++) {
+                        const url = urls[i];
+                        try {
+                          // Validate URL
+                          const validation = await validateUrlMutation.mutateAsync({ url });
+                          
+                          if (!validation.valid || !validation.isSupported) {
+                            setBatchUrlProgress(prev => prev ? {
+                              ...prev,
+                              current: i + 1,
+                              results: [...prev.results, { url, success: false, error: validation.error || 'Unsupported' }]
+                            } : null);
+                            failCount++;
+                            continue;
+                          }
+                          
+                          // Upload the file
+                          const result = await uploadFromUrlMutation.mutateAsync({ url });
+                          
+                          // Create file record
+                          await createFileMutation.mutateAsync({
+                            fileKey: result.fileKey,
+                            url: result.url,
+                            filename: result.filename,
+                            mimeType: result.mimeType,
+                            fileSize: result.fileSize,
+                            title: result.title,
+                            description: result.description,
+                          });
+                          
+                          setBatchUrlProgress(prev => prev ? {
+                            ...prev,
+                            current: i + 1,
+                            results: [...prev.results, { url, success: true }]
+                          } : null);
+                          successCount++;
+                        } catch (error) {
+                          setBatchUrlProgress(prev => prev ? {
+                            ...prev,
+                            current: i + 1,
+                            results: [...prev.results, { url, success: false, error: error instanceof Error ? error.message : 'Failed' }]
+                          } : null);
+                          failCount++;
+                        }
+                      }
+                      
+                      setUrlUploading(false);
+                      
+                      if (successCount > 0) {
+                        toast.success(`Imported ${successCount} file(s)${failCount > 0 ? `, ${failCount} failed` : ''}`);
+                        onUploadComplete?.();
+                      } else {
+                        toast.error(`All ${failCount} imports failed`);
+                      }
+                      
+                      if (successCount > 0) {
+                        setBatchUrls("");
+                        setBatchUrlProgress(null);
+                      }
+                    }}
+                    disabled={urlUploading || !batchUrls.trim()}
+                    className="w-full"
+                  >
+                    {urlUploading ? (
+                      <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Importing...</>
+                    ) : (
+                      `Import ${batchUrls.split('\n').filter(u => u.trim()).length || 0} URL(s)`
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Supports direct file links, YouTube, Instagram, TikTok, Twitter/X, LinkedIn, and more
+                  </p>
+                </>
+              ) : (
+                /* Single URL Mode */
+                <>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="https://example.com/image.jpg or YouTube/Instagram/TikTok link"
+                      value={urlToUpload}
+                      onChange={(e) => setUrlToUpload(e.target.value)}
+                      disabled={urlUploading}
+                    />
+                    <Button
+                      onClick={async () => {
+                        if (!urlToUpload.trim()) {
+                          toast.error("Please enter a URL");
+                          return;
+                        }
+                        
+                        setUrlUploading(true);
+                        try {
+                          // First validate the URL
+                          const validation = await validateUrlMutation.mutateAsync({ url: urlToUpload });
+                          
+                          if (!validation.valid) {
+                            toast.error(validation.error || "Invalid URL");
+                            setUrlUploading(false);
+                            return;
+                          }
+                          
+                          if (!validation.isSupported) {
+                            toast.error("Unsupported file type");
+                            setUrlUploading(false);
+                            return;
+                          }
+                          
+                          // Upload the file
+                          const result = await uploadFromUrlMutation.mutateAsync({ url: urlToUpload });
+                          
+                          // Create file record in database
+                          await createFileMutation.mutateAsync({
+                            fileKey: result.fileKey,
+                            url: result.url,
+                            filename: result.filename,
+                            mimeType: result.mimeType,
+                            fileSize: result.fileSize,
+                            title: result.title,
+                            description: result.description,
+                          });
+                          
+                          toast.success(`Uploaded ${result.filename} from URL`);
+                          setUrlToUpload("");
+                          setShowUrlInput(false);
+                          onUploadComplete?.();
+                        } catch (error) {
+                          console.error("URL upload error:", error);
+                          toast.error(error instanceof Error ? error.message : "Failed to upload from URL");
+                        } finally {
+                          setUrlUploading(false);
+                        }
+                      }}
+                      disabled={urlUploading || !urlToUpload.trim()}
+                    >
+                      {urlUploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Upload"
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Paste a direct link, YouTube, Instagram, TikTok, or Twitter/X URL (max 100MB)
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>
