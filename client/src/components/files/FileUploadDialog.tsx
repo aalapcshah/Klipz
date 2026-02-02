@@ -881,37 +881,46 @@ export function FileUploadDialog({
           console.error('[FileUpload] Error message:', error instanceof Error ? error.message : String(error));
           console.error('[FileUpload] Full error object:', error);
           
-          throw error;
+          // Show error toast for this file but continue with other files
+          let errorMessage = `Failed to upload ${fileData.file.name}`;
+          if (error instanceof Error) {
+            if (error.message.includes('size')) {
+              errorMessage = error.message;
+            } else if (error.message.includes('network') || error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+              errorMessage = `Network error uploading ${fileData.file.name}. Please check your connection.`;
+            } else if (error.message.includes('storage') || error.message.includes('S3')) {
+              errorMessage = `Storage error uploading ${fileData.file.name}. Please try again.`;
+            } else if (error.message) {
+              errorMessage = `${fileData.file.name}: ${error.message}`;
+            }
+          }
+          toast.error(errorMessage);
+          // Continue with next file instead of throwing
         }
       }
 
-      if (!uploadCancelled) {
-        toast.success(`${files.length} file(s) uploaded successfully!`);
-        setFiles([]);
-        onOpenChange(false);
-        onUploadComplete?.();
-      }
-    } catch (error) {
-      console.error('[FileUpload] Final catch - Upload process failed');
-      console.error('[FileUpload] Error type:', error instanceof Error ? error.constructor.name : typeof error);
-      console.error('[FileUpload] Error message:', error instanceof Error ? error.message : String(error));
-      console.error('[FileUpload] Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+      // Count successful and failed uploads
+      const successCount = files.filter(f => f.uploadStatus === 'completed').length;
+      const failedCount = files.filter(f => f.uploadStatus === 'error').length;
       
-      // User-friendly error message
-      let errorMessage = 'Failed to upload files';
-      if (error instanceof Error) {
-        if (error.message.includes('size')) {
-          errorMessage = error.message;
-        } else if (error.message.includes('network') || error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
-          errorMessage = 'Network error. Please check your internet connection and try again.';
-        } else if (error.message.includes('storage') || error.message.includes('S3')) {
-          errorMessage = 'Storage service error. Please try again later.';
-        } else if (error.message) {
-          errorMessage = error.message;
+      if (!uploadCancelled) {
+        if (failedCount === 0) {
+          toast.success(`${successCount} file(s) uploaded successfully!`);
+          setFiles([]);
+          onOpenChange(false);
+          onUploadComplete?.();
+        } else if (successCount > 0) {
+          toast.warning(`${successCount} file(s) uploaded, ${failedCount} failed. You can retry failed uploads.`);
+          // Keep dialog open so user can see failed files and retry
+          onUploadComplete?.();
+        } else {
+          toast.error(`All ${failedCount} file(s) failed to upload.`);
         }
       }
-      
-      toast.error(errorMessage);
+    } catch (error) {
+      console.error('[FileUpload] Final catch - Unexpected error in upload process');
+      console.error('[FileUpload] Error:', error);
+      toast.error('An unexpected error occurred during upload.');
     } finally {
       setUploading(false);
     }
