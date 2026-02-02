@@ -4805,3 +4805,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add batchExtractInfo endpoint for processing multiple URLs
 - [x] Add PWA install prompt banner
 - [x] Add batch URL import feature (paste multiple URLs)
+
+## Bug Fix: Knowledge Graph Visualization
+- [x] Fix Knowledge Graph showing blank/white area with 0 connections despite 875 nodes
+- [x] Investigate connection calculation logic - fixed getTagRelationships to use tagRelationships table
+- [x] Added getFileTagCoOccurrenceEdges function to calculate tag co-occurrence based on file-tag associations
+- [x] Now showing 875 nodes and 1358 connections based on Jaccard similarity
+- [ ] Fix graph rendering on mobile devices

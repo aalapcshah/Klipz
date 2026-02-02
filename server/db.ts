@@ -57,6 +57,7 @@ import {
   InsertShareLink,
   shareAccessLog,
   InsertShareAccessLog,
+  tagRelationships,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -3191,24 +3192,38 @@ export async function getTagRelationships(userId: number) {
   const db = await getDb();
   if (!db) return [];
   
-  // Get tag relationships from knowledge graph edges
-  // The edges table uses sourceFileId/targetFileId, so we need to find files owned by user
+  // Get user's tags first
+  const userTags = await db
+    .select({ id: tags.id, name: tags.name })
+    .from(tags)
+    .where(eq(tags.userId, userId));
+  
+  const tagNameToId = new Map(userTags.map(t => [t.name, t.id]));
+  const tagNames = userTags.map(t => t.name);
+  
+  if (tagNames.length === 0) return [];
+  
+  // Get relationships from the tagRelationships table
   const result = await db
     .select({
-      sourceFileId: knowledgeGraphEdges.sourceFileId,
-      targetFileId: knowledgeGraphEdges.targetFileId,
-      similarity: knowledgeGraphEdges.strength,
-      relationshipType: knowledgeGraphEdges.relationshipType,
+      sourceTag: tagRelationships.sourceTag,
+      targetTag: tagRelationships.targetTag,
+      confidence: tagRelationships.confidence,
+      relationshipType: tagRelationships.relationshipType,
     })
-    .from(knowledgeGraphEdges)
-    .innerJoin(files, eq(knowledgeGraphEdges.sourceFileId, files.id))
-    .where(eq(files.userId, userId));
+    .from(tagRelationships)
+    .where(
+      and(
+        inArray(tagRelationships.sourceTag, tagNames),
+        inArray(tagRelationships.targetTag, tagNames)
+      )
+    );
   
   return result.map(r => ({
-    sourceTagId: r.sourceFileId, // Using file IDs as node IDs
-    targetTagId: r.targetFileId,
-    similarity: Number(r.similarity) || 0,
-    relationshipType: r.relationshipType || 'semantic',
+    sourceTagId: tagNameToId.get(r.sourceTag) || 0,
+    targetTagId: tagNameToId.get(r.targetTag) || 0,
+    similarity: Number(r.confidence) || 0,
+    relationshipType: r.relationshipType || 'related',
   }));
 }
 
@@ -3229,4 +3244,79 @@ export async function getFilesForUser(userId: number, options?: { limit?: number
     .limit(limit);
   
   return result;
+}
+
+/**
+ * Get tag co-occurrence edges based on file-tag associations
+ * Tags that appear together on the same files are considered related
+ */
+export async function getFileTagCoOccurrenceEdges(
+  userId: number,
+  minSimilarity: number = 0.3
+): Promise<Array<{ source: string; target: string; weight: number; type: string }>> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  // Get all file-tag associations for the user
+  const fileTagAssociations = await db
+    .select({
+      fileId: fileTags.fileId,
+      tagId: fileTags.tagId,
+    })
+    .from(fileTags)
+    .innerJoin(files, eq(fileTags.fileId, files.id))
+    .where(eq(files.userId, userId));
+  
+  if (fileTagAssociations.length === 0) return [];
+  
+  // Build a map of fileId -> tagIds
+  const fileToTags = new Map<number, Set<number>>();
+  const tagToFiles = new Map<number, Set<number>>();
+  
+  for (const { fileId, tagId } of fileTagAssociations) {
+    if (!fileToTags.has(fileId)) {
+      fileToTags.set(fileId, new Set());
+    }
+    fileToTags.get(fileId)!.add(tagId);
+    
+    if (!tagToFiles.has(tagId)) {
+      tagToFiles.set(tagId, new Set());
+    }
+    tagToFiles.get(tagId)!.add(fileId);
+  }
+  
+  // Calculate co-occurrence between tags
+  // Jaccard similarity: |A ∩ B| / |A ∪ B|
+  const edges: Array<{ source: string; target: string; weight: number; type: string }> = [];
+  const tagIds = Array.from(tagToFiles.keys());
+  
+  for (let i = 0; i < tagIds.length; i++) {
+    for (let j = i + 1; j < tagIds.length; j++) {
+      const tagA = tagIds[i];
+      const tagB = tagIds[j];
+      const filesA = tagToFiles.get(tagA)!;
+      const filesB = tagToFiles.get(tagB)!;
+      
+      // Calculate intersection
+      const intersection = new Set(Array.from(filesA).filter(f => filesB.has(f)));
+      if (intersection.size === 0) continue;
+      
+      // Calculate union
+      const union = new Set([...Array.from(filesA), ...Array.from(filesB)]);
+      
+      // Jaccard similarity
+      const similarity = intersection.size / union.size;
+      
+      if (similarity >= minSimilarity) {
+        edges.push({
+          source: `tag-${tagA}`,
+          target: `tag-${tagB}`,
+          weight: similarity,
+          type: 'co-occurrence',
+        });
+      }
+    }
+  }
+  
+  return edges;
 }

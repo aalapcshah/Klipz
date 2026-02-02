@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
-import { getAllTags, getTagRelationships, getFilesForUser } from "../db";
+import { getAllTags, getTagRelationships, getFilesForUser, getFileTagCoOccurrenceEdges } from "../db";
 import {
   buildAllTagRelationships,
   getRelatedTags,
@@ -196,15 +196,18 @@ export const knowledgeGraphRouter = router({
       includeFiles: z.boolean().default(true),
       minSimilarity: z.number().min(0).max(1).default(0.3),
     }))
-    .query(async ({ ctx }) => {
+    .query(async ({ ctx, input }) => {
       // Get all tags with their usage counts
       const tags = await getAllTags(ctx.user.id);
       
-      // Get tag relationships from embeddings
+      // Get tag relationships from the tagRelationships table
       const tagRelationships = await getTagRelationships(ctx.user.id);
       
       // Get files if requested
       const files = await getFilesForUser(ctx.user.id, { limit: 100 });
+      
+      // Also get file-tag associations to build co-occurrence edges
+      const fileTagEdges = await getFileTagCoOccurrenceEdges(ctx.user.id, input.minSimilarity);
       
       // Build nodes from tags
       const tagNodes = tags.map((tag: { id: number; name: string; usageCount: number }) => ({
@@ -224,13 +227,33 @@ export const knowledgeGraphRouter = router({
         metadata: { fileId: file.id, fileType: file.fileType },
       }));
       
-      // Build edges from tag relationships
-      const edges = tagRelationships.map((rel: { sourceTagId: number; targetTagId: number; similarity: number; relationshipType: string }) => ({
+      // Build edges from tag relationships table
+      const storedEdges = tagRelationships.map((rel: { sourceTagId: number; targetTagId: number; similarity: number; relationshipType: string }) => ({
         source: `tag-${rel.sourceTagId}`,
         target: `tag-${rel.targetTagId}`,
         weight: rel.similarity,
         type: rel.relationshipType,
       }));
+      
+      // Merge stored edges with co-occurrence edges (deduplicate)
+      const edgeMap = new Map<string, { source: string; target: string; weight: number; type: string }>();
+      
+      // Add stored edges first
+      for (const edge of storedEdges) {
+        const key = [edge.source, edge.target].sort().join('-');
+        edgeMap.set(key, edge);
+      }
+      
+      // Add co-occurrence edges (only if not already present or if weight is higher)
+      for (const edge of fileTagEdges) {
+        const key = [edge.source, edge.target].sort().join('-');
+        const existing = edgeMap.get(key);
+        if (!existing || edge.weight > existing.weight) {
+          edgeMap.set(key, edge);
+        }
+      }
+      
+      const edges = Array.from(edgeMap.values());
       
       return {
         nodes: [...tagNodes, ...fileNodes],
