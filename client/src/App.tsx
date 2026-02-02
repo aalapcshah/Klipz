@@ -29,6 +29,7 @@ import AdminReports from "./pages/AdminReports";
 import AdminShareAnalytics from "./pages/AdminShareAnalytics";
 import AdminSystemOverview from "./pages/AdminSystemOverview";
 import ShareView from "./pages/ShareView";
+import Share from "./pages/Share";
 import MyShares from "./pages/MyShares";
 import Pricing from "./pages/Pricing";
 import { trpc } from "./lib/trpc";
@@ -71,6 +72,7 @@ function Router() {
       <Route path="/admin/system" component={AdminSystemOverview} />
       <Route path="/my-shares" component={MyShares} />
       <Route path="/share/:token" component={ShareView} />
+      <Route path="/share" component={Share} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

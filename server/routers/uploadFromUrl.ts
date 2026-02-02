@@ -3,6 +3,56 @@ import { protectedProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
 
+// Social media platform detection
+type SocialPlatform = "youtube" | "instagram" | "twitter" | "linkedin" | "tiktok" | "facebook" | "vimeo" | null;
+
+function detectSocialPlatform(url: string): { platform: SocialPlatform; videoId?: string } {
+  const urlLower = url.toLowerCase();
+  
+  // YouTube
+  if (urlLower.includes("youtube.com") || urlLower.includes("youtu.be")) {
+    let videoId: string | undefined;
+    if (urlLower.includes("youtu.be/")) {
+      videoId = url.split("youtu.be/")[1]?.split("?")[0];
+    } else if (urlLower.includes("v=")) {
+      videoId = new URL(url).searchParams.get("v") || undefined;
+    }
+    return { platform: "youtube", videoId };
+  }
+  
+  // Instagram
+  if (urlLower.includes("instagram.com")) {
+    return { platform: "instagram" };
+  }
+  
+  // Twitter/X
+  if (urlLower.includes("twitter.com") || urlLower.includes("x.com")) {
+    return { platform: "twitter" };
+  }
+  
+  // LinkedIn
+  if (urlLower.includes("linkedin.com")) {
+    return { platform: "linkedin" };
+  }
+  
+  // TikTok
+  if (urlLower.includes("tiktok.com")) {
+    return { platform: "tiktok" };
+  }
+  
+  // Facebook
+  if (urlLower.includes("facebook.com") || urlLower.includes("fb.watch")) {
+    return { platform: "facebook" };
+  }
+  
+  // Vimeo
+  if (urlLower.includes("vimeo.com")) {
+    return { platform: "vimeo" };
+  }
+  
+  return { platform: null };
+}
+
 export const uploadFromUrlRouter = router({
   // Fetch file from URL and upload to S3
   uploadFromUrl: protectedProcedure
@@ -96,6 +146,75 @@ export const uploadFromUrlRouter = router({
           message: `Failed to upload file from URL: ${error instanceof Error ? error.message : "Unknown error"}`,
         });
       }
+    }),
+
+  // Detect social media platform from URL
+  detectPlatform: protectedProcedure
+    .input(
+      z.object({
+        url: z.string().url(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { url } = input;
+      const { platform, videoId } = detectSocialPlatform(url);
+      
+      return {
+        platform,
+        videoId,
+        isSocialMedia: platform !== null,
+        platformInfo: platform ? {
+          youtube: {
+            name: "YouTube",
+            icon: "youtube",
+            color: "#FF0000",
+            supportsDownload: true,
+            note: "Video will be downloaded from YouTube",
+          },
+          instagram: {
+            name: "Instagram",
+            icon: "instagram",
+            color: "#E4405F",
+            supportsDownload: true,
+            note: "Post content will be extracted from Instagram",
+          },
+          twitter: {
+            name: "Twitter/X",
+            icon: "twitter",
+            color: "#1DA1F2",
+            supportsDownload: true,
+            note: "Media will be extracted from the tweet",
+          },
+          linkedin: {
+            name: "LinkedIn",
+            icon: "linkedin",
+            color: "#0A66C2",
+            supportsDownload: false,
+            note: "LinkedIn content extraction is limited",
+          },
+          tiktok: {
+            name: "TikTok",
+            icon: "tiktok",
+            color: "#000000",
+            supportsDownload: true,
+            note: "Video will be downloaded from TikTok",
+          },
+          facebook: {
+            name: "Facebook",
+            icon: "facebook",
+            color: "#1877F2",
+            supportsDownload: true,
+            note: "Video/image will be extracted from Facebook",
+          },
+          vimeo: {
+            name: "Vimeo",
+            icon: "vimeo",
+            color: "#1AB7EA",
+            supportsDownload: true,
+            note: "Video will be downloaded from Vimeo",
+          },
+        }[platform] : null,
+      };
     }),
 
   // Validate URL before uploading

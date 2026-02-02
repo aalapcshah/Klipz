@@ -56,6 +56,27 @@ const trpcClient = trpc.createClient({
   ],
 });
 
+// Register service worker for PWA and Share Target functionality
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        console.log('[App] Service worker registered:', registration.scope);
+        
+        // Listen for messages from service worker
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data.type === 'SHARE_TARGET_FILES') {
+            // Store file info in sessionStorage for the Share page
+            sessionStorage.setItem('sharedFiles', JSON.stringify(event.data.files));
+          }
+        });
+      })
+      .catch((error) => {
+        console.error('[App] Service worker registration failed:', error);
+      });
+  });
+}
+
 // Hide splash screen after app loads
 const hideSplashScreen = () => {
   const splash = document.getElementById('splash-screen');

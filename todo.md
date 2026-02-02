@@ -4770,3 +4770,23 @@ Note: The application already has extensive annotation features including voice 
 - [x] Route large files (>50MB) through resumable uploads automatically
 - [x] Add upload queue priority indicators (position numbers 1, 2, 3...)
 - [x] Add Upload from URL feature
+
+## Social Media URL Upload Support
+- [ ] Add YouTube video/thumbnail extraction
+- [ ] Add Instagram post/reel extraction
+- [ ] Add LinkedIn post extraction
+- [ ] Add Twitter/X post extraction
+- [ ] Add TikTok video extraction
+- [ ] Update UI to show platform icons for detected social media links
+
+## Web Share Target API (PWA Share)
+- [x] Add Web App Manifest with share_target configuration
+- [x] Create share handler page to receive shared content
+- [x] Add service worker for PWA functionality
+- [x] Make Klipz installable as a PWA (manifest + service worker configured)
+
+## Social Media URL Extraction
+- [x] Detect YouTube, Instagram, LinkedIn, Twitter/X, TikTok URLs
+- [x] Add detectPlatform endpoint with platform info
+- [ ] Implement actual video extraction from social platforms (requires external API)
+- [x] Show platform icons for detected social media links (in Share page)
