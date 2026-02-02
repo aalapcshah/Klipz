@@ -1,19 +1,20 @@
 /**
  * Knowledge Graph Visualization Page
  * Interactive network visualization of tag relationships and file connections
- * Features: Clustering with smart labels, search highlighting, mobile optimization
+ * Features: Clustering with smart labels, search highlighting, mobile optimization,
+ * cluster drill-down, file type indicators, navigation history
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -26,7 +27,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Sheet,
@@ -46,21 +46,22 @@ import {
   Tag,
   FileText,
   Link2,
-  Globe,
-  Database,
-  BookOpen,
-  Brain,
-  Settings,
   Download,
-  Share2,
   Loader2,
   Info,
   FolderTree,
-  Layers,
   FileJson,
   FileSpreadsheet,
-  Menu,
   X,
+  ChevronLeft,
+  ChevronRight,
+  Home,
+  Image,
+  Video,
+  FileAudio,
+  File,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 import { TagHierarchyManager } from "@/components/TagHierarchyManager";
 import {
@@ -87,6 +88,8 @@ interface GraphNode {
   cluster?: number;
   isHighlighted?: boolean;
   isConnectedToHighlighted?: boolean;
+  fileType?: "image" | "video" | "audio" | "document" | "other";
+  mimeType?: string;
 }
 
 interface GraphEdge {
@@ -106,19 +109,35 @@ interface Cluster {
   dominantTags: string[];
 }
 
-const SOURCE_COLORS: Record<string, string> = {
-  wikidata: "#3B82F6",
-  dbpedia: "#22C55E",
-  "schema.org": "#A855F7",
-  llm: "#F59E0B",
-  manual: "#6B7280",
-  ai: "#EC4899",
-};
+interface ViewState {
+  zoom: number;
+  offset: { x: number; y: number };
+  focusedCluster: number | null;
+  searchQuery: string;
+  nodeFilter: "all" | "tags" | "files" | "entities";
+}
 
 const NODE_TYPE_COLORS: Record<string, string> = {
   tag: "#3B82F6",
   file: "#22C55E",
   entity: "#A855F7",
+};
+
+// File type colors for visual indicators
+const FILE_TYPE_COLORS: Record<string, string> = {
+  image: "#F59E0B",
+  video: "#EF4444",
+  audio: "#8B5CF6",
+  document: "#22C55E",
+  other: "#6B7280",
+};
+
+const FILE_TYPE_ICONS: Record<string, typeof Image> = {
+  image: Image,
+  video: Video,
+  audio: FileAudio,
+  document: FileText,
+  other: File,
 };
 
 const CLUSTER_COLORS = [
@@ -139,6 +158,26 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   "Real Estate": ["real estate", "property", "housing", "building", "construction", "architecture", "home"],
   "Food & Beverage": ["food", "restaurant", "cooking", "recipe", "beverage", "drink", "nutrition", "diet"],
 };
+
+// Detect file type from label/extension
+function detectFileType(label: string, mimeType?: string): "image" | "video" | "audio" | "document" | "other" {
+  const lowerLabel = label.toLowerCase();
+  
+  if (mimeType) {
+    if (mimeType.startsWith("image/")) return "image";
+    if (mimeType.startsWith("video/")) return "video";
+    if (mimeType.startsWith("audio/")) return "audio";
+    if (mimeType.includes("pdf") || mimeType.includes("document") || mimeType.includes("text")) return "document";
+  }
+  
+  // Check by extension
+  if (/\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(lowerLabel)) return "image";
+  if (/\.(mp4|mov|avi|mkv|webm|flv|wmv)$/i.test(lowerLabel)) return "video";
+  if (/\.(mp3|wav|ogg|flac|aac|m4a)$/i.test(lowerLabel)) return "audio";
+  if (/\.(pdf|doc|docx|txt|rtf|odt|xls|xlsx|ppt|pptx)$/i.test(lowerLabel)) return "document";
+  
+  return "other";
+}
 
 // Smart clustering algorithm with dominant tag detection
 function clusterNodes(nodes: GraphNode[], edges: GraphEdge[], maxClusters: number = 10): Cluster[] {
@@ -258,6 +297,7 @@ export default function KnowledgeGraphPage() {
   const [showLabels, setShowLabels] = useState(true);
   const [showEdges, setShowEdges] = useState(true);
   const [showClusters, setShowClusters] = useState(false);
+  const [showFileTypeIndicators, setShowFileTypeIndicators] = useState(true);
   const [minEdgeWeight, setMinEdgeWeight] = useState(0.3);
   const [nodeFilter, setNodeFilter] = useState<"all" | "tags" | "files" | "entities">("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
@@ -266,9 +306,68 @@ export default function KnowledgeGraphPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
+  // Cluster drill-down state
+  const [focusedCluster, setFocusedCluster] = useState<number | null>(null);
+  
+  // Navigation history for undo/redo
+  const [viewHistory, setViewHistory] = useState<ViewState[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  
   // Touch state for mobile
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   const [lastTouchDistance, setLastTouchDistance] = useState<number | null>(null);
+  
+  // Error boundary state
+  const [hasError, setHasError] = useState(false);
+
+  // Save current view to history
+  const saveToHistory = useCallback(() => {
+    const currentState: ViewState = {
+      zoom,
+      offset: { ...offset },
+      focusedCluster,
+      searchQuery,
+      nodeFilter,
+    };
+    
+    // Remove any forward history when adding new state
+    const newHistory = viewHistory.slice(0, historyIndex + 1);
+    newHistory.push(currentState);
+    
+    // Limit history size
+    if (newHistory.length > 50) {
+      newHistory.shift();
+    }
+    
+    setViewHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  }, [zoom, offset, focusedCluster, searchQuery, nodeFilter, viewHistory, historyIndex]);
+
+  // Navigate back in history
+  const goBack = useCallback(() => {
+    if (historyIndex > 0) {
+      const prevState = viewHistory[historyIndex - 1];
+      setZoom(prevState.zoom);
+      setOffset(prevState.offset);
+      setFocusedCluster(prevState.focusedCluster);
+      setSearchQuery(prevState.searchQuery);
+      setNodeFilter(prevState.nodeFilter);
+      setHistoryIndex(historyIndex - 1);
+    }
+  }, [historyIndex, viewHistory]);
+
+  // Navigate forward in history
+  const goForward = useCallback(() => {
+    if (historyIndex < viewHistory.length - 1) {
+      const nextState = viewHistory[historyIndex + 1];
+      setZoom(nextState.zoom);
+      setOffset(nextState.offset);
+      setFocusedCluster(nextState.focusedCluster);
+      setSearchQuery(nextState.searchQuery);
+      setNodeFilter(nextState.nodeFilter);
+      setHistoryIndex(historyIndex + 1);
+    }
+  }, [historyIndex, viewHistory]);
 
   // Detect mobile viewport
   useEffect(() => {
@@ -281,12 +380,24 @@ export default function KnowledgeGraphPage() {
   }, []);
 
   // Fetch graph data
-  const { data: graphData, isLoading, refetch } = trpc.knowledgeGraph.getGraphData.useQuery(
+  const { data: graphData, isLoading, refetch, error } = trpc.knowledgeGraph.getGraphData.useQuery(
     { includeFiles: true, minSimilarity: minEdgeWeight },
-    { enabled: true }
+    { 
+      enabled: true,
+      retry: 3,
+      retryDelay: 1000,
+    }
   );
 
   const { data: stats } = trpc.knowledgeGraph.getStats.useQuery();
+
+  // Handle errors
+  useEffect(() => {
+    if (error) {
+      setHasError(true);
+      toast.error(`Failed to load graph: ${error.message}`);
+    }
+  }, [error]);
 
   // Export mutation
   const exportMutation = trpc.knowledgeGraph.exportGraphData.useMutation({
@@ -375,63 +486,75 @@ export default function KnowledgeGraphPage() {
   useEffect(() => {
     if (!graphData) return;
 
-    const newNodes: GraphNode[] = [];
-    const newEdges: GraphEdge[] = [];
-    const nodeMap = new Map<string, GraphNode>();
+    try {
+      const newNodes: GraphNode[] = [];
+      const newEdges: GraphEdge[] = [];
+      const nodeMap = new Map<string, GraphNode>();
 
-    graphData.nodes?.forEach((nodeData: { id: string; type: string; label: string; weight?: number; metadata?: any }) => {
-      const graphNode: GraphNode = {
-        id: nodeData.id,
-        label: nodeData.label,
-        type: nodeData.type as "tag" | "file" | "entity",
-        source: "internal",
-        size: nodeData.type === "tag" ? Math.min(20 + (nodeData.weight || 1) * 3, 40) : 15,
-        color: nodeData.type === "tag" ? NODE_TYPE_COLORS.tag : NODE_TYPE_COLORS.file,
-      };
-      newNodes.push(graphNode);
-      nodeMap.set(graphNode.id, graphNode);
-    });
+      graphData.nodes?.forEach((nodeData: any) => {
+        const fileType = nodeData.type === 'file' ? detectFileType(nodeData.label, nodeData.metadata?.mimeType) : undefined;
+        
+        const graphNode: GraphNode = {
+          id: nodeData.id,
+          label: nodeData.label,
+          type: nodeData.type as "tag" | "file" | "entity",
+          source: "internal",
+          size: nodeData.type === "tag" ? Math.min(20 + (nodeData.weight || 1) * 3, 40) : 15,
+          color: nodeData.type === "tag" ? NODE_TYPE_COLORS.tag : 
+                 (fileType ? FILE_TYPE_COLORS[fileType] : NODE_TYPE_COLORS.file),
+          fileType,
+          mimeType: nodeData.metadata?.mimeType,
+        };
+        newNodes.push(graphNode);
+        nodeMap.set(graphNode.id, graphNode);
+      });
 
-    graphData.edges?.forEach((edge: { source: string; target: string; weight: number; type: string }) => {
-      if (nodeMap.has(edge.source) && nodeMap.has(edge.target)) {
-        newEdges.push({
-          source: edge.source,
-          target: edge.target,
-          weight: edge.weight,
-          type: edge.type,
-        });
-      }
-    });
-
-    const width = containerRef.current?.clientWidth || 800;
-    const height = containerRef.current?.clientHeight || 600;
-    
-    newNodes.forEach((node, i) => {
-      const angle = (2 * Math.PI * i) / newNodes.length;
-      const radius = Math.min(width, height) * 0.3;
-      node.x = width / 2 + radius * Math.cos(angle);
-      node.y = height / 2 + radius * Math.sin(angle);
-      node.vx = 0;
-      node.vy = 0;
-    });
-
-    const newClusters = clusterNodes(newNodes, newEdges);
-    
-    newClusters.forEach(cluster => {
-      cluster.nodes.forEach(nodeId => {
-        const node = newNodes.find(n => n.id === nodeId);
-        if (node) {
-          node.cluster = cluster.id;
-          if (showClusters) {
-            node.color = cluster.color;
-          }
+      graphData.edges?.forEach((edge: { source: string; target: string; weight: number; type: string }) => {
+        if (nodeMap.has(edge.source) && nodeMap.has(edge.target)) {
+          newEdges.push({
+            source: edge.source,
+            target: edge.target,
+            weight: edge.weight,
+            type: edge.type,
+          });
         }
       });
-    });
 
-    setNodes(newNodes);
-    setEdges(newEdges);
-    setClusters(newClusters);
+      const width = containerRef.current?.clientWidth || 800;
+      const height = containerRef.current?.clientHeight || 600;
+      
+      newNodes.forEach((node, i) => {
+        const angle = (2 * Math.PI * i) / newNodes.length;
+        const radius = Math.min(width, height) * 0.3;
+        node.x = width / 2 + radius * Math.cos(angle);
+        node.y = height / 2 + radius * Math.sin(angle);
+        node.vx = 0;
+        node.vy = 0;
+      });
+
+      const newClusters = clusterNodes(newNodes, newEdges);
+      
+      newClusters.forEach(cluster => {
+        cluster.nodes.forEach(nodeId => {
+          const node = newNodes.find(n => n.id === nodeId);
+          if (node) {
+            node.cluster = cluster.id;
+            if (showClusters) {
+              node.color = cluster.color;
+            }
+          }
+        });
+      });
+
+      setNodes(newNodes);
+      setEdges(newEdges);
+      setClusters(newClusters);
+      setHasError(false);
+    } catch (err) {
+      console.error("Error processing graph data:", err);
+      setHasError(true);
+      toast.error("Failed to process graph data");
+    }
   }, [graphData, showClusters]);
 
   // Filter edges by relationship type
@@ -440,26 +563,37 @@ export default function KnowledgeGraphPage() {
     return edges.filter(e => e.type === relationshipTypeFilter);
   }, [edges, relationshipTypeFilter]);
 
+  // Filter nodes by focused cluster
+  const visibleNodes = useMemo(() => {
+    if (focusedCluster === null) return nodes;
+    return nodes.filter(n => n.cluster === focusedCluster);
+  }, [nodes, focusedCluster]);
+
   // Force-directed layout simulation
   useEffect(() => {
-    if (nodes.length === 0) return;
+    if (visibleNodes.length === 0) return;
+
+    let isRunning = true;
 
     const simulate = () => {
+      if (!isRunning) return;
+      
       const width = containerRef.current?.clientWidth || 800;
       const height = containerRef.current?.clientHeight || 600;
 
       setNodes((prevNodes) => {
         const newNodes = [...prevNodes];
+        const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
         
-        // Apply forces
+        // Apply forces only to visible nodes
         for (let i = 0; i < newNodes.length; i++) {
           const node = newNodes[i];
-          if (!node.x || !node.y) continue;
+          if (!node.x || !node.y || !visibleNodeIds.has(node.id)) continue;
 
           // Repulsion from other nodes
           for (let j = i + 1; j < newNodes.length; j++) {
             const other = newNodes[j];
-            if (!other.x || !other.y) continue;
+            if (!other.x || !other.y || !visibleNodeIds.has(other.id)) continue;
 
             const dx = node.x - other.x;
             const dy = node.y - other.y;
@@ -477,10 +611,10 @@ export default function KnowledgeGraphPage() {
             if (edge.source !== node.id && edge.target !== node.id) return;
             const otherId = edge.source === node.id ? edge.target : edge.source;
             const other = newNodes.find((n) => n.id === otherId);
-            if (!other || !other.x || !other.y) return;
+            if (!other || !other.x || !other.y || !visibleNodeIds.has(other.id)) return;
 
-            const dx = other.x - node.x!;
-            const dy = other.y - node.y!;
+            const dx = other.x - (node.x ?? 0);
+            const dy = other.y - (node.y ?? 0);
             const dist = Math.sqrt(dx * dx + dy * dy) || 1;
             const force = dist * 0.01 * edge.weight;
 
@@ -489,18 +623,18 @@ export default function KnowledgeGraphPage() {
           });
 
           // Center gravity
-          node.vx = (node.vx || 0) + (width / 2 - node.x) * 0.001;
-          node.vy = (node.vy || 0) + (height / 2 - node.y) * 0.001;
+          node.vx = (node.vx || 0) + (width / 2 - (node.x ?? 0)) * 0.001;
+          node.vy = (node.vy || 0) + (height / 2 - (node.y ?? 0)) * 0.001;
 
           // Apply velocity with damping
-          node.x += (node.vx || 0) * 0.1;
-          node.y += (node.vy || 0) * 0.1;
+          node.x = (node.x ?? 0) + (node.vx || 0) * 0.1;
+          node.y = (node.y ?? 0) + (node.vy || 0) * 0.1;
           node.vx = (node.vx || 0) * 0.9;
           node.vy = (node.vy || 0) * 0.9;
 
           // Boundary constraints
-          node.x = Math.max(50, Math.min(width - 50, node.x));
-          node.y = Math.max(50, Math.min(height - 50, node.y));
+          node.x = Math.max(50, Math.min(width - 50, node.x ?? 0));
+          node.y = Math.max(50, Math.min(height - 50, node.y ?? 0));
         }
 
         return newNodes;
@@ -510,8 +644,11 @@ export default function KnowledgeGraphPage() {
     };
 
     animationRef.current = requestAnimationFrame(simulate);
-    return () => cancelAnimationFrame(animationRef.current);
-  }, [nodes.length, filteredEdges]);
+    return () => {
+      isRunning = false;
+      cancelAnimationFrame(animationRef.current);
+    };
+  }, [visibleNodes.length, filteredEdges, focusedCluster]);
 
   // Canvas rendering
   useEffect(() => {
@@ -523,8 +660,14 @@ export default function KnowledgeGraphPage() {
 
     const width = containerRef.current?.clientWidth || 800;
     const height = containerRef.current?.clientHeight || 600;
-    canvas.width = width;
-    canvas.height = height;
+    
+    // Handle high DPI displays
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    ctx.scale(dpr, dpr);
 
     ctx.fillStyle = "#0a0a0a";
     ctx.fillRect(0, 0, width, height);
@@ -534,7 +677,7 @@ export default function KnowledgeGraphPage() {
     ctx.scale(zoom, zoom);
 
     // Filter nodes
-    let filteredNodes = nodes.filter((node) => {
+    let filteredNodes = visibleNodes.filter((node) => {
       if (nodeFilter !== "all" && node.type !== nodeFilter.slice(0, -1)) return false;
       if (sourceFilter !== "all" && node.source !== sourceFilter) return false;
       return true;
@@ -552,6 +695,9 @@ export default function KnowledgeGraphPage() {
     // Draw cluster backgrounds
     if (showClusters && clusters.length > 0) {
       clusters.forEach(cluster => {
+        // Skip clusters not in focus if we have a focused cluster
+        if (focusedCluster !== null && cluster.id !== focusedCluster) return;
+        
         const clusterNodes = filteredNodes.filter(n => n.cluster === cluster.id);
         if (clusterNodes.length < 2) return;
         
@@ -585,6 +731,10 @@ export default function KnowledgeGraphPage() {
           ctx.font = "11px sans-serif";
           ctx.fillText(cluster.dominantTags.slice(0, 3).join(", "), minX - padding + 10, minY - padding + 36);
         }
+        
+        // Update cluster center for click detection
+        cluster.centerX = (minX + maxX) / 2;
+        cluster.centerY = (minY + maxY) / 2;
       });
     }
 
@@ -628,7 +778,7 @@ export default function KnowledgeGraphPage() {
       });
     }
 
-    // Draw nodes with highlighting
+    // Draw nodes with highlighting and file type indicators
     filteredNodes.forEach((node) => {
       if (!node.x || !node.y) return;
 
@@ -682,56 +832,130 @@ export default function KnowledgeGraphPage() {
         ctx.stroke();
       }
 
+      // Draw file type indicator for file nodes
+      if (showFileTypeIndicators && node.type === 'file' && node.fileType) {
+        const indicatorSize = size * 0.5;
+        const indicatorX = node.x + size * 0.7;
+        const indicatorY = node.y - size * 0.7;
+        
+        // Draw indicator background
+        ctx.beginPath();
+        ctx.arc(indicatorX, indicatorY, indicatorSize, 0, Math.PI * 2);
+        ctx.fillStyle = FILE_TYPE_COLORS[node.fileType];
+        ctx.fill();
+        ctx.strokeStyle = "#0a0a0a";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // Draw icon letter
+        ctx.fillStyle = "#fff";
+        ctx.font = `bold ${indicatorSize}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const iconLetter = node.fileType === 'image' ? 'I' : 
+                          node.fileType === 'video' ? 'V' : 
+                          node.fileType === 'audio' ? 'A' : 
+                          node.fileType === 'document' ? 'D' : 'F';
+        ctx.fillText(iconLetter, indicatorX, indicatorY);
+      }
+
       // Node label
       if (showLabels || isHovered || isHighlighted) {
         ctx.globalAlpha = nodeOpacity;
         ctx.fillStyle = isHighlighted ? "#FFD700" : "#fff";
         ctx.font = `${isHovered || isHighlighted ? "bold " : ""}12px sans-serif`;
         ctx.textAlign = "center";
-        ctx.fillText(node.label, node.x, node.y + size + 15);
+        ctx.textBaseline = "top";
+        ctx.fillText(node.label, node.x, node.y + size + 5);
         ctx.globalAlpha = 1;
       }
     });
 
     ctx.restore();
-  }, [nodes, filteredEdges, selectedNode, hoveredNode, zoom, offset, showLabels, showEdges, showClusters, minEdgeWeight, nodeFilter, sourceFilter, searchQuery, clusters, maxNodes, highlightedNodeIds, connectedToHighlightedIds]);
+  }, [nodes, filteredEdges, selectedNode, hoveredNode, zoom, offset, showLabels, showEdges, showClusters, showFileTypeIndicators, minEdgeWeight, nodeFilter, sourceFilter, searchQuery, clusters, maxNodes, highlightedNodeIds, connectedToHighlightedIds, visibleNodes, focusedCluster]);
 
-  // Mouse event handlers
+  // Mouse event handlers with error handling
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    try {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left - offset.x) / zoom;
-    const y = (e.clientY - rect.top - offset.y) / zoom;
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left - offset.x) / zoom;
+      const y = (e.clientY - rect.top - offset.y) / zoom;
 
-    if (isDragging) {
-      setOffset({
-        x: offset.x + (e.clientX - dragStart.x),
-        y: offset.y + (e.clientY - dragStart.y),
+      if (isDragging) {
+        setOffset({
+          x: offset.x + (e.clientX - dragStart.x),
+          y: offset.y + (e.clientY - dragStart.y),
+        });
+        setDragStart({ x: e.clientX, y: e.clientY });
+        return;
+      }
+
+      const hovered = visibleNodes.find((node) => {
+        if (!node.x || !node.y) return false;
+        const dx = x - node.x;
+        const dy = y - node.y;
+        return Math.sqrt(dx * dx + dy * dy) < (node.size || 15);
       });
-      setDragStart({ x: e.clientX, y: e.clientY });
-      return;
+
+      setHoveredNode(hovered || null);
+    } catch (err) {
+      console.error("Error in mouse move handler:", err);
     }
-
-    const hovered = nodes.find((node) => {
-      if (!node.x || !node.y) return false;
-      const dx = x - node.x;
-      const dy = y - node.y;
-      return Math.sqrt(dx * dx + dy * dy) < (node.size || 15);
-    });
-
-    setHoveredNode(hovered || null);
-  }, [nodes, zoom, offset, isDragging, dragStart]);
+  }, [visibleNodes, zoom, offset, isDragging, dragStart]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (hoveredNode) {
-      setSelectedNode(hoveredNode);
-    } else {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX, y: e.clientY });
+    try {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left - offset.x) / zoom;
+      const y = (e.clientY - rect.top - offset.y) / zoom;
+
+      if (hoveredNode) {
+        setSelectedNode(hoveredNode);
+        saveToHistory();
+      } else {
+        // Check if clicking on a cluster background (for drill-down)
+        if (showClusters && focusedCluster === null) {
+          const clickedCluster = clusters.find(cluster => {
+            const clusterNodes = visibleNodes.filter(n => n.cluster === cluster.id);
+            if (clusterNodes.length < 2) return false;
+            
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            clusterNodes.forEach(node => {
+              if (node.x && node.y) {
+                minX = Math.min(minX, node.x);
+                minY = Math.min(minY, node.y);
+                maxX = Math.max(maxX, node.x);
+                maxY = Math.max(maxY, node.y);
+              }
+            });
+            
+            const padding = 40;
+            return x >= minX - padding && x <= maxX + padding && 
+                   y >= minY - padding && y <= maxY + padding;
+          });
+          
+          if (clickedCluster) {
+            saveToHistory();
+            setFocusedCluster(clickedCluster.id);
+            setZoom(1.5);
+            toast.success(`Focused on "${clickedCluster.label}" cluster`);
+            return;
+          }
+        }
+        
+        setIsDragging(true);
+        setDragStart({ x: e.clientX, y: e.clientY });
+      }
+    } catch (err) {
+      console.error("Error in mouse down handler:", err);
     }
-  }, [hoveredNode]);
+  }, [hoveredNode, zoom, offset, showClusters, focusedCluster, clusters, visibleNodes, saveToHistory]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -743,36 +967,45 @@ export default function KnowledgeGraphPage() {
     setZoom((z) => Math.max(0.1, Math.min(5, z * delta)));
   }, []);
 
-  // Touch event handlers for mobile
+  // Touch event handlers for mobile with error handling
   const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (e.touches.length === 1) {
-      const touch = e.touches[0];
-      setTouchStart({ x: touch.clientX, y: touch.clientY });
-      setDragStart({ x: touch.clientX, y: touch.clientY });
-    } else if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      setLastTouchDistance(Math.sqrt(dx * dx + dy * dy));
+    try {
+      e.preventDefault();
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        setTouchStart({ x: touch.clientX, y: touch.clientY });
+        setDragStart({ x: touch.clientX, y: touch.clientY });
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        setLastTouchDistance(Math.sqrt(dx * dx + dy * dy));
+      }
+    } catch (err) {
+      console.error("Error in touch start handler:", err);
     }
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    
-    if (e.touches.length === 1 && touchStart) {
-      const touch = e.touches[0];
-      setOffset({
-        x: offset.x + (touch.clientX - dragStart.x),
-        y: offset.y + (touch.clientY - dragStart.y),
-      });
-      setDragStart({ x: touch.clientX, y: touch.clientY });
-    } else if (e.touches.length === 2 && lastTouchDistance) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const newDistance = Math.sqrt(dx * dx + dy * dy);
-      const scale = newDistance / lastTouchDistance;
-      setZoom((z) => Math.max(0.1, Math.min(5, z * scale)));
-      setLastTouchDistance(newDistance);
+    try {
+      e.preventDefault();
+      
+      if (e.touches.length === 1 && touchStart) {
+        const touch = e.touches[0];
+        setOffset({
+          x: offset.x + (touch.clientX - dragStart.x),
+          y: offset.y + (touch.clientY - dragStart.y),
+        });
+        setDragStart({ x: touch.clientX, y: touch.clientY });
+      } else if (e.touches.length === 2 && lastTouchDistance) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const newDistance = Math.sqrt(dx * dx + dy * dy);
+        const scale = newDistance / lastTouchDistance;
+        setZoom((z) => Math.max(0.1, Math.min(5, z * scale)));
+        setLastTouchDistance(newDistance);
+      }
+    } catch (err) {
+      console.error("Error in touch move handler:", err);
     }
   }, [touchStart, dragStart, offset, lastTouchDistance]);
 
@@ -781,11 +1014,20 @@ export default function KnowledgeGraphPage() {
     setLastTouchDistance(null);
   }, []);
 
-  const resetView = () => {
+  const resetView = useCallback(() => {
+    saveToHistory();
     setZoom(1);
     setOffset({ x: 0, y: 0 });
     setSelectedNode(null);
-  };
+    setFocusedCluster(null);
+  }, [saveToHistory]);
+
+  const exitClusterFocus = useCallback(() => {
+    saveToHistory();
+    setFocusedCluster(null);
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+  }, [saveToHistory]);
 
   const [activeTab, setActiveTab] = useState<"graph" | "hierarchy">("graph");
 
@@ -799,6 +1041,15 @@ export default function KnowledgeGraphPage() {
     });
     return counts;
   }, [edges]);
+
+  // Count file types
+  const fileTypeCounts = useMemo(() => {
+    const counts: Record<string, number> = { image: 0, video: 0, audio: 0, document: 0, other: 0 };
+    nodes.filter(n => n.type === 'file').forEach(n => {
+      if (n.fileType) counts[n.fileType]++;
+    });
+    return counts;
+  }, [nodes]);
 
   // Sidebar content component (reused for both desktop and mobile)
   const SidebarContent = () => (
@@ -885,8 +1136,8 @@ export default function KnowledgeGraphPage() {
       <div className="space-y-3 pt-3 border-t">
         <Label className="text-sm font-semibold">Display Options</Label>
         
-        <div className="grid grid-cols-3 gap-2">
-          <div className="flex flex-col items-center gap-1">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex items-center gap-2">
             <Switch
               id="show-labels"
               checked={showLabels}
@@ -894,7 +1145,7 @@ export default function KnowledgeGraphPage() {
             />
             <Label htmlFor="show-labels" className="text-xs">Labels</Label>
           </div>
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-2">
             <Switch
               id="show-edges"
               checked={showEdges}
@@ -902,13 +1153,21 @@ export default function KnowledgeGraphPage() {
             />
             <Label htmlFor="show-edges" className="text-xs">Edges</Label>
           </div>
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-2">
             <Switch
               id="show-clusters"
               checked={showClusters}
               onCheckedChange={setShowClusters}
             />
             <Label htmlFor="show-clusters" className="text-xs">Clusters</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-file-types"
+              checked={showFileTypeIndicators}
+              onCheckedChange={setShowFileTypeIndicators}
+            />
+            <Label htmlFor="show-file-types" className="text-xs">File Types</Label>
           </div>
         </div>
 
@@ -940,6 +1199,25 @@ export default function KnowledgeGraphPage() {
           />
         </div>
       </div>
+
+      {/* File Type Legend */}
+      {showFileTypeIndicators && (
+        <div className="space-y-2 pt-3 border-t">
+          <Label className="text-sm font-semibold">File Types</Label>
+          <div className="grid grid-cols-2 gap-1 text-xs">
+            {Object.entries(FILE_TYPE_COLORS).map(([type, color]) => (
+              <div key={type} className="flex items-center gap-2">
+                <div 
+                  className="w-3 h-3 rounded-full" 
+                  style={{ backgroundColor: color }}
+                />
+                <span className="capitalize">{type}</span>
+                <span className="text-muted-foreground">({fileTypeCounts[type] || 0})</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats - compact grid */}
       {stats && (
@@ -974,12 +1252,28 @@ export default function KnowledgeGraphPage() {
             <CardContent className="p-3 space-y-2">
               <div className="flex items-center gap-2">
                 {selectedNode.type === "tag" && <Tag className="h-4 w-4" />}
-                {selectedNode.type === "file" && <FileText className="h-4 w-4" />}
+                {selectedNode.type === "file" && (
+                  selectedNode.fileType ? 
+                    (() => {
+                      const IconComponent = FILE_TYPE_ICONS[selectedNode.fileType];
+                      return <IconComponent className="h-4 w-4" style={{ color: FILE_TYPE_COLORS[selectedNode.fileType] }} />;
+                    })() :
+                    <FileText className="h-4 w-4" />
+                )}
                 {selectedNode.type === "entity" && <Link2 className="h-4 w-4" />}
                 <span className="font-medium text-sm truncate">{selectedNode.label}</span>
               </div>
               <div className="flex flex-wrap gap-1">
                 <Badge variant="outline" className="text-xs capitalize">{selectedNode.type}</Badge>
+                {selectedNode.fileType && (
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs capitalize"
+                    style={{ borderColor: FILE_TYPE_COLORS[selectedNode.fileType] }}
+                  >
+                    {selectedNode.fileType}
+                  </Badge>
+                )}
                 {selectedNode.cluster !== undefined && (
                   <Badge 
                     variant="outline"
@@ -1019,6 +1313,25 @@ export default function KnowledgeGraphPage() {
     </div>
   );
 
+  // Error state
+  if (hasError && !isLoading && nodes.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center space-y-4 max-w-md p-6">
+          <Network className="h-12 w-12 mx-auto text-destructive" />
+          <h3 className="text-lg font-semibold">Failed to Load Graph</h3>
+          <p className="text-muted-foreground text-sm">
+            There was an error loading the knowledge graph. Please try again.
+          </p>
+          <Button onClick={() => { setHasError(false); refetch(); }}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -1032,7 +1345,42 @@ export default function KnowledgeGraphPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex items-center gap-1 md:gap-2">
+          {/* Navigation History */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={goBack}
+                  disabled={historyIndex <= 0}
+                  className="h-8 w-8"
+                >
+                  <Undo2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Go Back</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={goForward}
+                  disabled={historyIndex >= viewHistory.length - 1}
+                  className="h-8 w-8"
+                >
+                  <Redo2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Go Forward</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           {!isMobile && (
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "graph" | "hierarchy")}>
               <TabsList>
@@ -1145,6 +1493,32 @@ export default function KnowledgeGraphPage() {
                 onTouchEnd={handleTouchEnd}
               />
 
+              {/* Cluster Focus Banner */}
+              {focusedCluster !== null && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
+                  <div className="flex items-center gap-2 bg-background/95 backdrop-blur px-4 py-2 rounded-full border shadow-lg">
+                    <Badge 
+                      variant="outline" 
+                      style={{ borderColor: clusters[focusedCluster]?.color, color: clusters[focusedCluster]?.color }}
+                    >
+                      {clusters[focusedCluster]?.label}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {clusters[focusedCluster]?.nodes.length} nodes
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={exitClusterFocus}
+                      className="h-7 px-2"
+                    >
+                      <Home className="h-3 w-3 mr-1" />
+                      Exit
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Zoom Controls */}
               <div className="absolute bottom-4 right-4 flex flex-col gap-2">
                 <TooltipProvider>
@@ -1193,17 +1567,27 @@ export default function KnowledgeGraphPage() {
               <div className="absolute top-4 left-4">
                 <Badge variant="secondary" className="gap-2">
                   <Info className="h-3 w-3" />
-                  {nodes.length} nodes • {filteredEdges.length} connections
+                  {visibleNodes.length} nodes • {filteredEdges.length} connections
                   {showClusters && ` • ${clusters.length} clusters`}
                 </Badge>
               </div>
 
               {/* Search results indicator */}
               {searchQuery && highlightedNodeIds.size > 0 && (
-                <div className="absolute top-4 right-4 md:right-auto md:left-1/2 md:-translate-x-1/2">
+                <div className="absolute top-14 left-4">
                   <Badge variant="default" className="gap-2 bg-yellow-600">
                     <Search className="h-3 w-3" />
                     {highlightedNodeIds.size} matches
+                  </Badge>
+                </div>
+              )}
+
+              {/* Cluster hint (when clusters are shown but not focused) */}
+              {showClusters && focusedCluster === null && clusters.length > 0 && (
+                <div className="absolute bottom-4 left-4">
+                  <Badge variant="outline" className="gap-2 text-xs">
+                    <ChevronRight className="h-3 w-3" />
+                    Click a cluster to drill down
                   </Badge>
                 </div>
               )}
