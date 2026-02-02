@@ -925,7 +925,7 @@ export function FileUploadDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl w-[98vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="!w-[100vw] !max-w-none !rounded-none !left-0 !translate-x-0 max-h-[90vh] overflow-y-auto" style={{ width: '100vw', maxWidth: '100vw', left: 0, transform: 'translateX(0) translateY(-50%)' }}>
         <DialogHeader>
           <DialogTitle>Upload & Tag Files</DialogTitle>
           <DialogDescription>
@@ -967,7 +967,7 @@ export function FileUploadDialog({
 
         {/* Uploaded Files List */}
         {files.length > 0 && (
-          <div className="space-y-4 mt-6">
+          <div className="space-y-4 mt-6 overflow-hidden" style={{ maxWidth: '100%' }}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-3 min-w-0">
                 <h3 className="font-medium whitespace-nowrap">Uploaded Files ({files.length})</h3>
@@ -1099,7 +1099,7 @@ export function FileUploadDialog({
             
             {/* Metadata Suggestions from History */}
             {metadataSuggestions.length > 0 && (
-              <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 space-y-3 border border-blue-200 dark:border-blue-800 overflow-hidden">
+              <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 space-y-3 border border-blue-200 dark:border-blue-800 overflow-hidden max-w-full" style={{ maxWidth: '100%', boxSizing: 'border-box' }}>
                 <div className="flex flex-wrap items-center gap-2">
                   <Sparkles className="h-4 w-4 text-blue-600 flex-shrink-0" />
                   <h4 className="font-semibold text-blue-900 dark:text-blue-100">Suggested Metadata</h4>
@@ -1119,12 +1119,13 @@ export function FileUploadDialog({
                         );
                         toast.success("Applied suggested metadata");
                       }}
-                      className="w-full text-left p-3 rounded-md bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-gray-200 dark:border-gray-700 transition-colors overflow-hidden"
+                      className="w-full text-left p-3 rounded-md bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-gray-200 dark:border-gray-700 transition-colors overflow-hidden max-w-full"
+                      style={{ wordBreak: 'break-word' }}
                     >
-                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100 break-words" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                         {suggestion.title || "(No title)"}
                       </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 break-words">
+                      <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 break-words" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                         {suggestion.description || "(No description)"}
                       </div>
                       <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
