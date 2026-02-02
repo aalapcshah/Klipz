@@ -1,9 +1,10 @@
 /**
  * Knowledge Graph Visualization Page
  * Interactive network visualization of tag relationships and file connections
+ * Features: Clustering, relationship filtering, export (JSON/CSV)
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -20,6 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import {
   Network,
   Search,
@@ -41,6 +49,9 @@ import {
   Loader2,
   Info,
   FolderTree,
+  Layers,
+  FileJson,
+  FileSpreadsheet,
 } from "lucide-react";
 import { TagHierarchyManager } from "@/components/TagHierarchyManager";
 import {
@@ -49,6 +60,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 
 interface GraphNode {
   id: string;
@@ -63,6 +75,7 @@ interface GraphNode {
   color?: string;
   fileCount?: number;
   confidence?: number;
+  cluster?: number;
 }
 
 interface GraphEdge {
@@ -70,6 +83,15 @@ interface GraphEdge {
   target: string;
   weight: number;
   type: string;
+}
+
+interface Cluster {
+  id: number;
+  nodes: string[];
+  centerX: number;
+  centerY: number;
+  color: string;
+  label: string;
 }
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -87,6 +109,63 @@ const NODE_TYPE_COLORS: Record<string, string> = {
   entity: "#A855F7",
 };
 
+const CLUSTER_COLORS = [
+  "#3B82F6", "#22C55E", "#F59E0B", "#EF4444", "#8B5CF6",
+  "#EC4899", "#14B8A6", "#F97316", "#6366F1", "#84CC16",
+];
+
+// Simple clustering algorithm based on edge connections
+function clusterNodes(nodes: GraphNode[], edges: GraphEdge[], maxClusters: number = 10): Cluster[] {
+  const adjacencyMap = new Map<string, Set<string>>();
+  
+  // Build adjacency map
+  edges.forEach(edge => {
+    if (!adjacencyMap.has(edge.source)) adjacencyMap.set(edge.source, new Set());
+    if (!adjacencyMap.has(edge.target)) adjacencyMap.set(edge.target, new Set());
+    adjacencyMap.get(edge.source)!.add(edge.target);
+    adjacencyMap.get(edge.target)!.add(edge.source);
+  });
+  
+  const visited = new Set<string>();
+  const clusters: Cluster[] = [];
+  
+  // Find connected components
+  nodes.forEach(node => {
+    if (visited.has(node.id)) return;
+    
+    const clusterNodes: string[] = [];
+    const queue = [node.id];
+    
+    while (queue.length > 0 && clusters.length < maxClusters) {
+      const current = queue.shift()!;
+      if (visited.has(current)) continue;
+      
+      visited.add(current);
+      clusterNodes.push(current);
+      
+      const neighbors = adjacencyMap.get(current) || new Set();
+      neighbors.forEach(neighbor => {
+        if (!visited.has(neighbor)) {
+          queue.push(neighbor);
+        }
+      });
+    }
+    
+    if (clusterNodes.length > 0) {
+      clusters.push({
+        id: clusters.length,
+        nodes: clusterNodes,
+        centerX: 0,
+        centerY: 0,
+        color: CLUSTER_COLORS[clusters.length % CLUSTER_COLORS.length],
+        label: `Cluster ${clusters.length + 1}`,
+      });
+    }
+  });
+  
+  return clusters;
+}
+
 export default function KnowledgeGraphPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -94,6 +173,7 @@ export default function KnowledgeGraphPage() {
   
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<GraphEdge[]>([]);
+  const [clusters, setClusters] = useState<Cluster[]>([]);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -103,9 +183,12 @@ export default function KnowledgeGraphPage() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showLabels, setShowLabels] = useState(true);
   const [showEdges, setShowEdges] = useState(true);
+  const [showClusters, setShowClusters] = useState(false);
   const [minEdgeWeight, setMinEdgeWeight] = useState(0.3);
   const [nodeFilter, setNodeFilter] = useState<"all" | "tags" | "files" | "entities">("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [relationshipTypeFilter, setRelationshipTypeFilter] = useState<"all" | "co-occurrence" | "semantic">("all");
+  const [maxNodes, setMaxNodes] = useState(500);
 
   // Fetch graph data
   const { data: graphData, isLoading, refetch } = trpc.knowledgeGraph.getGraphData.useQuery(
@@ -114,6 +197,56 @@ export default function KnowledgeGraphPage() {
   );
 
   const { data: stats } = trpc.knowledgeGraph.getStats.useQuery();
+
+  // Export mutation
+  const exportMutation = trpc.knowledgeGraph.exportGraphData.useMutation({
+    onSuccess: (data) => {
+      if (data.format === 'json' && data.data && data.filename) {
+        // Download JSON file
+        const blob = new Blob([data.data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = data.filename;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success('Graph exported as JSON');
+      } else if (data.nodesData && data.edgesData && data.nodesFilename && data.edgesFilename) {
+        // Download CSV files (nodes and edges)
+        const nodesBlob = new Blob([data.nodesData], { type: 'text/csv' });
+        const nodesUrl = URL.createObjectURL(nodesBlob);
+        const nodesA = document.createElement('a');
+        nodesA.href = nodesUrl;
+        nodesA.download = data.nodesFilename;
+        nodesA.click();
+        URL.revokeObjectURL(nodesUrl);
+        
+        setTimeout(() => {
+          const edgesBlob = new Blob([data.edgesData!], { type: 'text/csv' });
+          const edgesUrl = URL.createObjectURL(edgesBlob);
+          const edgesA = document.createElement('a');
+          edgesA.href = edgesUrl;
+          edgesA.download = data.edgesFilename!;
+          edgesA.click();
+          URL.revokeObjectURL(edgesUrl);
+        }, 500);
+        
+        toast.success('Graph exported as CSV (2 files)');
+      }
+    },
+    onError: (error) => {
+      toast.error(`Export failed: ${error.message}`);
+    },
+  });
+
+  const handleExport = (format: 'json' | 'csv') => {
+    exportMutation.mutate({
+      format,
+      includeFiles: nodeFilter === 'all' || nodeFilter === 'files',
+      minSimilarity: minEdgeWeight,
+      relationshipType: relationshipTypeFilter,
+    });
+  };
 
   // Initialize nodes from graph data
   useEffect(() => {
@@ -136,12 +269,6 @@ export default function KnowledgeGraphPage() {
       newNodes.push(graphNode);
       nodeMap.set(graphNode.id, graphNode);
     });
-
-    // File nodes are already included in graphData.nodes with type 'file'
-    // No need to separately process files
-
-    // Entity nodes would come from external knowledge graphs if connected
-    // Currently handled through the unified nodes array
 
     // Add edges
     graphData.edges?.forEach((edge: { source: string; target: string; weight: number; type: string }) => {
@@ -168,9 +295,32 @@ export default function KnowledgeGraphPage() {
       node.vy = 0;
     });
 
+    // Calculate clusters
+    const newClusters = clusterNodes(newNodes, newEdges);
+    
+    // Assign cluster IDs to nodes
+    newClusters.forEach(cluster => {
+      cluster.nodes.forEach(nodeId => {
+        const node = newNodes.find(n => n.id === nodeId);
+        if (node) {
+          node.cluster = cluster.id;
+          if (showClusters) {
+            node.color = cluster.color;
+          }
+        }
+      });
+    });
+
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [graphData]);
+    setClusters(newClusters);
+  }, [graphData, showClusters]);
+
+  // Filter edges by relationship type
+  const filteredEdges = useMemo(() => {
+    if (relationshipTypeFilter === 'all') return edges;
+    return edges.filter(e => e.type === relationshipTypeFilter);
+  }, [edges, relationshipTypeFilter]);
 
   // Force-directed layout simulation
   useEffect(() => {
@@ -203,7 +353,7 @@ export default function KnowledgeGraphPage() {
       });
 
       // Apply edge forces (attraction)
-      edges.forEach((edge) => {
+      filteredEdges.forEach((edge) => {
         const source = nodes.find((n) => n.id === edge.source);
         const target = nodes.find((n) => n.id === edge.target);
         if (!source || !target || !source.x || !target.x || !source.y || !target.y) return;
@@ -243,7 +393,7 @@ export default function KnowledgeGraphPage() {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [nodes.length, edges.length]);
+  }, [nodes.length, filteredEdges.length]);
 
   // Canvas rendering
   useEffect(() => {
@@ -268,18 +418,60 @@ export default function KnowledgeGraphPage() {
     ctx.scale(zoom, zoom);
 
     // Filter nodes
-    const filteredNodes = nodes.filter((node) => {
+    let filteredNodes = nodes.filter((node) => {
       if (nodeFilter !== "all" && node.type !== nodeFilter.slice(0, -1)) return false;
       if (sourceFilter !== "all" && node.source !== sourceFilter) return false;
       if (searchQuery && !node.label.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       return true;
     });
 
+    // Apply max nodes limit for performance
+    if (filteredNodes.length > maxNodes) {
+      // Sort by weight/importance and take top N
+      filteredNodes = filteredNodes
+        .sort((a, b) => (b.size || 15) - (a.size || 15))
+        .slice(0, maxNodes);
+    }
+
     const filteredNodeIds = new Set(filteredNodes.map((n) => n.id));
+
+    // Draw cluster backgrounds if enabled
+    if (showClusters && clusters.length > 0) {
+      clusters.forEach(cluster => {
+        const clusterNodes = filteredNodes.filter(n => n.cluster === cluster.id);
+        if (clusterNodes.length < 2) return;
+        
+        // Calculate cluster bounds
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        clusterNodes.forEach(node => {
+          if (node.x && node.y) {
+            minX = Math.min(minX, node.x);
+            minY = Math.min(minY, node.y);
+            maxX = Math.max(maxX, node.x);
+            maxY = Math.max(maxY, node.y);
+          }
+        });
+        
+        // Draw cluster background
+        const padding = 40;
+        ctx.beginPath();
+        ctx.roundRect(minX - padding, minY - padding, maxX - minX + padding * 2, maxY - minY + padding * 2, 20);
+        ctx.fillStyle = cluster.color + "15"; // 15% opacity
+        ctx.fill();
+        ctx.strokeStyle = cluster.color + "40";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Draw cluster label
+        ctx.fillStyle = cluster.color;
+        ctx.font = "bold 14px sans-serif";
+        ctx.fillText(cluster.label, minX - padding + 10, minY - padding + 20);
+      });
+    }
 
     // Draw edges
     if (showEdges) {
-      edges.forEach((edge) => {
+      filteredEdges.forEach((edge) => {
         if (!filteredNodeIds.has(edge.source) || !filteredNodeIds.has(edge.target)) return;
         if (edge.weight < minEdgeWeight) return;
 
@@ -290,7 +482,15 @@ export default function KnowledgeGraphPage() {
         ctx.beginPath();
         ctx.moveTo(source.x, source.y);
         ctx.lineTo(target.x, target.y);
-        ctx.strokeStyle = `rgba(100, 100, 100, ${edge.weight * 0.5})`;
+        
+        // Color edges by type
+        if (edge.type === 'co-occurrence') {
+          ctx.strokeStyle = `rgba(59, 130, 246, ${edge.weight * 0.5})`; // Blue
+        } else if (edge.type === 'semantic') {
+          ctx.strokeStyle = `rgba(34, 197, 94, ${edge.weight * 0.5})`; // Green
+        } else {
+          ctx.strokeStyle = `rgba(100, 100, 100, ${edge.weight * 0.5})`;
+        }
         ctx.lineWidth = edge.weight * 2;
         ctx.stroke();
       });
@@ -326,7 +526,7 @@ export default function KnowledgeGraphPage() {
     });
 
     ctx.restore();
-  }, [nodes, edges, selectedNode, hoveredNode, zoom, offset, showLabels, showEdges, minEdgeWeight, nodeFilter, sourceFilter, searchQuery]);
+  }, [nodes, filteredEdges, selectedNode, hoveredNode, zoom, offset, showLabels, showEdges, showClusters, minEdgeWeight, nodeFilter, sourceFilter, searchQuery, clusters, maxNodes]);
 
   // Mouse event handlers
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -384,6 +584,17 @@ export default function KnowledgeGraphPage() {
 
   const [activeTab, setActiveTab] = useState<"graph" | "hierarchy">("graph");
 
+  // Count edges by type
+  const edgeTypeCounts = useMemo(() => {
+    const counts = { 'co-occurrence': 0, 'semantic': 0, 'other': 0 };
+    edges.forEach(e => {
+      if (e.type === 'co-occurrence') counts['co-occurrence']++;
+      else if (e.type === 'semantic') counts['semantic']++;
+      else counts['other']++;
+    });
+    return counts;
+  }, [edges]);
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -410,6 +621,31 @@ export default function KnowledgeGraphPage() {
               </TabsTrigger>
             </TabsList>
           </Tabs>
+          
+          {/* Export Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={exportMutation.isPending}>
+                {exportMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-1" />
+                )}
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleExport('json')}>
+                <FileJson className="h-4 w-4 mr-2" />
+                Export as JSON
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('csv')}>
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Export as CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4 mr-1" />
             Refresh
@@ -451,6 +687,32 @@ export default function KnowledgeGraphPage() {
                 <SelectItem value="tags">Tags Only</SelectItem>
                 <SelectItem value="files">Files Only</SelectItem>
                 <SelectItem value="entities">Entities Only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Relationship Type</Label>
+            <Select value={relationshipTypeFilter} onValueChange={(v: "all" | "co-occurrence" | "semantic") => setRelationshipTypeFilter(v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  All Types ({edges.length})
+                </SelectItem>
+                <SelectItem value="co-occurrence">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    Co-occurrence ({edgeTypeCounts['co-occurrence']})
+                  </div>
+                </SelectItem>
+                <SelectItem value="semantic">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    Semantic ({edgeTypeCounts['semantic']})
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -514,6 +776,15 @@ export default function KnowledgeGraphPage() {
               />
             </div>
 
+            <div className="flex items-center justify-between">
+              <Label htmlFor="show-clusters">Show Clusters</Label>
+              <Switch
+                id="show-clusters"
+                checked={showClusters}
+                onCheckedChange={setShowClusters}
+              />
+            </div>
+
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Min Connection Strength</Label>
@@ -525,6 +796,20 @@ export default function KnowledgeGraphPage() {
                 min={0}
                 max={1}
                 step={0.1}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Max Nodes (Performance)</Label>
+                <span className="text-sm text-muted-foreground">{maxNodes}</span>
+              </div>
+              <Slider
+                value={[maxNodes]}
+                onValueChange={([v]) => setMaxNodes(v)}
+                min={100}
+                max={2000}
+                step={100}
               />
             </div>
           </div>
@@ -543,12 +828,12 @@ export default function KnowledgeGraphPage() {
                   <div className="text-xs text-muted-foreground">Files</div>
                 </Card>
                 <Card className="p-3">
-                  <div className="text-2xl font-bold">{stats.totalRelationships || 0}</div>
+                  <div className="text-2xl font-bold">{filteredEdges.length}</div>
                   <div className="text-xs text-muted-foreground">Connections</div>
                 </Card>
                 <Card className="p-3">
-                  <div className="text-2xl font-bold">{stats.totalSources || 0}</div>
-                  <div className="text-xs text-muted-foreground">Sources</div>
+                  <div className="text-2xl font-bold">{clusters.length}</div>
+                  <div className="text-xs text-muted-foreground">Clusters</div>
                 </Card>
               </div>
             </div>
@@ -571,6 +856,17 @@ export default function KnowledgeGraphPage() {
                       <span className="text-muted-foreground">Type:</span>
                       <Badge variant="outline" className="capitalize">{selectedNode.type}</Badge>
                     </div>
+                    {selectedNode.cluster !== undefined && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Cluster:</span>
+                        <Badge 
+                          variant="outline"
+                          style={{ borderColor: clusters[selectedNode.cluster]?.color }}
+                        >
+                          {clusters[selectedNode.cluster]?.label}
+                        </Badge>
+                      </div>
+                    )}
                     {selectedNode.source && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Source:</span>
@@ -598,7 +894,7 @@ export default function KnowledgeGraphPage() {
                   <div className="pt-2">
                     <div className="text-xs text-muted-foreground mb-2">Connected to:</div>
                     <div className="flex flex-wrap gap-1">
-                      {edges
+                      {filteredEdges
                         .filter((e) => e.source === selectedNode.id || e.target === selectedNode.id)
                         .slice(0, 10)
                         .map((edge) => {
@@ -626,30 +922,25 @@ export default function KnowledgeGraphPage() {
           <div className="space-y-3 pt-4 border-t">
             <Label className="text-base font-semibold">Legend</Label>
             <div className="space-y-2">
+              <div className="text-xs text-muted-foreground font-medium">Node Types</div>
               <div className="flex items-center gap-2 text-sm">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: SOURCE_COLORS.wikidata }} />
-                <Globe className="h-3 w-3" />
-                <span>Wikidata</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: SOURCE_COLORS.dbpedia }} />
-                <Database className="h-3 w-3" />
-                <span>DBpedia</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: SOURCE_COLORS["schema.org"] }} />
-                <BookOpen className="h-3 w-3" />
-                <span>Schema.org</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: SOURCE_COLORS.llm }} />
-                <Brain className="h-3 w-3" />
-                <span>AI Generated</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: SOURCE_COLORS.manual }} />
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: NODE_TYPE_COLORS.tag }} />
                 <Tag className="h-3 w-3" />
-                <span>Manual</span>
+                <span>Tags</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: NODE_TYPE_COLORS.file }} />
+                <FileText className="h-3 w-3" />
+                <span>Files</span>
+              </div>
+              <div className="text-xs text-muted-foreground font-medium mt-3">Edge Types</div>
+              <div className="flex items-center gap-2 text-sm">
+                <div className="w-6 h-0.5 bg-blue-500" />
+                <span>Co-occurrence</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <div className="w-6 h-0.5 bg-green-500" />
+                <span>Semantic</span>
               </div>
             </div>
           </div>
@@ -734,7 +1025,8 @@ export default function KnowledgeGraphPage() {
               <div className="absolute top-4 left-4">
                 <Badge variant="secondary" className="gap-2">
                   <Info className="h-3 w-3" />
-                  {nodes.length} nodes • {edges.length} connections
+                  {nodes.length} nodes • {filteredEdges.length} connections
+                  {showClusters && ` • ${clusters.length} clusters`}
                 </Badge>
               </div>
             </>

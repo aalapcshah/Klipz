@@ -4812,3 +4812,13 @@ Note: The application already has extensive annotation features including voice 
 - [x] Added getFileTagCoOccurrenceEdges function to calculate tag co-occurrence based on file-tag associations
 - [x] Now showing 875 nodes and 1358 connections based on Jaccard similarity
 - [ ] Fix graph rendering on mobile devices
+
+
+## Phase 101: Knowledge Graph Performance & Export Enhancements
+- [x] Add graph clustering for large graphs (group related nodes)
+- [x] Implement pagination/lazy loading for nodes (max nodes slider)
+- [x] Add relationship type filtering (co-occurrence vs semantic)
+- [x] Add minimum strength threshold slider
+- [x] Implement graph data export as JSON
+- [x] Implement graph data export as CSV
+- [x] Add export button to Knowledge Graph UI

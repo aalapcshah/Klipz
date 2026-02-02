@@ -352,4 +352,99 @@ export const knowledgeGraphRouter = router({
     .query(async ({ ctx, input }) => {
       return await getAllTagRelationshipsForGraph(ctx.user.id, input.minConfidence);
     }),
+
+  /**
+   * Export graph data in JSON or CSV format
+   */
+  exportGraphData: protectedProcedure
+    .input(z.object({
+      format: z.enum(['json', 'csv']),
+      includeFiles: z.boolean().default(true),
+      minSimilarity: z.number().min(0).max(1).default(0.3),
+      relationshipType: z.enum(['all', 'co-occurrence', 'semantic']).default('all'),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Get all tags with their usage counts
+      const tags = await getAllTags(ctx.user.id);
+      
+      // Get tag relationships from the tagRelationships table
+      const tagRelationships = await getTagRelationships(ctx.user.id);
+      
+      // Get files if requested
+      const files = input.includeFiles ? await getFilesForUser(ctx.user.id, { limit: 1000 }) : [];
+      
+      // Get file-tag associations to build co-occurrence edges
+      const fileTagEdges = await getFileTagCoOccurrenceEdges(ctx.user.id, input.minSimilarity);
+      
+      // Build nodes from tags
+      const tagNodes = tags.map((tag: { id: number; name: string; usageCount: number }) => ({
+        id: `tag-${tag.id}`,
+        type: 'tag' as const,
+        label: tag.name,
+        weight: tag.usageCount || 1,
+      }));
+      
+      // Build nodes from files
+      const fileNodes = files.map((file: { id: number; name: string; fileType: string }) => ({
+        id: `file-${file.id}`,
+        type: 'file' as const,
+        label: file.name,
+        weight: 1,
+      }));
+      
+      // Build edges from tag relationships table
+      const storedEdges = tagRelationships.map((rel: { sourceTagId: number; targetTagId: number; similarity: number; relationshipType: string }) => ({
+        source: `tag-${rel.sourceTagId}`,
+        target: `tag-${rel.targetTagId}`,
+        weight: rel.similarity,
+        type: rel.relationshipType || 'semantic',
+      }));
+      
+      // Merge stored edges with co-occurrence edges (deduplicate)
+      const edgeMap = new Map<string, { source: string; target: string; weight: number; type: string }>();
+      
+      for (const edge of storedEdges) {
+        const key = [edge.source, edge.target].sort().join('-');
+        edgeMap.set(key, edge);
+      }
+      
+      for (const edge of fileTagEdges) {
+        const key = [edge.source, edge.target].sort().join('-');
+        const existing = edgeMap.get(key);
+        if (!existing || edge.weight > existing.weight) {
+          edgeMap.set(key, edge);
+        }
+      }
+      
+      // Filter edges by relationship type
+      let edges = Array.from(edgeMap.values());
+      if (input.relationshipType !== 'all') {
+        edges = edges.filter(e => e.type === input.relationshipType);
+      }
+      
+      const nodes = [...tagNodes, ...fileNodes];
+      
+      if (input.format === 'json') {
+        return {
+          format: 'json',
+          data: JSON.stringify({ nodes, edges }, null, 2),
+          filename: `knowledge-graph-${new Date().toISOString().split('T')[0]}.json`,
+        };
+      } else {
+        // CSV format - create two files content: nodes and edges
+        const nodesCSV = 'id,type,label,weight\n' + 
+          nodes.map(n => `"${n.id}","${n.type}","${n.label.replace(/"/g, '""')}",${n.weight}`).join('\n');
+        
+        const edgesCSV = 'source,target,weight,type\n' + 
+          edges.map(e => `"${e.source}","${e.target}",${e.weight.toFixed(4)},"${e.type}"`).join('\n');
+        
+        return {
+          format: 'csv',
+          nodesData: nodesCSV,
+          edgesData: edgesCSV,
+          nodesFilename: `knowledge-graph-nodes-${new Date().toISOString().split('T')[0]}.csv`,
+          edgesFilename: `knowledge-graph-edges-${new Date().toISOString().split('T')[0]}.csv`,
+        };
+      }
+    }),
 });
