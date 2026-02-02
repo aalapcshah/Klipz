@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Upload, Mic, X, Loader2, Sparkles, AlertCircle, FileText, Edit3, RefreshCw, GripVertical } from "lucide-react";
+import { Upload, Mic, X, Loader2, Sparkles, AlertCircle, FileText, Edit3, RefreshCw, GripVertical, Link, Globe } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -34,6 +34,10 @@ import { toast } from "sonner";
 import { uploadFileToStorage, formatFileSize, formatUploadSpeed, formatEta } from "@/lib/storage";
 import exifr from "exifr";
 import { DuplicateDetectionDialog } from "@/components/DuplicateDetectionDialog";
+import { useResumableUpload } from "@/hooks/useResumableUpload";
+
+// Threshold for using resumable uploads (50MB)
+const RESUMABLE_UPLOAD_THRESHOLD = 50 * 1024 * 1024;
 
 interface FileUploadDialogProps {
   open: boolean;
@@ -234,9 +238,41 @@ export function FileUploadDialog({
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [duplicates, setDuplicates] = useState<any[]>([]);
   const [pendingFileHash, setPendingFileHash] = useState<string>("");
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [urlToUpload, setUrlToUpload] = useState("");
+  const [urlValidating, setUrlValidating] = useState(false);
+  const [urlUploading, setUrlUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  
+  // Resumable upload hook for large files
+  const { startUpload: startResumableUpload, sessions: resumableSessions } = useResumableUpload({
+    onComplete: (session, result) => {
+      console.log('[FileUpload] Resumable upload complete:', session.filename, result);
+      toast.success(`${session.filename} uploaded successfully`);
+    },
+    onError: (session, error) => {
+      console.error('[FileUpload] Resumable upload error:', session.filename, error);
+      toast.error(`Failed to upload ${session.filename}: ${error.message}`);
+    },
+    onProgress: (session) => {
+      // Update file progress in the files array
+      setFiles(prev => prev.map(f => 
+        f.file.name === session.filename && f.file.size === session.fileSize
+          ? { 
+              ...f, 
+              uploadProgress: session.progress,
+              uploadedBytes: session.uploadedBytes,
+              uploadSpeed: session.speed,
+              uploadEta: session.eta,
+              uploadStatus: session.status === 'completed' ? 'completed' : 
+                           session.status === 'error' ? 'error' : 'uploading'
+            }
+          : f
+      ));
+    }
+  });
 
   // Metadata templates
   const metadataTemplates = {
@@ -449,6 +485,8 @@ export function FileUploadDialog({
   
   // Knowledge graph auto-tagging
   const getSmartTagsMutation = trpc.knowledgeGraph.getSuggestions.useMutation();
+  const uploadFromUrlMutation = trpc.uploadFromUrl.uploadFromUrl.useMutation();
+  const validateUrlMutation = trpc.uploadFromUrl.validateUrl.useMutation();
   
   // Get metadata suggestions based on file type
   const fileType = files.length > 0 ? files[0].file.type.split('/')[0] : '';
@@ -776,7 +814,33 @@ export function FileUploadDialog({
 
         const fileData = files[i];
         
-        // Update status to uploading
+        // Check if file is large enough to use resumable upload
+        const isLargeFile = fileData.file.size > RESUMABLE_UPLOAD_THRESHOLD;
+        
+        if (isLargeFile) {
+          // Use resumable upload for large files
+          console.log(`[FileUpload] Using resumable upload for large file: ${fileData.file.name} (${formatFileSize(fileData.file.size)})`);
+          updateFileMetadata(i, { uploadStatus: 'uploading', uploadProgress: 0 });
+          
+          try {
+            await startResumableUpload(fileData.file, 'file', {
+              title: fileData.title,
+              description: fileData.description,
+            });
+            
+            // Note: The resumable upload will update progress via the onProgress callback
+            // and mark as complete via onComplete callback
+            // We continue to the next file immediately as resumable uploads run in background
+            continue;
+          } catch (error) {
+            console.error('[FileUpload] Failed to start resumable upload:', error);
+            updateFileMetadata(i, { uploadStatus: 'error' });
+            toast.error(`Failed to start upload for ${fileData.file.name}`);
+            continue;
+          }
+        }
+        
+        // Update status to uploading (for regular uploads)
         updateFileMetadata(i, { uploadStatus: 'uploading', uploadProgress: 0 });
 
         // Track upload progress with real callbacks
@@ -1185,6 +1249,108 @@ export function FileUploadDialog({
           />
         </div>
 
+        {/* Upload from URL Section */}
+        <div className="mt-4">
+          {!showUrlInput ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowUrlInput(true)}
+              className="w-full"
+            >
+              <Globe className="h-4 w-4 mr-2" />
+              Upload from URL
+            </Button>
+          ) : (
+            <div className="border border-border rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2">
+                  <Globe className="h-4 w-4" />
+                  Upload from URL
+                </Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowUrlInput(false);
+                    setUrlToUpload("");
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="https://example.com/image.jpg"
+                  value={urlToUpload}
+                  onChange={(e) => setUrlToUpload(e.target.value)}
+                  disabled={urlUploading}
+                />
+                <Button
+                  onClick={async () => {
+                    if (!urlToUpload.trim()) {
+                      toast.error("Please enter a URL");
+                      return;
+                    }
+                    
+                    setUrlUploading(true);
+                    try {
+                      // First validate the URL
+                      const validation = await validateUrlMutation.mutateAsync({ url: urlToUpload });
+                      
+                      if (!validation.valid) {
+                        toast.error(validation.error || "Invalid URL");
+                        setUrlUploading(false);
+                        return;
+                      }
+                      
+                      if (!validation.isSupported) {
+                        toast.error("Unsupported file type");
+                        setUrlUploading(false);
+                        return;
+                      }
+                      
+                      // Upload the file
+                      const result = await uploadFromUrlMutation.mutateAsync({ url: urlToUpload });
+                      
+                      // Create file record in database
+                      await createFileMutation.mutateAsync({
+                        fileKey: result.fileKey,
+                        url: result.url,
+                        filename: result.filename,
+                        mimeType: result.mimeType,
+                        fileSize: result.fileSize,
+                        title: result.title,
+                        description: result.description,
+                      });
+                      
+                      toast.success(`Uploaded ${result.filename} from URL`);
+                      setUrlToUpload("");
+                      setShowUrlInput(false);
+                      onUploadComplete?.();
+                    } catch (error) {
+                      console.error("URL upload error:", error);
+                      toast.error(error instanceof Error ? error.message : "Failed to upload from URL");
+                    } finally {
+                      setUrlUploading(false);
+                    }
+                  }}
+                  disabled={urlUploading || !urlToUpload.trim()}
+                >
+                  {urlUploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Upload"
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Paste a direct link to an image, video, or document (max 100MB)
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Uploaded Files List */}
         {files.length > 0 && (
           <div className="space-y-4 mt-6 overflow-hidden" style={{ maxWidth: '100%' }}>
@@ -1373,6 +1539,10 @@ export function FileUploadDialog({
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
+                    {/* Position number indicator */}
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex-shrink-0">
+                      {index + 1}
+                    </div>
                     {/* Drag handle */}
                     <DraggableHandle fileId={fileData.id} disabled={uploading} />
                     <Button

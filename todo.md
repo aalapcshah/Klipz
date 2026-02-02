@@ -4765,3 +4765,8 @@ Note: The application already has extensive annotation features including voice 
 - [ ] Wire ResumableUploadsBanner to chunked upload flow for true cross-session persistence
 - [x] Add drag-to-reorder functionality to upload queue
 - [x] Add Pause All and Resume All buttons for bulk upload control
+
+## Upload Improvements - Round 4
+- [x] Route large files (>50MB) through resumable uploads automatically
+- [x] Add upload queue priority indicators (position numbers 1, 2, 3...)
+- [x] Add Upload from URL feature
