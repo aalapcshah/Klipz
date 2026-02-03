@@ -4939,3 +4939,8 @@ Note: The application already has extensive annotation features including voice 
 
 ## Filter Button Layout Fix (Feb 2026)
 - [x] Move Recent, Large, Enrich buttons to same line as Show Filters and Clear on mobile
+
+
+## Filter Button UX Improvements (Feb 2026)
+- [x] Add active state styling to highlight applied filter presets (Recent, Large, Enrich) - buttons now toggle and show filled state when active
+- [x] Combine Filters and Clear into a single dropdown to save horizontal space on mobile

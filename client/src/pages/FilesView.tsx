@@ -286,75 +286,95 @@ export default function FilesView() {
                 </div>
                 {/* Show Filters + Clear + Quick Filter Presets - ALL on same line on mobile */}
                 <div className="flex items-center gap-1 flex-nowrap overflow-x-auto">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFiltersOpen(!filtersOpen)}
-                    className="shrink-0 h-6 text-[10px] px-2 md:h-8 md:text-xs md:px-3"
-                  >
-                    {filtersOpen ? 'Hide' : 'Filters'}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="shrink-0 h-6 text-[10px] px-1.5 md:h-8 md:text-xs md:px-2"
-                    onClick={() => {
-                      setAdvancedFilters({
-                        dateFrom: '',
-                        dateTo: '',
-                        fileSizeMin: 0,
-                        fileSizeMax: 100,
-                        enrichmentStatus: [],
-                        qualityScore: [],
-                      });
-                      toast.success('Filters cleared');
+                  {/* Filters dropdown with Clear option */}
+                  <Select
+                    value=""
+                    onValueChange={(value) => {
+                      if (value === 'toggle') {
+                        setFiltersOpen(!filtersOpen);
+                      } else if (value === 'clear') {
+                        setAdvancedFilters({
+                          dateFrom: '',
+                          dateTo: '',
+                          fileSizeMin: 0,
+                          fileSizeMax: 100,
+                          enrichmentStatus: [],
+                          qualityScore: [],
+                        });
+                        toast.success('Filters cleared');
+                      }
                     }}
                   >
-                    🔄 Clear
-                  </Button>
+                    <SelectTrigger className="shrink-0 h-6 text-[10px] px-2 md:h-8 md:text-xs md:px-3 w-auto min-w-[60px] md:min-w-[80px]">
+                      <span>⚙️ {filtersOpen ? 'Hide' : 'Filter'}</span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="toggle">{filtersOpen ? '🔼 Hide Filters' : '🔽 Show Filters'}</SelectItem>
+                      <SelectItem value="clear">🔄 Clear All Filters</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {/* Quick filter preset buttons with active state */}
                   <Button
-                    variant="outline"
+                    variant={advancedFilters.dateFrom ? 'default' : 'outline'}
                     size="sm"
-                    className="shrink-0 h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3"
+                    className={`shrink-0 h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3 ${advancedFilters.dateFrom ? 'bg-primary text-primary-foreground' : ''}`}
                     onClick={() => {
-                      setAdvancedFilters(prev => ({
-                        ...prev,
-                        dateFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                        dateTo: '',
-                      }));
-                      setFiltersOpen(true);
-                      toast.success('Showing files from last 7 days');
+                      if (advancedFilters.dateFrom) {
+                        // Toggle off if already active
+                        setAdvancedFilters(prev => ({ ...prev, dateFrom: '', dateTo: '' }));
+                        toast.success('Recent filter removed');
+                      } else {
+                        setAdvancedFilters(prev => ({
+                          ...prev,
+                          dateFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                          dateTo: '',
+                        }));
+                        setFiltersOpen(true);
+                        toast.success('Showing files from last 7 days');
+                      }
                     }}
                   >
                     📅 Recent
                   </Button>
                   <Button
-                    variant="outline"
+                    variant={advancedFilters.fileSizeMin > 0 ? 'default' : 'outline'}
                     size="sm"
-                    className="shrink-0 h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3"
+                    className={`shrink-0 h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3 ${advancedFilters.fileSizeMin > 0 ? 'bg-primary text-primary-foreground' : ''}`}
                     onClick={() => {
-                      setAdvancedFilters(prev => ({
-                        ...prev,
-                        fileSizeMin: 10,
-                        fileSizeMax: 100,
-                      }));
-                      setFiltersOpen(true);
-                      toast.success('Showing files larger than 10MB');
+                      if (advancedFilters.fileSizeMin > 0) {
+                        // Toggle off if already active
+                        setAdvancedFilters(prev => ({ ...prev, fileSizeMin: 0, fileSizeMax: 100 }));
+                        toast.success('Large files filter removed');
+                      } else {
+                        setAdvancedFilters(prev => ({
+                          ...prev,
+                          fileSizeMin: 10,
+                          fileSizeMax: 100,
+                        }));
+                        setFiltersOpen(true);
+                        toast.success('Showing files larger than 10MB');
+                      }
                     }}
                   >
                     📦 Large
                   </Button>
                   <Button
-                    variant="outline"
+                    variant={advancedFilters.qualityScore.length > 0 ? 'default' : 'outline'}
                     size="sm"
-                    className="shrink-0 h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3"
+                    className={`shrink-0 h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3 ${advancedFilters.qualityScore.length > 0 ? 'bg-primary text-primary-foreground' : ''}`}
                     onClick={() => {
-                      setAdvancedFilters(prev => ({
-                        ...prev,
-                        qualityScore: ['0-20', '20-40'],
-                      }));
-                      setFiltersOpen(true);
-                      toast.success('Showing files that need enrichment');
+                      if (advancedFilters.qualityScore.length > 0) {
+                        // Toggle off if already active
+                        setAdvancedFilters(prev => ({ ...prev, qualityScore: [] }));
+                        toast.success('Enrich filter removed');
+                      } else {
+                        setAdvancedFilters(prev => ({
+                          ...prev,
+                          qualityScore: ['0-20', '20-40'],
+                        }));
+                        setFiltersOpen(true);
+                        toast.success('Showing files that need enrichment');
+                      }
                     }}
                   >
                     ✨ Enrich
