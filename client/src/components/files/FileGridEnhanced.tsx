@@ -947,11 +947,11 @@ export default function FileGridEnhanced({
   };
 
   const getFileIcon = (mimeType: string) => {
-    if (mimeType.startsWith("image/")) return <FileImage className="h-5 w-5" />;
-    if (mimeType.startsWith("video/")) return <Video className="h-5 w-5" />;
+    if (mimeType.startsWith("image/")) return <FileImage className="h-4 w-4 md:h-5 md:w-5" />;
+    if (mimeType.startsWith("video/")) return <Video className="h-4 w-4 md:h-5 md:w-5" />;
     if (mimeType.includes("pdf") || mimeType.includes("document"))
-      return <FileText className="h-5 w-5" />;
-    return <FileIcon className="h-5 w-5" />;
+      return <FileText className="h-4 w-4 md:h-5 md:w-5" />;
+    return <FileIcon className="h-4 w-4 md:h-5 md:w-5" />;
   };
 
   const formatFileSize = (bytes: number) => {
@@ -1518,9 +1518,9 @@ export default function FileGridEnhanced({
                             src={file.url}
                             alt={file.filename}
                             className={`object-cover rounded border border-border flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity ${
-                              thumbnailSize === 'small' ? 'w-12 h-12' :
-                              thumbnailSize === 'large' ? 'w-24 h-24' :
-                              'w-16 h-16'
+                              thumbnailSize === 'small' ? 'w-8 h-8 md:w-12 md:h-12' :
+                              thumbnailSize === 'large' ? 'w-12 h-12 md:w-24 md:h-24' :
+                              'w-10 h-10 md:w-16 md:h-16'
                             }`}
                             loading="lazy"
                             onClick={(e) => {

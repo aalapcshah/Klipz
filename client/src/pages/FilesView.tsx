@@ -397,6 +397,7 @@ export default function FilesView() {
               <Button
                 variant="outline"
                 size="sm"
+                className="h-7 text-xs px-2 md:h-8 md:text-sm md:px-3"
                 onClick={() => {
                   const currentPageIds = filesData.files.map(f => f.id);
                   setSelectedFileIds(currentPageIds);

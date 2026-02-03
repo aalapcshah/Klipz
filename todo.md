@@ -4873,3 +4873,17 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix checkboxes - added explicit h-4 w-4 sizing to Checkbox component default
 - [x] Make quick filter buttons smaller ("Recent", "Large", "Enrich") and fit on one line with horizontal scroll
 - [x] Move "Clear" button to same line as "Show Filters" on mobile
+
+
+## Phase 108: URGENT Files Tab Mobile UI Fixes
+- [ ] Fix checkbox sizes in file list - currently ~80x60px, need to be 16x16px max
+- [ ] Remove redundant "Search" button on mobile (keep search input only)
+- [ ] Put all filter buttons (Recent, Large, Enrich) on ONE line - no wrapping
+
+
+## Mobile UI Fixes (Feb 2026)
+- [x] Hide redundant Search button on mobile (only visible on md+ screens)
+- [x] Make thumbnail sizes smaller on mobile (w-8/w-10/w-12 instead of w-12/w-16/w-24)
+- [x] Make file icons smaller on mobile (h-4 w-4 instead of h-5 w-5)
+- [x] Make "Select All on This Page" button more compact on mobile
+- [x] Filter buttons already have horizontal scroll and compact sizing

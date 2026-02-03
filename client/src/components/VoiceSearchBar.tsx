@@ -138,7 +138,7 @@ export function VoiceSearchBar({ onSearch, placeholder = "Search files..." }: Vo
         )}
       </Button>
       
-      <Button onClick={handleSearch} disabled={!searchQuery.trim()}>
+      <Button onClick={handleSearch} disabled={!searchQuery.trim()} className="hidden md:flex">
         Search
       </Button>
     </div>
