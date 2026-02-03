@@ -4954,3 +4954,8 @@ Note: The application already has extensive annotation features including voice 
 ## Mobile Files Page Fixes (Feb 2026)
 - [x] Reduce thumbnail/checkbox box size to match file type icon size (now 16x16px icon)
 - [x] Switch order: Files header now comes before filter menu row
+
+
+## URGENT Mobile Fixes (Feb 2026)
+- [x] Remove large thumbnail boxes on mobile - now hidden with `hidden md:flex` class
+- [x] Remove excess vertical space above Files header - reduced main container padding from py-8 to py-2 on mobile

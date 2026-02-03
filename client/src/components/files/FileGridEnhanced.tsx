@@ -1514,8 +1514,8 @@ export default function FileGridEnhanced({
                       }}
                     >
                       <div className="flex items-start gap-2 md:gap-3">
-                        {/* Thumbnail - completely hidden on mobile */}
-                        <div className={`!hidden md:!flex flex-shrink-0 items-center justify-center rounded border border-border bg-muted/50 ${
+                        {/* Thumbnail - only show on desktop (md and up) */}
+                        <div className={`hidden md:flex flex-shrink-0 items-center justify-center rounded border border-border bg-muted/50 ${
                           thumbnailSize === 'small' ? 'w-12 h-12' :
                           thumbnailSize === 'large' ? 'w-24 h-24' :
                           'w-16 h-16'

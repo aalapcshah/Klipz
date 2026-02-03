@@ -387,7 +387,7 @@ export default function Dashboard() {
       <MobileBottomNav />
 
       {/* Main Content */}
-      <main className="container py-8 pb-20 md:pb-8">
+      <main className="container py-2 md:py-8 pb-20 md:pb-8">
         {/* Storage Alert - show on main pages */}
         {(location === "/" || location === "/videos" || location === "/collections") && stats && (
           <div className="mb-6">
