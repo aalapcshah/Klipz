@@ -1300,6 +1300,7 @@ export default function FileGridEnhanced({
             <Checkbox
               checked={selectedFilesSet.size === files.length && files.length > 0}
               onCheckedChange={toggleAll}
+              className="h-4 w-4"
             />
             <span className="text-sm text-muted-foreground">Select All</span>
           </div>

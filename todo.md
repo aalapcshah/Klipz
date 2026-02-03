@@ -4866,3 +4866,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Show current file being processed and percentage complete
 - [x] Add cancel button to stop batch enrichment mid-process
 - [x] Update UI in real-time as each file completes with success/fail indicators
+
+
+## Phase 107: Files Tab Mobile UI Fixes - Batch 2
+- [x] Fix batch processing counter resetting to 0 when leaving/returning to screen - persist progress to localStorage
+- [x] Fix checkboxes - added explicit h-4 w-4 sizing to Checkbox component default
+- [x] Make quick filter buttons smaller ("Recent", "Large", "Enrich") and fit on one line with horizontal scroll
+- [x] Move "Clear" button to same line as "Show Filters" on mobile

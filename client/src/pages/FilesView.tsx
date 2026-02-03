@@ -284,15 +284,35 @@ export default function FilesView() {
                     <List className="h-4 w-4" />
                   </Button>
                 </div>
-                {/* Show Filters Button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setFiltersOpen(!filtersOpen)}
-                  className="shrink-0 h-9"
-                >
-                  {filtersOpen ? 'Hide Filters' : 'Show Filters'}
-                </Button>
+                {/* Show Filters Button + Clear All on same line */}
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFiltersOpen(!filtersOpen)}
+                    className="shrink-0 h-8 text-xs md:h-9 md:text-sm"
+                  >
+                    {filtersOpen ? 'Hide Filters' : 'Show Filters'}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs md:h-9 md:text-sm px-2"
+                    onClick={() => {
+                      setAdvancedFilters({
+                        dateFrom: '',
+                        dateTo: '',
+                        fileSizeMin: 0,
+                        fileSizeMax: 100,
+                        enrichmentStatus: [],
+                        qualityScore: [],
+                      });
+                      toast.success('Filters cleared');
+                    }}
+                  >
+                    🔄 Clear
+                  </Button>
+                </div>
               </div>
             </div>
             
@@ -304,12 +324,12 @@ export default function FilesView() {
               />
             </div>
             
-            {/* Quick Filter Presets */}
-            <div className="flex flex-wrap gap-2">
+            {/* Quick Filter Presets - Compact on mobile, all on one line */}
+            <div className="flex flex-nowrap gap-1 md:gap-2 overflow-x-auto pb-1 -mx-1 px-1">
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs"
+                className="h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3 shrink-0"
                 onClick={() => {
                   setAdvancedFilters(prev => ({
                     ...prev,
@@ -320,12 +340,12 @@ export default function FilesView() {
                   toast.success('Showing files from last 7 days');
                 }}
               >
-                📅 Recent (7 days)
+                📅 Recent
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs"
+                className="h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3 shrink-0"
                 onClick={() => {
                   setAdvancedFilters(prev => ({
                     ...prev,
@@ -336,12 +356,12 @@ export default function FilesView() {
                   toast.success('Showing files larger than 10MB');
                 }}
               >
-                📦 Large files
+                📦 Large
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs"
+                className="h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3 shrink-0"
                 onClick={() => {
                   setAdvancedFilters(prev => ({
                     ...prev,
@@ -351,25 +371,7 @@ export default function FilesView() {
                   toast.success('Showing files that need enrichment');
                 }}
               >
-                ✨ Needs enrichment
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => {
-                  setAdvancedFilters({
-                    dateFrom: '',
-                    dateTo: '',
-                    fileSizeMin: 0,
-                    fileSizeMax: 100,
-                    enrichmentStatus: [],
-                    qualityScore: [],
-                  });
-                  toast.success('Filters cleared');
-                }}
-              >
-                🔄 Clear all
+                ✨ Enrich
               </Button>
             </div>
             

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,52 @@ interface FileProgress {
   status: "pending" | "processing" | "completed" | "failed";
 }
 
+interface EnrichmentState {
+  files: FileProgress[];
+  currentIndex: number;
+  completedCount: number;
+  failedCount: number;
+  isProcessing: boolean;
+  startTime: number;
+}
+
+const STORAGE_KEY = "batchEnrichmentProgress";
+
+// Save state to localStorage
+const saveState = (state: EnrichmentState) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error("Failed to save enrichment state:", e);
+  }
+};
+
+// Load state from localStorage
+const loadState = (): EnrichmentState | null => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const state = JSON.parse(saved);
+      // Only restore if processing started within last 30 minutes
+      if (state.isProcessing && Date.now() - state.startTime < 30 * 60 * 1000) {
+        return state;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to load enrichment state:", e);
+  }
+  return null;
+};
+
+// Clear state from localStorage
+const clearState = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    console.error("Failed to clear enrichment state:", e);
+  }
+};
+
 interface BatchEnrichmentProgressDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -38,15 +84,29 @@ export function BatchEnrichmentProgressDialog({
   const [isCancelled, setIsCancelled] = useState(false);
   const [completedCount, setCompletedCount] = useState(0);
   const [failedCount, setFailedCount] = useState(0);
+  const [isResuming, setIsResuming] = useState(false);
   const cancelledRef = useRef(false);
+  const processingRef = useRef(false);
 
   const utils = trpc.useUtils();
   const { data: allFilesData } = trpc.files.list.useQuery({ page: 1, pageSize: 1000 });
   const enrichFileMutation = trpc.files.enrich.useMutation();
 
-  // Initialize files list when dialog opens
+  // Check for existing progress on mount
   useEffect(() => {
-    if (open && fileIds.length > 0 && allFilesData?.files) {
+    const savedState = loadState();
+    if (savedState && savedState.isProcessing) {
+      setIsResuming(true);
+      setFiles(savedState.files);
+      setCurrentIndex(savedState.currentIndex);
+      setCompletedCount(savedState.completedCount);
+      setFailedCount(savedState.failedCount);
+    }
+  }, []);
+
+  // Initialize files list when dialog opens with new files
+  useEffect(() => {
+    if (open && fileIds.length > 0 && allFilesData?.files && !isResuming) {
       const selectedFiles = allFilesData.files
         .filter((f: any) => fileIds.includes(f.id))
         .map((f: any) => ({
@@ -61,21 +121,29 @@ export function BatchEnrichmentProgressDialog({
       setIsCancelled(false);
       cancelledRef.current = false;
     }
-  }, [open, fileIds, allFilesData]);
+  }, [open, fileIds, allFilesData, isResuming]);
 
-  // Start processing when dialog opens
+  // Start or resume processing when dialog opens
   useEffect(() => {
-    if (open && files.length > 0 && !isProcessing && currentIndex === 0 && completedCount === 0 && failedCount === 0) {
-      processFiles();
+    if (open && files.length > 0 && !processingRef.current) {
+      // Find first pending file to start/resume from
+      const pendingIndex = files.findIndex(f => f.status === "pending" || f.status === "processing");
+      if (pendingIndex >= 0) {
+        processFiles(pendingIndex);
+      }
     }
   }, [open, files.length]);
 
-  const processFiles = async () => {
-    if (files.length === 0) return;
+  const processFiles = useCallback(async (startIndex: number = 0) => {
+    if (files.length === 0 || processingRef.current) return;
     
+    processingRef.current = true;
     setIsProcessing(true);
+    setIsResuming(false);
     
-    for (let i = 0; i < files.length; i++) {
+    const startTime = Date.now();
+    
+    for (let i = startIndex; i < files.length; i++) {
       if (cancelledRef.current) {
         break;
       }
@@ -83,30 +151,81 @@ export function BatchEnrichmentProgressDialog({
       setCurrentIndex(i);
       
       // Update status to processing
-      setFiles(prev => prev.map((f, idx) => 
-        idx === i ? { ...f, status: "processing" } : f
-      ));
+      setFiles(prev => {
+        const updated = prev.map((f, idx) => 
+          idx === i ? { ...f, status: "processing" as const } : f
+        );
+        // Save state to localStorage
+        saveState({
+          files: updated,
+          currentIndex: i,
+          completedCount,
+          failedCount,
+          isProcessing: true,
+          startTime,
+        });
+        return updated;
+      });
       
       try {
         await enrichFileMutation.mutateAsync({ id: files[i].id });
         
         // Update status to completed
-        setFiles(prev => prev.map((f, idx) => 
-          idx === i ? { ...f, status: "completed" } : f
-        ));
-        setCompletedCount(prev => prev + 1);
+        setFiles(prev => {
+          const updated = prev.map((f, idx) => 
+            idx === i ? { ...f, status: "completed" as const } : f
+          );
+          return updated;
+        });
+        setCompletedCount(prev => {
+          const newCount = prev + 1;
+          // Save updated state
+          saveState({
+            files: files.map((f, idx) => 
+              idx === i ? { ...f, status: "completed" as const } : 
+              idx < i ? { ...f, status: f.status === "pending" ? "completed" : f.status } : f
+            ),
+            currentIndex: i + 1,
+            completedCount: newCount,
+            failedCount,
+            isProcessing: true,
+            startTime,
+          });
+          return newCount;
+        });
       } catch (error) {
         console.error(`Failed to enrich file ${files[i].id}:`, error);
         
         // Update status to failed
-        setFiles(prev => prev.map((f, idx) => 
-          idx === i ? { ...f, status: "failed" } : f
-        ));
-        setFailedCount(prev => prev + 1);
+        setFiles(prev => {
+          const updated = prev.map((f, idx) => 
+            idx === i ? { ...f, status: "failed" as const } : f
+          );
+          return updated;
+        });
+        setFailedCount(prev => {
+          const newCount = prev + 1;
+          // Save updated state
+          saveState({
+            files: files.map((f, idx) => 
+              idx === i ? { ...f, status: "failed" as const } : f
+            ),
+            currentIndex: i + 1,
+            completedCount,
+            failedCount: newCount,
+            isProcessing: true,
+            startTime,
+          });
+          return newCount;
+        });
       }
     }
     
+    processingRef.current = false;
     setIsProcessing(false);
+    
+    // Clear saved state when complete
+    clearState();
     
     // Invalidate files list to refresh data
     await utils.files.list.invalidate();
@@ -125,11 +244,12 @@ export function BatchEnrichmentProgressDialog({
     }
     
     onComplete();
-  };
+  }, [files, completedCount, failedCount, enrichFileMutation, utils, onComplete]);
 
   const handleCancel = () => {
     cancelledRef.current = true;
     setIsCancelled(true);
+    clearState();
   };
 
   const handleClose = () => {
@@ -147,11 +267,12 @@ export function BatchEnrichmentProgressDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
             AI Enrichment Progress
+            {isResuming && <span className="text-xs text-muted-foreground">(Resuming)</span>}
           </DialogTitle>
           <DialogDescription>
             Processing {files.length} file(s) with AI analysis
