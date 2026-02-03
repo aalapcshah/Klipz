@@ -217,7 +217,61 @@ export default function FilesView() {
             
             {/* Header Row - Compact on mobile */}
             <div className="flex flex-col gap-1 md:gap-3">
-              {/* Mobile: View Toggle + Filters on first row */}
+              {/* Title and Actions Row - MOVED TO TOP on mobile */}
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-1 md:gap-3">
+                <div className="hidden md:block">
+                  <h1 className="text-2xl md:text-3xl font-bold">Files</h1>
+                  <p className="text-sm text-muted-foreground">
+                    Manage and enrich your media files with AI
+                  </p>
+                </div>
+                {/* Mobile: Compact title */}
+                <div className="md:hidden">
+                  <h1 className="text-lg font-bold">Files</h1>
+                  <p className="text-xs text-muted-foreground">
+                    Manage and enrich your media files with AI
+                  </p>
+                </div>
+                {/* Action Buttons - all in one row */}
+                <div className="flex flex-wrap items-center gap-1 md:gap-2">
+                  {/* Usage Overview - compact inline */}
+                  <UsageOverviewCompact />
+                  <Button variant="outline" size="sm" className="h-7 md:h-9" onClick={() => setShowCleanupWizard(true)}>
+                    <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1" />
+                    <span className="hidden sm:inline">Clean Up</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="h-7 md:h-9"
+                    onClick={() => setCameraDialogOpen(true)}
+                    title="Take Photo"
+                  >
+                    <Camera className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1" />
+                    <span className="hidden sm:inline">Capture</span>
+                  </Button>
+                  <Button id="upload-files-button" size="sm" className="h-7 md:h-9" onClick={() => setUploadDialogOpen(true)}>
+                    <Upload className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1" />
+                    <span className="hidden sm:inline">Upload</span>
+                  </Button>
+                  {/* Voice Commands Button */}
+                  <VoiceCommands
+                    commands={fileCommands}
+                    onSearchCommand={(query) => {
+                      const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+                      if (searchInput) {
+                        searchInput.value = query;
+                        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        searchInput.focus();
+                      }
+                    }}
+                  />
+                  {/* Offline Indicator */}
+                  <OfflineIndicator showDetails />
+                </div>
+              </div>
+              
+              {/* Mobile: View Toggle + Filters - NOW BELOW TITLE */}
               <div className="flex md:hidden items-center gap-1 overflow-x-auto pb-1">
                 {/* View Toggle */}
                 <div className="flex border rounded-md shrink-0">
@@ -328,60 +382,6 @@ export default function FilesView() {
                 >
                   ✨ Enrich
                 </Button>
-              </div>
-              
-              {/* Title and Actions Row */}
-              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-1 md:gap-3">
-                <div className="hidden md:block">
-                  <h1 className="text-2xl md:text-3xl font-bold">Files</h1>
-                  <p className="text-sm text-muted-foreground">
-                    Manage and enrich your media files with AI
-                  </p>
-                </div>
-                {/* Mobile: Compact title */}
-                <div className="md:hidden">
-                  <h1 className="text-lg font-bold">Files</h1>
-                  <p className="text-xs text-muted-foreground">
-                    Manage and enrich your media files with AI
-                  </p>
-                </div>
-                {/* Action Buttons - all in one row */}
-                <div className="flex flex-wrap items-center gap-1 md:gap-2">
-                  {/* Usage Overview - compact inline */}
-                  <UsageOverviewCompact />
-                  <Button variant="outline" size="sm" className="h-7 md:h-9" onClick={() => setShowCleanupWizard(true)}>
-                    <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1" />
-                    <span className="hidden sm:inline">Clean Up</span>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="h-7 md:h-9"
-                    onClick={() => setCameraDialogOpen(true)}
-                    title="Take Photo"
-                  >
-                    <Camera className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1" />
-                    <span className="hidden sm:inline">Capture</span>
-                  </Button>
-                  <Button id="upload-files-button" size="sm" className="h-7 md:h-9" onClick={() => setUploadDialogOpen(true)}>
-                    <Upload className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1" />
-                    <span className="hidden sm:inline">Upload</span>
-                  </Button>
-                  {/* Voice Commands Button */}
-                  <VoiceCommands
-                    commands={fileCommands}
-                    onSearchCommand={(query) => {
-                      const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
-                      if (searchInput) {
-                        searchInput.value = query;
-                        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-                        searchInput.focus();
-                      }
-                    }}
-                  />
-                  {/* Offline Indicator */}
-                  <OfflineIndicator showDetails />
-                </div>
               </div>
               
               {/* Search and Filters Row - Desktop only (mobile has it at top) */}

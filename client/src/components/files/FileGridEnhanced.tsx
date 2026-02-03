@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import React from 'react';
 import { FilePreviewLightbox } from "./FilePreviewLightbox";
 import { FloatingActionBar } from "./FloatingActionBar";
 import { MetadataPopup } from "./MetadataPopup";
@@ -1513,8 +1514,8 @@ export default function FileGridEnhanced({
                       }}
                     >
                       <div className="flex items-start gap-2 md:gap-3">
-                        {/* Thumbnail - hidden on mobile to save space */}
-                        <div className={`hidden md:flex flex-shrink-0 items-center justify-center rounded border border-border bg-muted/50 ${
+                        {/* Thumbnail - completely hidden on mobile */}
+                        <div className={`!hidden md:!flex flex-shrink-0 items-center justify-center rounded border border-border bg-muted/50 ${
                           thumbnailSize === 'small' ? 'w-12 h-12' :
                           thumbnailSize === 'large' ? 'w-24 h-24' :
                           'w-16 h-16'
@@ -1542,9 +1543,9 @@ export default function FileGridEnhanced({
                             </div>
                           )}
                         </div>
-                        {/* Mobile: just show icon */}
-                        <div className="flex md:hidden flex-shrink-0 text-primary">
-                          {getFileIcon(file.mimeType)}
+                        {/* Mobile: just show small icon */}
+                        <div className="flex md:hidden flex-shrink-0 text-primary w-5 h-5">
+                          {React.cloneElement(getFileIcon(file.mimeType) as React.ReactElement, { className: 'w-4 h-4' })}
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="text-sm font-medium truncate">

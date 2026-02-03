@@ -4949,3 +4949,8 @@ Note: The application already has extensive annotation features including voice 
 ## Mobile Layout Optimization (Feb 2026)
 - [x] Move Grid/List toggle and filter buttons to top row on mobile (first row below header)
 - [x] Remove extra vertical space between header and Files section on mobile (reduced padding from p-4 to p-2)
+
+
+## Mobile Files Page Fixes (Feb 2026)
+- [x] Reduce thumbnail/checkbox box size to match file type icon size (now 16x16px icon)
+- [x] Switch order: Files header now comes before filter menu row
