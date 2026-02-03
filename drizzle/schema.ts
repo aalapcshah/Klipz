@@ -94,6 +94,9 @@ export const files = mysqlTable("files", {
   lastAccessedAt: timestamp("lastAccessedAt").defaultNow().notNull(),
   qualityScore: int("qualityScore").default(0), // 0-100 quality score
   
+  // Custom ordering
+  sortOrder: int("sortOrder").default(0).notNull(), // For drag-and-drop reordering
+  
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -582,6 +585,7 @@ export const collectionFiles = mysqlTable("collection_files", {
   id: int("id").autoincrement().primaryKey(),
   collectionId: int("collectionId").notNull(),
   fileId: int("fileId").notNull(),
+  sortOrder: int("sortOrder").default(0).notNull(), // Custom order within collection
   addedAt: timestamp("addedAt").defaultNow().notNull(),
 });
 

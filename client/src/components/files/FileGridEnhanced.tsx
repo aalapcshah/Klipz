@@ -248,6 +248,22 @@ export default function FileGridEnhanced({
     },
   });
 
+  const reorderMutation = trpc.files.reorder.useMutation({
+    onSuccess: () => {
+      utils.files.list.invalidate();
+      toast.success("Files reordered");
+    },
+    onError: (error) => {
+      toast.error("Failed to reorder files");
+      console.error("Reorder error:", error);
+    },
+  });
+
+  // Drag-and-drop reordering state
+  const [isDraggingForReorder, setIsDraggingForReorder] = useState(false);
+  const [draggedReorderFileId, setDraggedReorderFileId] = useState<number | null>(null);
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+
   const [exportMutation, setExportMutation] = useState({ isPending: false });
 
   let files = filesData?.files || [];
@@ -1534,6 +1550,13 @@ export default function FileGridEnhanced({
           </Card>
         )}
 
+        {/* Drag-and-drop hint */}
+        {isDraggingForReorder && (
+          <div className="bg-primary/10 border border-primary/30 rounded-lg p-3 mb-4 text-center">
+            <p className="text-sm text-primary font-medium">🔄 Drag to reorder - Drop on another file to swap positions</p>
+          </div>
+        )}
+
         {/* File Grid */}
         {files.length === 0 ? (
           <Card className="p-12 text-center">
@@ -1547,11 +1570,54 @@ export default function FileGridEnhanced({
             role="grid"
             aria-label="File grid"
           >
-            {files.map((file: any) => {
+            {files.map((file: any, index: number) => {
               const fileCollections = getFileCollections(file.id);
               const isSwipedFile = swipedFileId === file.id;
+              const isDropTarget = dropTargetIndex === index;
+              const isDragged = draggedReorderFileId === file.id;
               return (
-                <div key={file.id} className="relative overflow-hidden">
+                <div 
+                  key={file.id} 
+                  className={`relative overflow-hidden transition-all duration-200 ${
+                    isDropTarget ? "ring-2 ring-primary ring-offset-2" : ""
+                  } ${isDragged ? "opacity-50 scale-95" : ""}`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (draggedReorderFileId !== null && draggedReorderFileId !== file.id) {
+                      setDropTargetIndex(index);
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dropTargetIndex === index) {
+                      setDropTargetIndex(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (draggedReorderFileId !== null && draggedReorderFileId !== file.id) {
+                      // Reorder files
+                      const fileIds = files.map((f: any) => f.id);
+                      const fromIndex = fileIds.indexOf(draggedReorderFileId);
+                      const toIndex = index;
+                      
+                      if (fromIndex !== -1 && fromIndex !== toIndex) {
+                        // Create new order
+                        const newOrder = [...fileIds];
+                        newOrder.splice(fromIndex, 1);
+                        newOrder.splice(toIndex, 0, draggedReorderFileId);
+                        
+                        // Save to backend
+                        reorderMutation.mutate({
+                          fileIds: newOrder,
+                          collectionId: filterCollectionId || undefined,
+                        });
+                      }
+                    }
+                    setDraggedReorderFileId(null);
+                    setDropTargetIndex(null);
+                    setIsDraggingForReorder(false);
+                  }}
+                >
                   {/* Swipe delete button - revealed on swipe */}
                   <div 
                     className="absolute right-0 top-0 bottom-0 w-20 bg-destructive flex items-center justify-center md:hidden"
@@ -1567,18 +1633,27 @@ export default function FileGridEnhanced({
                     </Button>
                   </div>
                   <Card
-                    className={`group p-2 md:p-3 hover:border-primary/50 transition-colors cursor-pointer relative ${
+                    className={`group p-2 md:p-3 hover:border-primary/50 transition-colors cursor-grab active:cursor-grabbing relative ${
                       draggedFileId === file.id ? "opacity-50" : ""
                     } ${isSelectionMode && selectedFilesSet.has(file.id) ? "ring-2 ring-primary bg-primary/10" : ""} ${
                       isSelectionMode && isSwipeSelectingRef.current ? "transition-all duration-100" : ""
-                    }`}
+                    } ${isDraggingForReorder ? "cursor-grabbing" : ""}`}
                     style={{
                       transform: isSwipedFile ? `translateX(-${swipeOffset}px)` : 'translateX(0)',
                       transition: swipeStartXRef.current === null ? 'transform 0.2s ease-out' : 'none'
                     }}
                     draggable
-                    onDragStart={(e) => handleDragStart(e, file.id)}
-                    onDragEnd={handleDragEnd}
+                    onDragStart={(e) => {
+                      handleDragStart(e, file.id);
+                      setDraggedReorderFileId(file.id);
+                      setIsDraggingForReorder(true);
+                    }}
+                    onDragEnd={() => {
+                      handleDragEnd();
+                      setDraggedReorderFileId(null);
+                      setDropTargetIndex(null);
+                      setIsDraggingForReorder(false);
+                    }}
                     onTouchStart={(e) => {
                       handleTouchStart(file.id);
                       if (isSelectionMode) {

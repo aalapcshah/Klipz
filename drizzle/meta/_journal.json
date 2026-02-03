@@ -407,6 +407,13 @@
       "when": 1770108284014,
       "tag": "0057_big_miss_america",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "5",
+      "when": 1770154912727,
+      "tag": "0058_pink_professor_monster",
+      "breakpoints": true
     }
   ]
 }

@@ -250,6 +250,39 @@ export async function updateFile(fileId: number, updates: Partial<InsertFile>) {
   await db.update(files).set(updates).where(eq(files.id, fileId));
 }
 
+/**
+ * Update sort order for files (drag-and-drop reordering)
+ */
+export async function updateFileSortOrder(fileIds: number[], collectionId?: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Update sort order for each file based on position in array
+  for (let i = 0; i < fileIds.length; i++) {
+    const fileId = fileIds[i];
+    const sortOrder = i;
+    
+    if (collectionId) {
+      // Update sort order in collection_files junction table
+      await db
+        .update(collectionFiles)
+        .set({ sortOrder })
+        .where(
+          and(
+            eq(collectionFiles.fileId, fileId),
+            eq(collectionFiles.collectionId, collectionId)
+          )
+        );
+    } else {
+      // Update sort order in files table directly
+      await db
+        .update(files)
+        .set({ sortOrder })
+        .where(eq(files.id, fileId));
+    }
+  }
+}
+
 export async function deleteFile(fileId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

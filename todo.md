@@ -4981,3 +4981,22 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add visual feedback during swipe (color change, animation)
 - [x] Support continuous swipe selection across multiple tiles
 - [x] Test swipe gestures on mobile viewport
+
+
+## Drag-and-Drop File Reordering - Feb 2026
+- [ ] Add sortOrder field to files table for custom ordering
+- [ ] Create backend API endpoint for updating file order
+- [ ] Implement drag-and-drop UI with visual indicators
+- [ ] Add drop zone highlighting during drag
+- [ ] Persist order changes to database
+- [ ] Test drag-and-drop on desktop and mobile
+
+
+## Drag-and-Drop File Reordering - Feb 2026
+- [x] Add sortOrder column to files table
+- [x] Add sortOrder column to collection_files table
+- [x] Create backend API for updating file order (files.reorder mutation)
+- [x] Implement drag-and-drop UI in FileGridEnhanced
+- [x] Add visual feedback during drag (opacity, ring highlight)
+- [x] Add drag hint banner when dragging
+- [x] Test drag-and-drop functionality

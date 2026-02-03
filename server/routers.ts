@@ -1197,6 +1197,30 @@ export const appRouter = router({
         
         return { transcript: result.text };
       }),
+
+    // Reorder files (drag-and-drop)
+    reorder: protectedProcedure
+      .input(z.object({
+        fileIds: z.array(z.number()), // Array of file IDs in new order
+        collectionId: z.number().optional(), // If reordering within a collection
+      }))
+      .mutation(async ({ input, ctx }) => {
+        // Verify all files belong to user
+        for (const fileId of input.fileIds) {
+          const file = await db.getFileById(fileId);
+          if (!file || file.userId !== ctx.user.id) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: `File ${fileId} not found`,
+            });
+          }
+        }
+        
+        // Update sort order for each file
+        await db.updateFileSortOrder(input.fileIds, input.collectionId);
+        
+        return { success: true };
+      }),
   }),
 
   // ============= TAGS ROUTER =============
