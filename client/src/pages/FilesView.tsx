@@ -284,20 +284,20 @@ export default function FilesView() {
                     <List className="h-4 w-4" />
                   </Button>
                 </div>
-                {/* Show Filters Button + Clear All on same line */}
-                <div className="flex items-center gap-1">
+                {/* Show Filters + Clear + Quick Filter Presets - ALL on same line on mobile */}
+                <div className="flex items-center gap-1 flex-nowrap overflow-x-auto">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setFiltersOpen(!filtersOpen)}
-                    className="shrink-0 h-8 text-xs md:h-9 md:text-sm"
+                    className="shrink-0 h-6 text-[10px] px-2 md:h-8 md:text-xs md:px-3"
                   >
-                    {filtersOpen ? 'Hide Filters' : 'Show Filters'}
+                    {filtersOpen ? 'Hide' : 'Filters'}
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 text-xs md:h-9 md:text-sm px-2"
+                    className="shrink-0 h-6 text-[10px] px-1.5 md:h-8 md:text-xs md:px-2"
                     onClick={() => {
                       setAdvancedFilters({
                         dateFrom: '',
@@ -312,6 +312,53 @@ export default function FilesView() {
                   >
                     🔄 Clear
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3"
+                    onClick={() => {
+                      setAdvancedFilters(prev => ({
+                        ...prev,
+                        dateFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        dateTo: '',
+                      }));
+                      setFiltersOpen(true);
+                      toast.success('Showing files from last 7 days');
+                    }}
+                  >
+                    📅 Recent
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3"
+                    onClick={() => {
+                      setAdvancedFilters(prev => ({
+                        ...prev,
+                        fileSizeMin: 10,
+                        fileSizeMax: 100,
+                      }));
+                      setFiltersOpen(true);
+                      toast.success('Showing files larger than 10MB');
+                    }}
+                  >
+                    📦 Large
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3"
+                    onClick={() => {
+                      setAdvancedFilters(prev => ({
+                        ...prev,
+                        qualityScore: ['0-20', '20-40'],
+                      }));
+                      setFiltersOpen(true);
+                      toast.success('Showing files that need enrichment');
+                    }}
+                  >
+                    ✨ Enrich
+                  </Button>
                 </div>
               </div>
             </div>
@@ -322,57 +369,6 @@ export default function FilesView() {
                 onSearch={(results) => setSearchResults(results)}
                 placeholder="Search files with voice or text..."
               />
-            </div>
-            
-            {/* Quick Filter Presets - Compact on mobile, all on one line */}
-            <div className="flex flex-nowrap gap-1 md:gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3 shrink-0"
-                onClick={() => {
-                  setAdvancedFilters(prev => ({
-                    ...prev,
-                    dateFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                    dateTo: '',
-                  }));
-                  setFiltersOpen(true);
-                  toast.success('Showing files from last 7 days');
-                }}
-              >
-                📅 Recent
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3 shrink-0"
-                onClick={() => {
-                  setAdvancedFilters(prev => ({
-                    ...prev,
-                    fileSizeMin: 10,
-                    fileSizeMax: 100,
-                  }));
-                  setFiltersOpen(true);
-                  toast.success('Showing files larger than 10MB');
-                }}
-              >
-                📦 Large
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3 shrink-0"
-                onClick={() => {
-                  setAdvancedFilters(prev => ({
-                    ...prev,
-                    qualityScore: ['0-20', '20-40'],
-                  }));
-                  setFiltersOpen(true);
-                  toast.success('Showing files that need enrichment');
-                }}
-              >
-                ✨ Enrich
-              </Button>
             </div>
             
             {searchResults && (

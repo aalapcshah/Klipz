@@ -4935,3 +4935,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Hide labels by default on mobile to reduce clutter (show on hover/tap)
 - [x] Larger node sizes on mobile (1.5x scale) for better touch targets
 - [x] Truncate long labels on mobile (max 12 chars + ...)
+
+
+## Filter Button Layout Fix (Feb 2026)
+- [x] Move Recent, Large, Enrich buttons to same line as Show Filters and Clear on mobile
