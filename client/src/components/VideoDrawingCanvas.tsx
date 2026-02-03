@@ -1146,14 +1146,16 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
             </div>
             <input
               type="range"
-              min="1"
+              min="0.1"
               max="30"
+              step="0.1"
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
             />
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>1s</span>
+              <span>0.1s</span>
+              <span>{duration.toFixed(1)}s</span>
               <span>30s</span>
             </div>
           </div>

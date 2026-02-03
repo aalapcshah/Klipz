@@ -5000,3 +5000,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add visual feedback during drag (opacity, ring highlight)
 - [x] Add drag hint banner when dragging
 - [x] Test drag-and-drop functionality
+
+
+## Bug Fixes - Display Options & Duration Slider - Feb 2026
+- [x] Fix Knowledge Graph Min Strength slider not working (now filters edges by minimum weight)
+- [x] Fix Knowledge Graph Max Nodes slider not working (now limits visible nodes)
+- [x] Fix Knowledge Graph Node Type filter not working (now filters by tag/file/entity)
+- [x] Fix Knowledge Graph Knowledge Source filter not working (now filters by source)
+- [x] Fix Video annotations duration slider to use 0.1s increments instead of 1s

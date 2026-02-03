@@ -564,17 +564,52 @@ export default function KnowledgeGraphPage() {
     }
   }, [graphData, showClusters]);
 
-  // Filter edges by relationship type
+  // Filter edges by relationship type and minimum weight
   const filteredEdges = useMemo(() => {
-    if (relationshipTypeFilter === 'all') return edges;
-    return edges.filter(e => e.type === relationshipTypeFilter);
-  }, [edges, relationshipTypeFilter]);
+    let filtered = edges;
+    
+    // Filter by relationship type
+    if (relationshipTypeFilter !== 'all') {
+      filtered = filtered.filter(e => e.type === relationshipTypeFilter);
+    }
+    
+    // Filter by minimum edge weight
+    filtered = filtered.filter(e => e.weight >= minEdgeWeight);
+    
+    return filtered;
+  }, [edges, relationshipTypeFilter, minEdgeWeight]);
 
-  // Filter nodes by focused cluster
+  // Filter nodes by focused cluster, node type, and max nodes limit
   const visibleNodes = useMemo(() => {
-    if (focusedCluster === null) return nodes;
-    return nodes.filter(n => n.cluster === focusedCluster);
-  }, [nodes, focusedCluster]);
+    let filtered = nodes;
+    
+    // Filter by node type
+    if (nodeFilter !== 'all') {
+      filtered = filtered.filter(n => {
+        if (nodeFilter === 'tags') return n.type === 'tag';
+        if (nodeFilter === 'files') return n.type === 'file';
+        if (nodeFilter === 'entities') return n.type === 'entity';
+        return true;
+      });
+    }
+    
+    // Filter by source
+    if (sourceFilter !== 'all') {
+      filtered = filtered.filter(n => n.source === sourceFilter || n.type === 'file');
+    }
+    
+    // Filter by focused cluster
+    if (focusedCluster !== null) {
+      filtered = filtered.filter(n => n.cluster === focusedCluster);
+    }
+    
+    // Limit to maxNodes
+    if (filtered.length > maxNodes) {
+      filtered = filtered.slice(0, maxNodes);
+    }
+    
+    return filtered;
+  }, [nodes, focusedCluster, nodeFilter, sourceFilter, maxNodes]);
 
   // Force-directed layout simulation
   useEffect(() => {
