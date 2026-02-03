@@ -157,6 +157,11 @@ export default function FileGridEnhanced({
   const [swipedFileId, setSwipedFileId] = useState<number | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const swipeStartXRef = useRef<number | null>(null);
+  const swipeStartYRef = useRef<number | null>(null);
+  const isSwipeSelectingRef = useRef(false);
+  const swipeSelectStartFileRef = useRef<number | null>(null);
+  const lastSwipeSelectedFileRef = useRef<number | null>(null);
+  const swipeSelectDirectionRef = useRef<'select' | 'deselect' | null>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const deletedFilesRef = useRef<DeletedFile[]>([]);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -509,6 +514,95 @@ export default function FileGridEnhanced({
   const resetSwipe = () => {
     setSwipeOffset(0);
     setSwipedFileId(null);
+  };
+
+  // Swipe-to-select handlers for mobile multi-selection
+  const handleSwipeSelectStart = (e: React.TouchEvent, fileId: number) => {
+    // Only enable swipe-select in selection mode
+    if (!isSelectionMode) return;
+    
+    swipeStartXRef.current = e.touches[0].clientX;
+    swipeStartYRef.current = e.touches[0].clientY;
+    swipeSelectStartFileRef.current = fileId;
+    lastSwipeSelectedFileRef.current = fileId;
+    
+    // Determine direction based on current selection state
+    const isCurrentlySelected = selectedFilesSet.has(fileId);
+    swipeSelectDirectionRef.current = isCurrentlySelected ? 'deselect' : 'select';
+  };
+
+  const handleSwipeSelectMove = (e: React.TouchEvent, fileId: number) => {
+    if (!isSelectionMode || swipeStartXRef.current === null || swipeStartYRef.current === null) return;
+    
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    const diffX = Math.abs(currentX - swipeStartXRef.current);
+    const diffY = Math.abs(currentY - swipeStartYRef.current);
+    
+    // Only activate swipe selection if horizontal movement is greater than vertical
+    // This prevents accidental selection while scrolling
+    if (diffX > 20 && diffX > diffY * 1.5) {
+      isSwipeSelectingRef.current = true;
+      e.preventDefault(); // Prevent scrolling while swiping to select
+    }
+    
+    // If we're in swipe-select mode and this is a different file than last selected
+    if (isSwipeSelectingRef.current && fileId !== lastSwipeSelectedFileRef.current) {
+      lastSwipeSelectedFileRef.current = fileId;
+      
+      // Apply selection based on direction
+      setSelectedFiles((prev) => {
+        const newSet = new Set(prev);
+        if (swipeSelectDirectionRef.current === 'select') {
+          newSet.add(fileId);
+        } else {
+          newSet.delete(fileId);
+        }
+        return newSet;
+      });
+      
+      // Haptic feedback if available
+      if (navigator.vibrate) {
+        navigator.vibrate(10);
+      }
+    }
+  };
+
+  const handleSwipeSelectEnd = () => {
+    if (isSwipeSelectingRef.current) {
+      // Show toast with selection count
+      const count = selectedFilesSet.size;
+      if (count > 0) {
+        toast.info(`${count} file${count > 1 ? 's' : ''} selected`);
+      }
+    }
+    
+    // Reset all swipe-select refs
+    swipeStartXRef.current = null;
+    swipeStartYRef.current = null;
+    isSwipeSelectingRef.current = false;
+    swipeSelectStartFileRef.current = null;
+    lastSwipeSelectedFileRef.current = null;
+    swipeSelectDirectionRef.current = null;
+  };
+
+  // Get file at touch position for swipe selection
+  const getFileAtTouchPosition = (touch: React.Touch): number | null => {
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!element) return null;
+    
+    // Find the closest gridcell parent
+    const gridCell = element.closest('[role="gridcell"]');
+    if (!gridCell) return null;
+    
+    // Extract file ID from aria-label or data attribute
+    const ariaLabel = gridCell.getAttribute('aria-label');
+    if (ariaLabel) {
+      const filename = ariaLabel.replace('File: ', '');
+      const file = files.find((f: any) => f.filename === filename);
+      return file?.id || null;
+    }
+    return null;
   };
 
   const toggleAll = () => {
@@ -1160,11 +1254,19 @@ export default function FileGridEnhanced({
         {/* Batch Actions Toolbar */}
         {selectedFilesSet.size > 0 && (
           <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-medium">
-                  {selectedFilesSet.size} selected
-                </span>
+            <div className="flex flex-col gap-2">
+              {/* Mobile swipe hint */}
+              {isSelectionMode && (
+                <div className="md:hidden text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded flex items-center gap-1">
+                  <span>💡</span>
+                  <span>Swipe horizontally across files to quickly select or deselect multiple items</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium">
+                    {selectedFilesSet.size} selected
+                  </span>
                 <Button
                   variant="outline"
                   size="sm"
@@ -1294,6 +1396,7 @@ export default function FileGridEnhanced({
               >
                 {isSelectionMode ? "Exit Selection" : "Clear Selection"}
               </Button>
+            </div>
             </div>
           </Card>
         )}
@@ -1466,7 +1569,9 @@ export default function FileGridEnhanced({
                   <Card
                     className={`group p-2 md:p-3 hover:border-primary/50 transition-colors cursor-pointer relative ${
                       draggedFileId === file.id ? "opacity-50" : ""
-                    } ${isSelectionMode && selectedFilesSet.has(file.id) ? "ring-2 ring-primary" : ""}`}
+                    } ${isSelectionMode && selectedFilesSet.has(file.id) ? "ring-2 ring-primary bg-primary/10" : ""} ${
+                      isSelectionMode && isSwipeSelectingRef.current ? "transition-all duration-100" : ""
+                    }`}
                     style={{
                       transform: isSwipedFile ? `translateX(-${swipeOffset}px)` : 'translateX(0)',
                       transition: swipeStartXRef.current === null ? 'transform 0.2s ease-out' : 'none'
@@ -1476,15 +1581,32 @@ export default function FileGridEnhanced({
                     onDragEnd={handleDragEnd}
                     onTouchStart={(e) => {
                       handleTouchStart(file.id);
-                      handleSwipeStart(e, file.id);
+                      if (isSelectionMode) {
+                        handleSwipeSelectStart(e, file.id);
+                      } else {
+                        handleSwipeStart(e, file.id);
+                      }
                     }}
                     onTouchEnd={() => {
                       handleTouchEnd();
-                      handleSwipeEnd();
+                      if (isSelectionMode) {
+                        handleSwipeSelectEnd();
+                      } else {
+                        handleSwipeEnd();
+                      }
                     }}
                     onTouchMove={(e) => {
                       handleTouchMove();
-                      handleSwipeMove(e);
+                      if (isSelectionMode) {
+                        // Get file at current touch position for continuous selection
+                        const touch = e.touches[0];
+                        const fileAtPosition = getFileAtTouchPosition(touch);
+                        if (fileAtPosition !== null) {
+                          handleSwipeSelectMove(e, fileAtPosition);
+                        }
+                      } else {
+                        handleSwipeMove(e);
+                      }
                     }}
                     onClick={() => {
                       if (isSwipedFile && swipeOffset > 0) {

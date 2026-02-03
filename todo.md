@@ -4973,3 +4973,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix search functionality error - improved error handling with toast notifications and fallback local search
 - [x] Add "Active" badge to filter toggle when filters are applied
 - [x] Improve filter layout on mobile with 2-column grid
+
+
+## Mobile Swipe Gestures - Feb 2026
+- [x] Add touch event handling for swipe gestures on file tiles
+- [x] Implement swipe-to-select functionality (swipe right to select, left to deselect)
+- [x] Add visual feedback during swipe (color change, animation)
+- [x] Support continuous swipe selection across multiple tiles
+- [x] Test swipe gestures on mobile viewport
