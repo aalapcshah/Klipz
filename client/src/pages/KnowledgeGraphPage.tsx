@@ -369,15 +369,22 @@ export default function KnowledgeGraphPage() {
     }
   }, [historyIndex, viewHistory]);
 
-  // Detect mobile viewport
+  // Detect mobile viewport and set mobile-optimized defaults
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      // Set mobile-optimized defaults on first load
+      if (mobile && maxNodes === 500) {
+        setMaxNodes(100); // Fewer nodes on mobile for better performance
+        setShowLabels(false); // Hide labels by default on mobile to reduce clutter
+        setShowClusters(true); // Show clusters to help organize the view
+      }
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  }, [maxNodes]);
 
   // Fetch graph data
   const { data: graphData, isLoading, refetch, error } = trpc.knowledgeGraph.getGraphData.useQuery(
@@ -574,6 +581,8 @@ export default function KnowledgeGraphPage() {
     if (visibleNodes.length === 0) return;
 
     let isRunning = true;
+    // Mobile: use stronger repulsion for better spacing
+    const repulsionStrength = isMobile ? 1200 : 500;
 
     const simulate = () => {
       if (!isRunning) return;
@@ -590,7 +599,7 @@ export default function KnowledgeGraphPage() {
           const node = newNodes[i];
           if (!node.x || !node.y || !visibleNodeIds.has(node.id)) continue;
 
-          // Repulsion from other nodes
+          // Repulsion from other nodes - stronger on mobile for better spacing
           for (let j = i + 1; j < newNodes.length; j++) {
             const other = newNodes[j];
             if (!other.x || !other.y || !visibleNodeIds.has(other.id)) continue;
@@ -598,7 +607,7 @@ export default function KnowledgeGraphPage() {
             const dx = node.x - other.x;
             const dy = node.y - other.y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            const force = 500 / (dist * dist);
+            const force = repulsionStrength / (dist * dist);
 
             node.vx = (node.vx || 0) + (dx / dist) * force;
             node.vy = (node.vy || 0) + (dy / dist) * force;
@@ -648,7 +657,7 @@ export default function KnowledgeGraphPage() {
       isRunning = false;
       cancelAnimationFrame(animationRef.current);
     };
-  }, [visibleNodes.length, filteredEdges, focusedCluster]);
+  }, [visibleNodes.length, filteredEdges, focusedCluster, isMobile]);
 
   // Canvas rendering
   useEffect(() => {
@@ -711,25 +720,30 @@ export default function KnowledgeGraphPage() {
           }
         });
         
-        const padding = 40;
+        // Mobile: larger padding and fonts for better visibility
+        const padding = isMobile ? 60 : 40;
+        const clusterLabelSize = isMobile ? 18 : 14;
+        const clusterSubtitleSize = isMobile ? 14 : 11;
+        
         ctx.beginPath();
         ctx.roundRect(minX - padding, minY - padding, maxX - minX + padding * 2, maxY - minY + padding * 2, 20);
-        ctx.fillStyle = cluster.color + "15";
+        ctx.fillStyle = cluster.color + "20"; // Slightly more visible background
         ctx.fill();
-        ctx.strokeStyle = cluster.color + "40";
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = cluster.color + "60"; // More visible border
+        ctx.lineWidth = isMobile ? 3 : 2;
         ctx.stroke();
         
-        // Draw smart cluster label
+        // Draw smart cluster label - larger on mobile
         ctx.fillStyle = cluster.color;
-        ctx.font = "bold 14px sans-serif";
-        ctx.fillText(cluster.label, minX - padding + 10, minY - padding + 20);
+        ctx.font = `bold ${clusterLabelSize}px sans-serif`;
+        ctx.fillText(cluster.label, minX - padding + 10, minY - padding + (isMobile ? 24 : 20));
         
-        // Draw dominant tags as subtitle
+        // Draw dominant tags as subtitle - larger on mobile
         if (cluster.dominantTags.length > 0) {
-          ctx.fillStyle = cluster.color + "80";
-          ctx.font = "11px sans-serif";
-          ctx.fillText(cluster.dominantTags.slice(0, 3).join(", "), minX - padding + 10, minY - padding + 36);
+          ctx.fillStyle = cluster.color + "90"; // Better contrast
+          ctx.font = `${clusterSubtitleSize}px sans-serif`;
+          const subtitleY = minY - padding + (isMobile ? 46 : 36);
+          ctx.fillText(cluster.dominantTags.slice(0, 3).join(", "), minX - padding + 10, subtitleY);
         }
         
         // Update cluster center for click detection
@@ -779,6 +793,10 @@ export default function KnowledgeGraphPage() {
     }
 
     // Draw nodes with highlighting and file type indicators
+    // Mobile: use larger nodes for better touch targets
+    const mobileNodeScale = isMobile ? 1.5 : 1;
+    const mobileFontSize = isMobile ? 14 : 12;
+    
     filteredNodes.forEach((node) => {
       if (!node.x || !node.y) return;
 
@@ -786,7 +804,8 @@ export default function KnowledgeGraphPage() {
       const isHovered = hoveredNode?.id === node.id;
       const isHighlighted = highlightedNodeIds.has(node.id);
       const isConnectedToHighlighted = connectedToHighlightedIds.has(node.id);
-      const size = node.size || 15;
+      const baseSize = node.size || 15;
+      const size = baseSize * mobileNodeScale;
 
       // Determine node opacity based on search
       let nodeOpacity = 1;
@@ -859,20 +878,22 @@ export default function KnowledgeGraphPage() {
         ctx.fillText(iconLetter, indicatorX, indicatorY);
       }
 
-      // Node label
+      // Node label - larger font on mobile for better readability
       if (showLabels || isHovered || isHighlighted) {
         ctx.globalAlpha = nodeOpacity;
         ctx.fillStyle = isHighlighted ? "#FFD700" : "#fff";
-        ctx.font = `${isHovered || isHighlighted ? "bold " : ""}12px sans-serif`;
+        ctx.font = `${isHovered || isHighlighted ? "bold " : ""}${mobileFontSize}px sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        ctx.fillText(node.label, node.x, node.y + size + 5);
+        // Truncate long labels on mobile
+        const displayLabel = isMobile && node.label.length > 15 ? node.label.slice(0, 12) + '...' : node.label;
+        ctx.fillText(displayLabel, node.x, node.y + size + 5);
         ctx.globalAlpha = 1;
       }
     });
 
     ctx.restore();
-  }, [nodes, filteredEdges, selectedNode, hoveredNode, zoom, offset, showLabels, showEdges, showClusters, showFileTypeIndicators, minEdgeWeight, nodeFilter, sourceFilter, searchQuery, clusters, maxNodes, highlightedNodeIds, connectedToHighlightedIds, visibleNodes, focusedCluster]);
+  }, [nodes, filteredEdges, selectedNode, hoveredNode, zoom, offset, showLabels, showEdges, showClusters, showFileTypeIndicators, minEdgeWeight, nodeFilter, sourceFilter, searchQuery, clusters, maxNodes, highlightedNodeIds, connectedToHighlightedIds, visibleNodes, focusedCluster, isMobile]);
 
   // Mouse event handlers with error handling
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {

@@ -4919,3 +4919,19 @@ Note: The application already has extensive annotation features including voice 
 - [x] PullToRefresh component already exists with haptic feedback
 - [x] Component integrated in FilesView page
 - [ ] Test pull-to-refresh on mobile devices
+
+
+## Mobile UI Fixes - Priority (Feb 2026)
+- [x] Hide Search button on mobile (VoiceSearchBar component) - already has `hidden md:flex`
+- [x] Hide thumbnail boxes on mobile, show only file icons (FileGridEnhanced)
+- [x] Filter buttons (Recent, Large, Enrich) already fit on one line with compact sizing
+
+
+## Knowledge Graph Mobile Improvements (Feb 2026)
+- [x] Reduce node density on mobile (maxNodes 100 vs 500 on desktop)
+- [x] Increase spacing between nodes (repulsion strength 1200 vs 500)
+- [x] Improve label visibility (larger fonts: 14px vs 12px for nodes, 18px vs 14px for clusters)
+- [x] Enable clusters by default on mobile for better organization
+- [x] Hide labels by default on mobile to reduce clutter (show on hover/tap)
+- [x] Larger node sizes on mobile (1.5x scale) for better touch targets
+- [x] Truncate long labels on mobile (max 12 chars + ...)

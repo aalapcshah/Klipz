@@ -1512,32 +1512,38 @@ export default function FileGridEnhanced({
                         }
                       }}
                     >
-                      <div className="flex items-start gap-3">
-                        {file.mimeType?.startsWith('image/') ? (
-                          <img
-                            src={file.url}
-                            alt={file.filename}
-                            className={`object-cover rounded border border-border flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity ${
-                              thumbnailSize === 'small' ? 'w-8 h-8 md:w-12 md:h-12' :
-                              thumbnailSize === 'large' ? 'w-12 h-12 md:w-24 md:h-24' :
-                              'w-10 h-10 md:w-16 md:h-16'
-                            }`}
-                            loading="lazy"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const index = files.findIndex((f: any) => f.id === file.id);
-                              setLightboxIndex(index);
-                              setLightboxOpen(true);
-                            }}
-                            onError={(e) => {
-                              // Fallback to icon if image fails to load
-                              e.currentTarget.style.display = 'none';
-                              const iconDiv = e.currentTarget.nextElementSibling as HTMLElement;
-                              if (iconDiv) iconDiv.style.display = 'block';
-                            }}
-                          />
-                        ) : null}
-                        <div className="text-primary" style={{ display: file.mimeType?.startsWith('image/') ? 'none' : 'block' }}>
+                      <div className="flex items-start gap-2 md:gap-3">
+                        {/* Thumbnail - hidden on mobile to save space */}
+                        <div className={`hidden md:flex flex-shrink-0 items-center justify-center rounded border border-border bg-muted/50 ${
+                          thumbnailSize === 'small' ? 'w-12 h-12' :
+                          thumbnailSize === 'large' ? 'w-24 h-24' :
+                          'w-16 h-16'
+                        }`}>
+                          {file.mimeType?.startsWith('image/') ? (
+                            <img
+                              src={file.url}
+                              alt={file.filename}
+                              className="w-full h-full object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
+                              loading="lazy"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const index = files.findIndex((f: any) => f.id === file.id);
+                                setLightboxIndex(index);
+                                setLightboxOpen(true);
+                              }}
+                              onError={(e) => {
+                                // Hide broken image
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          ) : (
+                            <div className="text-primary">
+                              {getFileIcon(file.mimeType)}
+                            </div>
+                          )}
+                        </div>
+                        {/* Mobile: just show icon */}
+                        <div className="flex md:hidden flex-shrink-0 text-primary">
                           {getFileIcon(file.mimeType)}
                         </div>
                         <div className="flex-1 min-w-0">
