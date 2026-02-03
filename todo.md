@@ -4959,3 +4959,17 @@ Note: The application already has extensive annotation features including voice 
 ## URGENT Mobile Fixes (Feb 2026)
 - [x] Remove large thumbnail boxes on mobile - now hidden with `hidden md:flex` class
 - [x] Remove excess vertical space above Files header - reduced main container padding from py-8 to py-2 on mobile
+
+
+## Critical Mobile Fixes (Feb 2026)
+- [ ] Fix search functionality error - "Search failed. Please try again."
+- [ ] Make filter/sort menus collapsible on mobile (Filter by Collection, File Type, Tag Source, Sort By, Quality, Thumbnail)
+- [ ] Restore file selection checkboxes visibility on mobile
+
+
+## Mobile UI Bug Fixes - Feb 2026
+- [x] Fix checkbox visibility on mobile - checkboxes now always visible with proper sizing
+- [x] Make filter/sort dropdowns collapsible on mobile - added toggle button with "Filters & Sort" label
+- [x] Fix search functionality error - improved error handling with toast notifications and fallback local search
+- [x] Add "Active" badge to filter toggle when filters are applied
+- [x] Improve filter layout on mobile with 2-column grid

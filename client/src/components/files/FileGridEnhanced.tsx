@@ -26,7 +26,15 @@ import {
   X,
   Download,
   PenLine,
+  ChevronDown,
+  ChevronUp,
+  Filter,
 } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import JSZip from "jszip";
 import { toast } from "sonner";
 import {
@@ -145,6 +153,7 @@ export default function FileGridEnhanced({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [swipedFileId, setSwipedFileId] = useState<number | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const swipeStartXRef = useRef<number | null>(null);
@@ -979,156 +988,171 @@ export default function FileGridEnhanced({
     <div className="flex gap-6">
       {/* Main Content */}
       <div className="flex-1 space-y-4">
-        {/* Filters and Sort */}
-        <div className="grid grid-cols-2 md:flex md:items-center gap-3 md:gap-4">
-          {/* Collection Filter */}
-          <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">Filter by Collection:</label>
-          <Select
-            value={filterCollectionId?.toString() || "all"}
-            onValueChange={(value) => {
-              if (value === "all") setFilterCollectionId(null);
-              else if (value === "none") setFilterCollectionId(-1);
-              else if (value === "create") setCreateCollectionDialogOpen(true);
-              else setFilterCollectionId(parseInt(value));
-            }}
+        {/* Filters and Sort - Mobile: Collapsible, Desktop: Always visible */}
+        {/* Mobile Filter Toggle Button */}
+        <div className="md:hidden">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full h-8 justify-between"
+            onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
           >
-            <SelectTrigger className="w-[200px] bg-card">
-              <SelectValue placeholder="All Collections" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Collections</SelectItem>
-              <SelectItem value="none">No Collection</SelectItem>
-              {collections?.map((collection: any) => (
-                <SelectItem key={collection.id} value={collection.id.toString()}>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: collection.color || "#6366f1" }}
-                    />
-                    {collection.name}
-                  </div>
-                </SelectItem>
-              ))}
-              <SelectItem value="create">
-                <div className="flex items-center gap-2 text-primary font-medium">
-                  <Plus className="h-4 w-4" />
-                  Create New Collection
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          {filterCollectionId !== null && (
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              <span className="text-xs">Filters & Sort</span>
+              {(sortBy !== "date" || filterType !== "all" || filterTagSource !== "all" || filterQualityScore !== "all" || filterCollectionId !== null) && (
+                <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full">
+                  Active
+                </span>
+              )}
+            </div>
+            {mobileFiltersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+        </div>
+        
+        {/* Filter Content - Collapsible on mobile, always visible on desktop */}
+        <div className={`${mobileFiltersOpen ? 'block' : 'hidden'} md:block`}>
+          <div className="grid grid-cols-2 md:flex md:items-center gap-2 md:gap-4 p-2 md:p-0 bg-muted/30 md:bg-transparent rounded-lg md:rounded-none">
+            {/* Collection Filter */}
+            <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2">
+              <label className="text-xs md:text-sm font-medium">Collection:</label>
+              <Select
+                value={filterCollectionId?.toString() || "all"}
+                onValueChange={(value) => {
+                  if (value === "all") setFilterCollectionId(null);
+                  else if (value === "none") setFilterCollectionId(-1);
+                  else if (value === "create") setCreateCollectionDialogOpen(true);
+                  else setFilterCollectionId(parseInt(value));
+                }}
+              >
+                <SelectTrigger className="h-8 md:h-9 w-full md:w-[180px] bg-card text-xs md:text-sm">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Collections</SelectItem>
+                  <SelectItem value="none">No Collection</SelectItem>
+                  {collections?.map((collection: any) => (
+                    <SelectItem key={collection.id} value={collection.id.toString()}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: collection.color || "#6366f1" }}
+                        />
+                        {collection.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="create">
+                    <div className="flex items-center gap-2 text-primary font-medium">
+                      <Plus className="h-4 w-4" />
+                      Create New
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* File Type Filter */}
+            <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2">
+              <label className="text-xs md:text-sm font-medium">Type:</label>
+              <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
+                <SelectTrigger className="h-8 md:h-9 w-full md:w-[130px] bg-card text-xs md:text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="image">Images</SelectItem>
+                  <SelectItem value="video">Videos</SelectItem>
+                  <SelectItem value="document">Documents</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Tag Source Filter */}
+            <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2">
+              <label className="text-xs md:text-sm font-medium">Tags:</label>
+              <Select value={filterTagSource} onValueChange={(value: any) => setFilterTagSource(value)}>
+                <SelectTrigger className="h-8 md:h-9 w-full md:w-[130px] bg-card text-xs md:text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Tags</SelectItem>
+                  <SelectItem value="manual">Manual</SelectItem>
+                  <SelectItem value="ai">AI Generated</SelectItem>
+                  <SelectItem value="voice">Voice</SelectItem>
+                  <SelectItem value="metadata">From Metadata</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sort By */}
+            <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2">
+              <label className="text-xs md:text-sm font-medium">Sort:</label>
+              <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                <SelectTrigger className="h-8 md:h-9 w-full md:w-[130px] bg-card text-xs md:text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">Date Added</SelectItem>
+                  <SelectItem value="size">File Size</SelectItem>
+                  <SelectItem value="enrichment">Enrichment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Quality Score Filter */}
+            <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2">
+              <label className="text-xs md:text-sm font-medium">Quality:</label>
+              <Select value={filterQualityScore} onValueChange={(value: any) => setFilterQualityScore(value)}>
+                <SelectTrigger className="h-8 md:h-9 w-full md:w-[130px] bg-card text-xs md:text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Files</SelectItem>
+                  <SelectItem value="high">High (80%+)</SelectItem>
+                  <SelectItem value="medium">Medium (50-79%)</SelectItem>
+                  <SelectItem value="low">Low (&lt;50%)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Thumbnail Size - Hidden on mobile */}
+            <div className="hidden md:flex md:items-center gap-2">
+              <label className="text-sm font-medium">Thumbnail:</label>
+              <Select value={thumbnailSize} onValueChange={(value: 'small' | 'medium' | 'large') => {
+                setThumbnailSize(value);
+                localStorage.setItem('thumbnailSize', value);
+              }}>
+                <SelectTrigger className="w-[100px] bg-card">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="small">Small</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="large">Large</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Reset Filters Button */}
+            {(sortBy !== "date" || filterType !== "all" || filterTagSource !== "all" || filterQualityScore !== "all" || filterCollectionId !== null) && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCollectionDialogOpen(true)}
-                aria-label={`Add ${selectedFilesSet.size} selected files to collection`}
+                className="h-8 text-xs col-span-2 md:col-span-1"
+                onClick={() => {
+                  setSortBy("date");
+                  setFilterType("all");
+                  setFilterTagSource("all");
+                  setFilterQualityScore("all");
+                  setFilterCollectionId(null);
+                  toast.info("Filters reset to defaults");
+                }}
               >
-              Clear Filter
-            </Button>
-          )}
+                Reset Filters
+              </Button>
+            )}
           </div>
-
-          {/* File Type Filter */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">File Type:</label>
-            <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
-              <SelectTrigger className="w-[150px] bg-card">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="image">Images</SelectItem>
-                <SelectItem value="video">Videos</SelectItem>
-                <SelectItem value="document">Documents</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Tag Source Filter */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Tag Source:</label>
-            <Select value={filterTagSource} onValueChange={(value: any) => setFilterTagSource(value)}>
-              <SelectTrigger className="w-[150px] bg-card">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Tags</SelectItem>
-                <SelectItem value="manual">Manual</SelectItem>
-                <SelectItem value="ai">AI Generated</SelectItem>
-                <SelectItem value="voice">Voice</SelectItem>
-                <SelectItem value="metadata">From Metadata</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Sort By */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Sort By:</label>
-            <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-              <SelectTrigger className="w-[150px] bg-card">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date">Date Added</SelectItem>
-                <SelectItem value="size">File Size</SelectItem>
-                <SelectItem value="enrichment">Enrichment Status</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Quality Score Filter */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Quality:</label>
-            <Select value={filterQualityScore} onValueChange={(value: any) => setFilterQualityScore(value)}>
-              <SelectTrigger className="w-[150px] bg-card">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Files</SelectItem>
-                <SelectItem value="high">High (80%+)</SelectItem>
-                <SelectItem value="medium">Medium (50-79%)</SelectItem>
-                <SelectItem value="low">Low (&lt;50%)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Thumbnail Size */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Thumbnail:</label>
-            <Select value={thumbnailSize} onValueChange={(value: 'small' | 'medium' | 'large') => {
-              setThumbnailSize(value);
-              localStorage.setItem('thumbnailSize', value);
-            }}>
-              <SelectTrigger className="w-[120px] bg-card">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="small">Small</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="large">Large</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Reset Filters Button */}
-          {(sortBy !== "date" || filterType !== "all" || filterTagSource !== "all" || filterQualityScore !== "all" || filterCollectionId !== null) && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSortBy("date");
-                setFilterType("all");
-                setFilterTagSource("all");
-                setFilterQualityScore("all");
-                setFilterCollectionId(null);
-                toast.info("Filters reset to defaults");
-              }}
-            >
-              Reset Filters
-            </Button>
-          )}
         </div>
 
 
@@ -1487,21 +1511,21 @@ export default function FileGridEnhanced({
                     <X className="h-4 w-4" />
                   </Button>
                   <div className="flex items-start gap-1 md:gap-3">
-                    {/* Checkbox - hidden on mobile unless in selection mode, selected, or compare mode */}
-                    <div className={`flex-shrink-0 ${compareMode || isSelectionMode || selectedFilesSet.has(file.id) ? 'block' : 'hidden md:block'}`}>
+                    {/* Checkbox - always visible, smaller on mobile */}
+                    <div className="flex-shrink-0 flex items-center justify-center w-5 h-5 md:w-6 md:h-6">
                       {compareMode ? (
                         <Checkbox
                           checked={compareFiles.includes(file.id)}
                           onCheckedChange={() => toggleCompareFile(file.id)}
                           onClick={(e) => e.stopPropagation()}
-                          className="w-3 h-3 md:w-4 md:h-4"
+                          className="w-4 h-4"
                         />
                       ) : (
                         <Checkbox
                           checked={selectedFilesSet.has(file.id)}
                           onCheckedChange={() => toggleFile(file.id)}
                           onClick={(e) => e.stopPropagation()}
-                          className="w-3 h-3 md:w-4 md:h-4"
+                          className="w-4 h-4"
                         />
                       )}
                     </div>
@@ -1544,8 +1568,10 @@ export default function FileGridEnhanced({
                           )}
                         </div>
                         {/* Mobile: just show small icon */}
-                        <div className="flex md:hidden flex-shrink-0 text-primary w-5 h-5">
-                          {React.cloneElement(getFileIcon(file.mimeType) as React.ReactElement, { className: 'w-4 h-4' })}
+                        <div className="flex md:hidden flex-shrink-0 text-primary">
+                          <div className="w-4 h-4">
+                            {getFileIcon(file.mimeType)}
+                          </div>
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="text-sm font-medium truncate">
