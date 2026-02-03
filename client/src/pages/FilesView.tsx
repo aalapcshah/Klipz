@@ -191,7 +191,7 @@ export default function FilesView() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <div 
           ref={scrollContainerRef}
-          className="p-4 md:p-6 space-y-4 overflow-y-auto overflow-x-hidden"
+          className="p-2 md:p-6 space-y-2 md:space-y-4 overflow-y-auto overflow-x-hidden"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -211,39 +211,160 @@ export default function FilesView() {
               {isPulling ? '↓ Release to refresh' : '↓ Pull to refresh'}
             </div>
           )}
-          <div className="space-y-4">
+          <div className="space-y-2 md:space-y-4">
             {/* Resumable Uploads Banner */}
             <ResumableUploadsBanner onUploadComplete={() => utils.files.list.invalidate()} />
             
-            {/* Header Row */}
-            <div className="flex flex-col gap-3">
+            {/* Header Row - Compact on mobile */}
+            <div className="flex flex-col gap-1 md:gap-3">
+              {/* Mobile: View Toggle + Filters on first row */}
+              <div className="flex md:hidden items-center gap-1 overflow-x-auto pb-1">
+                {/* View Toggle */}
+                <div className="flex border rounded-md shrink-0">
+                  <Button
+                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                    className="rounded-r-none h-7 px-2"
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'list' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                    className="rounded-l-none h-7 px-2"
+                  >
+                    <List className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                {/* Filters dropdown with Clear option */}
+                <Select
+                  value=""
+                  onValueChange={(value) => {
+                    if (value === 'toggle') {
+                      setFiltersOpen(!filtersOpen);
+                    } else if (value === 'clear') {
+                      setAdvancedFilters({
+                        dateFrom: '',
+                        dateTo: '',
+                        fileSizeMin: 0,
+                        fileSizeMax: 100,
+                        enrichmentStatus: [],
+                        qualityScore: [],
+                      });
+                      toast.success('Filters cleared');
+                    }
+                  }}
+                >
+                  <SelectTrigger className="shrink-0 h-7 text-[10px] px-2 w-auto min-w-[55px]">
+                    <span>⚙️ {filtersOpen ? 'Hide' : 'Filter'}</span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="toggle">{filtersOpen ? '🔼 Hide Filters' : '🔽 Show Filters'}</SelectItem>
+                    <SelectItem value="clear">🔄 Clear All Filters</SelectItem>
+                  </SelectContent>
+                </Select>
+                {/* Quick filter preset buttons */}
+                <Button
+                  variant={advancedFilters.dateFrom ? 'default' : 'outline'}
+                  size="sm"
+                  className={`shrink-0 h-7 text-[10px] px-2 ${advancedFilters.dateFrom ? 'bg-primary text-primary-foreground' : ''}`}
+                  onClick={() => {
+                    if (advancedFilters.dateFrom) {
+                      setAdvancedFilters(prev => ({ ...prev, dateFrom: '', dateTo: '' }));
+                      toast.success('Recent filter removed');
+                    } else {
+                      setAdvancedFilters(prev => ({
+                        ...prev,
+                        dateFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        dateTo: '',
+                      }));
+                      setFiltersOpen(true);
+                      toast.success('Showing files from last 7 days');
+                    }
+                  }}
+                >
+                  📅 Recent
+                </Button>
+                <Button
+                  variant={advancedFilters.fileSizeMin > 0 ? 'default' : 'outline'}
+                  size="sm"
+                  className={`shrink-0 h-7 text-[10px] px-2 ${advancedFilters.fileSizeMin > 0 ? 'bg-primary text-primary-foreground' : ''}`}
+                  onClick={() => {
+                    if (advancedFilters.fileSizeMin > 0) {
+                      setAdvancedFilters(prev => ({ ...prev, fileSizeMin: 0, fileSizeMax: 100 }));
+                      toast.success('Large files filter removed');
+                    } else {
+                      setAdvancedFilters(prev => ({
+                        ...prev,
+                        fileSizeMin: 10,
+                        fileSizeMax: 100,
+                      }));
+                      setFiltersOpen(true);
+                      toast.success('Showing files larger than 10MB');
+                    }
+                  }}
+                >
+                  📦 Large
+                </Button>
+                <Button
+                  variant={advancedFilters.qualityScore.length > 0 ? 'default' : 'outline'}
+                  size="sm"
+                  className={`shrink-0 h-7 text-[10px] px-2 ${advancedFilters.qualityScore.length > 0 ? 'bg-primary text-primary-foreground' : ''}`}
+                  onClick={() => {
+                    if (advancedFilters.qualityScore.length > 0) {
+                      setAdvancedFilters(prev => ({ ...prev, qualityScore: [] }));
+                      toast.success('Enrich filter removed');
+                    } else {
+                      setAdvancedFilters(prev => ({
+                        ...prev,
+                        qualityScore: ['0-20', '20-40'],
+                      }));
+                      setFiltersOpen(true);
+                      toast.success('Showing files that need enrichment');
+                    }
+                  }}
+                >
+                  ✨ Enrich
+                </Button>
+              </div>
+              
               {/* Title and Actions Row */}
-              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-                <div>
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-1 md:gap-3">
+                <div className="hidden md:block">
                   <h1 className="text-2xl md:text-3xl font-bold">Files</h1>
                   <p className="text-sm text-muted-foreground">
                     Manage and enrich your media files with AI
                   </p>
                 </div>
+                {/* Mobile: Compact title */}
+                <div className="md:hidden">
+                  <h1 className="text-lg font-bold">Files</h1>
+                  <p className="text-xs text-muted-foreground">
+                    Manage and enrich your media files with AI
+                  </p>
+                </div>
                 {/* Action Buttons - all in one row */}
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1 md:gap-2">
                   {/* Usage Overview - compact inline */}
                   <UsageOverviewCompact />
-                  <Button variant="outline" size="sm" onClick={() => setShowCleanupWizard(true)}>
-                    <Trash2 className="h-4 w-4 mr-1" />
+                  <Button variant="outline" size="sm" className="h-7 md:h-9" onClick={() => setShowCleanupWizard(true)}>
+                    <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1" />
                     <span className="hidden sm:inline">Clean Up</span>
                   </Button>
                   <Button 
                     variant="outline" 
-                    size="sm" 
+                    size="sm"
+                    className="h-7 md:h-9"
                     onClick={() => setCameraDialogOpen(true)}
                     title="Take Photo"
                   >
-                    <Camera className="h-4 w-4 mr-1" />
+                    <Camera className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1" />
                     <span className="hidden sm:inline">Capture</span>
                   </Button>
-                  <Button id="upload-files-button" size="sm" onClick={() => setUploadDialogOpen(true)}>
-                    <Upload className="h-4 w-4 mr-1" />
+                  <Button id="upload-files-button" size="sm" className="h-7 md:h-9" onClick={() => setUploadDialogOpen(true)}>
+                    <Upload className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1" />
                     <span className="hidden sm:inline">Upload</span>
                   </Button>
                   {/* Voice Commands Button */}
@@ -263,8 +384,8 @@ export default function FilesView() {
                 </div>
               </div>
               
-              {/* Search and Filters Row */}
-              <div className="flex flex-col sm:flex-row gap-2">
+              {/* Search and Filters Row - Desktop only (mobile has it at top) */}
+              <div className="hidden md:flex flex-col sm:flex-row gap-2">
                 {/* View Toggle */}
                 <div className="flex border rounded-md shrink-0">
                   <Button

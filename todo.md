@@ -4944,3 +4944,8 @@ Note: The application already has extensive annotation features including voice 
 ## Filter Button UX Improvements (Feb 2026)
 - [x] Add active state styling to highlight applied filter presets (Recent, Large, Enrich) - buttons now toggle and show filled state when active
 - [x] Combine Filters and Clear into a single dropdown to save horizontal space on mobile
+
+
+## Mobile Layout Optimization (Feb 2026)
+- [x] Move Grid/List toggle and filter buttons to top row on mobile (first row below header)
+- [x] Remove extra vertical space between header and Files section on mobile (reduced padding from p-4 to p-2)
