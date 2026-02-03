@@ -4887,3 +4887,35 @@ Note: The application already has extensive annotation features including voice 
 - [x] Make file icons smaller on mobile (h-4 w-4 instead of h-5 w-5)
 - [x] Make "Select All on This Page" button more compact on mobile
 - [x] Filter buttons already have horizontal scroll and compact sizing
+
+
+## Batch Enrichment Progress Persistence
+- [ ] Create enrichment_jobs table to track batch enrichment progress
+- [ ] Implement server-side job tracking for batch enrichment
+- [ ] Update frontend to poll/subscribe to job progress
+- [ ] Ensure progress persists when user leaves and returns to the screen
+- [ ] Test batch enrichment progress persistence
+
+## Pull-to-Refresh for Mobile
+- [ ] Implement pull-to-refresh gesture for Files view on mobile
+- [ ] Add visual feedback during refresh (spinner, animation)
+- [ ] Trigger data refetch on pull-to-refresh
+- [ ] Test pull-to-refresh on mobile devices
+
+
+## Server-Side Enrichment Job Tracking (Feb 2026)
+- [x] Create enrichment_jobs database table
+- [x] Create enrichmentJobs router with CRUD operations
+- [x] Implement create job procedure
+- [x] Implement getStatus procedure for polling
+- [x] Implement cancel job procedure
+- [x] Implement getHistory procedure
+- [x] Register router in main routers.ts
+- [ ] Integrate with frontend BatchEnrichmentProgressDialog
+- [ ] Add polling UI for job status
+- [ ] Test job persistence across page navigation
+
+## Pull-to-Refresh Enhancement (Feb 2026)
+- [x] PullToRefresh component already exists with haptic feedback
+- [x] Component integrated in FilesView page
+- [ ] Test pull-to-refresh on mobile devices

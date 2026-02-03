@@ -1,0 +1,17 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS enrichment_jobs (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  userId INT NOT NULL,\n  status ENUM('pending', 'processing', 'completed', 'cancelled', 'failed') DEFAULT 'pending' NOT NULL,\n  totalFiles INT NOT NULL,\n  completedFiles INT DEFAULT 0 NOT NULL,\n  failedFiles INT DEFAULT 0 NOT NULL,\n  currentFileId INT,\n  fileIds JSON NOT NULL,\n  processedFileIds JSON DEFAULT ('[]'),\n  failedFileIds JSON DEFAULT ('[]'),\n  startedAt TIMESTAMP NULL,\n  completedAt TIMESTAMP NULL,\n  lastError TEXT,\n  createdAt TIMESTAMP DEFAULT NOW() NOT NULL,\n  updatedAt TIMESTAMP DEFAULT NOW() ON UPDATE CURRENT_TIMESTAMP NOT NULL,\n  INDEX enrichment_jobs_user_id_idx (userId),\n  INDEX enrichment_jobs_status_idx (status)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute CREATE TABLE IF NOT EXISTS enrichment_jobs (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  userId INT NOT NULL,\n  status ENUM('pending', 'processing', 'completed', 'cancelled', 'failed') DEFAULT 'pending' NOT NULL,\n  totalFiles INT NOT NULL,\n  completedFiles INT DEFAULT 0 NOT NULL,\n  failedFiles INT DEFAULT 0 NOT NULL,\n  currentFileId INT,\n  fileIds JSON NOT NULL,\n  processedFileIds JSON DEFAULT ('[]'),\n  failedFileIds JSON DEFAULT ('[]'),\n  startedAt TIMESTAMP NULL,\n  completedAt TIMESTAMP NULL,\n  lastError TEXT,\n  createdAt TIMESTAMP DEFAULT NOW() NOT NULL,\n  updatedAt TIMESTAMP DEFAULT NOW() ON UPDATE CURRENT_TIMESTAMP NOT NULL,\n  INDEX enrichment_jobs_user_id_idx (userId),\n  INDEX enrichment_jobs_status_idx (status)\n);",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1064 (42000) at line 1: You have an error in your SQL syntax; check the manual that corresponds to your TiDB version for the right syntax to use line 10 column 38 near \"'[]'),",
+    "  failedFileIds JSON DEFAULT ('[]'),",
+    "  startedAt TIMESTAMP NULL,",
+    "  completedAt TIMESTAMP NULL,",
+    "  lastError TEXT,",
+    "  createdAt TIMESTAMP DEFAULT NOW() NOT NULL,",
+    "  updatedAt TIMESTAMP DEFAULT NOW() ON UPDATE CURRENT_TIMESTAMP NOT NULL,",
+    "  INDEX enrichment_jobs_user_id_idx (userId),",
+    "  INDEX enrichment_jobs_status_idx (status)",
+    ")\""
+  ]
+}

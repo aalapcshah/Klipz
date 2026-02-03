@@ -46,6 +46,7 @@ import { knowledgeGraphRouter } from "./routers/knowledgeGraph";
 import { resumableUploadRouter } from "./routers/resumableUpload";
 import { uploadFromUrlRouter } from "./routers/uploadFromUrl";
 import { socialMediaExtractRouter } from "./routers/socialMediaExtract";
+import { enrichmentJobsRouter } from "./routers/enrichmentJobs";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { sendUploadEmail, sendEditEmail, sendDeleteEmail, sendEnrichEmail } from "./_core/activityEmailNotifications";
 import { TRPCError } from "@trpc/server";
@@ -63,6 +64,7 @@ import { eq, and } from "drizzle-orm";
 export const appRouter = router({
   uploadFromUrl: uploadFromUrlRouter,
   socialMediaExtract: socialMediaExtractRouter,
+  enrichmentJobs: enrichmentJobsRouter,
   resumableUpload: resumableUploadRouter,
   knowledgeGraph: knowledgeGraphRouter,
   musicLibrary: musicLibraryRouter,

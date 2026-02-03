@@ -1714,3 +1714,37 @@ export const resumableUploadChunksRelations = relations(resumableUploadChunks, (
     references: [resumableUploadSessions.id],
   }),
 }));
+
+// ============================================================================
+// Enrichment Jobs - Server-side batch enrichment tracking
+// ============================================================================
+
+export const enrichmentJobs = mysqlTable("enrichment_jobs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  status: mysqlEnum("status", ["pending", "processing", "completed", "failed", "cancelled"]).default("pending").notNull(),
+  totalFiles: int("totalFiles").default(0).notNull(),
+  completedFiles: int("completedFiles").default(0).notNull(),
+  failedFiles: int("failedFiles").default(0).notNull(),
+  fileIds: json("fileIds").$type<number[]>().notNull(),
+  processedFileIds: json("processedFileIds").$type<number[]>(),
+  failedFileIds: json("failedFileIds").$type<number[]>(),
+  currentFileId: int("currentFileId"),
+  lastError: text("lastError"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  startedAt: timestamp("startedAt"),
+  completedAt: timestamp("completedAt"),
+}, (table) => ({
+  userIdIndex: index("enrichment_jobs_user_id_idx").on(table.userId),
+  statusIndex: index("enrichment_jobs_status_idx").on(table.status),
+}));
+
+export type EnrichmentJob = typeof enrichmentJobs.$inferSelect;
+export type InsertEnrichmentJob = typeof enrichmentJobs.$inferInsert;
+
+export const enrichmentJobsRelations = relations(enrichmentJobs, ({ one }) => ({
+  user: one(users, {
+    fields: [enrichmentJobs.userId],
+    references: [users.id],
+  }),
+}));
