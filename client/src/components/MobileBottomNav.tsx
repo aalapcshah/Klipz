@@ -1,4 +1,4 @@
-import { FileIcon, VideoIcon, FolderIcon, Search, Upload } from "lucide-react";
+import { FileIcon, VideoIcon, FolderIcon, Upload } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { triggerHaptic } from "@/lib/haptics";
 
@@ -11,7 +11,6 @@ export function MobileBottomNav({ onUploadClick }: MobileBottomNavProps) {
 
   const navItems = [
     { href: "/", label: "Files", icon: FileIcon },
-    { href: "/search", label: "Search", icon: Search },
     { href: "/videos", label: "Videos", icon: VideoIcon },
     { href: "/collections", label: "Collections", icon: FolderIcon },
   ];

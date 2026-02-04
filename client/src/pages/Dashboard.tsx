@@ -106,7 +106,6 @@ export default function Dashboard() {
 
   const mainNavItems = [
     { href: "/", label: "Files", icon: FileIcon },
-    { href: "/search", label: "Search", icon: SearchIcon },
     { href: "/videos", label: "Videos", icon: VideoIcon },
     { href: "/collections", label: "Collections", icon: FolderIcon },
   ];

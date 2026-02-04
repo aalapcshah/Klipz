@@ -611,20 +611,38 @@ export default function KnowledgeGraphPage() {
     return filtered;
   }, [nodes, focusedCluster, nodeFilter, sourceFilter, maxNodes]);
 
-  // Force-directed layout simulation
+  // Force-directed layout simulation with stabilization
+  const [isSimulationStable, setIsSimulationStable] = useState(false);
+  const simulationFrameCount = useRef(0);
+  
   useEffect(() => {
     if (visibleNodes.length === 0) return;
 
     let isRunning = true;
+    simulationFrameCount.current = 0;
+    setIsSimulationStable(false);
+    
     // Mobile: use stronger repulsion for better spacing
     const repulsionStrength = isMobile ? 1200 : 500;
+    const maxFrames = 300; // Stop after ~5 seconds at 60fps
+    const stabilityThreshold = 0.1; // Velocity threshold for stability
 
     const simulate = () => {
       if (!isRunning) return;
       
+      simulationFrameCount.current++;
+      
+      // Stop simulation after max frames to prevent infinite updates
+      if (simulationFrameCount.current > maxFrames) {
+        setIsSimulationStable(true);
+        return;
+      }
+      
       const width = containerRef.current?.clientWidth || 800;
       const height = containerRef.current?.clientHeight || 600;
 
+      let totalVelocity = 0;
+      
       setNodes((prevNodes) => {
         const newNodes = [...prevNodes];
         const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
@@ -675,6 +693,9 @@ export default function KnowledgeGraphPage() {
           node.y = (node.y ?? 0) + (node.vy || 0) * 0.1;
           node.vx = (node.vx || 0) * 0.9;
           node.vy = (node.vy || 0) * 0.9;
+          
+          // Track total velocity for stability check
+          totalVelocity += Math.abs(node.vx || 0) + Math.abs(node.vy || 0);
 
           // Boundary constraints
           node.x = Math.max(50, Math.min(width - 50, node.x ?? 0));
@@ -683,6 +704,13 @@ export default function KnowledgeGraphPage() {
 
         return newNodes;
       });
+
+      // Check for stability - if total velocity is very low, stop simulation
+      const avgVelocity = totalVelocity / Math.max(1, visibleNodes.length);
+      if (avgVelocity < stabilityThreshold && simulationFrameCount.current > 60) {
+        setIsSimulationStable(true);
+        return;
+      }
 
       animationRef.current = requestAnimationFrame(simulate);
     };

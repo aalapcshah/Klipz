@@ -44,7 +44,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
-      <Route path="/search" component={Dashboard} />
       <Route path="/videos" component={Dashboard} />
       <Route path="/collections" component={Dashboard} />
       <Route path="/analytics" component={Dashboard} />

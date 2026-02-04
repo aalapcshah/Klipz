@@ -1,4 +1,4 @@
-# MetaClips MVP - Development TODO
+# Klipz MVP - Development TODO
 
 ## Phase 1: Database Schema & Core Models
 - [x] Design files table with metadata fields
@@ -5072,3 +5072,17 @@ Note: The application already has extensive annotation features including voice 
 ## Bug Fixes - Feb 2026
 - [x] Fix counter resetting when switching browser tabs (disabled refetchOnWindowFocus in QueryClient)
 - [x] Fix video annotation access from Recently Recorded section (auto-link videos without fileId when clicked)
+
+
+## Bug Fixes - Feb 4, 2026 (Session 2)
+- [ ] Replace "MetaClips" with "Klipz" in all internal documentation
+- [ ] Fix Upload from URL not working for YouTube, TikTok, Instagram links
+- [ ] Fix Knowledge Graph search box graying out immediately after clicking
+- [ ] Remove non-working Search page from navigation completely
+
+
+## Bug Fixes - Feb 4, 2026 (Session 2)
+- [x] Replace MetaClips with Klipz in internal documentation (todo.md header)
+- [x] Fix Upload from URL for YouTube/TikTok/Instagram links (added social media extraction)
+- [x] Fix Knowledge Graph search box graying out/losing focus (added simulation stabilization)
+- [x] Remove non-working Search page from navigation (removed from Dashboard and MobileBottomNav)
