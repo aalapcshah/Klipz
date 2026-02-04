@@ -321,12 +321,15 @@ export default function FileGridEnhanced({
       files = files.filter((file: any) => new Date(file.createdAt) <= toDate);
     }
 
-    // File size filter (convert MB to bytes)
-    const minBytes = advancedFilters.fileSizeMin * 1024 * 1024;
-    const maxBytes = advancedFilters.fileSizeMax * 1024 * 1024;
-    files = files.filter((file: any) => {
-      return file.fileSize >= minBytes && file.fileSize <= maxBytes;
-    });
+    // File size filter (convert MB to bytes) - only apply if changed from default
+    if (advancedFilters.fileSizeMin > 0 || advancedFilters.fileSizeMax < 100) {
+      const minBytes = advancedFilters.fileSizeMin * 1024 * 1024;
+      const maxBytes = advancedFilters.fileSizeMax * 1024 * 1024;
+      files = files.filter((file: any) => {
+        const fileSize = file.fileSize || 0;
+        return fileSize >= minBytes && fileSize <= maxBytes;
+      });
+    }
 
     // Enrichment status filter
     // Map UI filter values to database values:

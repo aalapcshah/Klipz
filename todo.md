@@ -5030,3 +5030,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] FilesView now passes files to FileGridEnhanced for consistent data
 - [x] Fixed Knowledge Graph Min Strength and Max Nodes sliders
 - [x] Fixed Video annotation duration slider to use 0.1s increments
+
+
+## Mobile Filters UI & Enrichment Filter Fix - Feb 2026
+- [x] Convert filters panel to compact popup/modal on mobile (using Sheet/bottom drawer)
+- [x] Fix enrichment status filter logic (files not showing under any status)
+- [x] Fix file size filter to only apply when explicitly changed from default
+- [x] Check database for actual enrichment status values
+- [x] Test filters work correctly with Teams files

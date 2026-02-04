@@ -1,0 +1,150 @@
+{
+  "query": "SELECT id, filename, enrichmentStatus, fileSize, createdAt FROM files ORDER BY createdAt DESC LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, filename, enrichmentStatus, fileSize, createdAt FROM files ORDER BY createdAt DESC LIMIT 20;",
+  "rows": [
+    {
+      "id": "1080002",
+      "filename": "Video 25 - HSA - Reel 4 — “Practical HSA Strategy for Physicians”.mp4",
+      "enrichmentStatus": "pending",
+      "fileSize": "8926049",
+      "createdAt": "2026-02-03 23:26:40"
+    },
+    {
+      "id": "1080001",
+      "filename": "recording-1770153718294.webm",
+      "enrichmentStatus": "completed",
+      "fileSize": "0",
+      "createdAt": "2026-02-03 21:22:05"
+    },
+    {
+      "id": "1050036",
+      "filename": "search1.jpg",
+      "enrichmentStatus": "pending",
+      "fileSize": "1024000",
+      "createdAt": "2026-02-02 16:22:57"
+    },
+    {
+      "id": "1050037",
+      "filename": "search2.jpg",
+      "enrichmentStatus": "pending",
+      "fileSize": "1024000",
+      "createdAt": "2026-02-02 16:22:57"
+    },
+    {
+      "id": "1050022",
+      "filename": "searchable.jpg",
+      "enrichmentStatus": "pending",
+      "fileSize": "1024000",
+      "createdAt": "2026-02-02 16:21:46"
+    },
+    {
+      "id": "1050017",
+      "filename": "pagination-0.jpg",
+      "enrichmentStatus": "pending",
+      "fileSize": "1024000",
+      "createdAt": "2026-02-02 16:21:46"
+    },
+    {
+      "id": "1050021",
+      "filename": "pagination-4.jpg",
+      "enrichmentStatus": "pending",
+      "fileSize": "1024000",
+      "createdAt": "2026-02-02 16:21:46"
+    },
+    {
+      "id": "1050019",
+      "filename": "pagination-2.jpg",
+      "enrichmentStatus": "pending",
+      "fileSize": "1024000",
+      "createdAt": "2026-02-02 16:21:46"
+    },
+    {
+      "id": "1050018",
+      "filename": "pagination-1.jpg",
+      "enrichmentStatus": "pending",
+      "fileSize": "1024000",
+      "createdAt": "2026-02-02 16:21:46"
+    },
+    {
+      "id": "1050020",
+      "filename": "pagination-3.jpg",
+      "enrichmentStatus": "pending",
+      "fileSize": "1024000",
+      "createdAt": "2026-02-02 16:21:46"
+    },
+    {
+      "id": "1050007",
+      "filename": "search2.jpg",
+      "enrichmentStatus": "pending",
+      "fileSize": "1024000",
+      "createdAt": "2026-02-02 16:21:16"
+    },
+    {
+      "id": "1050006",
+      "filename": "search1.jpg",
+      "enrichmentStatus": "pending",
+      "fileSize": "1024000",
+      "createdAt": "2026-02-02 16:21:16"
+    },
+    {
+      "id": "1020217",
+      "filename": "Misinformation Impact Analysis.jpg",
+      "enrichmentStatus": "completed",
+      "fileSize": "166802",
+      "createdAt": "2026-02-02 02:30:30"
+    },
+    {
+      "id": "1020216",
+      "filename": "Millennial Physician Challenges 2025-1-05.jpg",
+      "enrichmentStatus": "completed",
+      "fileSize": "197861",
+      "createdAt": "2026-02-02 02:30:19"
+    },
+    {
+      "id": "1020215",
+      "filename": "Midwest Real Estate Growth 2024-12-25.jpg",
+      "enrichmentStatus": "pending",
+      "fileSize": "133371",
+      "createdAt": "2026-02-02 02:30:07"
+    },
+    {
+      "id": "1020214",
+      "filename": "Microsoft Engage Reactions 2 2024-12-25.jpg",
+      "enrichmentStatus": "completed",
+      "fileSize": "163578",
+      "createdAt": "2026-02-02 02:29:54"
+    },
+    {
+      "id": "1020213",
+      "filename": "Microsoft Engage Reactions 1 2024-12-25.jpg",
+      "enrichmentStatus": "completed",
+      "fileSize": "166464",
+      "createdAt": "2026-02-02 02:29:46"
+    },
+    {
+      "id": "1020212",
+      "filename": "MGMA compensation data.jpg",
+      "enrichmentStatus": "completed",
+      "fileSize": "214033",
+      "createdAt": "2026-02-02 02:29:36"
+    },
+    {
+      "id": "1020211",
+      "filename": "Metro Expresslanes Guide.jpg",
+      "enrichmentStatus": "completed",
+      "fileSize": "1257118",
+      "createdAt": "2026-02-02 02:29:27"
+    },
+    {
+      "id": "1020210",
+      "filename": "Moonlight_ Flexible physician work 2024-12-31.jpg",
+      "enrichmentStatus": "completed",
+      "fileSize": "161688",
+      "createdAt": "2026-02-02 02:28:45"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfilename\tenrichmentStatus\tfileSize\tcreatedAt\n1080002\tVideo 25 - HSA - Reel 4 — “Practical HSA Strategy for Physicians”.mp4\tpending\t8926049\t2026-02-03 23:26:40\n1080001\trecording-1770153718294.webm\tcompleted\t0\t2026-02-03 21:22:05\n1050036\tsearch1.jpg\tpending\t1024000\t2026-02-02 16:22:57\n1050037\tsearch2.jpg\tpending\t1024000\t2026-02-02 16:22:57\n1050022\tsearchable.jpg\tpending\t1024000\t2026-02-02 16:21:46\n1050017\tpagination-0.jpg\tpending\t1024000\t2026-02-02 16:21:46\n1050021\tpagination-4.jpg\tpending\t1024000\t2026-02-02 16:21:46\n1050019\tpagination-2.jpg\tpending\t1024000\t2026-02-02 16:21:46\n1050018\tpagination-1.jpg\tpending\t1024000\t2026-02-02 16:21:46\n1050020\tpagination-3.jpg\tpending\t1024000\t2026-02-02 16:21:46\n1050007\tsearch2.jpg\tpending\t1024000\t2026-02-02 16:21:16\n1050006\tsearch1.jpg\tpending\t1024000\t2026-02-02 16:21:16\n1020217\tMisinformation Impact Analysis.jpg\tcompleted\t166802\t2026-02-02 02:30:30\n1020216\tMillennial Physician Challenges 2025-1-05.jpg\tcompleted\t197861\t2026-02-02 02:30:19\n1020215\tMidwest Real Estate Growth 2024-12-25.jpg\tpending\t133371\t2026-02-02 02:30:07\n1020214\tMicrosoft Engage Reactions 2 2024-12-25.jpg\tcompleted\t163578\t2026-02-02 02:29:54\n1020213\tMicrosoft Engage Reactions 1 2024-12-25.jpg\tcompleted\t166464\t2026-02-02 02:29:46\n1020212\tMGMA compensation data.jpg\tcompleted\t214033\t2026-02-02 02:29:36\n1020211\tMetro Expresslanes Guide.jpg\tcompleted\t1257118\t2026-02-02 02:29:27\n1020210\tMoonlight_ Flexible physician work 2024-12-31.jpg\tcompleted\t161688\t2026-02-02 02:28:45\n",
+  "stderr": "",
+  "execution_time_ms": 111
+}
