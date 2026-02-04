@@ -5057,3 +5057,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add cron job to process pending files every 5 minutes
 - [x] Add Retry Failed button to re-process failed enrichments
 - [x] Test background processing and retry functionality
+
+
+## UI Cleanup - Feb 2026
+- [x] Remove redundant "Select All on This Page" bar from FilesView
