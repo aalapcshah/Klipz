@@ -156,6 +156,7 @@ export default function FileGridEnhanced({
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [lastClickedFileId, setLastClickedFileId] = useState<number | null>(null);
   const [swipedFileId, setSwipedFileId] = useState<number | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const swipeStartXRef = useRef<number | null>(null);
@@ -454,14 +455,36 @@ export default function FileGridEnhanced({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [files, selectedFilesSet]);
 
-  const toggleFile = (fileId: number) => {
+  const toggleFile = (fileId: number, shiftKey: boolean = false) => {
     const newSelected = new Set(selectedFilesSet);
+    
+    // Shift+click range selection
+    if (shiftKey && lastClickedFileId !== null && files.length > 0) {
+      const fileIds = files.map(f => f.id);
+      const lastIndex = fileIds.indexOf(lastClickedFileId);
+      const currentIndex = fileIds.indexOf(fileId);
+      
+      if (lastIndex !== -1 && currentIndex !== -1) {
+        const startIndex = Math.min(lastIndex, currentIndex);
+        const endIndex = Math.max(lastIndex, currentIndex);
+        
+        // Select all files in range
+        for (let i = startIndex; i <= endIndex; i++) {
+          newSelected.add(fileIds[i]);
+        }
+        setSelectedFiles(newSelected);
+        return;
+      }
+    }
+    
+    // Normal toggle
     if (newSelected.has(fileId)) {
       newSelected.delete(fileId);
     } else {
       newSelected.add(fileId);
     }
     setSelectedFiles(newSelected);
+    setLastClickedFileId(fileId);
   };
 
   // Long-press handlers for mobile selection
@@ -1769,8 +1792,11 @@ export default function FileGridEnhanced({
                       ) : (
                         <Checkbox
                           checked={selectedFilesSet.has(file.id)}
-                          onCheckedChange={() => toggleFile(file.id)}
-                          onClick={(e) => e.stopPropagation()}
+                          onCheckedChange={() => {}}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFile(file.id, e.shiftKey);
+                          }}
                           className="w-4 h-4"
                         />
                       )}

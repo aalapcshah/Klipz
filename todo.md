@@ -5061,3 +5061,9 @@ Note: The application already has extensive annotation features including voice 
 
 ## UI Cleanup - Feb 2026
 - [x] Remove redundant "Select All on This Page" bar from FilesView
+
+
+## Selection Enhancements - Feb 2026
+- [x] Add long-press gesture on mobile to enter selection mode and select first file (already implemented)
+- [x] Add Shift+click range selection on desktop to select files between two clicks
+- [x] Add bulk actions floating toolbar at bottom when files are selected (move, delete, enrich, download) - made mobile-responsive
