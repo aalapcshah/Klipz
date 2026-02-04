@@ -1,0 +1,16 @@
+{
+  "query": "SELECT MIN(fileSize) as min_size, MAX(fileSize) as max_size, AVG(fileSize) as avg_size, COUNT(*) as total_files FROM files;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT MIN(fileSize) as min_size, MAX(fileSize) as max_size, AVG(fileSize) as avg_size, COUNT(*) as total_files FROM files;",
+  "rows": [
+    {
+      "min_size": "0",
+      "max_size": "8960745",
+      "avg_size": "671757.5579",
+      "total_files": "233"
+    }
+  ],
+  "messages": [],
+  "stdout": "min_size\tmax_size\tavg_size\ttotal_files\n0\t8960745\t671757.5579\t233\n",
+  "stderr": "",
+  "execution_time_ms": 54
+}

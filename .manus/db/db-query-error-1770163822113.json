@@ -1,0 +1,8 @@
+{
+  "query": "SELECT MIN(file_size) as min_size, MAX(file_size) as max_size, AVG(file_size) as avg_size, COUNT(*) as total_files, SUM(CASE WHEN file_size IS NULL THEN 1 ELSE 0 END) as null_count FROM files LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT MIN(file_size) as min_size, MAX(file_size) as max_size, AVG(file_size) as avg_size, COUNT(*) as total_files, SUM(CASE WHEN file_size IS NULL THEN 1 ELSE 0 END) as null_count FROM files LIMIT 10;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'file_size' in ''"
+  ]
+}

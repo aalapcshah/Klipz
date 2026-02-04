@@ -5008,3 +5008,25 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix Knowledge Graph Node Type filter not working (now filters by tag/file/entity)
 - [x] Fix Knowledge Graph Knowledge Source filter not working (now filters by source)
 - [x] Fix Video annotations duration slider to use 0.1s increments instead of 1s
+
+
+## Enrichment Queue Investigation - Feb 2026
+- [ ] Check enrichment queue status in database
+- [ ] Analyze enrichment job processor code
+- [ ] Identify root cause of stuck jobs
+- [ ] Fix the enrichment processing issue
+- [ ] Test and verify enrichment works correctly
+
+
+## Enrichment Filter Fix - Feb 2026
+- [x] Identified mismatch between UI filter values and database values
+- [x] UI uses "not_enriched"/"enriched"/"failed" but DB uses "pending"/"processing"/"completed"/"failed"
+- [x] Fixed filter mapping in FileGridEnhanced to correctly map UI values to DB values
+
+
+## Files Grid Display Fix - Feb 2026
+- [x] Fixed files not displaying in grid view
+- [x] Updated FileGridEnhanced to accept files prop from parent
+- [x] FilesView now passes files to FileGridEnhanced for consistent data
+- [x] Fixed Knowledge Graph Min Strength and Max Nodes sliders
+- [x] Fixed Video annotation duration slider to use 0.1s increments

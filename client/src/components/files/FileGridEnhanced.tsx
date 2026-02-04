@@ -75,6 +75,7 @@ interface FileGridEnhancedProps {
     enrichmentStatus: string[];
     qualityScore: string[];
   };
+  files?: any[]; // Files passed from parent component
 }
 
 interface DeletedFile {
@@ -94,7 +95,8 @@ export default function FileGridEnhanced({
   onFileClick,
   selectedFileIds = [],
   onSelectionChange,
-  advancedFilters 
+  advancedFilters,
+  files: externalFiles
 }: FileGridEnhancedProps) {
   // Use external selection state if provided, otherwise use internal state
   const isExternalSelection = onSelectionChange !== undefined;
@@ -166,9 +168,13 @@ export default function FileGridEnhanced({
   const deletedFilesRef = useRef<DeletedFile[]>([]);
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: filesData, isLoading } = trpc.files.list.useQuery(
-    filterCollectionId ? { collectionId: filterCollectionId } : undefined
+  // Use external files if provided, otherwise fetch our own
+  const { data: internalFilesData, isLoading: internalLoading } = trpc.files.list.useQuery(
+    filterCollectionId ? { collectionId: filterCollectionId } : undefined,
+    { enabled: !externalFiles } // Only fetch if no external files provided
   );
+  const filesData = externalFiles ? { files: externalFiles } : internalFilesData;
+  const isLoading = externalFiles ? false : internalLoading;
   const { data: tags = [] } = trpc.tags.list.useQuery();
   const { data: collections = [] } = trpc.collections.list.useQuery();
   const utils = trpc.useUtils();
@@ -266,7 +272,7 @@ export default function FileGridEnhanced({
 
   const [exportMutation, setExportMutation] = useState({ isPending: false });
 
-  let files = filesData?.files || [];
+  let files = externalFiles || filesData?.files || [];
 
   // Apply file type filter
   if (filterType !== "all") {
@@ -323,9 +329,28 @@ export default function FileGridEnhanced({
     });
 
     // Enrichment status filter
+    // Map UI filter values to database values:
+    // "not_enriched" -> "pending" or "processing"
+    // "enriched" -> "completed"
+    // "failed" -> "failed"
+    console.log('[Filter Debug] advancedFilters:', advancedFilters);
+    console.log('[Filter Debug] enrichmentStatus filter:', advancedFilters.enrichmentStatus);
+    console.log('[Filter Debug] files before enrichment filter:', files.length);
     if (advancedFilters.enrichmentStatus.length > 0) {
       files = files.filter((file: any) => {
-        return advancedFilters.enrichmentStatus.includes(file.enrichmentStatus);
+        const status = file.enrichmentStatus;
+        return advancedFilters.enrichmentStatus.some((filterStatus: string) => {
+          if (filterStatus === "not_enriched") {
+            return status === "pending" || status === "processing";
+          }
+          if (filterStatus === "enriched") {
+            return status === "completed";
+          }
+          if (filterStatus === "failed") {
+            return status === "failed";
+          }
+          return false;
+        });
       });
     }
 

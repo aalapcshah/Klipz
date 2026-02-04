@@ -564,6 +564,7 @@ export default function FilesView() {
                 selectedFileIds={selectedFileIds}
                 onSelectionChange={setSelectedFileIds}
                 advancedFilters={advancedFilters}
+                files={searchResults || filesData?.files}
               />
             ) : (
               <FileListView
