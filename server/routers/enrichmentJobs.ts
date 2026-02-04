@@ -5,6 +5,7 @@ import { getDb } from "../db";
 import { enrichmentJobs, files } from "../../drizzle/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { invokeLLM } from "../_core/llm";
+import { retryFailedEnrichments } from "../_core/backgroundEnrichment";
 
 // Helper to enrich a single file
 async function enrichSingleFile(fileId: number, userId: number): Promise<{ success: boolean; error?: string }> {
@@ -367,4 +368,20 @@ export const enrichmentJobsRouter = router({
       // For now, we'll just return success - the frontend will stop polling
       return { success: true };
     }),
+
+  // Retry all failed enrichments for the current user
+  retryFailed: protectedProcedure.mutation(async ({ ctx }) => {
+    const result = await retryFailedEnrichments(ctx.user.id);
+    
+    if (result.retried === 0) {
+      return { success: true, message: "No failed enrichments to retry", retried: 0 };
+    }
+
+    return {
+      success: true,
+      message: `Reset ${result.retried} failed files for re-processing`,
+      retried: result.retried,
+      fileIds: result.fileIds,
+    };
+  }),
 });

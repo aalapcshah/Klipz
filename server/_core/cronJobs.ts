@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import { checkAndResolveAlerts } from "./alertAutoResolution";
 import { sendDailyDigests, sendWeeklyDigests } from "./emailDigest";
+import { processBackgroundEnrichment } from "./backgroundEnrichment";
 
 /**
  * Initialize all cron jobs for automated monitoring and notifications
@@ -47,8 +48,24 @@ export function initializeCronJobs() {
     }
   });
 
+  // Run background enrichment every 5 minutes
+  cron.schedule("*/5 * * * *", async () => {
+    console.log("[CronJobs] Running background enrichment");
+    try {
+      const result = await processBackgroundEnrichment();
+      if (result.processed > 0 || result.failed > 0) {
+        console.log(
+          `[CronJobs] Enrichment complete: ${result.processed} processed, ${result.failed} failed`
+        );
+      }
+    } catch (error) {
+      console.error("[CronJobs] Error in background enrichment:", error);
+    }
+  });
+
   console.log("[CronJobs] All scheduled tasks initialized successfully");
   console.log("[CronJobs] - Alert auto-resolution: Every hour");
   console.log("[CronJobs] - Daily digests: 9:00 AM daily");
   console.log("[CronJobs] - Weekly digests: 9:00 AM Monday");
+  console.log("[CronJobs] - Background enrichment: Every 5 minutes");
 }

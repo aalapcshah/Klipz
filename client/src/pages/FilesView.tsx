@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
-import { Upload, LayoutGrid, List, FileIcon, Camera, ChevronDown, ChevronUp, Sparkles, Loader2 } from "lucide-react";
+import { Upload, LayoutGrid, List, FileIcon, Camera, ChevronDown, ChevronUp, Sparkles, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileUploadDialog } from "@/components/files/FileUploadDialog";
@@ -92,9 +92,24 @@ export default function FilesView() {
     onSuccess: () => {
       toast.success('Batch enrichment started!');
       refetchJobStatus();
+      utils.files.enrichmentCounts.invalidate();
     },
     onError: (error) => {
       toast.error(error.message || 'Failed to start enrichment');
+    },
+  });
+  const retryFailedMutation = trpc.enrichmentJobs.retryFailed.useMutation({
+    onSuccess: (data) => {
+      if (data.retried > 0) {
+        toast.success(`${data.retried} failed files queued for retry`);
+        utils.files.enrichmentCounts.invalidate();
+        utils.files.list.invalidate();
+      } else {
+        toast.info('No failed enrichments to retry');
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to retry enrichments');
     },
   });
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
@@ -594,6 +609,23 @@ export default function FilesView() {
                     <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Processing...</>
                   ) : (
                     <><Sparkles className="w-3 h-3 mr-1" /> Enrich All ({enrichmentCounts.pending})</>
+                  )}
+                </Button>
+              )}
+              
+              {/* Retry Failed - shows when there are failed enrichments */}
+              {enrichmentCounts && enrichmentCounts.failed > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs px-2 md:h-8 md:text-sm md:px-3 border-red-500 text-red-500 hover:bg-red-500/10"
+                  disabled={retryFailedMutation.isPending}
+                  onClick={() => retryFailedMutation.mutate()}
+                >
+                  {retryFailedMutation.isPending ? (
+                    <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Retrying...</>
+                  ) : (
+                    <><RefreshCw className="w-3 h-3 mr-1" /> Retry Failed ({enrichmentCounts.failed})</>
                   )}
                 </Button>
               )}

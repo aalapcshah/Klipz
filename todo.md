@@ -5050,3 +5050,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add count badge on Enrich button showing pending files count
 - [x] Add Batch Enrich action when enrichment filter is active
 - [x] Add visual enrichment indicators on file cards (pending/processing/completed)
+
+
+## Background Enrichment & Retry Failed - Feb 2026
+- [x] Create background job processor for automatic enrichment on schedule
+- [x] Add cron job to process pending files every 5 minutes
+- [x] Add Retry Failed button to re-process failed enrichments
+- [x] Test background processing and retry functionality
