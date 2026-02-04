@@ -5038,3 +5038,9 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix file size filter to only apply when explicitly changed from default
 - [x] Check database for actual enrichment status values
 - [x] Test filters work correctly with Teams files
+
+
+## Needs Enrichment Quick Filter - Feb 2026
+- [x] Add "Needs Enrichment" quick filter button to FilesView
+- [x] Button should toggle enrichment status filter to show only pending files
+- [x] Test the quick filter functionality

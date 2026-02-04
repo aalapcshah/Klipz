@@ -363,17 +363,17 @@ export default function FilesView() {
                   📦 Large
                 </Button>
                 <Button
-                  variant={advancedFilters.qualityScore.length > 0 ? 'default' : 'outline'}
+                  variant={advancedFilters.enrichmentStatus.includes('not_enriched') ? 'default' : 'outline'}
                   size="sm"
-                  className={`shrink-0 h-7 text-[10px] px-2 ${advancedFilters.qualityScore.length > 0 ? 'bg-primary text-primary-foreground' : ''}`}
+                  className={`shrink-0 h-7 text-[10px] px-2 ${advancedFilters.enrichmentStatus.includes('not_enriched') ? 'bg-primary text-primary-foreground' : ''}`}
                   onClick={() => {
-                    if (advancedFilters.qualityScore.length > 0) {
-                      setAdvancedFilters(prev => ({ ...prev, qualityScore: [] }));
-                      toast.success('Enrich filter removed');
+                    if (advancedFilters.enrichmentStatus.includes('not_enriched')) {
+                      setAdvancedFilters(prev => ({ ...prev, enrichmentStatus: [] }));
+                      toast.success('Needs enrichment filter removed');
                     } else {
                       setAdvancedFilters(prev => ({
                         ...prev,
-                        qualityScore: ['0-20', '20-40'],
+                        enrichmentStatus: ['not_enriched'],
                       }));
                       setFiltersOpen(true);
                       toast.success('Showing files that need enrichment');
@@ -480,18 +480,18 @@ export default function FilesView() {
                     📦 Large
                   </Button>
                   <Button
-                    variant={advancedFilters.qualityScore.length > 0 ? 'default' : 'outline'}
+                    variant={advancedFilters.enrichmentStatus.includes('not_enriched') ? 'default' : 'outline'}
                     size="sm"
-                    className={`shrink-0 h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3 ${advancedFilters.qualityScore.length > 0 ? 'bg-primary text-primary-foreground' : ''}`}
+                    className={`shrink-0 h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3 ${advancedFilters.enrichmentStatus.includes('not_enriched') ? 'bg-primary text-primary-foreground' : ''}`}
                     onClick={() => {
-                      if (advancedFilters.qualityScore.length > 0) {
+                      if (advancedFilters.enrichmentStatus.includes('not_enriched')) {
                         // Toggle off if already active
-                        setAdvancedFilters(prev => ({ ...prev, qualityScore: [] }));
-                        toast.success('Enrich filter removed');
+                        setAdvancedFilters(prev => ({ ...prev, enrichmentStatus: [] }));
+                        toast.success('Needs enrichment filter removed');
                       } else {
                         setAdvancedFilters(prev => ({
                           ...prev,
-                          qualityScore: ['0-20', '20-40'],
+                          enrichmentStatus: ['not_enriched'],
                         }));
                         setFiltersOpen(true);
                         toast.success('Showing files that need enrichment');
