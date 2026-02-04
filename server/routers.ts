@@ -494,6 +494,13 @@ export const appRouter = router({
 
   // ============= FILES ROUTER =============
   files: router({
+    // Get enrichment status counts for current user
+    enrichmentCounts: protectedProcedure
+      .query(async ({ ctx }) => {
+        const counts = await db.getEnrichmentStatusCounts(ctx.user.id);
+        return counts;
+      }),
+    
     // List all files for current user
     list: protectedProcedure
       .input(z.object({ 

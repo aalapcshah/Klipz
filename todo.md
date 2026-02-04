@@ -5044,3 +5044,9 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add "Needs Enrichment" quick filter button to FilesView
 - [x] Button should toggle enrichment status filter to show only pending files
 - [x] Test the quick filter functionality
+
+
+## Enrichment UI Enhancements - Feb 2026
+- [x] Add count badge on Enrich button showing pending files count
+- [x] Add Batch Enrich action when enrichment filter is active
+- [x] Add visual enrichment indicators on file cards (pending/processing/completed)

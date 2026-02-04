@@ -1533,10 +1533,31 @@ export default function FileGridEnhanced({
                           <span className="text-muted-foreground">Size:</span>
                           <span>{formatFileSize(file.fileSize)}</span>
                         </div>
-                        <div className="flex justify-between">
+                        <div className="flex justify-between items-center">
                           <span className="text-muted-foreground">Status:</span>
                           {file.enrichmentStatus === "completed" && (
-                            <span className="text-green-500">Enriched</span>
+                            <span className="flex items-center gap-1 text-green-500">
+                              <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                              Enriched
+                            </span>
+                          )}
+                          {file.enrichmentStatus === "processing" && (
+                            <span className="flex items-center gap-1 text-blue-500">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Processing
+                            </span>
+                          )}
+                          {file.enrichmentStatus === "pending" && (
+                            <span className="flex items-center gap-1 text-amber-500">
+                              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                              Pending
+                            </span>
+                          )}
+                          {file.enrichmentStatus === "failed" && (
+                            <span className="flex items-center gap-1 text-red-500">
+                              <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                              Failed
+                            </span>
                           )}
                         </div>
                         {fileCollections.length > 0 && (
@@ -1764,7 +1785,7 @@ export default function FileGridEnhanced({
                     >
                       <div className="flex items-start gap-2 md:gap-3">
                         {/* Thumbnail - only show on desktop (md and up) */}
-                        <div className={`hidden md:flex flex-shrink-0 items-center justify-center rounded border border-border bg-muted/50 ${
+                        <div className={`hidden md:flex flex-shrink-0 items-center justify-center rounded border border-border bg-muted/50 relative ${
                           thumbnailSize === 'small' ? 'w-12 h-12' :
                           thumbnailSize === 'large' ? 'w-24 h-24' :
                           'w-16 h-16'
@@ -1791,12 +1812,37 @@ export default function FileGridEnhanced({
                               {getFileIcon(file.mimeType)}
                             </div>
                           )}
+                          {/* Enrichment status badge */}
+                          {file.enrichmentStatus === 'pending' && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full border border-background" title="Needs enrichment" />
+                          )}
+                          {file.enrichmentStatus === 'processing' && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center" title="Processing">
+                              <Loader2 className="w-3 h-3 text-blue-500 animate-spin" />
+                            </div>
+                          )}
+                          {file.enrichmentStatus === 'completed' && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border border-background" title="Enriched" />
+                          )}
+                          {file.enrichmentStatus === 'failed' && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border border-background" title="Enrichment failed" />
+                          )}
                         </div>
-                        {/* Mobile: just show small icon */}
-                        <div className="flex md:hidden flex-shrink-0 text-primary">
+                        {/* Mobile: just show small icon with enrichment indicator */}
+                        <div className="flex md:hidden flex-shrink-0 text-primary relative">
                           <div className="w-4 h-4">
                             {getFileIcon(file.mimeType)}
                           </div>
+                          {/* Mobile enrichment badge */}
+                          {file.enrichmentStatus === 'pending' && (
+                            <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full" />
+                          )}
+                          {file.enrichmentStatus === 'processing' && (
+                            <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                          )}
+                          {file.enrichmentStatus === 'failed' && (
+                            <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full" />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="text-sm font-medium truncate">

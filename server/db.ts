@@ -235,6 +235,35 @@ export async function getFilesCountByUserId(userId: number) {
   return result[0]?.count || 0;
 }
 
+export async function getEnrichmentStatusCounts(userId: number) {
+  const db = await getDb();
+  if (!db) return { pending: 0, processing: 0, completed: 0, failed: 0 };
+
+  const result = await db
+    .select({
+      status: files.enrichmentStatus,
+      count: sql<number>`count(*)`
+    })
+    .from(files)
+    .where(
+      and(
+        eq(files.userId, userId),
+        sql`${files.mimeType} NOT LIKE 'video/%'`
+      )
+    )
+    .groupBy(files.enrichmentStatus);
+  
+  const counts = { pending: 0, processing: 0, completed: 0, failed: 0 };
+  for (const row of result) {
+    if (row.status === 'pending') counts.pending = row.count;
+    else if (row.status === 'processing') counts.processing = row.count;
+    else if (row.status === 'completed') counts.completed = row.count;
+    else if (row.status === 'failed') counts.failed = row.count;
+  }
+  
+  return counts;
+}
+
 export async function getFileById(fileId: number) {
   const db = await getDb();
   if (!db) return undefined;

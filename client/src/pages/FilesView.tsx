@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
-import { Upload, LayoutGrid, List, FileIcon, Camera, ChevronDown, ChevronUp } from "lucide-react";
+import { Upload, LayoutGrid, List, FileIcon, Camera, ChevronDown, ChevronUp, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileUploadDialog } from "@/components/files/FileUploadDialog";
@@ -86,6 +86,17 @@ export default function FilesView() {
   const utils = trpc.useUtils();
   const { data: filesData } = trpc.files.list.useQuery({ page, pageSize });
   const { data: recentlyViewed } = trpc.recentlyViewed.list.useQuery({ limit: 10 });
+  const { data: enrichmentCounts } = trpc.files.enrichmentCounts.useQuery();
+  const { data: enrichmentJobStatus, refetch: refetchJobStatus } = trpc.enrichmentJobs.getStatus.useQuery();
+  const createEnrichmentJob = trpc.enrichmentJobs.create.useMutation({
+    onSuccess: () => {
+      toast.success('Batch enrichment started!');
+      refetchJobStatus();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to start enrichment');
+    },
+  });
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
   
   // Persist page size preference
@@ -380,7 +391,11 @@ export default function FilesView() {
                     }
                   }}
                 >
-                  ✨ Enrich
+                  ✨ Enrich{enrichmentCounts && enrichmentCounts.pending > 0 && (
+                    <span className="ml-1 bg-amber-500 text-white text-[9px] px-1 py-0.5 rounded-full">
+                      {enrichmentCounts.pending}
+                    </span>
+                  )}
                 </Button>
               </div>
               
@@ -498,7 +513,11 @@ export default function FilesView() {
                       }
                     }}
                   >
-                    ✨ Enrich
+                    ✨ Enrich{enrichmentCounts && enrichmentCounts.pending > 0 && (
+                      <span className="ml-1 bg-amber-500 text-white text-[9px] px-1 py-0.5 rounded-full">
+                        {enrichmentCounts.pending}
+                      </span>
+                    )}
                   </Button>
                 </div>
               </div>
@@ -530,7 +549,7 @@ export default function FilesView() {
 
           {/* Selection Controls */}
           {filesData?.files && filesData.files.length > 0 && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"
@@ -550,6 +569,42 @@ export default function FilesView() {
                 >
                   Clear Selection
                 </Button>
+              )}
+              
+              {/* Batch Enrich All - shows when enrichment filter is active */}
+              {advancedFilters.enrichmentStatus.includes('not_enriched') && enrichmentCounts && enrichmentCounts.pending > 0 && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-7 text-xs px-2 md:h-8 md:text-sm md:px-3 bg-amber-500 hover:bg-amber-600"
+                  disabled={createEnrichmentJob.isPending || (enrichmentJobStatus?.status === 'processing')}
+                  onClick={() => {
+                    // Get all pending file IDs from the current view
+                    const pendingFileIds = filesData.files
+                      .filter(f => f.enrichmentStatus === 'pending')
+                      .map(f => f.id);
+                    if (pendingFileIds.length > 0) {
+                      createEnrichmentJob.mutate({ fileIds: pendingFileIds });
+                    } else {
+                      toast.info('No files need enrichment on this page');
+                    }
+                  }}
+                >
+                  {createEnrichmentJob.isPending || enrichmentJobStatus?.status === 'processing' ? (
+                    <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Processing...</>
+                  ) : (
+                    <><Sparkles className="w-3 h-3 mr-1" /> Enrich All ({enrichmentCounts.pending})</>
+                  )}
+                </Button>
+              )}
+              
+              {/* Enrichment Progress Indicator */}
+              {enrichmentJobStatus && enrichmentJobStatus.status === 'processing' && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Enriching: {enrichmentJobStatus.completedFiles}/{enrichmentJobStatus.totalFiles}</span>
+                  <span className="text-amber-500">{enrichmentJobStatus.progress}%</span>
+                </div>
               )}
             </div>
           )}
