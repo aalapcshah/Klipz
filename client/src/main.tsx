@@ -12,7 +12,17 @@ import { StorageQuotaProvider } from "./contexts/StorageQuotaContext";
 import { GlobalDropZone } from "./components/GlobalDropZone";
 import "./index.css";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Prevent queries from refetching when window regains focus
+      // This fixes the issue where counters reset when switching tabs
+      refetchOnWindowFocus: false,
+      // Keep data fresh for 5 minutes
+      staleTime: 5 * 60 * 1000,
+    },
+  },
+});
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;

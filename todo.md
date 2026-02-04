@@ -5067,3 +5067,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add long-press gesture on mobile to enter selection mode and select first file (already implemented)
 - [x] Add Shift+click range selection on desktop to select files between two clicks
 - [x] Add bulk actions floating toolbar at bottom when files are selected (move, delete, enrich, download) - made mobile-responsive
+
+
+## Bug Fixes - Feb 2026
+- [x] Fix counter resetting when switching browser tabs (disabled refetchOnWindowFocus in QueryClient)
+- [x] Fix video annotation access from Recently Recorded section (auto-link videos without fileId when clicked)

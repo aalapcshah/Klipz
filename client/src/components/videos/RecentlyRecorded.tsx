@@ -3,10 +3,11 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { VideoIcon, Clock, MessageSquare, PenLine, Play, ChevronDown, ChevronUp } from "lucide-react";
+import { VideoIcon, Clock, MessageSquare, PenLine, Play, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { formatDuration } from "@/lib/videoUtils";
 import { useState } from "react";
 import { VideoPlayerWithAnnotations } from "@/components/VideoPlayerWithAnnotations";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -28,11 +29,51 @@ export function RecentlyRecorded() {
     const saved = typeof window !== 'undefined' ? localStorage.getItem('recentlyRecordedExpanded') : null;
     return saved !== null ? JSON.parse(saved) : !isMobile;
   });
+  const [linkingVideoId, setLinkingVideoId] = useState<number | null>(null);
+  
+  const utils = trpc.useUtils();
+  const linkToFileMutation = trpc.videos.linkToFile.useMutation({
+    onSuccess: () => {
+      utils.videos.recentlyRecorded.invalidate();
+    },
+  });
 
   const toggleExpanded = () => {
     const newValue = !expanded;
     setExpanded(newValue);
     localStorage.setItem('recentlyRecordedExpanded', JSON.stringify(newValue));
+  };
+
+  const handleVideoClick = async (video: NonNullable<typeof recentVideos>[number]) => {
+    // If video already has fileId, open directly
+    if (video.fileId) {
+      setSelectedVideo({
+        id: video.id,
+        fileId: video.fileId,
+        url: video.url,
+        title: video.title || video.filename || `Video ${video.id}`,
+      });
+      return;
+    }
+    
+    // Video doesn't have fileId - link it first
+    try {
+      setLinkingVideoId(video.id);
+      const result = await linkToFileMutation.mutateAsync({ videoId: video.id });
+      
+      // Now open the video with the new fileId
+      setSelectedVideo({
+        id: video.id,
+        fileId: result.fileId,
+        url: video.url,
+        title: video.title || video.filename || `Video ${video.id}`,
+      });
+    } catch (error) {
+      console.error('Failed to link video to file:', error);
+      toast.error('Failed to open video for annotation');
+    } finally {
+      setLinkingVideoId(null);
+    }
   };
 
   if (isLoading) {
@@ -85,16 +126,7 @@ export function RecentlyRecorded() {
             <Card
               key={video.id}
               className="group relative overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
-              onClick={() => {
-                if (video.fileId) {
-                  setSelectedVideo({
-                    id: video.id,
-                    fileId: video.fileId,
-                    url: video.url,
-                    title: video.title || video.filename || `Video ${video.id}`,
-                  });
-                }
-              }}
+              onClick={() => handleVideoClick(video)}
             >
               {/* Thumbnail/Video Preview */}
               <div className="aspect-video relative bg-muted">
@@ -113,7 +145,11 @@ export function RecentlyRecorded() {
                 {/* Play overlay */}
                 <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
                   <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center">
-                    <Play className="h-5 w-5 text-black ml-0.5" />
+                    {linkingVideoId === video.id ? (
+                      <Loader2 className="h-5 w-5 text-black animate-spin" />
+                    ) : (
+                      <Play className="h-5 w-5 text-black ml-0.5" />
+                    )}
                   </div>
                 </div>
 

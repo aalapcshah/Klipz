@@ -10,7 +10,7 @@ export function Footer() {
           {/* About Section */}
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <img src="/klipz-icon.png" alt="Klipz" className="h-6 w-6" />
+              <img src="https://files.manuscdn.com/user_upload_by_module/session_file/310519663292476273/ngacLOvOeDcGXxyu.png" alt="Klipz" className="h-6 w-6" />
               <h3 className="font-semibold text-lg">Klipz</h3>
             </div>
             <p className="text-sm text-muted-foreground">
