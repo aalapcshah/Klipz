@@ -278,6 +278,113 @@ async function fetchSocialMediaInfo(url: string): Promise<SocialMediaInfo | null
   }
 }
 
+// Extract Instagram shortcode from URL
+function extractInstagramShortcode(url: string): string | null {
+  const patterns = [
+    /instagram\.com\/(?:p|reel|tv)\/([A-Za-z0-9_-]+)/,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+// Fetch Instagram content info using RapidAPI (instagram120 API)
+async function fetchInstagramInfo(url: string): Promise<SocialMediaInfo | null> {
+  const apiKey = process.env.RAPIDAPI_KEY;
+  if (!apiKey) {
+    console.log(`[InstagramAPI] No RapidAPI key configured`);
+    return null;
+  }
+
+  const shortcode = extractInstagramShortcode(url);
+  if (!shortcode) {
+    console.log(`[InstagramAPI] Could not extract shortcode from URL: ${url}`);
+    return null;
+  }
+
+  try {
+    console.log(`[InstagramAPI] Fetching info for shortcode: ${shortcode}`);
+    
+    const response = await fetch('https://instagram120.p.rapidapi.com/api/instagram/mediaByShortcode', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-rapidapi-host': 'instagram120.p.rapidapi.com',
+        'x-rapidapi-key': apiKey,
+      },
+      body: JSON.stringify({ shortcode }),
+    });
+
+    if (!response.ok) {
+      console.log(`[InstagramAPI] API returned ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json() as Array<Record<string, unknown>>;
+    console.log(`[InstagramAPI] Response received, parsing data...`);
+    
+    if (!data || data.length === 0) {
+      console.log(`[InstagramAPI] No data in response`);
+      return null;
+    }
+
+    const item = data[0];
+    const meta = item.meta as Record<string, unknown> | undefined;
+    
+    if (!meta) {
+      console.log(`[InstagramAPI] No meta data in response`);
+      return null;
+    }
+
+    const caption = (meta.title as string) || "";
+    const hashtagMatches = caption.match(/#[\w]+/g) || [];
+    const hashtags = hashtagMatches.map(tag => tag.substring(1));
+    
+    const urls = item.urls as Array<Record<string, unknown>> | undefined;
+    let videoUrl: string | undefined;
+    if (urls && urls.length > 0) {
+      videoUrl = urls[0].url as string;
+    }
+    
+    const thumbnailUrl = item.pictureUrl as string | undefined;
+    
+    let createTime: string | undefined;
+    if (meta.takenAt) {
+      createTime = new Date((meta.takenAt as number) * 1000).toISOString();
+    }
+    
+    const result: SocialMediaInfo = {
+      caption,
+      author: (meta.username as string) || "",
+      authorUsername: (meta.username as string) || "",
+      videoUrl,
+      thumbnailUrl,
+      stats: {
+        likes: (meta.likeCount as number) || 0,
+        comments: (meta.commentCount as number) || 0,
+        shares: 0,
+        plays: 0,
+      },
+      hashtags,
+      createTime,
+    };
+    
+    console.log(`[InstagramAPI] Extracted caption: "${result.caption.substring(0, 100)}..."`);
+    console.log(`[InstagramAPI] Author: @${result.authorUsername}`);
+    if (result.videoUrl) {
+      console.log(`[InstagramAPI] Video URL available`);
+    }
+    
+    return result;
+  } catch (error) {
+    console.log(`[InstagramAPI] Error:`, error);
+    return null;
+  }
+}
+
 // Download video using GoDownloader API (RapidAPI) - for Pro subscribers
 async function downloadWithGoDownloader(url: string): Promise<{ videoUrl: string; title?: string; author?: string } | null> {
   // Use the new fetchSocialMediaInfo function
@@ -517,19 +624,19 @@ export const uploadFromUrlRouter = router({
             name: "Instagram",
             icon: "instagram",
             color: "#E4405F",
-            supportsDownload: isPro,
+            supportsDownload: true,
             note: isPro 
-              ? "Video will be downloaded and transcribed via speech-to-text (Pro feature)."
-              : "Upgrade to Pro to download and transcribe Instagram videos. Currently saves as reference.",
+              ? "Caption, metadata, and audio transcript will be extracted (Pro feature)."
+              : "Caption and metadata will be extracted. Upgrade to Pro for audio transcription.",
           },
           tiktok: {
             name: "TikTok",
             icon: "tiktok",
             color: "#000000",
-            supportsDownload: isPro,
+            supportsDownload: true,
             note: isPro
-              ? "Video will be downloaded and transcribed via speech-to-text (Pro feature)."
-              : "Upgrade to Pro to download and transcribe TikTok videos. Currently saves as reference.",
+              ? "Caption, metadata, and audio transcript will be extracted (Pro feature)."
+              : "Caption and metadata will be extracted. Upgrade to Pro for audio transcription.",
           },
           twitter: {
             name: "Twitter/X",
@@ -829,9 +936,16 @@ async function handleSocialMediaWithTranscription(
   // Check if user has Pro subscription
   const isPro = await isProSubscriber(userId);
   
-  // First, try to fetch caption and metadata from the API
+  // First, try to fetch caption and metadata from the appropriate API
   console.log(`[UploadFromUrl] Fetching ${platform} content info...`);
-  const socialInfo = await fetchSocialMediaInfo(url);
+  
+  // Use different APIs for TikTok vs Instagram
+  let socialInfo: SocialMediaInfo | null = null;
+  if (platform === "instagram") {
+    socialInfo = await fetchInstagramInfo(url);
+  } else {
+    socialInfo = await fetchSocialMediaInfo(url);
+  }
   
   if (socialInfo && socialInfo.caption) {
     console.log(`[UploadFromUrl] Got caption from API: "${socialInfo.caption.substring(0, 100)}..."`);
