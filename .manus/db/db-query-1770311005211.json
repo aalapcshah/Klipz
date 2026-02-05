@@ -1,0 +1,110 @@
+{
+  "query": "SELECT id, filename, title FROM files ORDER BY id DESC LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, filename, title FROM files ORDER BY id DESC LIMIT 20;",
+  "rows": [
+    {
+      "id": "1230052",
+      "filename": "export-test.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230051",
+      "filename": "test2.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230050",
+      "filename": "test1.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230049",
+      "filename": "test-export.jpg",
+      "title": "Test Export File"
+    },
+    {
+      "id": "1230048",
+      "filename": "test2.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230047",
+      "filename": "test1.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230044",
+      "filename": "test-engagement.jpg",
+      "title": "Test Engagement File"
+    },
+    {
+      "id": "1230043",
+      "filename": "searchable.jpg",
+      "title": "Unique Searchable Title"
+    },
+    {
+      "id": "1230042",
+      "filename": "pagination-4.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230041",
+      "filename": "pagination-3.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230040",
+      "filename": "pagination-2.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230039",
+      "filename": "pagination-1.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230038",
+      "filename": "pagination-0.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230022",
+      "filename": "pagination-4.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230021",
+      "filename": "pagination-3.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230020",
+      "filename": "pagination-2.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230019",
+      "filename": "pagination-1.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230018",
+      "filename": "pagination-0.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230007",
+      "filename": "search2.jpg",
+      "title": "Ocean View"
+    },
+    {
+      "id": "1230006",
+      "filename": "search1.jpg",
+      "title": "Mountain Landscape"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfilename\ttitle\n1230052\texport-test.jpg\tNULL\n1230051\ttest2.jpg\tNULL\n1230050\ttest1.jpg\tNULL\n1230049\ttest-export.jpg\tTest Export File\n1230048\ttest2.jpg\tNULL\n1230047\ttest1.jpg\tNULL\n1230044\ttest-engagement.jpg\tTest Engagement File\n1230043\tsearchable.jpg\tUnique Searchable Title\n1230042\tpagination-4.jpg\tNULL\n1230041\tpagination-3.jpg\tNULL\n1230040\tpagination-2.jpg\tNULL\n1230039\tpagination-1.jpg\tNULL\n1230038\tpagination-0.jpg\tNULL\n1230022\tpagination-4.jpg\tNULL\n1230021\tpagination-3.jpg\tNULL\n1230020\tpagination-2.jpg\tNULL\n1230019\tpagination-1.jpg\tNULL\n1230018\tpagination-0.jpg\tNULL\n1230007\tsearch2.jpg\tOcean View\n1230006\tsearch1.jpg\tMountain Landscape\n",
+  "stderr": "",
+  "execution_time_ms": 380
+}

@@ -1,0 +1,55 @@
+{
+  "query": "SELECT filename FROM files;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT filename FROM files;",
+  "rows": [
+    {
+      "filename": "Reel 6 - The Heart Behind It.mp4"
+    },
+    {
+      "filename": "Reel 5 - The Grandparent Loophole.mp4"
+    },
+    {
+      "filename": "Ree1 - The Financial Head Start.mp4"
+    },
+    {
+      "filename": "Video 25 - HSA - Reel 1 - Why HSA's Still Matter in 2025.mp4"
+    },
+    {
+      "filename": "recording-1770153718294.webm"
+    },
+    {
+      "filename": "Video 25 - HSA - Reel 4 — “Practical HSA Strategy for Physicians”.mp4"
+    },
+    {
+      "filename": "Video 25 - HSA - Reel 4 — “Practical HSA Strategy for Physicians”.mp4"
+    },
+    {
+      "filename": "Video 25 - HSA - Reel 1 - Why HSA's Still Matter in 2025.mp4"
+    },
+    {
+      "filename": "Video 25 - HSA - Reel 1 - Why HSA's Still Matter in 2025.mp4"
+    },
+    {
+      "filename": "search1.jpg"
+    },
+    {
+      "filename": "search2.jpg"
+    },
+    {
+      "filename": "search1.jpg"
+    },
+    {
+      "filename": "search2.jpg"
+    },
+    {
+      "filename": "search1.jpg"
+    },
+    {
+      "filename": "search2.jpg"
+    }
+  ],
+  "messages": [],
+  "stdout": "filename\nReel 6 - The Heart Behind It.mp4\nReel 5 - The Grandparent Loophole.mp4\nRee1 - The Financial Head Start.mp4\nVideo 25 - HSA - Reel 1 - Why HSA's Still Matter in 2025.mp4\nrecording-1770153718294.webm\nVideo 25 - HSA - Reel 4 — “Practical HSA Strategy for Physicians”.mp4\nVideo 25 - HSA - Reel 4 — “Practical HSA Strategy for Physicians”.mp4\nVideo 25 - HSA - Reel 1 - Why HSA's Still Matter in 2025.mp4\nVideo 25 - HSA - Reel 1 - Why HSA's Still Matter in 2025.mp4\nsearch1.jpg\nsearch2.jpg\nsearch1.jpg\nsearch2.jpg\nsearch1.jpg\nsearch2.jpg\n",
+  "stderr": "",
+  "execution_time_ms": 354
+}

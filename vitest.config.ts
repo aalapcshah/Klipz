@@ -15,5 +15,14 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["server/**/*.test.ts", "server/**/*.spec.ts"],
+    // Exclude integration tests that need real database
+    exclude: ["server/**/*.integration.test.ts", "node_modules/**"],
+    // Global setup file to mock database by default
+    setupFiles: ["./server/test-setup.ts"],
+    // Ensure tests run in isolation
+    isolate: true,
+    // Clear mocks between tests
+    clearMocks: true,
+    restoreMocks: true,
   },
 });

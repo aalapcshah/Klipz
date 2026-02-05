@@ -154,6 +154,16 @@ export async function getUserByOpenId(openId: string) {
 // ============= FILE QUERIES =============
 
 export async function createFile(file: InsertFile) {
+  // SAFEGUARD: Reject test files in production
+  const testPatterns = /^test[-_]?|[-_]test\.|searchable|export[-_]test|tagtest|mock[-_]|^search\d+\.|pagination[-_]?\d*/i;
+  if (file.filename && testPatterns.test(file.filename)) {
+    // Only allow in test environment
+    if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+      console.warn(`[createFile] BLOCKED: Test filename detected: ${file.filename}`);
+      throw new Error(`Cannot create file with test filename: ${file.filename}`);
+    }
+  }
+  
   // Use MySQL2 connection pool directly to bypass Drizzle
   if (!_pool && process.env.DATABASE_URL) {
     _pool = mysql.createPool(process.env.DATABASE_URL);

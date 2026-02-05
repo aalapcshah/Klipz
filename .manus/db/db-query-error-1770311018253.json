@@ -1,0 +1,8 @@
+{
+  "query": "DELETE FROM file_tags WHERE fileId IN (SELECT id FROM files WHERE filename LIKE '%test%' OR filename LIKE '%searchable%' OR filename LIKE '%export%'); DELETE FROM files WHERE filename LIKE '%test%' OR filename LIKE '%searchable%' OR filename LIKE '%export%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute DELETE FROM file_tags WHERE fileId IN (SELECT id FROM files WHERE filename LIKE '%test%' OR filename LIKE '%searchable%' OR filename LIKE '%export%'); DELETE FROM files WHERE filename LIKE '%test%' OR filename LIKE '%searchable%' OR filename LIKE '%export%';",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1146 (42S02) at line 1: Table 'saozcd7riw2zyxorraql7d.file_tags' doesn't exist"
+  ]
+}

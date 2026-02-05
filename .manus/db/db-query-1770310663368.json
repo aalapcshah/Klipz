@@ -1,0 +1,210 @@
+{
+  "query": "SELECT id, filename, title FROM files WHERE filename LIKE '%test%' OR title LIKE '%test%' OR filename LIKE 'searchable%' OR filename LIKE 'export%' OR title LIKE '%Test%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, filename, title FROM files WHERE filename LIKE '%test%' OR title LIKE '%test%' OR filename LIKE 'searchable%' OR filename LIKE 'export%' OR title LIKE '%Test%';",
+  "rows": [
+    {
+      "id": "99999",
+      "filename": "test.jpg",
+      "title": "Test File"
+    },
+    {
+      "id": "1110010",
+      "filename": "test-engagement.jpg",
+      "title": "Test Engagement File"
+    },
+    {
+      "id": "1110014",
+      "filename": "test-engagement.jpg",
+      "title": "Test Engagement File"
+    },
+    {
+      "id": "1110030",
+      "filename": "test-export.jpg",
+      "title": "Test Export File"
+    },
+    {
+      "id": "1110033",
+      "filename": "test1.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1110034",
+      "filename": "test2.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1200007",
+      "filename": "test.jpg",
+      "title": "Test Image"
+    },
+    {
+      "id": "1200008",
+      "filename": "test2.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1200009",
+      "filename": "test3.jpg",
+      "title": "Test File for Get"
+    },
+    {
+      "id": "1200010",
+      "filename": "test4.jpg",
+      "title": "Updated Title"
+    },
+    {
+      "id": "1200014",
+      "filename": "tagtest.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1200015",
+      "filename": "test-engagement.jpg",
+      "title": "Test Engagement File"
+    },
+    {
+      "id": "1200028",
+      "filename": "searchable.jpg",
+      "title": "Unique Searchable Title"
+    },
+    {
+      "id": "1200031",
+      "filename": "test-export.jpg",
+      "title": "Test Export File"
+    },
+    {
+      "id": "1200032",
+      "filename": "test1.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1200033",
+      "filename": "test2.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1200034",
+      "filename": "test1.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1200035",
+      "filename": "test2.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1200036",
+      "filename": "export-test.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1200037",
+      "filename": "test.jpg",
+      "title": "Test Image"
+    },
+    {
+      "id": "1200038",
+      "filename": "test2.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1200039",
+      "filename": "test3.jpg",
+      "title": "Test File for Get"
+    },
+    {
+      "id": "1200040",
+      "filename": "test4.jpg",
+      "title": "Updated Title"
+    },
+    {
+      "id": "1200044",
+      "filename": "tagtest.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1200045",
+      "filename": "test-engagement.jpg",
+      "title": "Test Engagement File"
+    },
+    {
+      "id": "1200046",
+      "filename": "test-image.jpg",
+      "title": "Test Image"
+    },
+    {
+      "id": "1200049",
+      "filename": "test.pdf",
+      "title": "NULL"
+    },
+    {
+      "id": "1230001",
+      "filename": "test.jpg",
+      "title": "Test Image"
+    },
+    {
+      "id": "1230002",
+      "filename": "test2.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230003",
+      "filename": "test3.jpg",
+      "title": "Test File for Get"
+    },
+    {
+      "id": "1230004",
+      "filename": "test4.jpg",
+      "title": "Updated Title"
+    },
+    {
+      "id": "1230008",
+      "filename": "tagtest.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230011",
+      "filename": "test-engagement.jpg",
+      "title": "Test Engagement File"
+    },
+    {
+      "id": "1230024",
+      "filename": "searchable.jpg",
+      "title": "Unique Searchable Title"
+    },
+    {
+      "id": "1230025",
+      "filename": "test1.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230026",
+      "filename": "test2.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230027",
+      "filename": "test-export.jpg",
+      "title": "Test Export File"
+    },
+    {
+      "id": "1230028",
+      "filename": "test1.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230029",
+      "filename": "test2.jpg",
+      "title": "NULL"
+    },
+    {
+      "id": "1230030",
+      "filename": "export-test.jpg",
+      "title": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfilename\ttitle\n99999\ttest.jpg\tTest File\n1110010\ttest-engagement.jpg\tTest Engagement File\n1110014\ttest-engagement.jpg\tTest Engagement File\n1110030\ttest-export.jpg\tTest Export File\n1110033\ttest1.jpg\tNULL\n1110034\ttest2.jpg\tNULL\n1200007\ttest.jpg\tTest Image\n1200008\ttest2.jpg\tNULL\n1200009\ttest3.jpg\tTest File for Get\n1200010\ttest4.jpg\tUpdated Title\n1200014\ttagtest.jpg\tNULL\n1200015\ttest-engagement.jpg\tTest Engagement File\n1200028\tsearchable.jpg\tUnique Searchable Title\n1200031\ttest-export.jpg\tTest Export File\n1200032\ttest1.jpg\tNULL\n1200033\ttest2.jpg\tNULL\n1200034\ttest1.jpg\tNULL\n1200035\ttest2.jpg\tNULL\n1200036\texport-test.jpg\tNULL\n1200037\ttest.jpg\tTest Image\n1200038\ttest2.jpg\tNULL\n1200039\ttest3.jpg\tTest File for Get\n1200040\ttest4.jpg\tUpdated Title\n1200044\ttagtest.jpg\tNULL\n1200045\ttest-engagement.jpg\tTest Engagement File\n1200046\ttest-image.jpg\tTest Image\n1200049\ttest.pdf\tNULL\n1230001\ttest.jpg\tTest Image\n1230002\ttest2.jpg\tNULL\n1230003\ttest3.jpg\tTest File for Get\n1230004\ttest4.jpg\tUpdated Title\n1230008\ttagtest.jpg\tNULL\n1230011\ttest-engagement.jpg\tTest Engagement File\n1230024\tsearchable.jpg\tUnique Searchable Title\n1230025\ttest1.jpg\tNULL\n1230026\ttest2.jpg\tNULL\n1230027\ttest-export.jpg\tTest Export File\n1230028\ttest1.jpg\tNULL\n1230029\ttest2.jpg\tNULL\n1230030\texport-test.jpg\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 389
+}

@@ -5111,3 +5111,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add "Open Original" button in file details to navigate to source social media URL
 - [x] Add unit tests for API response parsing and content formatting
 - [x] Test end-to-end TikTok caption extraction with real URLs
+
+
+## CRITICAL FIX - Test Files Cleanup - Feb 5, 2026
+- [x] Delete all test files from the Files database (test.pdf, test-image.jpg, tagtest.jpg, test1.jpg, test2.jpg, test3.jpg, searchable.jpg, export-test.jpg, etc.)
+- [x] Update test infrastructure to use proper mocking instead of creating real database entries
+- [x] Add safeguards to prevent test data from being created in production database
+- [x] Ensure vitest tests never touch the production database

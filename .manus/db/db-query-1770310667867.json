@@ -1,0 +1,9 @@
+{
+  "query": "DELETE FROM files WHERE filename LIKE '%test%' OR title LIKE '%test%' OR filename LIKE 'searchable%' OR filename LIKE 'export%' OR title LIKE '%Test%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute DELETE FROM files WHERE filename LIKE '%test%' OR title LIKE '%test%' OR filename LIKE 'searchable%' OR filename LIKE 'export%' OR title LIKE '%Test%';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 356
+}

@@ -1,0 +1,46 @@
+{
+  "query": "SELECT id, filename FROM files WHERE filename LIKE '%test%' OR filename LIKE '%searchable%' OR filename LIKE '%export%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, filename FROM files WHERE filename LIKE '%test%' OR filename LIKE '%searchable%' OR filename LIKE '%export%';",
+  "rows": [
+    {
+      "id": "99999",
+      "filename": "test.jpg"
+    },
+    {
+      "id": "1230043",
+      "filename": "searchable.jpg"
+    },
+    {
+      "id": "1230044",
+      "filename": "test-engagement.jpg"
+    },
+    {
+      "id": "1230047",
+      "filename": "test1.jpg"
+    },
+    {
+      "id": "1230048",
+      "filename": "test2.jpg"
+    },
+    {
+      "id": "1230049",
+      "filename": "test-export.jpg"
+    },
+    {
+      "id": "1230050",
+      "filename": "test1.jpg"
+    },
+    {
+      "id": "1230051",
+      "filename": "test2.jpg"
+    },
+    {
+      "id": "1230052",
+      "filename": "export-test.jpg"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfilename\n99999\ttest.jpg\n1230043\tsearchable.jpg\n1230044\ttest-engagement.jpg\n1230047\ttest1.jpg\n1230048\ttest2.jpg\n1230049\ttest-export.jpg\n1230050\ttest1.jpg\n1230051\ttest2.jpg\n1230052\texport-test.jpg\n",
+  "stderr": "",
+  "execution_time_ms": 363
+}
