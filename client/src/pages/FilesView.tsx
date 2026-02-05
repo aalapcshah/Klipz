@@ -217,7 +217,7 @@ export default function FilesView() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <div 
           ref={scrollContainerRef}
-          className="p-2 md:p-6 space-y-2 md:space-y-4 overflow-y-auto overflow-x-hidden"
+          className="p-2 md:p-6 space-y-2 md:space-y-4 overflow-y-auto"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}

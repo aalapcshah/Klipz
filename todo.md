@@ -5094,3 +5094,10 @@ Note: The application already has extensive annotation features including voice 
 
 ## Bug Fixes - Feb 4, 2026 (Session 4)
 - [x] Replace all MetaClips with Klipz in page titles, branding, and codebase
+
+
+## Bug Fixes - Feb 5, 2026
+- [ ] Fix Upload from URL to download actual YouTube videos instead of just thumbnails
+
+## Bug Fixes - Feb 5, 2026 (Session 2)
+- [x] Fix Files page layout - not showing all 50 files (removed server-side test file filter that caused pagination mismatch)

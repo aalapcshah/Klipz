@@ -523,19 +523,9 @@ export const appRouter = router({
         ? await db.getFilesByCollection(ctx.user.id, input.collectionId, pageSize, offset)
         : await db.getFilesByUserId(ctx.user.id, pageSize, offset);
       
-      // Exclude test files from user-facing file list
-      const testFilePatterns = ['test', 'tagtest', 'sample', 'demo', 'placeholder', 'pagination', 'searchable', 'search1', 'search2'];
-      const filteredFiles = files.filter(file => {
-        const filename = (file.filename || '').toLowerCase();
-        const title = (file.title || '').toLowerCase();
-        return !testFilePatterns.some(pattern => 
-          filename.includes(pattern) || title.includes(pattern)
-        );
-      });
-      
       // Get tags and calculate quality score for each file
       const filesWithTags = await Promise.all(
-        filteredFiles.map(async (file) => {
+        files.map(async (file) => {
           const tags = await db.getFileTagsWithNames(file.id);
           
           // Calculate metadata quality score (0-100)
