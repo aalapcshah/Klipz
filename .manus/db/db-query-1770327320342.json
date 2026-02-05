@@ -1,0 +1,16 @@
+{
+  "query": "SELECT id, title, description, createdAt FROM files WHERE title LIKE '%alexhonnold%' ORDER BY createdAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, title, description, createdAt FROM files WHERE title LIKE '%alexhonnold%' ORDER BY createdAt DESC LIMIT 5;",
+  "rows": [],
+  "messages": [
+    "1230134\tInstagram by @alexhonnold\tInstagram content",
+    "Creator: alexhonnold (@alexhonnold)",
+    "Original URL: https://www.instagram.com/p/DUMT2vHkprA/\t2026-02-05 21:34:26",
+    "1230133\tInstagram by @alexhonnold\tInstagram content",
+    "Creator: alexhonnold (@alexhonnold)",
+    "Original URL: https://www.instagram.com/p/DUMT2vHkprA/?utm_source=ig_web_copy_link&igsh=NTc4MTIwNjQ2YQ==\t2026-02-05 21:28:50"
+  ],
+  "stdout": "id\ttitle\tdescription\tcreatedAt\n1230134\tInstagram by @alexhonnold\tInstagram content\n\nCreator: alexhonnold (@alexhonnold)\nOriginal URL: https://www.instagram.com/p/DUMT2vHkprA/\t2026-02-05 21:34:26\n1230133\tInstagram by @alexhonnold\tInstagram content\n\nCreator: alexhonnold (@alexhonnold)\nOriginal URL: https://www.instagram.com/p/DUMT2vHkprA/?utm_source=ig_web_copy_link&igsh=NTc4MTIwNjQ2YQ==\t2026-02-05 21:28:50\n",
+  "stderr": "",
+  "execution_time_ms": 96
+}

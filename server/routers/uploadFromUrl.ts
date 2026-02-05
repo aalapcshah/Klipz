@@ -291,46 +291,76 @@ async function fetchInstagramInfo(url: string): Promise<SocialMediaInfo | null> 
 
     const data = await response.json() as Array<Record<string, unknown>>;
     console.log(`[InstagramAPI] Response received, parsing data...`);
+    console.log(`[InstagramAPI] Response has ${Array.isArray(data) ? data.length : 0} items`);
     
-    if (!data || data.length === 0) {
+    if (!data || !Array.isArray(data) || data.length === 0) {
       console.log(`[InstagramAPI] No data in response`);
       return null;
     }
 
-    const item = data[0];
-    const meta = item.meta as Record<string, unknown> | undefined;
+    // For carousel posts, the caption may be on any item in the array
+    // We need to find the item with the longest/non-empty caption
+    let bestCaption = "";
+    let bestMeta: Record<string, unknown> | undefined;
+    let bestItem: Record<string, unknown> | undefined;
     
-    if (!meta) {
-      console.log(`[InstagramAPI] No meta data in response`);
+    for (const item of data) {
+      const meta = item.meta as Record<string, unknown> | undefined;
+      if (meta) {
+        const caption = (meta.title as string) || "";
+        console.log(`[InstagramAPI] Item caption length: ${caption.length}`);
+        if (caption.length > bestCaption.length) {
+          bestCaption = caption;
+          bestMeta = meta;
+          bestItem = item;
+        }
+        // Also capture meta if we haven't found one yet (for stats)
+        if (!bestMeta) {
+          bestMeta = meta;
+          bestItem = item;
+        }
+      }
+    }
+    
+    // Use the first item if no caption was found
+    if (!bestItem) {
+      bestItem = data[0];
+      bestMeta = bestItem.meta as Record<string, unknown> | undefined;
+    }
+    
+    if (!bestMeta) {
+      console.log(`[InstagramAPI] No meta data in any response item`);
       return null;
     }
 
-    const caption = (meta.title as string) || "";
+    const caption = bestCaption || (bestMeta.title as string) || "";
+    console.log(`[InstagramAPI] Best caption found: "${caption.substring(0, 100)}..."`);
+    
     const hashtagMatches = caption.match(/#[\w]+/g) || [];
     const hashtags = hashtagMatches.map(tag => tag.substring(1));
     
-    const urls = item.urls as Array<Record<string, unknown>> | undefined;
+    const urls = bestItem.urls as Array<Record<string, unknown>> | undefined;
     let videoUrl: string | undefined;
     if (urls && urls.length > 0) {
       videoUrl = urls[0].url as string;
     }
     
-    const thumbnailUrl = item.pictureUrl as string | undefined;
+    const thumbnailUrl = bestItem.pictureUrl as string | undefined;
     
     let createTime: string | undefined;
-    if (meta.takenAt) {
-      createTime = new Date((meta.takenAt as number) * 1000).toISOString();
+    if (bestMeta.takenAt) {
+      createTime = new Date((bestMeta.takenAt as number) * 1000).toISOString();
     }
     
     const result: SocialMediaInfo = {
       caption,
-      author: (meta.username as string) || "",
-      authorUsername: (meta.username as string) || "",
+      author: (bestMeta.username as string) || "",
+      authorUsername: (bestMeta.username as string) || "",
       videoUrl,
       thumbnailUrl,
       stats: {
-        likes: (meta.likeCount as number) || 0,
-        comments: (meta.commentCount as number) || 0,
+        likes: (bestMeta.likeCount as number) || 0,
+        comments: (bestMeta.commentCount as number) || 0,
         shares: 0,
         plays: 0,
       },
@@ -1010,7 +1040,7 @@ async function handleSocialMediaWithTranscription(
       mimeType: "text/plain",
       fileSize: buffer.length,
       title: title || `${platformName} ${username ? `by @${username}` : "video"}`,
-      description: description || `${platformName} content\n\n${socialInfo.author ? `Creator: ${socialInfo.author} (@${username})\n` : ""}Original URL: ${url}`,
+      description: description || `${platformName} content\n\n${socialInfo.author ? `Creator: ${socialInfo.author} (@${username})\n` : ""}Original URL: ${url}${socialInfo.caption ? `\n\n--- Caption ---\n${socialInfo.caption}` : ""}`,
       metadata: {
         platform,
         originalUrl: url,

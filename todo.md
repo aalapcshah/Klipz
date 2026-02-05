@@ -5136,3 +5136,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Debug Instagram API call - not returning caption data (FIXED - Instagram API working, creates text files)
 - [x] Fix API integration issues (FIXED - both APIs now create .txt files with caption and metadata)
 - [x] Test with real URLs (TESTED - Instagram by @vanitystateplates-content.txt created successfully)
+
+
+## Bug Fix - Instagram Carousel Caption Extraction - Feb 5, 2026
+- [x] Fixed Instagram carousel posts not extracting captions (API returns array of items, caption was on different items)
+- [x] Updated fetchInstagramInfo to iterate through all items and find the longest/best caption
+- [x] Updated description field to include the extracted caption for immediate visibility in UI
+- [x] Tested with @alexhonnold carousel post - full caption now shows in file details popup
