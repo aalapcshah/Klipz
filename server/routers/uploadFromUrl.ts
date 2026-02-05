@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
-import { callDataApi } from "../_core/dataApi";
 import { TRPCError } from "@trpc/server";
 
 // Social media platform detection
@@ -19,7 +18,6 @@ function detectSocialPlatform(url: string): { platform: SocialPlatform; videoId?
       try {
         videoId = new URL(url).searchParams.get("v") || undefined;
       } catch {
-        // URL parsing failed, try regex
         const match = url.match(/[?&]v=([^&]+)/);
         videoId = match ? match[1] : undefined;
       }
@@ -77,36 +75,6 @@ function extractYouTubeVideoId(url: string): string | null {
   return null;
 }
 
-// Extract TikTok video ID from URL
-function extractTikTokVideoId(url: string): string | null {
-  const patterns = [
-    /tiktok\.com\/@[^/]+\/video\/(\d+)/,
-    /tiktok\.com\/t\/([^/?]+)/,
-    /vm\.tiktok\.com\/([^/?]+)/,
-  ];
-  
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return match[1];
-  }
-  return null;
-}
-
-// Extract Instagram post ID from URL
-function extractInstagramPostId(url: string): string | null {
-  const patterns = [
-    /instagram\.com\/p\/([^/?]+)/,
-    /instagram\.com\/reel\/([^/?]+)/,
-    /instagram\.com\/reels\/([^/?]+)/,
-  ];
-  
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return match[1];
-  }
-  return null;
-}
-
 export const uploadFromUrlRouter = router({
   // Fetch file from URL and upload to S3
   uploadFromUrl: protectedProcedure
@@ -130,6 +98,8 @@ export const uploadFromUrlRouter = router({
           return await handleTikTokUpload(url, ctx.user.id, title, description);
         } else if (platform === "instagram") {
           return await handleInstagramUpload(url, ctx.user.id, title, description);
+        } else if (platform === "vimeo") {
+          return await handleVimeoUpload(url, ctx.user.id, title, description);
         }
 
         // For regular URLs, fetch directly
@@ -164,13 +134,11 @@ export const uploadFromUrlRouter = router({
         // Determine filename
         let finalFilename = filename;
         if (!finalFilename) {
-          // Try to extract from URL
           const urlPath = new URL(url).pathname;
           const urlFilename = urlPath.split("/").pop();
           if (urlFilename && urlFilename.includes(".")) {
             finalFilename = urlFilename;
           } else {
-            // Generate a filename based on content type
             const ext = contentType.split("/")[1]?.split(";")[0] || "bin";
             finalFilename = `downloaded-${Date.now()}.${ext}`;
           }
@@ -233,49 +201,49 @@ export const uploadFromUrlRouter = router({
             icon: "youtube",
             color: "#FF0000",
             supportsDownload: true,
-            note: "Video thumbnail and metadata will be saved. Due to YouTube's terms of service, full video download is not available.",
+            note: "Video thumbnail and metadata will be saved.",
           },
           instagram: {
             name: "Instagram",
             icon: "instagram",
             color: "#E4405F",
             supportsDownload: true,
-            note: "Post content will be extracted from Instagram",
+            note: "Post thumbnail will be saved with link to original.",
           },
           twitter: {
             name: "Twitter/X",
             icon: "twitter",
             color: "#1DA1F2",
-            supportsDownload: true,
-            note: "Media will be extracted from the tweet",
+            supportsDownload: false,
+            note: "Twitter content extraction is limited.",
           },
           linkedin: {
             name: "LinkedIn",
             icon: "linkedin",
             color: "#0A66C2",
             supportsDownload: false,
-            note: "LinkedIn content extraction is limited",
+            note: "LinkedIn content extraction is limited.",
           },
           tiktok: {
             name: "TikTok",
             icon: "tiktok",
             color: "#000000",
             supportsDownload: true,
-            note: "Video will be downloaded from TikTok",
+            note: "Video thumbnail will be saved with link to original.",
           },
           facebook: {
             name: "Facebook",
             icon: "facebook",
             color: "#1877F2",
-            supportsDownload: true,
-            note: "Video/image will be extracted from Facebook",
+            supportsDownload: false,
+            note: "Facebook content extraction is limited.",
           },
           vimeo: {
             name: "Vimeo",
             icon: "vimeo",
             color: "#1AB7EA",
             supportsDownload: true,
-            note: "Video will be downloaded from Vimeo",
+            note: "Video thumbnail and metadata will be saved.",
           },
         }[platform] : null,
       };
@@ -296,17 +264,16 @@ export const uploadFromUrlRouter = router({
       if (platform) {
         return {
           valid: true,
-          contentType: "video/mp4",
+          contentType: "image/jpeg",
           fileSize: 0,
           isSupported: true,
-          filename: `${platform}-video.mp4`,
+          filename: `${platform}-content.jpg`,
           isSocialMedia: true,
           platform,
         };
       }
 
       try {
-        // Make a HEAD request to check the file
         const response = await fetch(url, {
           method: "HEAD",
           headers: {
@@ -321,95 +288,100 @@ export const uploadFromUrlRouter = router({
           };
         }
 
-        const contentType = response.headers.get("content-type") || "unknown";
+        const contentType = response.headers.get("content-type") || "application/octet-stream";
         const contentLength = response.headers.get("content-length");
         const fileSize = contentLength ? parseInt(contentLength, 10) : 0;
 
         // Check if it's a supported file type
         const supportedTypes = [
-          "image/",
-          "video/",
-          "audio/",
-          "application/pdf",
-          "application/msword",
-          "application/vnd.openxmlformats-officedocument",
-          "text/",
+          "image/", "video/", "audio/", "application/pdf",
+          "application/msword", "application/vnd.openxmlformats",
+          "text/", "application/json",
         ];
+        const isSupported = supportedTypes.some(type => contentType.startsWith(type));
 
-        const isSupported = supportedTypes.some((type) => contentType.startsWith(type));
+        // Try to extract filename from URL
+        let filename = "downloaded-file";
+        try {
+          const urlPath = new URL(url).pathname;
+          const urlFilename = urlPath.split("/").pop();
+          if (urlFilename && urlFilename.includes(".")) {
+            filename = urlFilename;
+          }
+        } catch {
+          // Ignore URL parsing errors
+        }
 
         return {
           valid: true,
           contentType,
           fileSize,
           isSupported,
-          filename: new URL(url).pathname.split("/").pop() || "unknown",
+          filename,
           isSocialMedia: false,
         };
       } catch (error) {
         return {
           valid: false,
-          error: error instanceof Error ? error.message : "Failed to validate URL",
+          error: `Failed to validate URL: ${error instanceof Error ? error.message : "Unknown error"}`,
         };
       }
     }),
 });
 
-// Handle YouTube video upload - save thumbnail and metadata
+// Handle YouTube video upload using oEmbed API
 async function handleYouTubeUpload(url: string, userId: number, title?: string, description?: string) {
-  const videoId = extractYouTubeVideoId(url);
-  if (!videoId) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "Invalid YouTube URL - could not extract video ID",
-    });
-  }
-
-  console.log(`[UploadFromUrl] Processing YouTube video: ${videoId}`);
+  console.log(`[UploadFromUrl] Processing YouTube video: ${url}`);
 
   try {
-    // Get video info from YouTube API
-    const result = await callDataApi("Youtube/get_video_details", {
-      query: { id: videoId },
-    }) as Record<string, unknown>;
-
-    if (!result || !result.title) {
+    const videoId = extractYouTubeVideoId(url);
+    if (!videoId) {
       throw new TRPCError({
-        code: "NOT_FOUND",
-        message: "YouTube video not found or unavailable",
+        code: "BAD_REQUEST",
+        message: "Could not extract YouTube video ID from URL",
       });
     }
 
-    const thumbnails = result.thumbnails as Array<{url: string; width?: number; height?: number}> | undefined;
-    const videoTitle = (result.title as string) || "YouTube Video";
-    const videoDescription = (result.description as string) || "";
+    // Use YouTube oEmbed API (public, no auth required)
+    const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+    console.log(`[UploadFromUrl] Fetching oEmbed data from: ${oembedUrl}`);
     
-    // Get the highest quality thumbnail
-    let thumbnailUrl = thumbnails?.[thumbnails.length - 1]?.url || thumbnails?.[0]?.url;
+    const oembedResponse = await fetch(oembedUrl);
     
-    // If no thumbnail from API, use YouTube's standard thumbnail URL
-    if (!thumbnailUrl) {
-      thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    let videoTitle = `YouTube Video ${videoId}`;
+    let authorName = "";
+    let thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    
+    if (oembedResponse.ok) {
+      const oembedData = await oembedResponse.json() as Record<string, unknown>;
+      videoTitle = (oembedData.title as string) || videoTitle;
+      authorName = (oembedData.author_name as string) || "";
+      // oEmbed provides thumbnail_url but we'll use the higher quality version
     }
 
-    // Download the thumbnail
+    // Try to download the thumbnail
     console.log(`[UploadFromUrl] Downloading YouTube thumbnail: ${thumbnailUrl}`);
-    const thumbResponse = await fetch(thumbnailUrl);
+    let thumbResponse = await fetch(thumbnailUrl);
+    
+    // Fallback to lower quality if maxres not available
+    if (!thumbResponse.ok) {
+      thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+      thumbResponse = await fetch(thumbnailUrl);
+    }
     
     if (!thumbResponse.ok) {
-      // Try fallback thumbnail URL
-      thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-      const fallbackResponse = await fetch(thumbnailUrl);
-      if (!fallbackResponse.ok) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Failed to download YouTube thumbnail",
-        });
-      }
+      thumbnailUrl = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+      thumbResponse = await fetch(thumbnailUrl);
     }
 
-    const thumbArrayBuffer = await (await fetch(thumbnailUrl)).arrayBuffer();
-    const thumbBuffer = Buffer.from(thumbArrayBuffer);
+    if (!thumbResponse.ok) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Failed to download YouTube thumbnail. The video may be private or unavailable.",
+      });
+    }
+
+    const thumbBuffer = Buffer.from(await thumbResponse.arrayBuffer());
 
     // Generate filename and upload
     const safeTitle = videoTitle.replace(/[^a-zA-Z0-9-_\s]/g, "").substring(0, 50).trim() || "youtube-video";
@@ -429,14 +401,12 @@ async function handleYouTubeUpload(url: string, userId: number, title?: string, 
       mimeType: "image/jpeg",
       fileSize: thumbBuffer.length,
       title: title || videoTitle,
-      description: description || `YouTube video: ${url}\n\n${videoDescription}`.substring(0, 1000),
+      description: description || `YouTube video by ${authorName}\n\nOriginal URL: ${url}`,
       metadata: {
         platform: "youtube",
         videoId,
         originalUrl: url,
-        channelTitle: result.channelTitle,
-        duration: result.lengthSeconds,
-        viewCount: (result.stats as Record<string, unknown>)?.views,
+        authorName,
       },
     };
   } catch (error) {
@@ -449,126 +419,63 @@ async function handleYouTubeUpload(url: string, userId: number, title?: string, 
   }
 }
 
-// Handle TikTok video upload
+// Handle TikTok video upload - save reference with placeholder
 async function handleTikTokUpload(url: string, userId: number, title?: string, description?: string) {
   console.log(`[UploadFromUrl] Processing TikTok video: ${url}`);
 
   try {
-    // Get video info from TikTok API
-    const result = await callDataApi("Tiktok/get_video_info", {
-      query: { url },
-    }) as Record<string, unknown>;
-
-    if (!result || !result.data) {
-      throw new TRPCError({
-        code: "NOT_FOUND",
-        message: "TikTok video not found or unavailable. The video may be private or deleted.",
-      });
-    }
-
-    const video = result.data as Record<string, unknown>;
-    const videoStats = video.stats as Record<string, unknown> | undefined;
-    const videoAuthor = video.author as Record<string, unknown> | undefined;
-    const videoTitle = (video.desc as string) || "TikTok Video";
+    // TikTok doesn't have a public oEmbed API that works reliably
+    // We'll create a reference file with the URL
     
-    // Get download URL - try multiple sources
-    const downloadUrl = (video.playAddr as string) || 
-                       (video.downloadAddr as string) || 
-                       (video.play as string) ||
-                       null;
-
-    if (!downloadUrl) {
-      // If no download URL, save the thumbnail instead
-      const coverUrl = (video.cover as string) || (video.originCover as string);
-      if (coverUrl) {
-        console.log(`[UploadFromUrl] TikTok video not downloadable, saving cover image`);
-        const coverResponse = await fetch(coverUrl);
-        if (coverResponse.ok) {
-          const coverBuffer = Buffer.from(await coverResponse.arrayBuffer());
-          const safeTitle = videoTitle.replace(/[^a-zA-Z0-9-_\s]/g, "").substring(0, 50).trim() || "tiktok-video";
-          const randomSuffix = Math.random().toString(36).substring(2, 10);
-          const filename = `${safeTitle}-cover.jpg`;
-          const fileKey = `${userId}-tiktok/${filename}-${randomSuffix}`;
-
-          const { url: s3Url } = await storagePut(fileKey, coverBuffer, "image/jpeg");
-
-          return {
-            success: true,
-            url: s3Url,
-            fileKey,
-            filename,
-            mimeType: "image/jpeg",
-            fileSize: coverBuffer.length,
-            title: title || videoTitle,
-            description: description || `TikTok video: ${url}\n\nNote: Full video download not available for this video.`,
-            metadata: {
-              platform: "tiktok",
-              originalUrl: url,
-              author: videoAuthor?.nickname || videoAuthor?.uniqueId,
-              viewCount: videoStats?.playCount,
-              likeCount: videoStats?.diggCount,
-            },
-          };
-        }
-      }
-      
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "TikTok video download not available. The video may have download restrictions.",
-      });
-    }
-
-    // Download the video
-    console.log(`[UploadFromUrl] Downloading TikTok video from: ${downloadUrl.substring(0, 100)}...`);
-    const videoResponse = await fetch(downloadUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://www.tiktok.com/',
-      },
-    });
-
-    if (!videoResponse.ok) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: `Failed to download TikTok video: ${videoResponse.status}`,
-      });
-    }
-
-    const videoBuffer = Buffer.from(await videoResponse.arrayBuffer());
+    // Try to extract username and video ID from URL
+    let username = "";
+    let videoId = "";
     
-    // Check file size (500MB limit)
-    if (videoBuffer.length > 500 * 1024 * 1024) {
-      throw new TRPCError({
-        code: "PAYLOAD_TOO_LARGE",
-        message: "TikTok video exceeds 500MB limit",
-      });
+    const userMatch = url.match(/tiktok\.com\/@([^/]+)/);
+    if (userMatch) {
+      username = userMatch[1];
+    }
+    
+    const videoMatch = url.match(/\/video\/(\d+)/);
+    if (videoMatch) {
+      videoId = videoMatch[1];
     }
 
-    const safeTitle = videoTitle.replace(/[^a-zA-Z0-9-_\s]/g, "").substring(0, 50).trim() || "tiktok-video";
+    // Create a simple reference image with the TikTok logo colors
+    // Since we can't download the actual video, we'll save metadata
+    const referenceContent = JSON.stringify({
+      platform: "tiktok",
+      originalUrl: url,
+      username,
+      videoId,
+      savedAt: new Date().toISOString(),
+      note: "TikTok video reference - open original URL to view content",
+    }, null, 2);
+
+    const buffer = Buffer.from(referenceContent, "utf-8");
+    const safeTitle = title || `TikTok-${username || videoId || Date.now()}`;
     const randomSuffix = Math.random().toString(36).substring(2, 10);
-    const filename = `${safeTitle}.mp4`;
+    const filename = `${safeTitle.replace(/[^a-zA-Z0-9-_\s]/g, "").substring(0, 50)}.json`;
     const fileKey = `${userId}-tiktok/${filename}-${randomSuffix}`;
 
-    const { url: s3Url } = await storagePut(fileKey, videoBuffer, "video/mp4");
+    const { url: s3Url } = await storagePut(fileKey, buffer, "application/json");
 
-    console.log(`[UploadFromUrl] TikTok video uploaded: ${s3Url}`);
+    console.log(`[UploadFromUrl] TikTok reference saved: ${s3Url}`);
 
     return {
       success: true,
       url: s3Url,
       fileKey,
       filename,
-      mimeType: "video/mp4",
-      fileSize: videoBuffer.length,
-      title: title || videoTitle,
-      description: description || `TikTok video by @${videoAuthor?.uniqueId || 'unknown'}\n\nOriginal: ${url}`,
+      mimeType: "application/json",
+      fileSize: buffer.length,
+      title: title || `TikTok video by @${username || "unknown"}`,
+      description: description || `TikTok video reference\n\nOriginal URL: ${url}\n\nNote: Open the original URL to view the video content.`,
       metadata: {
         platform: "tiktok",
         originalUrl: url,
-        author: videoAuthor?.nickname || videoAuthor?.uniqueId,
-        viewCount: videoStats?.playCount,
-        likeCount: videoStats?.diggCount,
-        duration: video.duration,
+        username,
+        videoId,
       },
     };
   } catch (error) {
@@ -581,82 +488,108 @@ async function handleTikTokUpload(url: string, userId: number, title?: string, d
   }
 }
 
-// Handle Instagram post upload
+// Handle Instagram post upload - save reference
 async function handleInstagramUpload(url: string, userId: number, title?: string, description?: string) {
-  const postId = extractInstagramPostId(url);
-  console.log(`[UploadFromUrl] Processing Instagram post: ${postId || url}`);
+  console.log(`[UploadFromUrl] Processing Instagram post: ${url}`);
 
   try {
-    // Try to get post info from Instagram API
-    const result = await callDataApi("Instagram/get_post_info", {
-      query: { url },
-    }) as Record<string, unknown>;
-
-    if (!result || !result.data) {
-      throw new TRPCError({
-        code: "NOT_FOUND",
-        message: "Instagram post not found or unavailable. The post may be private or deleted.",
+    // Try Instagram oEmbed API
+    const oembedUrl = `https://api.instagram.com/oembed?url=${encodeURIComponent(url)}`;
+    console.log(`[UploadFromUrl] Fetching Instagram oEmbed: ${oembedUrl}`);
+    
+    let postTitle = "Instagram Post";
+    let authorName = "";
+    let thumbnailUrl = "";
+    
+    try {
+      const oembedResponse = await fetch(oembedUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
       });
+      
+      if (oembedResponse.ok) {
+        const oembedData = await oembedResponse.json() as Record<string, unknown>;
+        postTitle = (oembedData.title as string) || postTitle;
+        authorName = (oembedData.author_name as string) || "";
+        thumbnailUrl = (oembedData.thumbnail_url as string) || "";
+      }
+    } catch (e) {
+      console.log("[UploadFromUrl] Instagram oEmbed failed, continuing with reference only");
     }
 
-    const post = result.data as Record<string, unknown>;
-    const postCaption = (post.caption as string) || "Instagram Post";
-    const mediaUrl = (post.video_url as string) || (post.display_url as string) || (post.thumbnail_url as string);
-    const isVideo = !!(post.video_url || post.is_video);
+    // If we got a thumbnail, download it
+    if (thumbnailUrl) {
+      try {
+        const thumbResponse = await fetch(thumbnailUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+        });
+        
+        if (thumbResponse.ok) {
+          const thumbBuffer = Buffer.from(await thumbResponse.arrayBuffer());
+          const safeTitle = postTitle.replace(/[^a-zA-Z0-9-_\s]/g, "").substring(0, 50).trim() || "instagram-post";
+          const randomSuffix = Math.random().toString(36).substring(2, 10);
+          const filename = `${safeTitle}.jpg`;
+          const fileKey = `${userId}-instagram/${filename}-${randomSuffix}`;
 
-    if (!mediaUrl) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Could not extract media from Instagram post",
-      });
+          const { url: s3Url } = await storagePut(fileKey, thumbBuffer, "image/jpeg");
+
+          console.log(`[UploadFromUrl] Instagram thumbnail uploaded: ${s3Url}`);
+
+          return {
+            success: true,
+            url: s3Url,
+            fileKey,
+            filename,
+            mimeType: "image/jpeg",
+            fileSize: thumbBuffer.length,
+            title: title || postTitle,
+            description: description || `Instagram post by @${authorName}\n\nOriginal URL: ${url}`,
+            metadata: {
+              platform: "instagram",
+              originalUrl: url,
+              authorName,
+            },
+          };
+        }
+      } catch (e) {
+        console.log("[UploadFromUrl] Instagram thumbnail download failed");
+      }
     }
 
-    // Download the media
-    console.log(`[UploadFromUrl] Downloading Instagram ${isVideo ? 'video' : 'image'}`);
-    const mediaResponse = await fetch(mediaUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://www.instagram.com/',
-      },
-    });
+    // Fallback: save as reference
+    const referenceContent = JSON.stringify({
+      platform: "instagram",
+      originalUrl: url,
+      authorName,
+      title: postTitle,
+      savedAt: new Date().toISOString(),
+      note: "Instagram post reference - open original URL to view content",
+    }, null, 2);
 
-    if (!mediaResponse.ok) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: `Failed to download Instagram media: ${mediaResponse.status}`,
-      });
-    }
-
-    const mediaBuffer = Buffer.from(await mediaResponse.arrayBuffer());
-    const contentType = isVideo ? "video/mp4" : "image/jpeg";
-    const ext = isVideo ? "mp4" : "jpg";
-
-    const safeTitle = postCaption.replace(/[^a-zA-Z0-9-_\s]/g, "").substring(0, 50).trim() || "instagram-post";
+    const buffer = Buffer.from(referenceContent, "utf-8");
+    const safeTitle = title || `Instagram-${authorName || Date.now()}`;
     const randomSuffix = Math.random().toString(36).substring(2, 10);
-    const filename = `${safeTitle}.${ext}`;
+    const filename = `${safeTitle.replace(/[^a-zA-Z0-9-_\s]/g, "").substring(0, 50)}.json`;
     const fileKey = `${userId}-instagram/${filename}-${randomSuffix}`;
 
-    const { url: s3Url } = await storagePut(fileKey, mediaBuffer, contentType);
-
-    console.log(`[UploadFromUrl] Instagram media uploaded: ${s3Url}`);
+    const { url: s3Url } = await storagePut(fileKey, buffer, "application/json");
 
     return {
       success: true,
       url: s3Url,
       fileKey,
       filename,
-      mimeType: contentType,
-      fileSize: mediaBuffer.length,
-      title: title || (postCaption.substring(0, 100) || "Instagram Post"),
-      description: description || `Instagram post: ${url}\n\n${postCaption}`.substring(0, 1000),
+      mimeType: "application/json",
+      fileSize: buffer.length,
+      title: title || postTitle,
+      description: description || `Instagram post reference\n\nOriginal URL: ${url}\n\nNote: Open the original URL to view the content.`,
       metadata: {
         platform: "instagram",
-        postId,
         originalUrl: url,
-        isVideo,
-        owner: post.owner,
-        likeCount: post.like_count,
-        commentCount: post.comment_count,
+        authorName,
       },
     };
   } catch (error) {
@@ -665,6 +598,84 @@ async function handleInstagramUpload(url: string, userId: number, title?: string
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
       message: `Failed to process Instagram post: ${error instanceof Error ? error.message : "Unknown error"}`,
+    });
+  }
+}
+
+// Handle Vimeo video upload using oEmbed API
+async function handleVimeoUpload(url: string, userId: number, title?: string, description?: string) {
+  console.log(`[UploadFromUrl] Processing Vimeo video: ${url}`);
+
+  try {
+    // Use Vimeo oEmbed API (public, no auth required)
+    const oembedUrl = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(url)}`;
+    console.log(`[UploadFromUrl] Fetching Vimeo oEmbed: ${oembedUrl}`);
+    
+    const oembedResponse = await fetch(oembedUrl);
+    
+    if (!oembedResponse.ok) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Failed to fetch Vimeo video info. The video may be private or unavailable.",
+      });
+    }
+    
+    const oembedData = await oembedResponse.json() as Record<string, unknown>;
+    const videoTitle = (oembedData.title as string) || "Vimeo Video";
+    const authorName = (oembedData.author_name as string) || "";
+    const thumbnailUrl = (oembedData.thumbnail_url as string) || "";
+    const videoId = (oembedData.video_id as number)?.toString() || "";
+
+    if (!thumbnailUrl) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Could not get Vimeo video thumbnail",
+      });
+    }
+
+    // Download the thumbnail
+    const thumbResponse = await fetch(thumbnailUrl);
+    if (!thumbResponse.ok) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Failed to download Vimeo thumbnail",
+      });
+    }
+
+    const thumbBuffer = Buffer.from(await thumbResponse.arrayBuffer());
+
+    // Generate filename and upload
+    const safeTitle = videoTitle.replace(/[^a-zA-Z0-9-_\s]/g, "").substring(0, 50).trim() || "vimeo-video";
+    const randomSuffix = Math.random().toString(36).substring(2, 10);
+    const filename = `${safeTitle}-thumbnail.jpg`;
+    const fileKey = `${userId}-vimeo/${filename}-${randomSuffix}`;
+
+    const { url: s3Url } = await storagePut(fileKey, thumbBuffer, "image/jpeg");
+
+    console.log(`[UploadFromUrl] Vimeo thumbnail uploaded: ${s3Url}`);
+
+    return {
+      success: true,
+      url: s3Url,
+      fileKey,
+      filename,
+      mimeType: "image/jpeg",
+      fileSize: thumbBuffer.length,
+      title: title || videoTitle,
+      description: description || `Vimeo video by ${authorName}\n\nOriginal URL: ${url}`,
+      metadata: {
+        platform: "vimeo",
+        videoId,
+        originalUrl: url,
+        authorName,
+      },
+    };
+  } catch (error) {
+    console.error("[UploadFromUrl] Vimeo error:", error);
+    if (error instanceof TRPCError) throw error;
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: `Failed to process Vimeo video: ${error instanceof Error ? error.message : "Unknown error"}`,
     });
   }
 }

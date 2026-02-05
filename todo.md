@@ -5086,3 +5086,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix Upload from URL for YouTube/TikTok/Instagram links (added social media extraction)
 - [x] Fix Knowledge Graph search box graying out/losing focus (added simulation stabilization)
 - [x] Remove non-working Search page from navigation (removed from Dashboard and MobileBottomNav)
+
+
+## Bug Fixes - Feb 4, 2026 (Session 3)
+- [x] Fix Upload from URL 404 error - Data API for social media extraction not available (using public oEmbed APIs)
