@@ -68,7 +68,7 @@ export async function sendDailyDigests(): Promise<number> {
 
       // Send email
       await notifyOwner({
-        title: `[MetaClips] Daily Activity Digest for ${user.name || user.email}`,
+        title: `[Klipz] Daily Activity Digest for ${user.name || user.email}`,
         content: emailContent,
       });
 
@@ -138,7 +138,7 @@ export async function sendWeeklyDigests(): Promise<number> {
 
       // Send email
       await notifyOwner({
-        title: `[MetaClips] Weekly Activity Digest for ${user.name || user.email}`,
+        title: `[Klipz] Weekly Activity Digest for ${user.name || user.email}`,
         content: emailContent,
       });
 
@@ -186,7 +186,7 @@ function buildDigestEmail(params: {
   return `
 Hi ${userName},
 
-Here's your ${period} activity digest for MetaClips.
+Here's your ${period} activity digest for Klipz.
 
 📊 Activity Summary (${periodLabel})
 Total Activities: ${totalActivities}
@@ -197,7 +197,7 @@ ${summaryLines}
 ${recentActivities}
 
 ---
-To change your digest preferences, visit Settings > Notifications in MetaClips.
+To change your digest preferences, visit Settings > Notifications in Klipz.
   `.trim();
 }
 

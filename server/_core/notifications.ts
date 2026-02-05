@@ -113,7 +113,7 @@ ${params.annotationId ? `Annotation ID: ${params.annotationId} (${params.annotat
 
   try {
     await notifyOwner({
-      title: `[MetaClips] ${params.title}`,
+      title: `[Klipz] ${params.title}`,
       content: emailContent,
     });
     return true;

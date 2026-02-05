@@ -262,7 +262,7 @@ export const cloudStorageRouter = router({
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/octet-stream",
           "Dropbox-API-Arg": JSON.stringify({
-            path: `/MetaClips/${input.filename}`,
+            path: `/Klipz/${input.filename}`,
             mode: "add",
             autorename: true,
             mute: false,

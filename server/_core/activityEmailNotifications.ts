@@ -101,12 +101,12 @@ User: ${user.name || user.email}
 Time: ${new Date().toLocaleString()}
 
 ---
-To manage your notification preferences, visit Settings > Notifications in MetaClips.
+To manage your notification preferences, visit Settings > Notifications in Klipz.
     `.trim();
 
     // Send via owner notification system
     await notifyOwner({
-      title: `[MetaClips Activity] ${params.title}`,
+      title: `[Klipz Activity] ${params.title}`,
       content: emailContent,
     });
 
@@ -126,7 +126,7 @@ export async function sendUploadEmail(userId: number, fileName: string, fileId: 
     userId,
     activityType: "upload",
     title: "New File Uploaded",
-    content: `A new file "${fileName}" has been uploaded to your MetaClips library.`,
+    content: `A new file "${fileName}" has been uploaded to your Klipz library.`,
     fileId,
     fileName,
   });
