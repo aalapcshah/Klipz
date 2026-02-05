@@ -2,6 +2,9 @@ import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
+import { YoutubeTranscript } from "youtube-transcript";
+import { transcribeAudio } from "../_core/voiceTranscription";
+import * as db from "../db";
 
 // Social media platform detection
 type SocialPlatform = "youtube" | "instagram" | "twitter" | "linkedin" | "tiktok" | "facebook" | "vimeo" | null;
@@ -75,118 +78,302 @@ function extractYouTubeVideoId(url: string): string | null {
   return null;
 }
 
-// Cobalt API for video downloads
-// Using public cobalt instances - note: these may have rate limits
-const COBALT_INSTANCES = [
-  "https://api.cobalt.tools",
-  "https://cobalt-api.hyper.lol",
-];
-
-interface CobaltResponse {
-  status: "tunnel" | "redirect" | "picker" | "error" | "local-processing";
-  url?: string;
-  filename?: string;
-  picker?: Array<{ type: string; url: string; thumb?: string }>;
-  error?: { code: string; context?: Record<string, unknown> };
-}
-
-async function downloadWithCobalt(url: string): Promise<{ downloadUrl: string; filename: string; isVideo: boolean } | null> {
-  for (const instance of COBALT_INSTANCES) {
-    try {
-      console.log(`[Cobalt] Trying instance: ${instance}`);
-      
-      const response = await fetch(`${instance}/`, {
-        method: "POST",
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-          "User-Agent": "Klipz/1.0",
-        },
-        body: JSON.stringify({
-          url,
-          videoQuality: "720",
-          filenameStyle: "pretty",
-          downloadMode: "auto",
-        }),
-      });
-
-      if (!response.ok) {
-        console.log(`[Cobalt] Instance ${instance} returned ${response.status}`);
-        continue;
-      }
-
-      const data = await response.json() as CobaltResponse;
-      console.log(`[Cobalt] Response status: ${data.status}`);
-
-      if (data.status === "tunnel" || data.status === "redirect") {
-        if (data.url) {
-          return {
-            downloadUrl: data.url,
-            filename: data.filename || `video-${Date.now()}.mp4`,
-            isVideo: true,
-          };
-        }
-      } else if (data.status === "picker" && data.picker && data.picker.length > 0) {
-        // For picker responses, get the first video
-        const videoItem = data.picker.find(item => item.type === "video") || data.picker[0];
-        if (videoItem?.url) {
-          return {
-            downloadUrl: videoItem.url,
-            filename: `video-${Date.now()}.mp4`,
-            isVideo: videoItem.type === "video",
-          };
-        }
-      } else if (data.status === "error") {
-        console.log(`[Cobalt] Error from ${instance}:`, data.error);
-      }
-    } catch (error) {
-      console.log(`[Cobalt] Error with instance ${instance}:`, error);
-    }
-  }
-  
-  return null;
-}
-
-async function downloadVideoFromUrl(downloadUrl: string, maxSizeMB: number = 100): Promise<Buffer | null> {
+// Fetch YouTube transcript using youtube-transcript package
+async function fetchYouTubeTranscript(videoId: string): Promise<{ transcript: string; segments: Array<{ text: string; offset: number; duration: number }> } | null> {
   try {
-    console.log(`[Download] Fetching video from: ${downloadUrl.substring(0, 100)}...`);
+    console.log(`[YouTube] Fetching transcript for video: ${videoId}`);
     
-    const response = await fetch(downloadUrl, {
+    const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
+    
+    if (!transcriptItems || transcriptItems.length === 0) {
+      console.log(`[YouTube] No transcript available for video: ${videoId}`);
+      return null;
+    }
+    
+    // Convert to our format
+    const segments = transcriptItems.map(item => ({
+      text: item.text,
+      offset: item.offset,
+      duration: item.duration,
+    }));
+    
+    // Create full transcript text with timestamps
+    const transcriptLines = transcriptItems.map(item => {
+      const seconds = Math.floor(item.offset / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      const timestamp = `[${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}]`;
+      return `${timestamp} ${item.text}`;
+    });
+    
+    const transcript = transcriptLines.join('\n');
+    
+    console.log(`[YouTube] Transcript fetched: ${transcriptItems.length} segments, ${transcript.length} characters`);
+    
+    return { transcript, segments };
+  } catch (error) {
+    console.log(`[YouTube] Transcript fetch error:`, error);
+    return null;
+  }
+}
+
+// Get YouTube video metadata using oEmbed
+async function getYouTubeMetadata(videoId: string): Promise<{ title: string; author: string; thumbnailUrl: string } | null> {
+  try {
+    const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+    const response = await fetch(oembedUrl);
+    
+    if (!response.ok) {
+      return null;
+    }
+    
+    const data = await response.json() as Record<string, unknown>;
+    
+    return {
+      title: (data.title as string) || "YouTube Video",
+      author: (data.author_name as string) || "Unknown",
+      thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Fetch TikTok/Instagram content info using RapidAPI - extracts caption and metadata
+interface SocialMediaInfo {
+  caption: string;
+  author: string;
+  authorUsername: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  stats?: {
+    likes: number;
+    comments: number;
+    shares: number;
+    plays: number;
+  };
+  hashtags: string[];
+  createTime?: string;
+}
+
+async function fetchSocialMediaInfo(url: string): Promise<SocialMediaInfo | null> {
+  const apiKey = process.env.RAPIDAPI_KEY;
+  if (!apiKey) {
+    console.log(`[SocialMediaAPI] No RapidAPI key configured`);
+    return null;
+  }
+
+  try {
+    console.log(`[SocialMediaAPI] Fetching info for: ${url}`);
+    
+    const response = await fetch(`https://tiktok-download-video-no-watermark.p.rapidapi.com/vip/auto?url=${encodeURIComponent(url)}`, {
+      method: "GET",
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "X-RapidAPI-Key": apiKey,
+        "X-RapidAPI-Host": "tiktok-download-video-no-watermark.p.rapidapi.com",
       },
     });
 
     if (!response.ok) {
-      console.log(`[Download] Failed: ${response.status} ${response.statusText}`);
+      console.log(`[SocialMediaAPI] API returned ${response.status}`);
       return null;
     }
 
-    const contentLength = response.headers.get("content-length");
-    if (contentLength) {
-      const sizeInMB = parseInt(contentLength) / (1024 * 1024);
-      if (sizeInMB > maxSizeMB) {
-        console.log(`[Download] File too large: ${sizeInMB.toFixed(2)}MB > ${maxSizeMB}MB`);
-        return null;
+    const data = await response.json() as Record<string, unknown>;
+    console.log(`[SocialMediaAPI] Response received, parsing data...`);
+    
+    // Navigate to aweme_detail which contains the video info
+    const responseData = data.data as Record<string, unknown> | undefined;
+    const nestedData = responseData?.data as Record<string, unknown> | undefined;
+    const awemeDetail = nestedData?.aweme_detail as Record<string, unknown> | undefined;
+    
+    if (awemeDetail) {
+      console.log(`[SocialMediaAPI] Found aweme_detail, extracting info...`);
+      
+      const author = awemeDetail.author as Record<string, unknown> | undefined;
+      const video = awemeDetail.video as Record<string, unknown> | undefined;
+      const statistics = awemeDetail.statistics as Record<string, unknown> | undefined;
+      const textExtra = awemeDetail.text_extra as Array<Record<string, unknown>> | undefined;
+      
+      // Extract video URL from play_addr
+      let videoUrl: string | undefined;
+      const playAddr = video?.play_addr as Record<string, unknown> | undefined;
+      const urlList = playAddr?.url_list as string[] | undefined;
+      if (urlList && urlList.length > 0) {
+        videoUrl = urlList[0];
+      }
+      
+      // Extract thumbnail URL
+      let thumbnailUrl: string | undefined;
+      const cover = awemeDetail.cover as Record<string, unknown> | undefined;
+      const coverUrlList = cover?.url_list as string[] | undefined;
+      if (coverUrlList && coverUrlList.length > 0) {
+        thumbnailUrl = coverUrlList[0];
+      }
+      
+      // Extract hashtags
+      const hashtags: string[] = [];
+      if (textExtra) {
+        for (const item of textExtra) {
+          if (item.hashtag_name) {
+            hashtags.push(item.hashtag_name as string);
+          }
+        }
+      }
+      
+      // Extract create time
+      let createTime: string | undefined;
+      if (awemeDetail.create_time) {
+        createTime = new Date((awemeDetail.create_time as number) * 1000).toISOString();
+      }
+      
+      const result: SocialMediaInfo = {
+        caption: (awemeDetail.desc as string) || "",
+        author: (author?.nickname as string) || "",
+        authorUsername: (author?.unique_id as string) || "",
+        videoUrl,
+        thumbnailUrl,
+        stats: statistics ? {
+          likes: (statistics.digg_count as number) || 0,
+          comments: (statistics.comment_count as number) || 0,
+          shares: (statistics.share_count as number) || 0,
+          plays: (statistics.play_count as number) || 0,
+        } : undefined,
+        hashtags,
+        createTime,
+      };
+      
+      console.log(`[SocialMediaAPI] Extracted caption: "${result.caption.substring(0, 100)}..."`);
+      console.log(`[SocialMediaAPI] Author: @${result.authorUsername} (${result.author})`);
+      console.log(`[SocialMediaAPI] Hashtags: ${result.hashtags.length}`);
+      if (result.videoUrl) {
+        console.log(`[SocialMediaAPI] Video URL available`);
+      }
+      
+      return result;
+    }
+    
+    // Fallback: check for older API response structure
+    if (responseData) {
+      const caption = responseData.title as string || responseData.desc as string;
+      const authorData = responseData.author as Record<string, unknown> | undefined;
+      
+      if (caption) {
+        console.log(`[SocialMediaAPI] Found data in legacy format`);
+        return {
+          caption,
+          author: (authorData?.nickname as string) || "",
+          authorUsername: (authorData?.unique_id as string) || "",
+          videoUrl: (responseData.play as string) || (responseData.hdplay as string),
+          hashtags: [],
+        };
       }
     }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
     
-    // Check actual size
-    const actualSizeMB = buffer.length / (1024 * 1024);
-    if (actualSizeMB > maxSizeMB) {
-      console.log(`[Download] Downloaded file too large: ${actualSizeMB.toFixed(2)}MB`);
+    console.log(`[SocialMediaAPI] No video data found in response`);
+    return null;
+  } catch (error) {
+    console.log(`[SocialMediaAPI] Error:`, error);
+    return null;
+  }
+}
+
+// Download video using GoDownloader API (RapidAPI) - for Pro subscribers
+async function downloadWithGoDownloader(url: string): Promise<{ videoUrl: string; title?: string; author?: string } | null> {
+  // Use the new fetchSocialMediaInfo function
+  const info = await fetchSocialMediaInfo(url);
+  if (info && info.videoUrl) {
+    return {
+      videoUrl: info.videoUrl,
+      title: info.caption,
+      author: info.authorUsername || info.author,
+    };
+  }
+  return null;
+}
+
+// Download video from URL
+async function downloadVideoFromUrl(videoUrl: string): Promise<Buffer | null> {
+  try {
+    console.log(`[Download] Downloading video from: ${videoUrl.substring(0, 100)}...`);
+    
+    const response = await fetch(videoUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+    
+    if (!response.ok) {
+      console.log(`[Download] Failed: ${response.status}`);
       return null;
     }
-
-    console.log(`[Download] Success: ${actualSizeMB.toFixed(2)}MB`);
+    
+    const buffer = Buffer.from(await response.arrayBuffer());
+    
+    // Check if we got actual video content
+    if (buffer.length < 10000) {
+      console.log(`[Download] Content too small (${buffer.length} bytes), likely an error`);
+      return null;
+    }
+    
+    console.log(`[Download] Successfully downloaded ${buffer.length} bytes`);
     return buffer;
   } catch (error) {
     console.log(`[Download] Error:`, error);
     return null;
   }
+}
+
+// Transcribe video using speech-to-text
+async function transcribeVideo(videoBuffer: Buffer, userId: number, platform: string): Promise<string | null> {
+  try {
+    console.log(`[Transcribe] Starting transcription for ${platform} video (${videoBuffer.length} bytes)`);
+    
+    // Upload video to S3 temporarily for transcription
+    const randomSuffix = Math.random().toString(36).substring(2, 10);
+    const tempFileKey = `${userId}-temp/${platform}-video-${randomSuffix}.mp4`;
+    
+    const { url: tempUrl } = await storagePut(tempFileKey, videoBuffer, "video/mp4");
+    console.log(`[Transcribe] Uploaded temp video to: ${tempUrl}`);
+    
+    // Transcribe the audio
+    const result = await transcribeAudio({
+      audioUrl: tempUrl,
+      prompt: `Transcribe this ${platform} video`,
+    });
+    
+    if ("error" in result) {
+      console.log(`[Transcribe] Transcription error:`, result.error);
+      return null;
+    }
+    
+    console.log(`[Transcribe] Transcription successful: ${result.text.length} characters`);
+    return result.text;
+  } catch (error) {
+    console.log(`[Transcribe] Error:`, error);
+    return null;
+  }
+}
+
+// Check if user has Pro subscription
+async function isProSubscriber(userId: number): Promise<boolean> {
+  const user = await db.getUserById(userId);
+  if (!user) return false;
+  
+  // Admin always has access
+  if (user.role === "admin") return true;
+  
+  // Check subscription tier (pro or trial)
+  const tier = user.subscriptionTier || "free";
+  if (tier === "pro" || tier === "trial") {
+    // Check if subscription is still valid
+    if (user.subscriptionExpiresAt && user.subscriptionExpiresAt < new Date()) {
+      return false;
+    }
+    return true;
+  }
+  
+  return false;
 }
 
 export const uploadFromUrlRouter = router({
@@ -202,13 +389,26 @@ export const uploadFromUrlRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const { url, filename, title, description } = input;
-      const { platform } = detectSocialPlatform(url);
+      const { platform, videoId } = detectSocialPlatform(url);
 
       try {
-        // Handle social media URLs with cobalt
-        if (platform === "youtube" || platform === "tiktok" || platform === "instagram" || platform === "twitter") {
-          return await handleSocialMediaUpload(url, platform, ctx.user.id, title, description);
-        } else if (platform === "vimeo") {
+        // Handle YouTube URLs - fetch transcript
+        if (platform === "youtube" && videoId) {
+          return await handleYouTubeUpload(url, videoId, ctx.user.id, title, description);
+        }
+        
+        // Handle TikTok and Instagram - try to download and transcribe (Pro feature)
+        if (platform === "tiktok" || platform === "instagram") {
+          return await handleSocialMediaWithTranscription(url, platform, ctx.user.id, title, description);
+        }
+        
+        // Handle Twitter - save as reference
+        if (platform === "twitter") {
+          return await handleSocialMediaReference(url, platform, ctx.user.id, title, description);
+        }
+        
+        // Handle Vimeo
+        if (platform === "vimeo") {
           return await handleVimeoUpload(url, ctx.user.id, title, description);
         }
 
@@ -244,29 +444,30 @@ export const uploadFromUrlRouter = router({
         // Determine filename
         let finalFilename = filename;
         if (!finalFilename) {
-          const urlPath = new URL(url).pathname;
-          const urlFilename = urlPath.split("/").pop();
-          if (urlFilename && urlFilename.includes(".")) {
-            finalFilename = urlFilename;
-          } else {
-            const ext = contentType.split("/")[1]?.split(";")[0] || "bin";
-            finalFilename = `downloaded-${Date.now()}.${ext}`;
+          try {
+            const urlPath = new URL(url).pathname;
+            finalFilename = urlPath.split("/").pop() || `downloaded-${Date.now()}`;
+          } catch {
+            finalFilename = `downloaded-${Date.now()}`;
           }
         }
 
-        // Get file data as buffer
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
+        // Add extension based on content type if missing
+        if (!finalFilename.includes(".")) {
+          const ext = contentType.split("/")[1]?.split(";")[0] || "bin";
+          finalFilename = `${finalFilename}.${ext}`;
+        }
 
-        // Generate unique file key
+        // Download file
+        const buffer = Buffer.from(await response.arrayBuffer());
+
+        // Upload to S3
         const randomSuffix = Math.random().toString(36).substring(2, 10);
         const fileKey = `${ctx.user.id}-files/${finalFilename}-${randomSuffix}`;
 
-        // Upload to S3
-        console.log(`[UploadFromUrl] Uploading to S3: ${fileKey}`);
         const { url: s3Url } = await storagePut(fileKey, buffer, contentType);
 
-        console.log(`[UploadFromUrl] Upload complete: ${s3Url}`);
+        console.log(`[UploadFromUrl] File uploaded: ${s3Url}`);
 
         return {
           success: true,
@@ -275,71 +476,74 @@ export const uploadFromUrlRouter = router({
           filename: finalFilename,
           mimeType: contentType,
           fileSize: buffer.length,
-          title: title || finalFilename.replace(/\.[^/.]+$/, ""),
-          description: description || "",
+          title: title || finalFilename,
+          description,
         };
       } catch (error) {
         console.error("[UploadFromUrl] Error:", error);
-        if (error instanceof TRPCError) {
-          throw error;
-        }
+        if (error instanceof TRPCError) throw error;
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to upload file from URL: ${error instanceof Error ? error.message : "Unknown error"}`,
+          message: `Failed to process URL: ${error instanceof Error ? error.message : "Unknown error"}`,
         });
       }
     }),
 
-  // Detect social media platform from URL
-  detectPlatform: protectedProcedure
+  // Get social media platform info
+  getSocialMediaInfo: protectedProcedure
     .input(
       z.object({
         url: z.string().url(),
       })
     )
-    .mutation(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { url } = input;
       const { platform, videoId } = detectSocialPlatform(url);
-      
+      const isPro = await isProSubscriber(ctx.user.id);
+
       return {
         platform,
         videoId,
-        isSocialMedia: platform !== null,
+        isPro,
         platformInfo: platform ? {
           youtube: {
             name: "YouTube",
             icon: "youtube",
             color: "#FF0000",
             supportsDownload: true,
-            note: "Video will be downloaded (up to 100MB).",
+            note: "Video transcript will be extracted (if available) or saved as thumbnail.",
           },
           instagram: {
             name: "Instagram",
             icon: "instagram",
             color: "#E4405F",
-            supportsDownload: true,
-            note: "Video/image will be downloaded.",
+            supportsDownload: isPro,
+            note: isPro 
+              ? "Video will be downloaded and transcribed via speech-to-text (Pro feature)."
+              : "Upgrade to Pro to download and transcribe Instagram videos. Currently saves as reference.",
+          },
+          tiktok: {
+            name: "TikTok",
+            icon: "tiktok",
+            color: "#000000",
+            supportsDownload: isPro,
+            note: isPro
+              ? "Video will be downloaded and transcribed via speech-to-text (Pro feature)."
+              : "Upgrade to Pro to download and transcribe TikTok videos. Currently saves as reference.",
           },
           twitter: {
             name: "Twitter/X",
             icon: "twitter",
             color: "#1DA1F2",
-            supportsDownload: true,
-            note: "Video/image will be downloaded.",
+            supportsDownload: false,
+            note: "Twitter content will be saved as a reference link.",
           },
           linkedin: {
             name: "LinkedIn",
             icon: "linkedin",
             color: "#0A66C2",
             supportsDownload: false,
-            note: "LinkedIn content extraction is limited.",
-          },
-          tiktok: {
-            name: "TikTok",
-            icon: "tiktok",
-            color: "#000000",
-            supportsDownload: true,
-            note: "Video will be downloaded (up to 100MB).",
+            note: "LinkedIn content will be saved as a reference link.",
           },
           facebook: {
             name: "Facebook",
@@ -374,7 +578,7 @@ export const uploadFromUrlRouter = router({
       if (platform) {
         return {
           valid: true,
-          contentType: platform === "youtube" || platform === "tiktok" ? "video/mp4" : "image/jpeg",
+          contentType: platform === "youtube" || platform === "tiktok" || platform === "instagram" ? "text/plain" : "application/json",
           fileSize: 0,
           isSupported: true,
           filename: `${platform}-content`,
@@ -439,137 +643,97 @@ export const uploadFromUrlRouter = router({
     }),
 });
 
-// Unified handler for social media uploads using cobalt
-async function handleSocialMediaUpload(
-  url: string, 
-  platform: SocialPlatform, 
-  userId: number, 
-  title?: string, 
-  description?: string
-) {
-  console.log(`[UploadFromUrl] Processing ${platform} content: ${url}`);
-
-  try {
-    // Try to download using cobalt
-    const cobaltResult = await downloadWithCobalt(url);
-    
-    if (cobaltResult) {
-      console.log(`[UploadFromUrl] Cobalt returned download URL, fetching video...`);
-      
-      const videoBuffer = await downloadVideoFromUrl(cobaltResult.downloadUrl);
-      
-      if (videoBuffer) {
-        // Successfully downloaded video
-        const safeTitle = (title || cobaltResult.filename || `${platform}-video`)
-          .replace(/[^a-zA-Z0-9-_\s]/g, "")
-          .substring(0, 50)
-          .trim();
-        const randomSuffix = Math.random().toString(36).substring(2, 10);
-        const extension = cobaltResult.isVideo ? "mp4" : "jpg";
-        const filename = `${safeTitle}.${extension}`;
-        const fileKey = `${userId}-${platform}/${filename}-${randomSuffix}`;
-        const mimeType = cobaltResult.isVideo ? "video/mp4" : "image/jpeg";
-
-        const { url: s3Url } = await storagePut(fileKey, videoBuffer, mimeType);
-
-        console.log(`[UploadFromUrl] ${platform} video uploaded: ${s3Url}`);
-
-        return {
-          success: true,
-          url: s3Url,
-          fileKey,
-          filename,
-          mimeType,
-          fileSize: videoBuffer.length,
-          title: title || safeTitle,
-          description: description || `Downloaded from ${platform}\n\nOriginal URL: ${url}`,
-          metadata: {
-            platform,
-            originalUrl: url,
-            downloadedAt: new Date().toISOString(),
-          },
-        };
-      }
-    }
-
-    // Fallback: save as reference if cobalt fails
-    console.log(`[UploadFromUrl] Cobalt download failed, saving as reference`);
-    return await saveAsReference(url, platform, userId, title, description);
-    
-  } catch (error) {
-    console.error(`[UploadFromUrl] ${platform} error:`, error);
-    
-    // Fallback to reference on any error
-    try {
-      return await saveAsReference(url, platform, userId, title, description);
-    } catch (fallbackError) {
-      if (error instanceof TRPCError) throw error;
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: `Failed to process ${platform} content: ${error instanceof Error ? error.message : "Unknown error"}`,
-      });
-    }
-  }
-}
-
-// Save social media URL as a reference file
-async function saveAsReference(
+// Handle YouTube upload - fetch transcript and save as text file
+async function handleYouTubeUpload(
   url: string,
-  platform: SocialPlatform,
+  videoId: string,
   userId: number,
   title?: string,
   description?: string
 ) {
-  // Try to get metadata for YouTube
-  let videoTitle = `${platform} content`;
-  let authorName = "";
-  let thumbnailUrl: string | null = null;
+  console.log(`[UploadFromUrl] Processing YouTube video: ${url} (ID: ${videoId})`);
 
-  if (platform === "youtube") {
-    const videoId = extractYouTubeVideoId(url);
-    if (videoId) {
-      // Try oEmbed for metadata
-      try {
-        const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-        const oembedResponse = await fetch(oembedUrl);
-        if (oembedResponse.ok) {
-          const oembedData = await oembedResponse.json() as Record<string, unknown>;
-          videoTitle = (oembedData.title as string) || videoTitle;
-          authorName = (oembedData.author_name as string) || "";
-        }
-      } catch {
-        // Ignore oEmbed errors
-      }
-      thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-    }
+  // Get video metadata
+  const metadata = await getYouTubeMetadata(videoId);
+  const videoTitle = metadata?.title || "YouTube Video";
+  const authorName = metadata?.author || "Unknown";
+
+  // Try to fetch transcript
+  const transcriptResult = await fetchYouTubeTranscript(videoId);
+
+  if (transcriptResult) {
+    // Successfully got transcript - save as text file
+    const { transcript } = transcriptResult;
+    
+    // Create formatted transcript content
+    const transcriptContent = `YouTube Video Transcript
+========================
+
+Title: ${videoTitle}
+Author: ${authorName}
+URL: ${url}
+Video ID: ${videoId}
+Extracted: ${new Date().toISOString()}
+
+========================
+TRANSCRIPT
+========================
+
+${transcript}
+`;
+
+    const buffer = Buffer.from(transcriptContent, "utf-8");
+    const safeTitle = (title || videoTitle)
+      .replace(/[^a-zA-Z0-9-_\s]/g, "")
+      .substring(0, 50)
+      .trim() || "youtube-transcript";
+    const randomSuffix = Math.random().toString(36).substring(2, 10);
+    const filename = `${safeTitle}-transcript.txt`;
+    const fileKey = `${userId}-youtube/${filename}-${randomSuffix}`;
+
+    const { url: s3Url } = await storagePut(fileKey, buffer, "text/plain");
+
+    console.log(`[UploadFromUrl] YouTube transcript uploaded: ${s3Url}`);
+
+    return {
+      success: true,
+      url: s3Url,
+      fileKey,
+      filename,
+      mimeType: "text/plain",
+      fileSize: buffer.length,
+      title: title || `${videoTitle} - Transcript`,
+      description: description || `YouTube video transcript\n\nVideo: ${videoTitle}\nAuthor: ${authorName}\nOriginal URL: ${url}`,
+      metadata: {
+        platform: "youtube",
+        originalUrl: url,
+        videoId,
+        authorName,
+        hasTranscript: true,
+      },
+    };
   }
 
-  // Try to download thumbnail if available
-  if (thumbnailUrl) {
+  // Fallback: No transcript available - download thumbnail
+  console.log(`[UploadFromUrl] No YouTube captions available, downloading thumbnail`);
+  
+  if (metadata?.thumbnailUrl) {
     try {
-      let thumbResponse = await fetch(thumbnailUrl);
-      
-      // Fallback to lower quality thumbnails
-      if (!thumbResponse.ok && platform === "youtube") {
-        const videoId = extractYouTubeVideoId(url);
-        if (videoId) {
-          thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-          thumbResponse = await fetch(thumbnailUrl);
-          if (!thumbResponse.ok) {
-            thumbnailUrl = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-            thumbResponse = await fetch(thumbnailUrl);
-          }
-        }
-      }
-
+      const thumbResponse = await fetch(metadata.thumbnailUrl);
       if (thumbResponse.ok) {
         const thumbBuffer = Buffer.from(await thumbResponse.arrayBuffer());
-        const safeTitle = (title || videoTitle).replace(/[^a-zA-Z0-9-_\s]/g, "").substring(0, 50).trim() || `${platform}-thumbnail`;
+        
+        const safeTitle = (title || videoTitle)
+          .replace(/[^a-zA-Z0-9-_\s]/g, "")
+          .substring(0, 50)
+          .trim() || "youtube-thumbnail";
         const randomSuffix = Math.random().toString(36).substring(2, 10);
-        const filename = `${safeTitle}-thumbnail.jpg`;
-        const fileKey = `${userId}-${platform}/${filename}-${randomSuffix}`;
+        const filename = `${safeTitle}.jpg`;
+        const fileKey = `${userId}-youtube/${filename}-${randomSuffix}`;
 
         const { url: s3Url } = await storagePut(fileKey, thumbBuffer, "image/jpeg");
+
+        console.log(`[UploadFromUrl] YouTube thumbnail uploaded: ${s3Url}`);
 
         return {
           success: true,
@@ -579,34 +743,40 @@ async function saveAsReference(
           mimeType: "image/jpeg",
           fileSize: thumbBuffer.length,
           title: title || videoTitle,
-          description: description || `${platform} content by ${authorName}\n\nOriginal URL: ${url}\n\nNote: Thumbnail only - video download was not available.`,
+          description: description || `YouTube video by ${authorName}\nOriginal URL: ${url}\n\nNote: No transcript available for this video.`,
           metadata: {
-            platform,
+            platform: "youtube",
             originalUrl: url,
+            videoId,
             authorName,
-            isThumbnailOnly: true,
+            hasTranscript: false,
           },
         };
       }
-    } catch {
-      // Continue to JSON reference fallback
+    } catch (error) {
+      console.log(`[UploadFromUrl] Thumbnail download failed:`, error);
     }
   }
 
-  // Final fallback: save as JSON reference
+  // Final fallback: save as reference
   const referenceContent = JSON.stringify({
-    platform,
+    platform: "youtube",
     originalUrl: url,
-    title: title || videoTitle,
+    videoId,
+    title: videoTitle,
+    author: authorName,
     savedAt: new Date().toISOString(),
-    note: `${platform} content reference - open original URL to view content`,
+    note: "No transcript or thumbnail available for this video.",
   }, null, 2);
 
   const buffer = Buffer.from(referenceContent, "utf-8");
-  const safeTitle = (title || `${platform}-reference`).replace(/[^a-zA-Z0-9-_\s]/g, "").substring(0, 50);
+  const safeTitle = (title || videoTitle)
+    .replace(/[^a-zA-Z0-9-_\s]/g, "")
+    .substring(0, 50)
+    .trim() || "youtube-reference";
   const randomSuffix = Math.random().toString(36).substring(2, 10);
   const filename = `${safeTitle}.json`;
-  const fileKey = `${userId}-${platform}/${filename}-${randomSuffix}`;
+  const fileKey = `${userId}-youtube/${filename}-${randomSuffix}`;
 
   const { url: s3Url } = await storagePut(fileKey, buffer, "application/json");
 
@@ -617,89 +787,410 @@ async function saveAsReference(
     filename,
     mimeType: "application/json",
     fileSize: buffer.length,
-    title: title || `${platform} content reference`,
-    description: description || `${platform} content reference\n\nOriginal URL: ${url}\n\nNote: Open the original URL to view the content.`,
+    title: title || `${videoTitle} - Reference`,
+    description: description || `YouTube video reference\n\nVideo: ${videoTitle}\nAuthor: ${authorName}\nOriginal URL: ${url}\n\nNote: No transcript or thumbnail available.`,
     metadata: {
-      platform,
+      platform: "youtube",
       originalUrl: url,
+      videoId,
+      authorName,
+      hasTranscript: false,
       isReferenceOnly: true,
     },
   };
 }
 
-// Handle Vimeo video upload using oEmbed API
-async function handleVimeoUpload(url: string, userId: number, title?: string, description?: string) {
-  console.log(`[UploadFromUrl] Processing Vimeo video: ${url}`);
+// Handle TikTok and Instagram - extract caption and optionally transcribe audio (Pro feature)
+async function handleSocialMediaWithTranscription(
+  url: string,
+  platform: "tiktok" | "instagram",
+  userId: number,
+  title?: string,
+  description?: string
+) {
+  console.log(`[UploadFromUrl] Processing ${platform} content: ${url}`);
 
-  try {
-    // Use Vimeo oEmbed API
-    const oembedUrl = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(url)}`;
-    console.log(`[UploadFromUrl] Fetching Vimeo oEmbed: ${oembedUrl}`);
+  // Extract username/ID from URL
+  let username = "";
+  let contentId = "";
+  
+  if (platform === "tiktok") {
+    const userMatch = url.match(/@([^/]+)/);
+    username = userMatch ? userMatch[1] : "";
+    const idMatch = url.match(/video\/(\d+)/);
+    contentId = idMatch ? idMatch[1] : "";
+  } else if (platform === "instagram") {
+    const idMatch = url.match(/\/(?:p|reel|reels)\/([^/?]+)/);
+    contentId = idMatch ? idMatch[1] : "";
+  }
+
+  const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
+
+  // Check if user has Pro subscription
+  const isPro = await isProSubscriber(userId);
+  
+  // First, try to fetch caption and metadata from the API
+  console.log(`[UploadFromUrl] Fetching ${platform} content info...`);
+  const socialInfo = await fetchSocialMediaInfo(url);
+  
+  if (socialInfo && socialInfo.caption) {
+    console.log(`[UploadFromUrl] Got caption from API: "${socialInfo.caption.substring(0, 100)}..."`);
     
-    const oembedResponse = await fetch(oembedUrl);
-    
-    let videoTitle = "Vimeo Video";
-    let authorName = "";
-    let thumbnailUrl = "";
-    
-    if (oembedResponse.ok) {
-      const oembedData = await oembedResponse.json() as Record<string, unknown>;
-      videoTitle = (oembedData.title as string) || videoTitle;
-      authorName = (oembedData.author_name as string) || "";
-      thumbnailUrl = (oembedData.thumbnail_url as string) || "";
+    // Update username from API response if available
+    if (socialInfo.authorUsername) {
+      username = socialInfo.authorUsername;
     }
-
-    if (!thumbnailUrl) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Could not get Vimeo video thumbnail. The video may be private or unavailable.",
-      });
-    }
-
-    // Download thumbnail
-    console.log(`[UploadFromUrl] Downloading Vimeo thumbnail: ${thumbnailUrl}`);
-    const thumbResponse = await fetch(thumbnailUrl);
     
-    if (!thumbResponse.ok) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Failed to download Vimeo thumbnail.",
-      });
+    // Build the content document with caption
+    let contentSections: string[] = [];
+    
+    // Header
+    contentSections.push(`${platformName} Content`);
+    contentSections.push("=".repeat(platformName.length + 8));
+    contentSections.push("");
+    contentSections.push(`Platform: ${platformName}`);
+    if (socialInfo.author || username) {
+      contentSections.push(`Creator: ${socialInfo.author} (@${username})`);
     }
-
-    const thumbBuffer = Buffer.from(await thumbResponse.arrayBuffer());
-
-    // Generate filename and upload
-    const safeTitle = videoTitle.replace(/[^a-zA-Z0-9-_\s]/g, "").substring(0, 50).trim() || "vimeo-video";
+    if (contentId) {
+      contentSections.push(`Content ID: ${contentId}`);
+    }
+    contentSections.push(`URL: ${url}`);
+    if (socialInfo.createTime) {
+      contentSections.push(`Posted: ${socialInfo.createTime}`);
+    }
+    contentSections.push(`Extracted: ${new Date().toISOString()}`);
+    
+    // Stats
+    if (socialInfo.stats) {
+      contentSections.push("");
+      contentSections.push("--- Stats ---");
+      contentSections.push(`Likes: ${socialInfo.stats.likes.toLocaleString()}`);
+      contentSections.push(`Comments: ${socialInfo.stats.comments.toLocaleString()}`);
+      contentSections.push(`Shares: ${socialInfo.stats.shares.toLocaleString()}`);
+      contentSections.push(`Plays: ${socialInfo.stats.plays.toLocaleString()}`);
+    }
+    
+    // Caption
+    contentSections.push("");
+    contentSections.push("=".repeat(platformName.length + 8));
+    contentSections.push("CAPTION");
+    contentSections.push("=".repeat(platformName.length + 8));
+    contentSections.push("");
+    contentSections.push(socialInfo.caption);
+    
+    // Hashtags
+    if (socialInfo.hashtags.length > 0) {
+      contentSections.push("");
+      contentSections.push("--- Hashtags ---");
+      contentSections.push(socialInfo.hashtags.map(h => `#${h}`).join(" "));
+    }
+    
+    // For Pro users, also try to get audio transcript
+    let audioTranscript: string | null = null;
+    if (isPro && socialInfo.videoUrl) {
+      console.log(`[UploadFromUrl] Pro user - attempting audio transcription...`);
+      
+      const videoBuffer = await downloadVideoFromUrl(socialInfo.videoUrl);
+      if (videoBuffer) {
+        audioTranscript = await transcribeVideo(videoBuffer, userId, platform);
+        if (audioTranscript) {
+          console.log(`[UploadFromUrl] Audio transcription successful`);
+          contentSections.push("");
+          contentSections.push("=".repeat(platformName.length + 8));
+          contentSections.push("AUDIO TRANSCRIPT");
+          contentSections.push("=".repeat(platformName.length + 8));
+          contentSections.push("");
+          contentSections.push(audioTranscript);
+        }
+      }
+    }
+    
+    const fullContent = contentSections.join("\n");
+    const buffer = Buffer.from(fullContent, "utf-8");
+    
+    const safeTitle = (title || `${platformName} ${username ? `by @${username}` : "video"}`)
+      .replace(/[^a-zA-Z0-9-_\s@]/g, "")
+      .substring(0, 50)
+      .trim();
     const randomSuffix = Math.random().toString(36).substring(2, 10);
-    const filename = `${safeTitle}-thumbnail.jpg`;
-    const fileKey = `${userId}-vimeo/${filename}-${randomSuffix}`;
+    const filename = `${safeTitle}-content.txt`;
+    const fileKey = `${userId}-${platform}/${filename}-${randomSuffix}`;
 
-    const { url: s3Url } = await storagePut(fileKey, thumbBuffer, "image/jpeg");
+    const { url: s3Url } = await storagePut(fileKey, buffer, "text/plain");
 
-    console.log(`[UploadFromUrl] Vimeo thumbnail uploaded: ${s3Url}`);
+    console.log(`[UploadFromUrl] ${platformName} content saved: ${s3Url}`);
 
     return {
       success: true,
       url: s3Url,
       fileKey,
       filename,
-      mimeType: "image/jpeg",
-      fileSize: thumbBuffer.length,
+      mimeType: "text/plain",
+      fileSize: buffer.length,
+      title: title || `${platformName} ${username ? `by @${username}` : "video"}`,
+      description: description || `${platformName} content\n\n${socialInfo.author ? `Creator: ${socialInfo.author} (@${username})\n` : ""}Original URL: ${url}`,
+      metadata: {
+        platform,
+        originalUrl: url,
+        username,
+        contentId,
+        hasCaption: true,
+        hasAudioTranscript: !!audioTranscript,
+        stats: socialInfo.stats,
+        hashtags: socialInfo.hashtags,
+        isPro,
+      },
+    };
+  }
+  
+  // If caption extraction failed but user is Pro, try video download + transcription
+  if (isPro) {
+    console.log(`[UploadFromUrl] Caption extraction failed, trying video download for Pro user...`);
+    
+    const downloadInfo = await downloadWithGoDownloader(url);
+    
+    if (downloadInfo && downloadInfo.videoUrl) {
+      const videoBuffer = await downloadVideoFromUrl(downloadInfo.videoUrl);
+      
+      if (videoBuffer) {
+        const transcript = await transcribeVideo(videoBuffer, userId, platform);
+        
+        if (transcript) {
+          const videoAuthor = downloadInfo.author || username || "Unknown";
+          
+          const transcriptContent = `${platformName} Video Transcript
+${"=".repeat(platformName.length + 17)}
+
+Platform: ${platformName}
+${videoAuthor ? `Creator: @${videoAuthor}\n` : ""}${contentId ? `Content ID: ${contentId}\n` : ""}URL: ${url}
+Extracted: ${new Date().toISOString()}
+Method: Speech-to-text transcription (Pro feature)
+
+${"=".repeat(platformName.length + 17)}
+TRANSCRIPT
+${"=".repeat(platformName.length + 17)}
+
+${transcript}
+`;
+
+          const buffer = Buffer.from(transcriptContent, "utf-8");
+          const safeTitle = (title || `${platformName} ${username ? `by @${username}` : "video"}`)
+            .replace(/[^a-zA-Z0-9-_\s@]/g, "")
+            .substring(0, 50)
+            .trim();
+          const randomSuffix = Math.random().toString(36).substring(2, 10);
+          const filename = `${safeTitle}-transcript.txt`;
+          const fileKey = `${userId}-${platform}/${filename}-${randomSuffix}`;
+
+          const { url: s3Url } = await storagePut(fileKey, buffer, "text/plain");
+
+          return {
+            success: true,
+            url: s3Url,
+            fileKey,
+            filename,
+            mimeType: "text/plain",
+            fileSize: buffer.length,
+            title: title || `${platformName} ${username ? `by @${username}` : "video"} - Transcript`,
+            description: description || `${platformName} video transcript\n\n${username ? `Creator: @${username}\n` : ""}Original URL: ${url}`,
+            metadata: {
+              platform,
+              originalUrl: url,
+              username,
+              contentId,
+              hasCaption: false,
+              hasAudioTranscript: true,
+              isPro: true,
+            },
+          };
+        }
+      }
+    }
+  }
+
+  // Fallback: save as reference if everything failed
+  console.log(`[UploadFromUrl] All extraction methods failed, saving as reference`);
+  return await handleSocialMediaReference(url, platform, userId, title, description, !isPro);
+}
+
+// Handle other social media URLs - save as reference
+async function handleSocialMediaReference(
+  url: string,
+  platform: SocialPlatform,
+  userId: number,
+  title?: string,
+  description?: string,
+  showUpgradeNote: boolean = false
+) {
+  console.log(`[UploadFromUrl] Processing ${platform} content as reference: ${url}`);
+
+  // Extract username/ID from URL if possible
+  let username = "";
+  let contentId = "";
+  
+  if (platform === "tiktok") {
+    const userMatch = url.match(/@([^/]+)/);
+    username = userMatch ? userMatch[1] : "";
+    const idMatch = url.match(/video\/(\d+)/);
+    contentId = idMatch ? idMatch[1] : "";
+  } else if (platform === "instagram") {
+    const idMatch = url.match(/\/(?:p|reel|reels)\/([^/?]+)/);
+    contentId = idMatch ? idMatch[1] : "";
+  } else if (platform === "twitter") {
+    const userMatch = url.match(/(?:twitter\.com|x\.com)\/([^/]+)/);
+    username = userMatch ? userMatch[1] : "";
+    const idMatch = url.match(/status\/(\d+)/);
+    contentId = idMatch ? idMatch[1] : "";
+  }
+
+  const upgradeNote = showUpgradeNote 
+    ? "\n\nUpgrade to Pro to download and transcribe videos automatically!"
+    : "";
+
+  const referenceContent = JSON.stringify({
+    platform,
+    originalUrl: url,
+    username,
+    contentId,
+    title: title || `${platform} content`,
+    savedAt: new Date().toISOString(),
+    note: `${platform} content reference - open original URL to view content.${upgradeNote}`,
+  }, null, 2);
+
+  const buffer = Buffer.from(referenceContent, "utf-8");
+  const platformName = platform ? platform.charAt(0).toUpperCase() + platform.slice(1) : "Social";
+  const safeTitle = (title || `${platformName} ${username ? `by ${username}` : "content"}`)
+    .replace(/[^a-zA-Z0-9-_\s@]/g, "")
+    .substring(0, 50)
+    .trim();
+  const randomSuffix = Math.random().toString(36).substring(2, 10);
+  const filename = `${safeTitle}.json`;
+  const fileKey = `${userId}-${platform}/${filename}-${randomSuffix}`;
+
+  const { url: s3Url } = await storagePut(fileKey, buffer, "application/json");
+
+  console.log(`[UploadFromUrl] ${platform} reference saved: ${s3Url}`);
+
+  return {
+    success: true,
+    url: s3Url,
+    fileKey,
+    filename,
+    mimeType: "application/json",
+    fileSize: buffer.length,
+    title: title || `${platformName} ${username ? `video by @${username}` : "content"}`,
+    description: description || `${platformName} content reference\n\nOriginal URL: ${url}${upgradeNote}`,
+    metadata: {
+      platform,
+      originalUrl: url,
+      username,
+      contentId,
+      isReferenceOnly: true,
+    },
+  };
+}
+
+// Handle Vimeo video upload using oEmbed API
+async function handleVimeoUpload(
+  url: string,
+  userId: number,
+  title?: string,
+  description?: string
+) {
+  console.log(`[UploadFromUrl] Processing Vimeo video: ${url}`);
+
+  try {
+    // Get video metadata from oEmbed
+    const oembedUrl = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(url)}`;
+    const response = await fetch(oembedUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Vimeo oEmbed failed: ${response.status}`);
+    }
+
+    const data = await response.json() as Record<string, unknown>;
+    const videoTitle = (data.title as string) || "Vimeo Video";
+    const authorName = (data.author_name as string) || "Unknown";
+    const thumbnailUrl = data.thumbnail_url as string;
+
+    if (thumbnailUrl) {
+      // Download thumbnail
+      const thumbResponse = await fetch(thumbnailUrl);
+      if (thumbResponse.ok) {
+        const thumbBuffer = Buffer.from(await thumbResponse.arrayBuffer());
+        
+        const safeTitle = (title || videoTitle)
+          .replace(/[^a-zA-Z0-9-_\s]/g, "")
+          .substring(0, 50)
+          .trim() || "vimeo-thumbnail";
+        const randomSuffix = Math.random().toString(36).substring(2, 10);
+        const filename = `${safeTitle}.jpg`;
+        const fileKey = `${userId}-vimeo/${filename}-${randomSuffix}`;
+
+        const { url: s3Url } = await storagePut(fileKey, thumbBuffer, "image/jpeg");
+
+        console.log(`[UploadFromUrl] Vimeo thumbnail uploaded: ${s3Url}`);
+
+        return {
+          success: true,
+          url: s3Url,
+          fileKey,
+          filename,
+          mimeType: "image/jpeg",
+          fileSize: thumbBuffer.length,
+          title: title || videoTitle,
+          description: description || `Vimeo video by ${authorName}\nOriginal URL: ${url}`,
+          metadata: {
+            platform: "vimeo",
+            originalUrl: url,
+            authorName,
+          },
+        };
+      }
+    }
+
+    // Fallback: save as reference
+    const referenceContent = JSON.stringify({
+      platform: "vimeo",
+      originalUrl: url,
+      title: videoTitle,
+      author: authorName,
+      savedAt: new Date().toISOString(),
+    }, null, 2);
+
+    const buffer = Buffer.from(referenceContent, "utf-8");
+    const safeTitle = (title || videoTitle)
+      .replace(/[^a-zA-Z0-9-_\s]/g, "")
+      .substring(0, 50)
+      .trim() || "vimeo-reference";
+    const randomSuffix = Math.random().toString(36).substring(2, 10);
+    const filename = `${safeTitle}.json`;
+    const fileKey = `${userId}-vimeo/${filename}-${randomSuffix}`;
+
+    const { url: s3Url } = await storagePut(fileKey, buffer, "application/json");
+
+    return {
+      success: true,
+      url: s3Url,
+      fileKey,
+      filename,
+      mimeType: "application/json",
+      fileSize: buffer.length,
       title: title || videoTitle,
-      description: description || `Vimeo video by ${authorName}\n\nOriginal URL: ${url}`,
+      description: description || `Vimeo video reference\n\nVideo: ${videoTitle}\nAuthor: ${authorName}\nOriginal URL: ${url}`,
       metadata: {
         platform: "vimeo",
         originalUrl: url,
         authorName,
+        isReferenceOnly: true,
       },
     };
   } catch (error) {
-    console.error("[UploadFromUrl] Vimeo error:", error);
-    if (error instanceof TRPCError) throw error;
+    console.error(`[UploadFromUrl] Vimeo processing error:`, error);
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
-      message: `Failed to process Vimeo video: ${error instanceof Error ? error.message : "Unknown error"}`,
+      message: `Failed to process Vimeo URL: ${error instanceof Error ? error.message : "Unknown error"}`,
     });
   }
 }

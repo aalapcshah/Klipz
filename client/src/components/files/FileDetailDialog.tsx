@@ -358,6 +358,42 @@ export function FileDetailDialog({
                     </div>
                   </div>
                 )}
+                
+                {/* Original URL for social media content */}
+                {(() => {
+                  try {
+                    const metadata = file.extractedMetadata ? JSON.parse(file.extractedMetadata) : null;
+                    if (metadata?.originalUrl) {
+                      const platform = metadata.platform || 'social media';
+                      const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
+                      return (
+                        <div className="col-span-2 mt-3 p-3 bg-accent/20 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-muted-foreground text-sm">Source:</span>
+                              <p className="font-medium text-sm">{platformName}</p>
+                            </div>
+                            <a
+                              href={metadata.originalUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                              Open Original
+                            </a>
+                          </div>
+                          {metadata.username && (
+                            <p className="text-xs text-muted-foreground mt-1">@{metadata.username}</p>
+                          )}
+                        </div>
+                      );
+                    }
+                  } catch (e) {
+                    // Invalid JSON, skip
+                  }
+                  return null;
+                })()}
               </div>
 
               {/* Basic Info */}

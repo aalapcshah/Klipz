@@ -5101,3 +5101,13 @@ Note: The application already has extensive annotation features including voice 
 
 ## Bug Fixes - Feb 5, 2026 (Session 2)
 - [x] Fix Files page layout - not showing all 50 files (removed server-side test file filter that caused pagination mismatch)
+
+
+## Social Media Caption Extraction - Feb 5, 2026
+- [x] Update TikTok API integration to extract captions from aweme_detail structure
+- [x] Extract video metadata: caption, author, username, stats (likes, comments, shares, plays)
+- [x] Extract hashtags from text_extra array
+- [x] Add audio transcription for Pro users (downloads video and runs speech-to-text)
+- [x] Add "Open Original" button in file details to navigate to source social media URL
+- [x] Add unit tests for API response parsing and content formatting
+- [x] Test end-to-end TikTok caption extraction with real URLs
