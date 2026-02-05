@@ -5,6 +5,7 @@ import { TRPCError } from "@trpc/server";
 import { YoutubeTranscript } from "youtube-transcript";
 import { transcribeAudio } from "../_core/voiceTranscription";
 import * as db from "../db";
+import { ENV } from "../_core/env";
 
 // Social media platform detection
 type SocialPlatform = "youtube" | "instagram" | "twitter" | "linkedin" | "tiktok" | "facebook" | "vimeo" | null;
@@ -157,123 +158,86 @@ interface SocialMediaInfo {
 }
 
 async function fetchSocialMediaInfo(url: string): Promise<SocialMediaInfo | null> {
-  const apiKey = process.env.RAPIDAPI_KEY;
+  const apiKey = ENV.rapidApiKey;
   if (!apiKey) {
-    console.log(`[SocialMediaAPI] No RapidAPI key configured`);
+    console.log(`[TikTokAPI] No RapidAPI key configured`);
     return null;
   }
 
   try {
-    console.log(`[SocialMediaAPI] Fetching info for: ${url}`);
+    console.log(`[TikTokAPI] Fetching info for: ${url}`);
     
-    const response = await fetch(`https://tiktok-download-video-no-watermark.p.rapidapi.com/vip/auto?url=${encodeURIComponent(url)}`, {
+    // Use the new TikTok Scraper API (tiktok-scraper7)
+    const response = await fetch(`https://tiktok-scraper7.p.rapidapi.com/?url=${encodeURIComponent(url)}`, {
       method: "GET",
       headers: {
         "X-RapidAPI-Key": apiKey,
-        "X-RapidAPI-Host": "tiktok-download-video-no-watermark.p.rapidapi.com",
+        "X-RapidAPI-Host": "tiktok-scraper7.p.rapidapi.com",
       },
     });
 
     if (!response.ok) {
-      console.log(`[SocialMediaAPI] API returned ${response.status}`);
+      console.log(`[TikTokAPI] API returned ${response.status}`);
       return null;
     }
 
     const data = await response.json() as Record<string, unknown>;
-    console.log(`[SocialMediaAPI] Response received, parsing data...`);
+    console.log(`[TikTokAPI] Response received, parsing data...`);
     
-    // Navigate to aweme_detail which contains the video info
-    const responseData = data.data as Record<string, unknown> | undefined;
-    const nestedData = responseData?.data as Record<string, unknown> | undefined;
-    const awemeDetail = nestedData?.aweme_detail as Record<string, unknown> | undefined;
+    // The new API returns data directly in data.data
+    const videoData = data.data as Record<string, unknown> | undefined;
     
-    if (awemeDetail) {
-      console.log(`[SocialMediaAPI] Found aweme_detail, extracting info...`);
+    if (videoData && videoData.title !== undefined) {
+      console.log(`[TikTokAPI] Found video data, extracting info...`);
       
-      const author = awemeDetail.author as Record<string, unknown> | undefined;
-      const video = awemeDetail.video as Record<string, unknown> | undefined;
-      const statistics = awemeDetail.statistics as Record<string, unknown> | undefined;
-      const textExtra = awemeDetail.text_extra as Array<Record<string, unknown>> | undefined;
+      const author = videoData.author as Record<string, unknown> | undefined;
+      const musicInfo = videoData.music_info as Record<string, unknown> | undefined;
       
-      // Extract video URL from play_addr
-      let videoUrl: string | undefined;
-      const playAddr = video?.play_addr as Record<string, unknown> | undefined;
-      const urlList = playAddr?.url_list as string[] | undefined;
-      if (urlList && urlList.length > 0) {
-        videoUrl = urlList[0];
-      }
-      
-      // Extract thumbnail URL
-      let thumbnailUrl: string | undefined;
-      const cover = awemeDetail.cover as Record<string, unknown> | undefined;
-      const coverUrlList = cover?.url_list as string[] | undefined;
-      if (coverUrlList && coverUrlList.length > 0) {
-        thumbnailUrl = coverUrlList[0];
-      }
-      
-      // Extract hashtags
+      // Extract hashtags from title
       const hashtags: string[] = [];
-      if (textExtra) {
-        for (const item of textExtra) {
-          if (item.hashtag_name) {
-            hashtags.push(item.hashtag_name as string);
-          }
-        }
+      const title = (videoData.title as string) || "";
+      const hashtagMatches = title.match(/#[\w]+/g);
+      if (hashtagMatches) {
+        hashtags.push(...hashtagMatches.map(h => h.substring(1)));
       }
       
       // Extract create time
       let createTime: string | undefined;
-      if (awemeDetail.create_time) {
-        createTime = new Date((awemeDetail.create_time as number) * 1000).toISOString();
+      if (videoData.create_time) {
+        createTime = new Date((videoData.create_time as number) * 1000).toISOString();
       }
       
       const result: SocialMediaInfo = {
-        caption: (awemeDetail.desc as string) || "",
+        caption: title,
         author: (author?.nickname as string) || "",
         authorUsername: (author?.unique_id as string) || "",
-        videoUrl,
-        thumbnailUrl,
-        stats: statistics ? {
-          likes: (statistics.digg_count as number) || 0,
-          comments: (statistics.comment_count as number) || 0,
-          shares: (statistics.share_count as number) || 0,
-          plays: (statistics.play_count as number) || 0,
-        } : undefined,
+        videoUrl: (videoData.play as string) || (videoData.hdplay as string),
+        thumbnailUrl: (videoData.cover as string) || (videoData.origin_cover as string),
+        stats: {
+          likes: (videoData.digg_count as number) || 0,
+          comments: (videoData.comment_count as number) || 0,
+          shares: (videoData.share_count as number) || 0,
+          plays: (videoData.play_count as number) || 0,
+        },
         hashtags,
         createTime,
       };
       
-      console.log(`[SocialMediaAPI] Extracted caption: "${result.caption.substring(0, 100)}..."`);
-      console.log(`[SocialMediaAPI] Author: @${result.authorUsername} (${result.author})`);
-      console.log(`[SocialMediaAPI] Hashtags: ${result.hashtags.length}`);
+      console.log(`[TikTokAPI] Extracted caption: "${result.caption.substring(0, 100)}..."`);
+      console.log(`[TikTokAPI] Author: @${result.authorUsername} (${result.author})`);
+      console.log(`[TikTokAPI] Hashtags: ${result.hashtags.length}`);
+      console.log(`[TikTokAPI] Stats: ${result.stats?.likes} likes, ${result.stats?.plays} plays`);
       if (result.videoUrl) {
-        console.log(`[SocialMediaAPI] Video URL available`);
+        console.log(`[TikTokAPI] Video URL available`);
       }
       
       return result;
     }
     
-    // Fallback: check for older API response structure
-    if (responseData) {
-      const caption = responseData.title as string || responseData.desc as string;
-      const authorData = responseData.author as Record<string, unknown> | undefined;
-      
-      if (caption) {
-        console.log(`[SocialMediaAPI] Found data in legacy format`);
-        return {
-          caption,
-          author: (authorData?.nickname as string) || "",
-          authorUsername: (authorData?.unique_id as string) || "",
-          videoUrl: (responseData.play as string) || (responseData.hdplay as string),
-          hashtags: [],
-        };
-      }
-    }
-    
-    console.log(`[SocialMediaAPI] No video data found in response`);
+    console.log(`[TikTokAPI] No video data found in response`);
     return null;
   } catch (error) {
-    console.log(`[SocialMediaAPI] Error:`, error);
+    console.log(`[TikTokAPI] Error:`, error);
     return null;
   }
 }
@@ -293,7 +257,9 @@ function extractInstagramShortcode(url: string): string | null {
 
 // Fetch Instagram content info using RapidAPI (instagram120 API)
 async function fetchInstagramInfo(url: string): Promise<SocialMediaInfo | null> {
-  const apiKey = process.env.RAPIDAPI_KEY;
+  const apiKey = ENV.rapidApiKey;
+  console.log(`[InstagramAPI] Starting fetchInstagramInfo for URL: ${url}`);
+  console.log(`[InstagramAPI] API Key available: ${apiKey ? 'YES (length: ' + apiKey.length + ')' : 'NO'}`);
   if (!apiKey) {
     console.log(`[InstagramAPI] No RapidAPI key configured`);
     return null;
@@ -947,8 +913,9 @@ async function handleSocialMediaWithTranscription(
     socialInfo = await fetchSocialMediaInfo(url);
   }
   
-  if (socialInfo && socialInfo.caption) {
-    console.log(`[UploadFromUrl] Got caption from API: "${socialInfo.caption.substring(0, 100)}..."`);
+  if (socialInfo) {
+    const hasCaption = !!socialInfo.caption;
+    console.log(`[UploadFromUrl] Got data from API. Caption: ${hasCaption ? `"${socialInfo.caption.substring(0, 100)}..."` : "(empty)"}`);
     
     // Update username from API response if available
     if (socialInfo.authorUsername) {
@@ -1049,7 +1016,7 @@ async function handleSocialMediaWithTranscription(
         originalUrl: url,
         username,
         contentId,
-        hasCaption: true,
+        hasCaption,
         hasAudioTranscript: !!audioTranscript,
         stats: socialInfo.stats,
         hashtags: socialInfo.hashtags,
