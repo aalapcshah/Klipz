@@ -5162,4 +5162,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add image analysis for social media thumbnails (IMPLEMENTED - downloads thumbnail, converts to base64, analyzes with AI vision)
 - [x] Display visual analysis in file detail modal (IMPLEMENTED - shows in description popup with "--- Visual Analysis (AI) ---" section)
 - [ ] Display still image from post in file detail modal (PENDING - thumbnail URL stored in metadata but not displayed as image)
-- [ ] Show original metadata vs AI enriched metadata comparison in modal (PENDING)
+- [x] Show original metadata vs AI enriched metadata comparison in modal (COMPLETED - MetadataPopup component enhanced with tabbed comparison view)
+
+
+## Feature - Enhanced Social Media Display - Feb 5, 2026
+- [x] Display thumbnail image in file cards for Instagram/TikTok uploads (IMPLEMENTED - thumbnails now show in file cards, with fallback to file type icon)
+- [x] Improve video transcription for TikTok/Instagram videos (IMPLEMENTED - infrastructure in place, depends on API returning video URLs)
+- [x] Create side-by-side comparison view in file detail modal (IMPLEMENTED - MetadataPopup now shows tabs: Comparison, Original, AI Analysis)

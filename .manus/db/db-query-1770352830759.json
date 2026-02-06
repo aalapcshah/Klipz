@@ -1,0 +1,25 @@
+{
+  "query": "SELECT id, title, extractedMetadata FROM files ORDER BY id DESC LIMIT 3;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, title, extractedMetadata FROM files ORDER BY id DESC LIMIT 3;",
+  "rows": [
+    {
+      "id": "1260014",
+      "title": "Instagram by @alexhonnold",
+      "extractedMetadata": "{\"platform\":\"instagram\",\"originalUrl\":\"https://www.instagram.com/p/DUMT2vHkprA/\",\"username\":\"alexhonnold\",\"contentId\":\"DUMT2vHkprA\",\"hasCaption\":true,\"hasThumbnailAnalysis\":true,\"hasAudioTranscript\":false,\"stats\":{\"likes\":259391,\"comments\":970,\"shares\":0,\"plays\":0},\"hashtags\":[],\"isPro\":true,\"thumbnailUrl\":\"https://scontent-lga3-1.cdninstagram.com/v/t51.2885-15/624720480_18559655935001138_4943448618620223814_n.jpg?stp=dst-jpg_e35_p1080x1080_sh0.08_tt6&_nc_ht=scontent-lga3-1.cdninstagram.com&_nc_cat=102&_nc_oc=Q6cZ2QGyM0HSwoVx3OfCSuwCfQa77iioQvUPCHse4H66fUxV2rDpWg1n5RjZ61YeQk7ADdFGHc0_OgmU-e2tu574aM7E&_nc_ohc=NG3R50oSr5gQ7kNvwG-sPOW&_nc_gid=TC2yqeiGyncpDqHQHl_5Ug&edm=ANTKIIoBAAAA&ccb=7-5&oh=00_AfubN9AL1gwSMX0w4ZDN7BabfyQ9Mug_JniJYsV_DcP9dw&oe=698AB0E8&_nc_sid=d885a2\"}"
+    },
+    {
+      "id": "1230131",
+      "title": "NULL",
+      "extractedMetadata": "NULL"
+    },
+    {
+      "id": "1230130",
+      "title": "NULL",
+      "extractedMetadata": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitle\textractedMetadata\n1260014\tInstagram by @alexhonnold\t{\"platform\":\"instagram\",\"originalUrl\":\"https://www.instagram.com/p/DUMT2vHkprA/\",\"username\":\"alexhonnold\",\"contentId\":\"DUMT2vHkprA\",\"hasCaption\":true,\"hasThumbnailAnalysis\":true,\"hasAudioTranscript\":false,\"stats\":{\"likes\":259391,\"comments\":970,\"shares\":0,\"plays\":0},\"hashtags\":[],\"isPro\":true,\"thumbnailUrl\":\"https://scontent-lga3-1.cdninstagram.com/v/t51.2885-15/624720480_18559655935001138_4943448618620223814_n.jpg?stp=dst-jpg_e35_p1080x1080_sh0.08_tt6&_nc_ht=scontent-lga3-1.cdninstagram.com&_nc_cat=102&_nc_oc=Q6cZ2QGyM0HSwoVx3OfCSuwCfQa77iioQvUPCHse4H66fUxV2rDpWg1n5RjZ61YeQk7ADdFGHc0_OgmU-e2tu574aM7E&_nc_ohc=NG3R50oSr5gQ7kNvwG-sPOW&_nc_gid=TC2yqeiGyncpDqHQHl_5Ug&edm=ANTKIIoBAAAA&ccb=7-5&oh=00_AfubN9AL1gwSMX0w4ZDN7BabfyQ9Mug_JniJYsV_DcP9dw&oe=698AB0E8&_nc_sid=d885a2\"}\n1230131\tNULL\tNULL\n1230130\tNULL\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 405
+}

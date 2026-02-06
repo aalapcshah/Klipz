@@ -459,6 +459,38 @@ async function transcribeVideo(videoBuffer: Buffer, userId: number, platform: st
   }
 }
 
+// Download thumbnail and upload to S3 for permanent storage
+async function uploadThumbnailToS3(thumbnailUrl: string, platform: string, userId: number): Promise<string | null> {
+  console.log(`[ThumbnailUpload] Downloading thumbnail from CDN...`);
+  try {
+    const imageResponse = await fetch(thumbnailUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'image/*,*/*;q=0.8',
+        'Referer': platform === 'instagram' ? 'https://www.instagram.com/' : 'https://www.tiktok.com/'
+      }
+    });
+    
+    if (!imageResponse.ok) {
+      console.log(`[ThumbnailUpload] Failed to download: ${imageResponse.status}`);
+      return null;
+    }
+    
+    const imageBuffer = await imageResponse.arrayBuffer();
+    const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+    const extension = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+    const randomSuffix = Math.random().toString(36).substring(2, 10);
+    const fileKey = `${userId}-thumbnails/${platform}-${randomSuffix}.${extension}`;
+    
+    const { url: s3Url } = await storagePut(fileKey, Buffer.from(imageBuffer), contentType);
+    console.log(`[ThumbnailUpload] Uploaded to S3: ${s3Url}`);
+    return s3Url;
+  } catch (error) {
+    console.log(`[ThumbnailUpload] Error:`, error);
+    return null;
+  }
+}
+
 // Analyze thumbnail image using AI vision
 async function analyzeThumbnail(thumbnailUrl: string, platform: string): Promise<string | null> {
   console.log(`[ThumbnailAnalysis] STARTING thumbnail analysis for ${platform}`);
@@ -1074,6 +1106,13 @@ async function handleSocialMediaWithTranscription(
       contentSections.push(socialInfo.hashtags.map(h => `#${h}`).join(" "));
     }
     
+    // Upload thumbnail to S3 for permanent storage (do this for ALL users, not just Pro)
+    let permanentThumbnailUrl: string | null = null;
+    if (socialInfo.thumbnailUrl) {
+      console.log(`[UploadFromUrl] Uploading thumbnail to S3 for permanent storage...`);
+      permanentThumbnailUrl = await uploadThumbnailToS3(socialInfo.thumbnailUrl, platform, userId);
+    }
+    
     // For Pro users, analyze thumbnail image and try to get audio transcript
     let thumbnailAnalysis: string | null = null;
     let audioTranscript: string | null = null;
@@ -1152,7 +1191,7 @@ async function handleSocialMediaWithTranscription(
         stats: socialInfo.stats,
         hashtags: socialInfo.hashtags,
         isPro,
-        thumbnailUrl: socialInfo.thumbnailUrl || null,
+        thumbnailUrl: permanentThumbnailUrl || socialInfo.thumbnailUrl || null,
       },
     };
   }
