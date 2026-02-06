@@ -5206,3 +5206,6 @@ Note: The application already has extensive annotation features including voice 
 
 ## Test - YouTube Upload Fix - Feb 6, 2026
 - [x] Test YouTube upload with a real video URL to verify thumbnail and metadata extraction (TESTED - works correctly)
+
+## Bug Fix - Delete Button Styling - Feb 6, 2026
+- [x] Make Delete button in bulk action bar red to indicate destructive action

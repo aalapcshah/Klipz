@@ -472,6 +472,7 @@ export function BulkOperationsToolbar({
               size="sm"
               onClick={() => setShowDeleteDialog(true)}
               disabled={isProcessing}
+              className="text-red-500 border-red-500/50 hover:bg-red-500/10 hover:text-red-500"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               Delete
