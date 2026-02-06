@@ -902,6 +902,263 @@ async function queryFOAF(
 }
 
 /**
+ * Query Google Knowledge Graph Search API
+ * Uses REST API to search for entities in Google's Knowledge Graph
+ * Returns structured entity data with Schema.org types
+ */
+async function queryGoogleKG(
+  _endpoint: string,
+  searchTerms: string[],
+  apiKey?: string
+): Promise<OntologyQueryResult> {
+  const entities: any[] = [];
+  const relationships: any[] = [];
+
+  if (!apiKey) {
+    console.log("[Ontology] Google KG: No API key provided, skipping");
+    return { source: "Google Knowledge Graph", entities, relationships };
+  }
+
+  for (const term of searchTerms.slice(0, 5)) {
+    try {
+      const response = await axios.get(
+        "https://kgsearch.googleapis.com/v1/entities:search",
+        {
+          params: {
+            query: term,
+            key: apiKey,
+            limit: 3,
+            indent: true,
+            languages: "en",
+          },
+          timeout: 5000,
+        }
+      );
+
+      const items = response.data?.itemListElement || [];
+      for (const item of items) {
+        const result = item.result;
+        if (!result) continue;
+
+        const types = Array.isArray(result["@type"])
+          ? result["@type"]
+          : result["@type"]
+            ? [result["@type"]]
+            : [];
+
+        entities.push({
+          uri: result["@id"] || "",
+          label: result.name || "",
+          description:
+            result.detailedDescription?.articleBody ||
+            result.description ||
+            "",
+          type: types.join(", "),
+          properties: {
+            resultScore: item.resultScore,
+            types,
+            image: result.image?.contentUrl,
+            url: result.url || result.detailedDescription?.url,
+            source: "Google Knowledge Graph",
+          },
+        });
+
+        // Add type relationships
+        for (const type of types) {
+          if (type !== "Thing") {
+            relationships.push({
+              subject: result.name || term,
+              predicate: "rdf:type",
+              object: `schema:${type}`,
+            });
+          }
+        }
+      }
+    } catch (error: any) {
+      if (error?.response?.status === 403) {
+        console.error(
+          `[Ontology] Google KG: API key invalid or quota exceeded`
+        );
+        break; // Don't keep trying with a bad key
+      }
+      console.error(
+        `[Ontology] Google KG query failed for term "${term}":`,
+        error?.message || error
+      );
+    }
+  }
+
+  return {
+    source: "Google Knowledge Graph",
+    entities,
+    relationships,
+  };
+}
+
+/**
+ * Query MusicBrainz API
+ * Free music metadata database - searches for artists, recordings, and releases
+ * Rate limited to 1 request per second, no API key required
+ */
+async function queryMusicBrainz(
+  _endpoint: string,
+  searchTerms: string[],
+  _apiKey?: string
+): Promise<OntologyQueryResult> {
+  const entities: any[] = [];
+  const relationships: any[] = [];
+  const BASE_URL = "https://musicbrainz.org/ws/2";
+  const USER_AGENT = "Klipz/1.0 (https://klipz.manus.space)";
+
+  for (const term of searchTerms.slice(0, 3)) {
+    // Search artists
+    try {
+      const artistResponse = await axios.get(`${BASE_URL}/artist`, {
+        params: {
+          query: term,
+          fmt: "json",
+          limit: 3,
+        },
+        headers: {
+          "User-Agent": USER_AGENT,
+          Accept: "application/json",
+        },
+        timeout: 5000,
+      });
+
+      const artists = artistResponse.data?.artists || [];
+      for (const artist of artists) {
+        if (artist.score < 50) continue; // Skip low-confidence matches
+
+        entities.push({
+          uri: `https://musicbrainz.org/artist/${artist.id}`,
+          label: artist.name,
+          description: [
+            artist.type || "Artist",
+            artist.disambiguation ? `(${artist.disambiguation})` : "",
+            artist.country ? `Country: ${artist.country}` : "",
+            artist["life-span"]?.begin
+              ? `Active since ${artist["life-span"].begin}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" | "),
+          type: `musicbrainz:${artist.type || "Artist"}`,
+          properties: {
+            mbid: artist.id,
+            type: artist.type,
+            country: artist.country,
+            disambiguation: artist.disambiguation,
+            score: artist.score,
+            tags: artist.tags?.map((t: any) => t.name) || [],
+            genres: artist.genres?.map((g: any) => g.name) || [],
+            source: "MusicBrainz",
+          },
+        });
+
+        // Add genre relationships
+        const genres = artist.tags?.slice(0, 5) || [];
+        for (const genre of genres) {
+          relationships.push({
+            subject: artist.name,
+            predicate: "musicbrainz:genre",
+            object: genre.name,
+          });
+        }
+      }
+
+      // Rate limit: wait 1 second between requests
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+    } catch (error: any) {
+      console.error(
+        `[Ontology] MusicBrainz artist query failed for "${term}":`,
+        error?.message || error
+      );
+    }
+
+    // Search recordings
+    try {
+      const recordingResponse = await axios.get(`${BASE_URL}/recording`, {
+        params: {
+          query: term,
+          fmt: "json",
+          limit: 3,
+        },
+        headers: {
+          "User-Agent": USER_AGENT,
+          Accept: "application/json",
+        },
+        timeout: 5000,
+      });
+
+      const recordings = recordingResponse.data?.recordings || [];
+      for (const recording of recordings) {
+        if (recording.score < 50) continue;
+
+        const artistCredits = recording["artist-credit"] || [];
+        const artistNames = artistCredits
+          .map((ac: any) => ac.name || ac.artist?.name)
+          .filter(Boolean);
+
+        entities.push({
+          uri: `https://musicbrainz.org/recording/${recording.id}`,
+          label: recording.title,
+          description: [
+            "Recording",
+            artistNames.length > 0 ? `by ${artistNames.join(", ")}` : "",
+            recording.length
+              ? `Duration: ${Math.floor(recording.length / 60000)}:${String(Math.floor((recording.length % 60000) / 1000)).padStart(2, "0")}`
+              : "",
+            recording.releases?.[0]?.title
+              ? `Album: ${recording.releases[0].title}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" | "),
+          type: "musicbrainz:Recording",
+          properties: {
+            mbid: recording.id,
+            artists: artistNames,
+            duration: recording.length,
+            releases:
+              recording.releases?.map((r: any) => ({
+                title: r.title,
+                date: r.date,
+              })) || [],
+            score: recording.score,
+            tags: recording.tags?.map((t: any) => t.name) || [],
+            source: "MusicBrainz",
+          },
+        });
+
+        // Add artist-recording relationships
+        for (const artistName of artistNames) {
+          relationships.push({
+            subject: artistName,
+            predicate: "musicbrainz:performed",
+            object: recording.title,
+          });
+        }
+      }
+
+      // Rate limit
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+    } catch (error: any) {
+      console.error(
+        `[Ontology] MusicBrainz recording query failed for "${term}":`,
+        error?.message || error
+      );
+    }
+  }
+
+  return {
+    source: "MusicBrainz",
+    entities,
+    relationships,
+  };
+}
+
+/**
  * Query custom ontology
  */
 async function queryCustomOntology(
@@ -959,6 +1216,12 @@ export async function enrichWithExternalKnowledgeGraphs(
           break;
         case "foaf":
           result = await queryFOAF(kg.endpoint || "", searchTerms, kg.apiKey || undefined);
+          break;
+        case "google_kg":
+          result = await queryGoogleKG(kg.endpoint || "", searchTerms, kg.apiKey || undefined);
+          break;
+        case "musicbrainz":
+          result = await queryMusicBrainz(kg.endpoint || "", searchTerms, kg.apiKey || undefined);
           break;
         case "custom":
           result = await queryCustomOntology(
@@ -1083,6 +1346,18 @@ export function getOntologyDefaults(type: string): {
         name: "FOAF (Friend of a Friend)",
         endpoint: "",
         description: "Vocabulary for describing people, their activities, and relationships. Maps social media creators, accounts, and content authorship.",
+      };
+    case "google_kg":
+      return {
+        name: "Google Knowledge Graph",
+        endpoint: "https://kgsearch.googleapis.com/v1/entities:search",
+        description: "Google's entity database with structured data about people, places, organizations, and things. Requires a Google API key. Excellent for entity disambiguation.",
+      };
+    case "musicbrainz":
+      return {
+        name: "MusicBrainz",
+        endpoint: "https://musicbrainz.org/ws/2",
+        description: "Free open music encyclopedia. Automatically identifies artists, recordings, albums, and genres. No API key required.",
       };
     case "custom":
       return {

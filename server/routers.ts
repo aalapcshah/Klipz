@@ -2312,6 +2312,20 @@ For each suggestion, provide:
             enabled: true,
             priority: 5,
           },
+          {
+            name: "Google Knowledge Graph",
+            type: "google_kg" as const,
+            endpoint: "https://kgsearch.googleapis.com/v1/entities:search",
+            enabled: false,
+            priority: 6,
+          },
+          {
+            name: "MusicBrainz",
+            type: "musicbrainz" as const,
+            endpoint: "https://musicbrainz.org/ws/2",
+            enabled: true,
+            priority: 7,
+          },
         ];
         
         const created: string[] = [];

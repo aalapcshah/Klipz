@@ -5176,7 +5176,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix YouTube URL upload to extract video transcript/captions (FIXED - transcript extraction preserved, fallback improved)
 - [x] Fix YouTube URL upload to extract full metadata (FIXED - now saves as rich text with title, author, channel URL)
 - [x] Remove "No transcript or thumbnail available" message (FIXED - always saves as rich text file, never bare JSON)
-- [ ] Test YouTube upload with real URL
+- [x] Test YouTube upload with real URL (TESTED - Rick Astley video saved as rich .txt with metadata, thumbnail, channel info)
 
 ## Bug Fix - AI Analysis Text Truncation - Feb 6, 2026 (FIXED)
 - [x] Fix AI visual analysis text being cut off with "..." in MetadataPopup (FIXED - removed 500-char truncation, added S3 content fetch)
@@ -5191,3 +5191,18 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add FOAF (Friend of a Friend) ontology for creator/person relationships (social platform mappings)
 - [x] Integrate ontology mappings into AI enrichment pipeline (switch/case in enrichWithExternalKnowledgeGraphs)
 - [x] Add ontology settings UI for managing connections and priorities (expandable config panels with endpoint inputs)
+
+## Feature - Google Knowledge Graph API Integration - Feb 6, 2026
+- [x] Add google_kg to database enum for external knowledge graphs
+- [x] Implement Google Knowledge Graph search in ontologyService.ts
+- [x] Add Google KG to default ontology sources and settings UI
+- [x] Write unit tests for Google KG integration (22 tests passing)
+
+## Feature - MusicBrainz API Integration - Feb 6, 2026
+- [x] Add musicbrainz to database enum for external knowledge graphs
+- [x] Implement MusicBrainz artist/recording search in ontologyService.ts
+- [x] Add MusicBrainz to default ontology sources and settings UI
+- [x] Write unit tests for MusicBrainz integration (22 tests passing)
+
+## Test - YouTube Upload Fix - Feb 6, 2026
+- [x] Test YouTube upload with a real video URL to verify thumbnail and metadata extraction (TESTED - works correctly)

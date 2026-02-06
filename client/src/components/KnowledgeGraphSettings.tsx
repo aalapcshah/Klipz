@@ -30,6 +30,8 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  Search,
+  Music,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -39,7 +41,7 @@ interface KnowledgeGraphSettingsProps {
 
 interface SourceConfig {
   name: string;
-  key: 'wikidata' | 'dbpedia' | 'schemaOrg' | 'owl' | 'foaf' | 'llm';
+  key: 'wikidata' | 'dbpedia' | 'schemaOrg' | 'owl' | 'foaf' | 'googleKg' | 'musicbrainz' | 'llm';
   icon: React.ReactNode;
   enabled: boolean;
   description: string;
@@ -58,11 +60,14 @@ interface StoredSettings {
     schemaOrg: boolean;
     owl: boolean;
     foaf: boolean;
+    googleKg: boolean;
+    musicbrainz: boolean;
     llm: boolean;
   };
   endpoints: {
     owl: string;
     foaf: string;
+    googleKg: string;
   };
   confidenceThreshold: number;
   maxSuggestions: number;
@@ -77,11 +82,14 @@ const DEFAULT_SETTINGS: StoredSettings = {
     schemaOrg: true,
     owl: false,
     foaf: true,
+    googleKg: false,
+    musicbrainz: true,
     llm: true,
   },
   endpoints: {
     owl: '',
     foaf: '',
+    googleKg: '',
   },
   confidenceThreshold: 50,
   maxSuggestions: 10,
@@ -120,6 +128,8 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
     schemaOrg: 'connected',
     owl: 'disconnected',
     foaf: 'connected',
+    googleKg: 'disconnected',
+    musicbrainz: 'connected',
     llm: 'connected',
   });
 
@@ -193,6 +203,23 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
       docsUrl: 'http://xmlns.com/foaf/spec/',
     },
     {
+      name: 'Google Knowledge Graph',
+      key: 'googleKg',
+      icon: <Search className="h-5 w-5 text-red-500" />,
+      enabled: settings.sources.googleKg,
+      description: 'Google\'s entity database — disambiguates people, places, organizations with Schema.org types. Requires API key.',
+      configurable: true,
+      docsUrl: 'https://developers.google.com/knowledge-graph',
+    },
+    {
+      name: 'MusicBrainz',
+      key: 'musicbrainz',
+      icon: <Music className="h-5 w-5 text-pink-500" />,
+      enabled: settings.sources.musicbrainz,
+      description: 'Free open music encyclopedia — identifies artists, recordings, albums, and genres automatically. No API key needed.',
+      docsUrl: 'https://musicbrainz.org/doc/MusicBrainz_API',
+    },
+    {
       name: 'AI (LLM)',
       key: 'llm',
       icon: <Brain className="h-5 w-5 text-amber-500" />,
@@ -215,7 +242,7 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
     });
   };
 
-  const updateEndpoint = (key: 'owl' | 'foaf', value: string) => {
+  const updateEndpoint = (key: 'owl' | 'foaf' | 'googleKg', value: string) => {
     updateSettings({
       endpoints: {
         ...settings.endpoints,
@@ -255,6 +282,9 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
         finalStatus[source.key] = 'disconnected';
       } else if (source.key === 'owl' && !settings.endpoints.owl) {
         // OWL requires an endpoint to be configured
+        finalStatus[source.key] = 'disconnected';
+      } else if (source.key === 'googleKg' && !settings.endpoints.googleKg) {
+        // Google KG requires an API key
         finalStatus[source.key] = 'disconnected';
       } else {
         finalStatus[source.key] = 'connected';
@@ -449,6 +479,48 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
                         </>
                       )}
 
+                      {source.key === 'googleKg' && (
+                        <>
+                          <div className="space-y-2 pt-3">
+                            <Label className="text-xs">Google API Key</Label>
+                            <Input
+                              placeholder="AIza..."
+                              value={settings.endpoints.googleKg}
+                              onChange={(e) => updateEndpoint('googleKg', e.target.value)}
+                              className="text-sm"
+                              type="password"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Get a free API key from the <a href="https://console.cloud.google.com/apis/library/kgsearch.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Google Cloud Console</a>. Free tier: 100,000 calls/day.
+                            </p>
+                          </div>
+                          <div className="text-xs text-muted-foreground space-y-1 bg-muted/30 p-3 rounded">
+                            <p className="font-medium text-foreground">What Google KG provides:</p>
+                            <ul className="list-disc list-inside space-y-0.5">
+                              <li>Entity disambiguation ("Dijon" the artist vs the city)</li>
+                              <li>Schema.org typed entities (Person, Place, Organization)</li>
+                              <li>Detailed descriptions from Wikipedia</li>
+                              <li>Entity images and official URLs</li>
+                              <li>Confidence scores for entity matching</li>
+                            </ul>
+                          </div>
+                        </>
+                      )}
+
+                      {source.key === 'musicbrainz' && (
+                        <div className="text-xs text-muted-foreground space-y-1 bg-muted/30 p-3 rounded mt-3">
+                          <p className="font-medium text-foreground">What MusicBrainz provides:</p>
+                          <ul className="list-disc list-inside space-y-0.5">
+                            <li>Artist identification with disambiguation</li>
+                            <li>Recording/track metadata (title, duration, ISRC)</li>
+                            <li>Album/release information and dates</li>
+                            <li>Genre and tag classification</li>
+                            <li>Artist-recording-release relationships</li>
+                            <li>No API key required — completely free</li>
+                          </ul>
+                        </div>
+                      )}
+
                       {source.key === 'schemaOrg' && (
                         <div className="text-xs text-muted-foreground space-y-1 bg-muted/30 p-3 rounded mt-3">
                           <p className="font-medium text-foreground">Enhanced Schema.org mapping includes:</p>
@@ -614,7 +686,7 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-4 pt-4 border-t">
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-4 pt-4 border-t">
             <div className="text-center">
               <div className="text-xl font-bold text-blue-500">100M+</div>
               <div className="text-xs text-muted-foreground">Wikidata</div>
@@ -634,6 +706,14 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
             <div className="text-center">
               <div className="text-xl font-bold text-teal-500">FOAF</div>
               <div className="text-xs text-muted-foreground">Social Web</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xl font-bold text-red-500">Google</div>
+              <div className="text-xs text-muted-foreground">Knowledge</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xl font-bold text-pink-500">30M+</div>
+              <div className="text-xs text-muted-foreground">MusicBrainz</div>
             </div>
             <div className="text-center">
               <div className="text-xl font-bold text-amber-500">AI</div>

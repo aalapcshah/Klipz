@@ -182,9 +182,145 @@ describe("ontologyService", () => {
       expect(defaults.name).toBe("Custom Ontology");
     });
 
+    it("should return correct defaults for google_kg", () => {
+      const defaults = getOntologyDefaults("google_kg");
+      expect(defaults.name).toBe("Google Knowledge Graph");
+      expect(defaults.endpoint).toBe("https://kgsearch.googleapis.com/v1/entities:search");
+      expect(defaults.description).toContain("entity");
+      expect(defaults.description).toContain("API key");
+    });
+
+    it("should return correct defaults for musicbrainz", () => {
+      const defaults = getOntologyDefaults("musicbrainz");
+      expect(defaults.name).toBe("MusicBrainz");
+      expect(defaults.endpoint).toBe("https://musicbrainz.org/ws/2");
+      expect(defaults.description).toContain("music");
+      expect(defaults.description).toContain("No API key");
+    });
+
     it("should return unknown for unrecognized type", () => {
       const defaults = getOntologyDefaults("nonexistent");
       expect(defaults.name).toBe("Unknown");
+    });
+  });
+
+  describe("Google Knowledge Graph integration", () => {
+    it("should have google_kg in the ontology defaults", () => {
+      const defaults = getOntologyDefaults("google_kg");
+      expect(defaults).toBeDefined();
+      expect(defaults.name).not.toBe("Unknown");
+    });
+
+    it("should extract semantic tags from Google KG results", () => {
+      const results: OntologyQueryResult[] = [
+        {
+          source: "Google Knowledge Graph",
+          entities: [
+            {
+              uri: "kg:/m/0dl567",
+              label: "Taylor Swift",
+              description: "American singer-songwriter",
+              type: "Person, MusicGroup",
+              properties: {
+                resultScore: 4850,
+                types: ["Person", "MusicGroup"],
+                source: "Google Knowledge Graph",
+              },
+            },
+          ],
+          relationships: [
+            {
+              subject: "Taylor Swift",
+              predicate: "rdf:type",
+              object: "schema:Person",
+            },
+          ],
+        },
+      ];
+
+      const tags = extractSemanticTags(results);
+      expect(tags).toContain("taylor swift");
+    });
+  });
+
+  describe("MusicBrainz integration", () => {
+    it("should have musicbrainz in the ontology defaults", () => {
+      const defaults = getOntologyDefaults("musicbrainz");
+      expect(defaults).toBeDefined();
+      expect(defaults.name).not.toBe("Unknown");
+    });
+
+    it("should extract semantic tags from MusicBrainz results", () => {
+      const results: OntologyQueryResult[] = [
+        {
+          source: "MusicBrainz",
+          entities: [
+            {
+              uri: "https://musicbrainz.org/artist/abc123",
+              label: "Dijon",
+              description: "Artist | (R&B singer-songwriter) | Country: US",
+              type: "musicbrainz:Person",
+              properties: {
+                mbid: "abc123",
+                type: "Person",
+                country: "US",
+                score: 95,
+                tags: ["r&b", "soul"],
+                source: "MusicBrainz",
+              },
+            },
+            {
+              uri: "https://musicbrainz.org/recording/def456",
+              label: "Talk Down",
+              description: "Recording | by Dijon | Duration: 3:45",
+              type: "musicbrainz:Recording",
+              properties: {
+                mbid: "def456",
+                artists: ["Dijon"],
+                duration: 225000,
+                score: 90,
+                source: "MusicBrainz",
+              },
+            },
+          ],
+          relationships: [
+            {
+              subject: "Dijon",
+              predicate: "musicbrainz:performed",
+              object: "Talk Down",
+            },
+            {
+              subject: "Dijon",
+              predicate: "musicbrainz:genre",
+              object: "r&b",
+            },
+          ],
+        },
+      ];
+
+      const tags = extractSemanticTags(results);
+      expect(tags).toContain("dijon");
+      expect(tags).toContain("talk down");
+    });
+
+    it("should generate enhanced description from MusicBrainz results", () => {
+      const results: OntologyQueryResult[] = [
+        {
+          source: "MusicBrainz",
+          entities: [
+            {
+              uri: "https://musicbrainz.org/artist/abc123",
+              label: "Dijon",
+              description: "R&B singer-songwriter from the US",
+            },
+          ],
+          relationships: [],
+        },
+      ];
+
+      const enhanced = generateEnhancedDescription("YouTube video reference", results);
+      expect(enhanced).toContain("YouTube video reference");
+      expect(enhanced).toContain("Dijon: R&B singer-songwriter from the US");
     });
   });
 });

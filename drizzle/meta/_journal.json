@@ -421,6 +421,13 @@
       "when": 1770367440012,
       "tag": "0059_broad_zarda",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "5",
+      "when": 1770398727637,
+      "tag": "0060_happy_zaladane",
+      "breakpoints": true
     }
   ]
 }
