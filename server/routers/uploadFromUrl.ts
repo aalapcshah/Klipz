@@ -368,7 +368,7 @@ async function fetchInstagramInfo(url: string): Promise<SocialMediaInfo | null> 
       createTime,
     };
     
-    console.log(`[InstagramAPI] Extracted caption: "${result.caption.substring(0, 100)}..."`);
+    console.log(`[InstagramAPI] Extracted caption: "${result.caption.substring(0, 100)}..."`);    console.log(`[InstagramAPI] ThumbnailUrl: ${result.thumbnailUrl || 'NOT FOUND'}`);
     console.log(`[InstagramAPI] Author: @${result.authorUsername}`);
     if (result.videoUrl) {
       console.log(`[InstagramAPI] Video URL available`);
@@ -1051,6 +1051,7 @@ async function handleSocialMediaWithTranscription(
         stats: socialInfo.stats,
         hashtags: socialInfo.hashtags,
         isPro,
+        thumbnailUrl: socialInfo.thumbnailUrl || null,
       },
     };
   }

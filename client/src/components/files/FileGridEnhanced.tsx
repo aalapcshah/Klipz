@@ -1833,11 +1833,31 @@ export default function FileGridEnhanced({
                                 e.currentTarget.style.display = 'none';
                               }}
                             />
-                          ) : (
-                            <div className="text-primary">
-                              {getFileIcon(file.mimeType)}
-                            </div>
-                          )}
+                          ) : (() => {
+                            // Check for social media thumbnail in extractedMetadata
+                            const metadata = file.extractedMetadata ? (typeof file.extractedMetadata === 'string' ? JSON.parse(file.extractedMetadata) : file.extractedMetadata) : null;
+                            const thumbnailUrl = metadata?.thumbnailUrl;
+                            if (thumbnailUrl) {
+                              return (
+                                <img
+                                  src={thumbnailUrl}
+                                  alt={file.filename}
+                                  className="w-full h-full object-cover rounded"
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    // On error, show file icon instead
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.parentElement?.querySelector('.fallback-icon')?.classList.remove('hidden');
+                                  }}
+                                />
+                              );
+                            }
+                            return (
+                              <div className="text-primary">
+                                {getFileIcon(file.mimeType)}
+                              </div>
+                            );
+                          })()}
                           {/* Enrichment status badge */}
                           {file.enrichmentStatus === 'pending' && (
                             <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full border border-background" title="Needs enrichment" />

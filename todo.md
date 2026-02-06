@@ -5143,3 +5143,9 @@ Note: The application already has extensive annotation features including voice 
 - [x] Updated fetchInstagramInfo to iterate through all items and find the longest/best caption
 - [x] Updated description field to include the extracted caption for immediate visibility in UI
 - [x] Tested with @alexhonnold carousel post - full caption now shows in file details popup
+
+
+## Feature - Thumbnail Extraction & TikTok Carousel Testing - Feb 5, 2026
+- [x] Add thumbnail extraction for Instagram posts (thumbnailUrl now stored in metadata)
+- [x] Store thumbnail URL in file metadata for display in file cards (added to extractedMetadata)
+- [x] Test TikTok carousel/slideshow posts to verify multi-slide content extraction (TESTED - @plotworkspace carousel post works perfectly, caption and hashtags extracted)

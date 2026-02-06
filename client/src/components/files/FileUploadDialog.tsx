@@ -1465,6 +1465,7 @@ export function FileUploadDialog({
                             fileSize: result.fileSize,
                             title: result.title,
                             description: result.description,
+                            extractedMetadata: (result as any).metadata ? JSON.stringify((result as any).metadata) : undefined,
                           });
                           
                           toast.success(`Uploaded ${result.filename} from URL`);
