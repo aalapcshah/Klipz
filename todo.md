@@ -5149,3 +5149,17 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add thumbnail extraction for Instagram posts (thumbnailUrl now stored in metadata)
 - [x] Store thumbnail URL in file metadata for display in file cards (added to extractedMetadata)
 - [x] Test TikTok carousel/slideshow posts to verify multi-slide content extraction (TESTED - @plotworkspace carousel post works perfectly, caption and hashtags extracted)
+
+
+## Bug Fix - Knowledge Graph Search Nodes Input Field - Feb 5, 2026
+- [x] Fix Search Nodes input field cursor disappearing after click (TESTED - works correctly, search shows "605 matches" when typing)
+- [x] Investigate focus/blur event handling issue (INVESTIGATED - no obvious focus-stealing issue found, may be browser-specific)
+- [x] Test search functionality after fix (TESTED - search and highlighting working correctly)
+
+## Feature - Enhanced Social Media Content Analysis - Feb 5, 2026
+- [x] Add video transcription for TikTok uploads (IMPLEMENTED - downloads video and transcribes audio for Pro users)
+- [x] Add video transcription for Instagram Reels uploads (IMPLEMENTED - same as TikTok)
+- [x] Add image analysis for social media thumbnails (IMPLEMENTED - downloads thumbnail, converts to base64, analyzes with AI vision)
+- [x] Display visual analysis in file detail modal (IMPLEMENTED - shows in description popup with "--- Visual Analysis (AI) ---" section)
+- [ ] Display still image from post in file detail modal (PENDING - thumbnail URL stored in metadata but not displayed as image)
+- [ ] Show original metadata vs AI enriched metadata comparison in modal (PENDING)

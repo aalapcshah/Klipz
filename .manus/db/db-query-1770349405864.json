@@ -1,0 +1,17 @@
+{
+  "query": "SELECT id, name, role, subscriptionTier, subscriptionExpiresAt FROM users WHERE id = 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, name, role, subscriptionTier, subscriptionExpiresAt FROM users WHERE id = 1;",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Aalap Shah",
+      "role": "admin",
+      "subscriptionTier": "trial",
+      "subscriptionExpiresAt": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\trole\tsubscriptionTier\tsubscriptionExpiresAt\n1\tAalap Shah\tadmin\ttrial\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 343
+}

@@ -1,0 +1,13 @@
+{
+  "query": "SELECT url FROM files WHERE title LIKE '%alexhonnold%' ORDER BY id DESC LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT url FROM files WHERE title LIKE '%alexhonnold%' ORDER BY id DESC LIMIT 1;",
+  "rows": [
+    {
+      "url": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1-instagram/Instagram by @alexhonnold-content.txt-czudt7bq"
+    }
+  ],
+  "messages": [],
+  "stdout": "url\nhttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/1-instagram/Instagram by @alexhonnold-content.txt-czudt7bq\n",
+  "stderr": "",
+  "execution_time_ms": 344
+}

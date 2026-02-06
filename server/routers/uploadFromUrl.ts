@@ -4,6 +4,7 @@ import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
 import { YoutubeTranscript } from "youtube-transcript";
 import { transcribeAudio } from "../_core/voiceTranscription";
+import { invokeLLM } from "../_core/llm";
 import * as db from "../db";
 import { ENV } from "../_core/env";
 
@@ -454,6 +455,81 @@ async function transcribeVideo(videoBuffer: Buffer, userId: number, platform: st
     return result.text;
   } catch (error) {
     console.log(`[Transcribe] Error:`, error);
+    return null;
+  }
+}
+
+// Analyze thumbnail image using AI vision
+async function analyzeThumbnail(thumbnailUrl: string, platform: string): Promise<string | null> {
+  console.log(`[ThumbnailAnalysis] STARTING thumbnail analysis for ${platform}`);
+  console.log(`[ThumbnailAnalysis] URL: ${thumbnailUrl}`);
+  try {
+    // Download the image first since Instagram CDN URLs expire quickly
+    console.log(`[ThumbnailAnalysis] Downloading image...`);
+    const imageResponse = await fetch(thumbnailUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'image/*,*/*;q=0.8',
+        'Referer': platform === 'instagram' ? 'https://www.instagram.com/' : 'https://www.tiktok.com/'
+      }
+    });
+    
+    if (!imageResponse.ok) {
+      console.log(`[ThumbnailAnalysis] Failed to download image: ${imageResponse.status}`);
+      return null;
+    }
+    
+    const imageBuffer = await imageResponse.arrayBuffer();
+    const base64Image = Buffer.from(imageBuffer).toString('base64');
+    const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+    const dataUrl = `data:${contentType};base64,${base64Image}`;
+    
+    console.log(`[ThumbnailAnalysis] Image downloaded: ${imageBuffer.byteLength} bytes, type: ${contentType}`);
+    console.log(`[ThumbnailAnalysis] Calling invokeLLM with base64 image...`);
+    
+    const response = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert at analyzing social media content. Describe what you see in this ${platform} post image/thumbnail in detail. Focus on:
+1. Main subjects (people, objects, text overlays)
+2. Setting/location
+3. Actions or activities shown
+4. Visual style (colors, composition)
+5. Any text visible in the image
+6. Mood/tone of the content
+
+Be concise but thorough. If there's text in the image, transcribe it exactly.`
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Analyze this ${platform} post thumbnail/image:`
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: dataUrl,
+                detail: "high"
+              }
+            }
+          ]
+        }
+      ]
+    });
+    
+    const analysis = response.choices[0]?.message?.content;
+    if (typeof analysis === "string" && analysis.length > 0) {
+      console.log(`[ThumbnailAnalysis] Analysis complete: ${analysis.length} characters`);
+      return analysis;
+    }
+    
+    console.log(`[ThumbnailAnalysis] No analysis returned`);
+    return null;
+  } catch (error) {
+    console.log(`[ThumbnailAnalysis] Error:`, error);
     return null;
   }
 }
@@ -931,6 +1007,7 @@ async function handleSocialMediaWithTranscription(
 
   // Check if user has Pro subscription
   const isPro = await isProSubscriber(userId);
+  console.log(`[UploadFromUrl] User ${userId} isPro: ${isPro}`);
   
   // First, try to fetch caption and metadata from the appropriate API
   console.log(`[UploadFromUrl] Fetching ${platform} content info...`);
@@ -997,22 +1074,45 @@ async function handleSocialMediaWithTranscription(
       contentSections.push(socialInfo.hashtags.map(h => `#${h}`).join(" "));
     }
     
-    // For Pro users, also try to get audio transcript
+    // For Pro users, analyze thumbnail image and try to get audio transcript
+    let thumbnailAnalysis: string | null = null;
     let audioTranscript: string | null = null;
-    if (isPro && socialInfo.videoUrl) {
-      console.log(`[UploadFromUrl] Pro user - attempting audio transcription...`);
+    
+    if (isPro) {
+      console.log(`[UploadFromUrl] *** PRO USER DETECTED ***`);
+      console.log(`[UploadFromUrl] thumbnailUrl: ${socialInfo.thumbnailUrl || 'NOT AVAILABLE'}`);
+      console.log(`[UploadFromUrl] videoUrl: ${socialInfo.videoUrl || 'NOT AVAILABLE'}`);
+      // Analyze thumbnail image if available
+      if (socialInfo.thumbnailUrl) {
+        console.log(`[UploadFromUrl] Pro user - analyzing thumbnail image: ${socialInfo.thumbnailUrl.substring(0, 100)}...`);
+        thumbnailAnalysis = await analyzeThumbnail(socialInfo.thumbnailUrl, platform);
+        if (thumbnailAnalysis) {
+          console.log(`[UploadFromUrl] Thumbnail analysis successful`);
+          contentSections.push("");
+          contentSections.push("=".repeat(platformName.length + 8));
+          contentSections.push("VISUAL ANALYSIS (AI)");
+          contentSections.push("=".repeat(platformName.length + 8));
+          contentSections.push("");
+          contentSections.push(thumbnailAnalysis);
+        }
+      }
       
-      const videoBuffer = await downloadVideoFromUrl(socialInfo.videoUrl);
-      if (videoBuffer) {
-        audioTranscript = await transcribeVideo(videoBuffer, userId, platform);
-        if (audioTranscript) {
-          console.log(`[UploadFromUrl] Audio transcription successful`);
-          contentSections.push("");
-          contentSections.push("=".repeat(platformName.length + 8));
-          contentSections.push("AUDIO TRANSCRIPT");
-          contentSections.push("=".repeat(platformName.length + 8));
-          contentSections.push("");
-          contentSections.push(audioTranscript);
+      // Try to get audio transcript if video URL available
+      if (socialInfo.videoUrl) {
+        console.log(`[UploadFromUrl] Pro user - attempting audio transcription...`);
+        
+        const videoBuffer = await downloadVideoFromUrl(socialInfo.videoUrl);
+        if (videoBuffer) {
+          audioTranscript = await transcribeVideo(videoBuffer, userId, platform);
+          if (audioTranscript) {
+            console.log(`[UploadFromUrl] Audio transcription successful`);
+            contentSections.push("");
+            contentSections.push("=".repeat(platformName.length + 8));
+            contentSections.push("AUDIO TRANSCRIPT");
+            contentSections.push("=".repeat(platformName.length + 8));
+            contentSections.push("");
+            contentSections.push(audioTranscript);
+          }
         }
       }
     }
@@ -1040,13 +1140,14 @@ async function handleSocialMediaWithTranscription(
       mimeType: "text/plain",
       fileSize: buffer.length,
       title: title || `${platformName} ${username ? `by @${username}` : "video"}`,
-      description: description || `${platformName} content\n\n${socialInfo.author ? `Creator: ${socialInfo.author} (@${username})\n` : ""}Original URL: ${url}${socialInfo.caption ? `\n\n--- Caption ---\n${socialInfo.caption}` : ""}`,
+      description: description || `${platformName} content\n\n${socialInfo.author ? `Creator: ${socialInfo.author} (@${username})\n` : ""}Original URL: ${url}${socialInfo.caption ? `\n\n--- Caption ---\n${socialInfo.caption}` : ""}${thumbnailAnalysis ? `\n\n--- Visual Analysis (AI) ---\n${thumbnailAnalysis.substring(0, 500)}${thumbnailAnalysis.length > 500 ? '...' : ''}` : ''}`,
       metadata: {
         platform,
         originalUrl: url,
         username,
         contentId,
         hasCaption,
+        hasThumbnailAnalysis: !!thumbnailAnalysis,
         hasAudioTranscript: !!audioTranscript,
         stats: socialInfo.stats,
         hashtags: socialInfo.hashtags,
