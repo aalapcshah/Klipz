@@ -1900,7 +1900,7 @@ export default function FileGridEnhanced({
                             </p>
                           )}
                           {file.description && (
-                            <MetadataPopup description={file.description} maxLength={50} />
+                            <MetadataPopup description={file.description} maxLength={50} fileUrl={file.url} mimeType={file.mimeType} />
                           )}
                         </div>
                       </div>

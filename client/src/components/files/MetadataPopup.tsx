@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, FileText, Eye, Mic, ExternalLink, Copy, Check } from "lucide-react";
+import { Sparkles, FileText, Eye, Mic, ExternalLink, Copy, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -15,6 +15,8 @@ interface MetadataPopupProps {
   description: string;
   maxLength?: number;
   originalUrl?: string;
+  fileUrl?: string; // S3 URL of the actual file - used to fetch full content
+  mimeType?: string;
 }
 
 interface ParsedMetadata {
@@ -138,12 +140,55 @@ function hasAIContent(metadata: ParsedMetadata): boolean {
   return !!(metadata.visualAnalysis || metadata.audioTranscript);
 }
 
-export function MetadataPopup({ description, maxLength = 50, originalUrl }: MetadataPopupProps) {
+export function MetadataPopup({ description, maxLength = 50, originalUrl, fileUrl, mimeType }: MetadataPopupProps) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [fullContent, setFullContent] = useState<string | null>(null);
+  const [loadingContent, setLoadingContent] = useState(false);
   
-  const parsedMetadata = useMemo(() => parseDescription(description), [description]);
+  // Use full content from S3 if available, otherwise fall back to description
+  const contentToDisplay = fullContent || description;
+  const parsedMetadata = useMemo(() => parseDescription(contentToDisplay), [contentToDisplay]);
   const showComparison = hasAIContent(parsedMetadata);
+  
+  // Fetch full file content from S3 when dialog opens (for text files)
+  useEffect(() => {
+    if (!open || !fileUrl || fullContent) return;
+    
+    // Only fetch for text-based files
+    const isTextFile = mimeType?.startsWith('text/') || 
+                       mimeType === 'application/json' ||
+                       fileUrl.endsWith('.txt') || 
+                       fileUrl.endsWith('.json');
+    
+    if (!isTextFile) return;
+    
+    // Check if description appears truncated (ends with "..." or is cut mid-word)
+    const mightBeTruncated = description.endsWith('...') || 
+                              description.match(/\w{3,}\.{3}$/) ||
+                              description.length >= 490; // Near the old 500 char limit
+    
+    if (!mightBeTruncated) return;
+    
+    setLoadingContent(true);
+    fetch(fileUrl)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch');
+        return res.text();
+      })
+      .then(text => {
+        // Only use if it's longer than the description (meaning description was truncated)
+        if (text.length > description.length) {
+          setFullContent(text);
+        }
+      })
+      .catch(err => {
+        console.warn('Failed to fetch full file content:', err);
+      })
+      .finally(() => {
+        setLoadingContent(false);
+      });
+  }, [open, fileUrl, description, fullContent, mimeType]);
   
   // If description is short enough, just show it without popup
   if (description.length <= maxLength) {
@@ -192,6 +237,9 @@ export function MetadataPopup({ description, maxLength = 50, originalUrl }: Meta
                   <Sparkles className="h-3 w-3" />
                   AI Enhanced
                 </Badge>
+              )}
+              {loadingContent && (
+                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground ml-2" />
               )}
             </DialogTitle>
             {parsedMetadata.platform && (
@@ -464,7 +512,7 @@ export function MetadataPopup({ description, maxLength = 50, originalUrl }: Meta
             </Tabs>
           ) : (
             <div className="mt-2 max-h-[60vh] overflow-auto">
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{description}</p>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{contentToDisplay}</p>
             </div>
           )}
         </DialogContent>

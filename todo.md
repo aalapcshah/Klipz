@@ -5169,3 +5169,18 @@ Note: The application already has extensive annotation features including voice 
 - [x] Display thumbnail image in file cards for Instagram/TikTok uploads (IMPLEMENTED - thumbnails now show in file cards, with fallback to file type icon)
 - [x] Improve video transcription for TikTok/Instagram videos (IMPLEMENTED - infrastructure in place, depends on API returning video URLs)
 - [x] Create side-by-side comparison view in file detail modal (IMPLEMENTED - MetadataPopup now shows tabs: Comparison, Original, AI Analysis)
+
+
+## Bug Fix - YouTube Upload Missing Metadata - Feb 6, 2026 (FIXED)
+- [x] Fix YouTube URL upload to extract video thumbnail (FIXED - tries multiple sizes, uploads to S3)
+- [x] Fix YouTube URL upload to extract video transcript/captions (FIXED - transcript extraction preserved, fallback improved)
+- [x] Fix YouTube URL upload to extract full metadata (FIXED - now saves as rich text with title, author, channel URL)
+- [x] Remove "No transcript or thumbnail available" message (FIXED - always saves as rich text file, never bare JSON)
+- [ ] Test YouTube upload with real URL
+
+## Bug Fix - AI Analysis Text Truncation - Feb 6, 2026 (FIXED)
+- [x] Fix AI visual analysis text being cut off with "..." in MetadataPopup (FIXED - removed 500-char truncation, added S3 content fetch)
+- [x] The description field truncates visual analysis at 500 chars - removed truncation, MetadataPopup now fetches full content from S3
+
+## Bug Fix - FAB Button Position - Feb 6, 2026
+- [x] Fix green "+" FAB button position - fixed to bottom-right corner with proper clearance above bottom nav + safe area

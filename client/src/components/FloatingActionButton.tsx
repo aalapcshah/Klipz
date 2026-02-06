@@ -54,7 +54,7 @@ export function FloatingActionButton({ actions, className }: FloatingActionButto
       )}
 
       {/* FAB Container */}
-      <div className={cn('fixed bottom-20 right-4 z-50 md:hidden', className)}>
+      <div className={cn('fixed bottom-[6.5rem] right-4 z-50 md:hidden flex flex-col items-end', className)}>
         {/* Action buttons */}
         <div
           className={cn(

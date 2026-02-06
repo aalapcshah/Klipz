@@ -120,25 +120,62 @@ async function fetchYouTubeTranscript(videoId: string): Promise<{ transcript: st
 }
 
 // Get YouTube video metadata using oEmbed
-async function getYouTubeMetadata(videoId: string): Promise<{ title: string; author: string; thumbnailUrl: string } | null> {
+async function getYouTubeMetadata(videoId: string): Promise<{ title: string; author: string; thumbnailUrl: string; authorUrl?: string } | null> {
   try {
     const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
     const response = await fetch(oembedUrl);
     
     if (!response.ok) {
+      console.log(`[YouTube] oEmbed failed: ${response.status}`);
       return null;
     }
     
     const data = await response.json() as Record<string, unknown>;
     
+    // Try multiple thumbnail sizes - maxresdefault doesn't exist for all videos
+    const thumbnailUrl = await findBestYouTubeThumbnail(videoId);
+    
     return {
       title: (data.title as string) || "YouTube Video",
       author: (data.author_name as string) || "Unknown",
-      thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+      authorUrl: (data.author_url as string) || undefined,
+      thumbnailUrl,
     };
-  } catch {
+  } catch (error) {
+    console.log(`[YouTube] oEmbed error:`, error);
     return null;
   }
+}
+
+// Try multiple YouTube thumbnail sizes to find one that works
+async function findBestYouTubeThumbnail(videoId: string): Promise<string> {
+  const sizes = [
+    `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+    `https://img.youtube.com/vi/${videoId}/sddefault.jpg`,
+    `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+    `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+    `https://img.youtube.com/vi/${videoId}/default.jpg`,
+  ];
+  
+  for (const url of sizes) {
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      if (response.ok) {
+        const contentLength = response.headers.get('content-length');
+        // YouTube returns a small placeholder for non-existent maxresdefault
+        if (contentLength && parseInt(contentLength) > 2000) {
+          console.log(`[YouTube] Found thumbnail: ${url} (${contentLength} bytes)`);
+          return url;
+        }
+      }
+    } catch {
+      // Try next size
+    }
+  }
+  
+  // Fallback to hqdefault which always exists
+  console.log(`[YouTube] Using fallback hqdefault thumbnail`);
+  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
 
 // Fetch TikTok/Instagram content info using RapidAPI - extracts caption and metadata
@@ -925,88 +962,95 @@ ${transcript}
     };
   }
 
-  // Fallback: No transcript available - download thumbnail
-  console.log(`[UploadFromUrl] No YouTube captions available, downloading thumbnail`);
+  // Fallback: No transcript available - save as rich content file with thumbnail
+  console.log(`[UploadFromUrl] No YouTube captions available, creating rich content file`);
   
+  // Always try to download and upload thumbnail to S3
+  let thumbnailS3Url: string | undefined;
   if (metadata?.thumbnailUrl) {
     try {
-      const thumbResponse = await fetch(metadata.thumbnailUrl);
+      // Try direct fetch of the thumbnail
+      const thumbResponse = await fetch(metadata.thumbnailUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Klipz/1.0)' },
+      });
       if (thumbResponse.ok) {
         const thumbBuffer = Buffer.from(await thumbResponse.arrayBuffer());
-        
-        const safeTitle = (title || videoTitle)
-          .replace(/[^a-zA-Z0-9-_\s]/g, "")
-          .substring(0, 50)
-          .trim() || "youtube-thumbnail";
-        const randomSuffix = Math.random().toString(36).substring(2, 10);
-        const filename = `${safeTitle}.jpg`;
-        const fileKey = `${userId}-youtube/${filename}-${randomSuffix}`;
-
-        const { url: s3Url } = await storagePut(fileKey, thumbBuffer, "image/jpeg");
-
-        console.log(`[UploadFromUrl] YouTube thumbnail uploaded: ${s3Url}`);
-
-        return {
-          success: true,
-          url: s3Url,
-          fileKey,
-          filename,
-          mimeType: "image/jpeg",
-          fileSize: thumbBuffer.length,
-          title: title || videoTitle,
-          description: description || `YouTube video by ${authorName}\nOriginal URL: ${url}\n\nNote: No transcript available for this video.`,
-          metadata: {
-            platform: "youtube",
-            originalUrl: url,
-            videoId,
-            authorName,
-            hasTranscript: false,
-          },
-        };
+        if (thumbBuffer.length > 1000) { // Ensure it's a real image, not a placeholder
+          const thumbRandomSuffix = Math.random().toString(36).substring(2, 10);
+          const thumbFileKey = `${userId}-youtube/thumb-${videoId}-${thumbRandomSuffix}.jpg`;
+          const thumbResult = await storagePut(thumbFileKey, thumbBuffer, "image/jpeg");
+          thumbnailS3Url = thumbResult.url;
+          console.log(`[UploadFromUrl] YouTube thumbnail uploaded to S3: ${thumbnailS3Url}`);
+        }
       }
     } catch (error) {
       console.log(`[UploadFromUrl] Thumbnail download failed:`, error);
     }
   }
 
-  // Final fallback: save as reference
-  const referenceContent = JSON.stringify({
-    platform: "youtube",
-    originalUrl: url,
-    videoId,
-    title: videoTitle,
-    author: authorName,
-    savedAt: new Date().toISOString(),
-    note: "No transcript or thumbnail available for this video.",
-  }, null, 2);
+  // Build a rich text content file (never save as bare JSON reference)
+  const contentParts: string[] = [
+    `YouTube Video Content`,
+    `========================`,
+    ``,
+    `Platform: Youtube`,
+    `Creator: ${authorName}`,
+    `Original URL: ${url}`,
+    `Video ID: ${videoId}`,
+    `Extracted: ${new Date().toISOString()}`,
+  ];
 
-  const buffer = Buffer.from(referenceContent, "utf-8");
+  if (thumbnailS3Url) {
+    contentParts.push(`Thumbnail: ${thumbnailS3Url}`);
+  }
+
+  contentParts.push(
+    ``,
+    `--- Caption ---`,
+    `${videoTitle}`,
+    ``,
+    `Video by ${authorName}`,
+  );
+
+  if (metadata?.authorUrl) {
+    contentParts.push(`Channel: ${metadata.authorUrl}`);
+  }
+
+  contentParts.push(
+    ``,
+    `Note: No transcript/captions available for this video.`,
+  );
+
+  const contentText = contentParts.join('\n');
+  const buffer = Buffer.from(contentText, "utf-8");
   const safeTitle = (title || videoTitle)
     .replace(/[^a-zA-Z0-9-_\s]/g, "")
     .substring(0, 50)
-    .trim() || "youtube-reference";
+    .trim() || "youtube-content";
   const randomSuffix = Math.random().toString(36).substring(2, 10);
-  const filename = `${safeTitle}.json`;
+  const filename = `${safeTitle}-content.txt`;
   const fileKey = `${userId}-youtube/${filename}-${randomSuffix}`;
 
-  const { url: s3Url } = await storagePut(fileKey, buffer, "application/json");
+  const { url: s3Url } = await storagePut(fileKey, buffer, "text/plain");
+
+  console.log(`[UploadFromUrl] YouTube content file uploaded: ${s3Url}`);
 
   return {
     success: true,
     url: s3Url,
     fileKey,
     filename,
-    mimeType: "application/json",
+    mimeType: "text/plain",
     fileSize: buffer.length,
-    title: title || `${videoTitle} - Reference`,
-    description: description || `YouTube video reference\n\nVideo: ${videoTitle}\nAuthor: ${authorName}\nOriginal URL: ${url}\n\nNote: No transcript or thumbnail available.`,
+    title: title || videoTitle,
+    description: description || contentText,
     metadata: {
       platform: "youtube",
       originalUrl: url,
       videoId,
       authorName,
       hasTranscript: false,
-      isReferenceOnly: true,
+      thumbnailUrl: thumbnailS3Url || metadata?.thumbnailUrl,
     },
   };
 }
@@ -1179,7 +1223,7 @@ async function handleSocialMediaWithTranscription(
       mimeType: "text/plain",
       fileSize: buffer.length,
       title: title || `${platformName} ${username ? `by @${username}` : "video"}`,
-      description: description || `${platformName} content\n\n${socialInfo.author ? `Creator: ${socialInfo.author} (@${username})\n` : ""}Original URL: ${url}${socialInfo.caption ? `\n\n--- Caption ---\n${socialInfo.caption}` : ""}${thumbnailAnalysis ? `\n\n--- Visual Analysis (AI) ---\n${thumbnailAnalysis.substring(0, 500)}${thumbnailAnalysis.length > 500 ? '...' : ''}` : ''}`,
+      description: description || `${platformName} content\n\n${socialInfo.author ? `Creator: ${socialInfo.author} (@${username})\n` : ""}Original URL: ${url}${socialInfo.caption ? `\n\n--- Caption ---\n${socialInfo.caption}` : ""}${thumbnailAnalysis ? `\n\n--- Visual Analysis (AI) ---\n${thumbnailAnalysis}` : ''}`,
       metadata: {
         platform,
         originalUrl: url,
