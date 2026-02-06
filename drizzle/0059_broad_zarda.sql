@@ -1,0 +1,1 @@
+ALTER TABLE `external_knowledge_graphs` MODIFY COLUMN `type` enum('dbpedia','wikidata','schema_org','owl','foaf','custom') NOT NULL;

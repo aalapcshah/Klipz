@@ -764,7 +764,7 @@ export const externalKnowledgeGraphs = mysqlTable("external_knowledge_graphs", {
   
   // Configuration
   name: varchar("name", { length: 255 }).notNull(), // User-friendly name
-  type: mysqlEnum("type", ["dbpedia", "wikidata", "schema_org", "custom"]).notNull(),
+  type: mysqlEnum("type", ["dbpedia", "wikidata", "schema_org", "owl", "foaf", "custom"]).notNull(),
   endpoint: text("endpoint"), // SPARQL endpoint or API URL
   apiKey: text("apiKey"), // Encrypted API key if needed
   

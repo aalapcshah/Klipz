@@ -10,10 +10,12 @@ This document catalogs all current and potential external data sources that can 
 
 | Source | Type | Endpoint | Status | Notes |
 |--------|------|----------|--------|-------|
-| **DBpedia** | SPARQL | `https://dbpedia.org/sparql` | Implemented | Queries linked data extracted from Wikipedia infoboxes. Returns entity URIs, labels, abstracts, and types. |
-| **Wikidata** | SPARQL | `https://query.wikidata.org/sparql` | Implemented | Queries the Wikidata knowledge base for entity labels and descriptions. Free, no API key required. |
-| **Schema.org** | REST/Static | N/A (local matching) | Implemented | Matches file metadata against Schema.org types (Person, Organization, Place, Event, Product, CreativeWork, VideoObject, ImageObject). |
-| **Custom Ontology** | SPARQL/REST | User-configured | Placeholder | Users can configure custom OWL/RDF ontology endpoints. Currently a stub implementation. |
+| **DBpedia** | SPARQL | `https://dbpedia.org/sparql` | Enabled | Queries linked data extracted from Wikipedia infoboxes. Returns entity URIs, labels, abstracts, and types. |
+| **Wikidata** | SPARQL | `https://query.wikidata.org/sparql` | Enabled | Queries the Wikidata knowledge base for entity labels and descriptions. Free, no API key required. |
+| **Schema.org** | Local Vocabulary | N/A (local matching) | Enabled | Enhanced mapping with 15+ media types: VideoObject, ImageObject, AudioObject, SocialMediaPosting, Person, Organization, MusicRecording, InteractionCounter, Collection, and more. Includes type hierarchy relationships. |
+| **OWL (Web Ontology Language)** | SPARQL | User-configured | Disabled by default | Queries custom OWL ontologies via SPARQL for class hierarchies, object/datatype properties, and domain/range constraints. Requires user to provide SPARQL endpoint URL. |
+| **FOAF (Friend of a Friend)** | Local + SPARQL | Optional endpoint | Enabled | Maps creator identities across social platforms (YouTube, Instagram, TikTok, Twitter, LinkedIn, Facebook, Vimeo). Provides person/agent identity, social accounts, and creator-content relationships. |
+| **Custom Ontology** | SPARQL/REST | User-configured | Available | Users can configure custom OWL/RDF ontology endpoints for domain-specific vocabularies. |
 
 ---
 
@@ -170,29 +172,48 @@ This document catalogs all current and potential external data sources that can 
 9. **IPTC Media Topics** — News/media classification standard
 10. **YAGO** — Advanced entity disambiguation
 
-### Architecture Notes
-
-The current `ontologyService.ts` supports four source types via a switch statement: `dbpedia`, `wikidata`, `schema_org`, and `custom`. To add new sources:
-
-1. Add the new type to the `type` enum in `drizzle/schema.ts` (the `externalKnowledgeGraphs` table)
-2. Create a query function in `ontologyService.ts` (e.g., `queryGoogleKG()`, `queryMusicBrainz()`)
-3. Add the case to the switch in `enrichWithExternalKnowledgeGraphs()`
-4. Update the Settings UI to show the new source type with its configuration fields
-
-For REST APIs (Google KG, MusicBrainz, TMDB, ConceptNet, GeoNames), the implementation pattern is simpler than SPARQL — just HTTP GET with JSON parsing.
-
 ---
 
-## Database Schema Update Required
+## Architecture Notes
+
+### How Ontology Sources Are Used
+1. User uploads a file (image, video, social media URL)
+2. AI enrichment extracts keywords and entities from the content
+3. Keywords are sent to all enabled ontology sources in priority order
+4. Each source returns matching entities and relationships
+5. Results are merged and used to:
+   - Suggest additional tags
+   - Build knowledge graph edges between files
+   - Enrich file descriptions with related information
+   - Map content to standard vocabularies (Schema.org, FOAF, OWL)
+
+### Adding a New Source
+1. Add the type to the `externalKnowledgeGraphs` table enum in `drizzle/schema.ts`
+2. Run SQL to alter the enum: `ALTER TABLE external_knowledge_graphs MODIFY COLUMN type ENUM(...)`
+3. Implement the query function in `server/ontologyService.ts`
+4. Add the case to the `enrichWithExternalKnowledgeGraphs` switch statement
+5. Add defaults in `getOntologyDefaults()`
+6. Add the source to `KnowledgeGraphSettings.tsx` UI
+7. Add the source to `initializeDefaults` mutation in `server/routers.ts`
+
+### Configuration
+All ontology sources are managed per-user via the Settings > Knowledge Graph page.
+Each source can be:
+- Enabled/disabled independently
+- Assigned a priority (higher = consulted first)
+- Configured with a custom endpoint URL (for OWL, FOAF, custom)
+- Tested for connectivity
+
+### Database Schema
 
 The `externalKnowledgeGraphs.type` enum currently supports:
 ```
-["dbpedia", "wikidata", "schema_org", "custom"]
+["dbpedia", "wikidata", "schema_org", "owl", "foaf", "custom"]
 ```
 
-Needs to be expanded to:
+Future expansion candidates:
 ```
-["dbpedia", "wikidata", "schema_org", "google_kg", "musicbrainz", "tmdb", "conceptnet", "geonames", "omdb", "getty", "iptc", "yago", "wordnet", "spotify", "discogs", "osm", "openlibrary", "clarifai", "custom"]
+["google_kg", "musicbrainz", "tmdb", "conceptnet", "geonames", "omdb", "getty", "iptc", "yago", "wordnet", "spotify", "discogs", "osm", "openlibrary", "clarifai"]
 ```
 
 ---

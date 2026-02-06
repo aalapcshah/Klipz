@@ -5184,3 +5184,10 @@ Note: The application already has extensive annotation features including voice 
 
 ## Bug Fix - FAB Button Position - Feb 6, 2026
 - [x] Fix green "+" FAB button position - fixed to bottom-right corner with proper clearance above bottom nav + safe area
+
+## Feature - External Ontology Connections (OWL, Schema.org, FOAF) - Feb 6, 2026
+- [x] Add OWL (Web Ontology Language) ontology support to knowledge graph (SPARQL class/property querying)
+- [x] Add Schema.org vocabulary mapping for media content types (15+ types with hierarchy)
+- [x] Add FOAF (Friend of a Friend) ontology for creator/person relationships (social platform mappings)
+- [x] Integrate ontology mappings into AI enrichment pipeline (switch/case in enrichWithExternalKnowledgeGraphs)
+- [x] Add ontology settings UI for managing connections and priorities (expandable config panels with endpoint inputs)

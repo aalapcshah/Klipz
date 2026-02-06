@@ -414,6 +414,13 @@
       "when": 1770154912727,
       "tag": "0058_pink_professor_monster",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "5",
+      "when": 1770367440012,
+      "tag": "0059_broad_zarda",
+      "breakpoints": true
     }
   ]
 }

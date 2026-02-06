@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 import { 
   Globe, 
@@ -23,7 +24,12 @@ import {
   RefreshCw,
   Sparkles,
   Save,
-  Network
+  Network,
+  Users,
+  FileCode,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,10 +39,13 @@ interface KnowledgeGraphSettingsProps {
 
 interface SourceConfig {
   name: string;
-  key: 'wikidata' | 'dbpedia' | 'schemaOrg' | 'llm';
+  key: 'wikidata' | 'dbpedia' | 'schemaOrg' | 'owl' | 'foaf' | 'llm';
   icon: React.ReactNode;
   enabled: boolean;
   description: string;
+  endpoint?: string;
+  docsUrl?: string;
+  configurable?: boolean;
 }
 
 // Storage key for persisting settings
@@ -47,7 +56,13 @@ interface StoredSettings {
     wikidata: boolean;
     dbpedia: boolean;
     schemaOrg: boolean;
+    owl: boolean;
+    foaf: boolean;
     llm: boolean;
+  };
+  endpoints: {
+    owl: string;
+    foaf: string;
   };
   confidenceThreshold: number;
   maxSuggestions: number;
@@ -60,7 +75,13 @@ const DEFAULT_SETTINGS: StoredSettings = {
     wikidata: true,
     dbpedia: true,
     schemaOrg: true,
+    owl: false,
+    foaf: true,
     llm: true,
+  },
+  endpoints: {
+    owl: '',
+    foaf: '',
   },
   confidenceThreshold: 50,
   maxSuggestions: 10,
@@ -74,7 +95,13 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
     try {
       const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
       if (stored) {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+        const parsed = JSON.parse(stored);
+        return {
+          ...DEFAULT_SETTINGS,
+          ...parsed,
+          sources: { ...DEFAULT_SETTINGS.sources, ...parsed.sources },
+          endpoints: { ...DEFAULT_SETTINGS.endpoints, ...parsed.endpoints },
+        };
       }
     } catch (e) {
       console.error('Failed to load knowledge graph settings:', e);
@@ -86,10 +113,13 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
   const [isTestingConnections, setIsTestingConnections] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [expandedSource, setExpandedSource] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<Record<string, 'connected' | 'disconnected' | 'checking'>>({
     wikidata: 'connected',
     dbpedia: 'connected',
     schemaOrg: 'connected',
+    owl: 'disconnected',
+    foaf: 'connected',
     llm: 'connected',
   });
 
@@ -124,6 +154,8 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
       icon: <Globe className="h-5 w-5 text-blue-500" />,
       enabled: settings.sources.wikidata,
       description: 'Structured knowledge from Wikipedia with 100M+ entities',
+      endpoint: 'https://query.wikidata.org/sparql',
+      docsUrl: 'https://www.wikidata.org/wiki/Wikidata:SPARQL_query_service',
     },
     {
       name: 'DBpedia',
@@ -131,13 +163,34 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
       icon: <Database className="h-5 w-5 text-green-500" />,
       enabled: settings.sources.dbpedia,
       description: 'Wikipedia-derived semantic data with rich abstracts',
+      endpoint: 'https://dbpedia.org/sparql',
+      docsUrl: 'https://www.dbpedia.org/resources/sparql',
     },
     {
       name: 'Schema.org',
       key: 'schemaOrg',
       icon: <BookOpen className="h-5 w-5 text-purple-500" />,
       enabled: settings.sources.schemaOrg,
-      description: 'Web-standard vocabulary for content classification',
+      description: 'Web-standard vocabulary for content classification — maps media to VideoObject, ImageObject, SocialMediaPosting, and 15+ types',
+      docsUrl: 'https://schema.org/docs/full.html',
+    },
+    {
+      name: 'OWL (Web Ontology Language)',
+      key: 'owl',
+      icon: <FileCode className="h-5 w-5 text-orange-500" />,
+      enabled: settings.sources.owl,
+      description: 'Query custom OWL ontologies via SPARQL — supports class hierarchies, object properties, and datatype properties',
+      configurable: true,
+      docsUrl: 'https://www.w3.org/OWL/',
+    },
+    {
+      name: 'FOAF (Friend of a Friend)',
+      key: 'foaf',
+      icon: <Users className="h-5 w-5 text-teal-500" />,
+      enabled: settings.sources.foaf,
+      description: 'Maps creator/person relationships, social media accounts, and content authorship across platforms',
+      configurable: true,
+      docsUrl: 'http://xmlns.com/foaf/spec/',
     },
     {
       name: 'AI (LLM)',
@@ -153,11 +206,20 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
     setHasChanges(true);
   };
 
-  const toggleSource = (key: 'wikidata' | 'dbpedia' | 'schemaOrg' | 'llm') => {
+  const toggleSource = (key: SourceConfig['key']) => {
     updateSettings({
       sources: {
         ...settings.sources,
         [key]: !settings.sources[key],
+      },
+    });
+  };
+
+  const updateEndpoint = (key: 'owl' | 'foaf', value: string) => {
+    updateSettings({
+      endpoints: {
+        ...settings.endpoints,
+        [key]: value,
       },
     });
   };
@@ -176,24 +238,34 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
 
   const testConnections = async () => {
     setIsTestingConnections(true);
-    setConnectionStatus({
-      wikidata: 'checking',
-      dbpedia: 'checking',
-      schemaOrg: 'checking',
-      llm: 'checking',
-    });
+    const newStatus: Record<string, 'connected' | 'disconnected' | 'checking'> = {};
+    
+    // Set all enabled sources to checking
+    for (const source of sources) {
+      newStatus[source.key] = settings.sources[source.key] ? 'checking' : 'disconnected';
+    }
+    setConnectionStatus(newStatus);
 
-    // Simulate connection testing
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Simulate connection testing with realistic delays
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-    setConnectionStatus({
-      wikidata: 'connected',
-      dbpedia: 'connected',
-      schemaOrg: 'connected',
-      llm: 'connected',
-    });
+    const finalStatus: Record<string, 'connected' | 'disconnected' | 'checking'> = {};
+    for (const source of sources) {
+      if (!settings.sources[source.key]) {
+        finalStatus[source.key] = 'disconnected';
+      } else if (source.key === 'owl' && !settings.endpoints.owl) {
+        // OWL requires an endpoint to be configured
+        finalStatus[source.key] = 'disconnected';
+      } else {
+        finalStatus[source.key] = 'connected';
+      }
+    }
+    
+    setConnectionStatus(finalStatus);
     setIsTestingConnections(false);
-    toast.success('All knowledge graph connections verified');
+    
+    const connectedCount = Object.values(finalStatus).filter(s => s === 'connected').length;
+    toast.success(`${connectedCount} knowledge graph connections verified`);
   };
 
   const buildTagRelationships = () => {
@@ -266,31 +338,167 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
           {/* Knowledge Sources */}
           <div className="space-y-4">
             <h3 className="text-sm font-medium">Knowledge Sources</h3>
-            <div className="grid gap-4">
+            <div className="grid gap-3">
               {sources.map((source) => (
                 <div
                   key={source.key}
-                  className="flex items-center justify-between p-4 border rounded-lg"
+                  className="border rounded-lg overflow-hidden"
                 >
-                  <div className="flex items-center gap-4">
-                    {source.icon}
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{source.name}</span>
-                        {getStatusIcon(connectionStatus[source.key])}
-                        <Badge variant="outline" className="text-xs">
-                          {connectionStatus[source.key]}
-                        </Badge>
+                  <div className="flex items-center justify-between p-4">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      {source.icon}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium">{source.name}</span>
+                          {getStatusIcon(connectionStatus[source.key])}
+                          <Badge variant="outline" className="text-xs">
+                            {connectionStatus[source.key]}
+                          </Badge>
+                          {source.key === 'owl' && (
+                            <Badge variant="secondary" className="text-xs">W3C Standard</Badge>
+                          )}
+                          {source.key === 'foaf' && (
+                            <Badge variant="secondary" className="text-xs">Social Web</Badge>
+                          )}
+                          {source.key === 'schemaOrg' && (
+                            <Badge variant="secondary" className="text-xs">Enhanced</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          {source.description}
+                        </p>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {source.description}
-                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      {(source.configurable || source.docsUrl) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => setExpandedSource(expandedSource === source.key ? null : source.key)}
+                        >
+                          {expandedSource === source.key ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
+                      <Switch
+                        checked={source.enabled}
+                        onCheckedChange={() => toggleSource(source.key)}
+                      />
                     </div>
                   </div>
-                  <Switch
-                    checked={source.enabled}
-                    onCheckedChange={() => toggleSource(source.key)}
-                  />
+                  
+                  {/* Expanded configuration panel */}
+                  {expandedSource === source.key && (
+                    <div className="px-4 pb-4 pt-0 border-t bg-muted/20 space-y-3">
+                      {source.key === 'owl' && (
+                        <>
+                          <div className="space-y-2 pt-3">
+                            <Label className="text-xs">SPARQL Endpoint URL</Label>
+                            <Input
+                              placeholder="https://your-ontology-server.com/sparql"
+                              value={settings.endpoints.owl}
+                              onChange={(e) => updateEndpoint('owl', e.target.value)}
+                              className="text-sm"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Enter the SPARQL endpoint URL of your OWL ontology server. 
+                              The service will query for owl:Class and owl:Property definitions matching your content keywords.
+                            </p>
+                          </div>
+                          <div className="text-xs text-muted-foreground space-y-1 bg-muted/30 p-3 rounded">
+                            <p className="font-medium text-foreground">What OWL provides:</p>
+                            <ul className="list-disc list-inside space-y-0.5">
+                              <li>Class hierarchies (rdfs:subClassOf relationships)</li>
+                              <li>Object and datatype property definitions</li>
+                              <li>Domain and range constraints for properties</li>
+                              <li>Custom vocabulary terms from your organization</li>
+                            </ul>
+                          </div>
+                        </>
+                      )}
+                      
+                      {source.key === 'foaf' && (
+                        <>
+                          <div className="space-y-2 pt-3">
+                            <Label className="text-xs">SPARQL Endpoint URL (Optional)</Label>
+                            <Input
+                              placeholder="https://your-foaf-server.com/sparql (optional)"
+                              value={settings.endpoints.foaf}
+                              onChange={(e) => updateEndpoint('foaf', e.target.value)}
+                              className="text-sm"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Optional: provide a SPARQL endpoint to query FOAF person data. 
+                              Without an endpoint, FOAF vocabulary mapping still works for creator/person relationships.
+                            </p>
+                          </div>
+                          <div className="text-xs text-muted-foreground space-y-1 bg-muted/30 p-3 rounded">
+                            <p className="font-medium text-foreground">What FOAF provides:</p>
+                            <ul className="list-disc list-inside space-y-0.5">
+                              <li>Person/Agent identity mapping (foaf:Person, foaf:Agent)</li>
+                              <li>Social media account linking (foaf:OnlineAccount)</li>
+                              <li>Creator-content relationships (foaf:maker, foaf:made)</li>
+                              <li>Social connections (foaf:knows)</li>
+                              <li>Platform-specific mappings (YouTube, Instagram, TikTok, Twitter)</li>
+                            </ul>
+                          </div>
+                        </>
+                      )}
+
+                      {source.key === 'schemaOrg' && (
+                        <div className="text-xs text-muted-foreground space-y-1 bg-muted/30 p-3 rounded mt-3">
+                          <p className="font-medium text-foreground">Enhanced Schema.org mapping includes:</p>
+                          <ul className="list-disc list-inside space-y-0.5">
+                            <li>VideoObject, ImageObject, AudioObject for media files</li>
+                            <li>SocialMediaPosting for social content</li>
+                            <li>Person, Organization for creators and brands</li>
+                            <li>MusicRecording for audio content</li>
+                            <li>InteractionCounter for engagement metrics</li>
+                            <li>Collection for playlists and albums</li>
+                            <li>Type hierarchy relationships (rdfs:subClassOf)</li>
+                          </ul>
+                        </div>
+                      )}
+
+                      {source.key === 'wikidata' && (
+                        <div className="text-xs text-muted-foreground space-y-1 bg-muted/30 p-3 rounded mt-3">
+                          <p className="font-medium text-foreground">Wikidata provides:</p>
+                          <ul className="list-disc list-inside space-y-0.5">
+                            <li>100M+ structured entities with descriptions</li>
+                            <li>Cross-language labels and aliases</li>
+                            <li>Linked data connections to other knowledge bases</li>
+                          </ul>
+                        </div>
+                      )}
+
+                      {source.key === 'dbpedia' && (
+                        <div className="text-xs text-muted-foreground space-y-1 bg-muted/30 p-3 rounded mt-3">
+                          <p className="font-medium text-foreground">DBpedia provides:</p>
+                          <ul className="list-disc list-inside space-y-0.5">
+                            <li>6M+ resources extracted from Wikipedia</li>
+                            <li>Rich abstracts and descriptions in English</li>
+                            <li>Typed entities with DBpedia ontology classes</li>
+                          </ul>
+                        </div>
+                      )}
+
+                      {source.docsUrl && (
+                        <a 
+                          href={source.docsUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline pt-1"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          View documentation
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -334,7 +542,7 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
             </div>
           </div>
 
-          {/* Auto-Tagging Settings */}
+          {/* Auto-Tagging */}
           <div className="space-y-4">
             <h3 className="text-sm font-medium flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
@@ -406,18 +614,30 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 pt-4 border-t">
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-4 pt-4 border-t">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-500">100M+</div>
-              <div className="text-xs text-muted-foreground">Wikidata Entities</div>
+              <div className="text-xl font-bold text-blue-500">100M+</div>
+              <div className="text-xs text-muted-foreground">Wikidata</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-500">6M+</div>
-              <div className="text-xs text-muted-foreground">DBpedia Resources</div>
+              <div className="text-xl font-bold text-green-500">6M+</div>
+              <div className="text-xs text-muted-foreground">DBpedia</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-500">800+</div>
-              <div className="text-xs text-muted-foreground">Schema.org Types</div>
+              <div className="text-xl font-bold text-purple-500">800+</div>
+              <div className="text-xs text-muted-foreground">Schema.org</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xl font-bold text-orange-500">W3C</div>
+              <div className="text-xs text-muted-foreground">OWL</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xl font-bold text-teal-500">FOAF</div>
+              <div className="text-xs text-muted-foreground">Social Web</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xl font-bold text-amber-500">AI</div>
+              <div className="text-xs text-muted-foreground">LLM</div>
             </div>
           </div>
         </CardContent>

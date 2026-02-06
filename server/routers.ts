@@ -2298,6 +2298,20 @@ For each suggestion, provide:
             enabled: true,
             priority: 3,
           },
+          {
+            name: "OWL (Web Ontology Language)",
+            type: "owl" as const,
+            endpoint: "",
+            enabled: false,
+            priority: 4,
+          },
+          {
+            name: "FOAF (Friend of a Friend)",
+            type: "foaf" as const,
+            endpoint: "",
+            enabled: true,
+            priority: 5,
+          },
         ];
         
         const created: string[] = [];
