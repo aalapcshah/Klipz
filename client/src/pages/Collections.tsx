@@ -25,7 +25,6 @@ export default function Collections() {
               Organize your files into collections and smart collections
             </p>
           </div>
-          <UsageOverviewCompact />
         </div>
       </div>
 

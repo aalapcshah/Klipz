@@ -5223,3 +5223,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix click not working on Knowledge Graph canvas nodes
 - [x] Add navigation action: clicking a file node opens file detail view
 - [x] Add navigation action: clicking a tag node filters files by that tag
+
+## UI Redesign - Navigation & File Detail - Feb 7, 2026
+- [x] Redesign top nav: add hamburger menu on the right side
+- [x] Hamburger menu items: Profile (Aalap Shah -> profile settings), Trial/Subscription status, Subscription page link (remove from Tools), Storage space %, Contact Us (working form page), Sign Out (exit door icon)
+- [x] Create Contact Us page with form: contact info fields, issue category dropdown, description textarea
+- [x] Remove Subscription from Tools dropdown menu
+- [x] File Detail dialog: place Tags and Quality Improvement Suggestions side-by-side (two-column layout)

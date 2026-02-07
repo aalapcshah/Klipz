@@ -3239,6 +3239,49 @@ For each suggestion, provide:
         return { success: true };
       }),
   }),
+
+  // ============= SUPPORT / CONTACT ROUTER =============
+  support: router({
+    submitContactForm: protectedProcedure
+      .input(z.object({
+        name: z.string().min(1),
+        email: z.string().email(),
+        category: z.string().min(1),
+        message: z.string().min(1).max(5000),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const { notifyOwner } = await import('./_core/notification');
+        
+        const categoryLabels: Record<string, string> = {
+          bug: 'Bug Report',
+          feature: 'Feature Request',
+          billing: 'Billing & Subscription',
+          account: 'Account & Login',
+          upload: 'File Upload Issues',
+          ai: 'AI Enrichment',
+          export: 'Export & Sharing',
+          performance: 'Performance',
+          other: 'Other',
+        };
+        
+        const title = `[Contact Form] ${categoryLabels[input.category] || input.category} from ${input.name}`;
+        const content = `**From:** ${input.name} (${input.email})\n` +
+          `**User ID:** ${ctx.user.id}\n` +
+          `**Category:** ${categoryLabels[input.category] || input.category}\n\n` +
+          `**Message:**\n${input.message}`;
+        
+        const sent = await notifyOwner({ title, content });
+        
+        if (!sent) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to send your message. Please try again later.',
+          });
+        }
+        
+        return { success: true };
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

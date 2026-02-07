@@ -22,14 +22,22 @@ import {
   ChevronDown,
   Wrench,
   Link2,
-  Crown
+  Crown,
+  User,
+  HardDrive,
+  CreditCard,
+  MessageSquare,
+  LogOut
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+import { Progress } from "@/components/ui/progress";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Loader2 } from "lucide-react";
@@ -114,7 +122,6 @@ export default function Dashboard() {
     { href: "/enrichment-queue", label: "Enrichment Queue", icon: ListChecks },
     { href: "/scheduled-exports", label: "Scheduled Exports", icon: Calendar },
     { href: "/my-shares", label: "My Shares", icon: Link2 },
-    { href: "/pricing", label: "Subscription", icon: Crown },
   ];
 
   const insightsMenuItems = [
@@ -283,31 +290,11 @@ export default function Dashboard() {
             </nav>
           
             <div className="flex items-center gap-2 ml-auto">
-            {/* Usage Overview Compact */}
-            <UsageOverviewCompact />
-            
-            <span className="text-sm text-muted-foreground hidden sm:inline">
-              {user?.name || user?.email}
-            </span>
-            
-            {/* Global Upload Progress Indicator */}
-            <GlobalUploadProgress />
-            
-            <Button 
-              variant="ghost" 
-              size="sm"
-              className="hidden sm:flex"
-              asChild
-            >
-              <a href="mailto:aalap.c.shah@gmail.com" className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                Contact Us
-              </a>
-            </Button>
-
-            <Button variant="ghost" size="icon" onClick={() => logout()}>
-              <LogOutIcon className="h-4 w-4" />
-            </Button>
+              {/* Global Upload Progress Indicator */}
+              <GlobalUploadProgress />
+              
+              {/* Hamburger Menu */}
+              <HamburgerMenu user={user} logout={logout} />
             </div>
           </div>
         </div>
@@ -359,14 +346,14 @@ export default function Dashboard() {
                 </Link>
               );
             })}
-            <a 
-              href="mailto:aalap.c.shah@gmail.com"
+            <Link 
+              href="/contact"
               className="flex items-center gap-3 px-4 py-3 rounded-md transition-colors hover:bg-muted text-muted-foreground hover:text-foreground"
               onClick={() => setMobileMenuOpen(false)}
             >
               <Mail className="h-5 w-5" />
               Contact Us
-            </a>
+            </Link>
             <button
               className="flex items-center gap-3 px-4 py-3 rounded-md transition-colors hover:bg-muted text-muted-foreground hover:text-foreground w-full text-left"
               onClick={() => {
@@ -562,5 +549,109 @@ function ScheduledExportsView() {
     <div className="container py-8">
       <ScheduledExportsManager />
     </div>
+  );
+}
+
+// Hamburger Menu Component for desktop right side
+function HamburgerMenu({ user, logout }: { user: any; logout: () => void }) {
+  const { data: status } = trpc.subscription.getStatus.useQuery(
+    undefined,
+    { enabled: !!user }
+  );
+  const [, navigate] = useLocation();
+  
+  const storagePercent = status?.usage?.storagePercentage ?? 0;
+  const tierLabel = status?.currentTier === 'pro' ? 'Pro' : 
+                    status?.currentTier === 'trial' ? 'Trial' : 'Free';
+  const tierIcon = status?.currentTier === 'pro' ? (
+    <Crown className="h-4 w-4 text-primary" />
+  ) : status?.currentTier === 'trial' ? (
+    <Sparkles className="h-4 w-4 text-purple-500" />
+  ) : null;
+  
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-9 w-9">
+          <Menu className="h-5 w-5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        {/* Profile Section */}
+        <div className="px-3 py-3 border-b border-border">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold">
+              {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm truncate">{user?.name || 'User'}</p>
+              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            </div>
+          </div>
+        </div>
+        
+        <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer py-2.5">
+          <User className="h-4 w-4 mr-3" />
+          Profile Settings
+        </DropdownMenuItem>
+        
+        <DropdownMenuSeparator />
+        
+        {/* Subscription Status */}
+        <div className="px-3 py-2.5">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              {tierIcon}
+              <span className="font-medium">{tierLabel}</span>
+            </div>
+            {status?.isOnTrial && status?.trialDaysRemaining !== null && (
+              <span className="text-xs text-purple-500">{status.trialDaysRemaining} days left</span>
+            )}
+          </div>
+        </div>
+        
+        <DropdownMenuItem onClick={() => navigate('/pricing')} className="cursor-pointer py-2.5">
+          <CreditCard className="h-4 w-4 mr-3" />
+          Subscription
+        </DropdownMenuItem>
+        
+        <DropdownMenuSeparator />
+        
+        {/* Storage */}
+        <div className="px-3 py-2.5">
+          <div className="flex items-center justify-between text-xs mb-1.5">
+            <div className="flex items-center gap-2">
+              <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+              <span>Storage</span>
+            </div>
+            <span className={`${storagePercent >= 95 ? 'text-destructive' : storagePercent >= 80 ? 'text-yellow-500' : 'text-muted-foreground'}`}>
+              {status?.usage?.storageUsedFormatted || '0 B'} / {status?.usage?.storageLimitFormatted || '10 GB'}
+            </span>
+          </div>
+          <Progress 
+            value={storagePercent} 
+            className={`h-1.5 ${storagePercent >= 95 ? '[&>div]:bg-destructive' : storagePercent >= 80 ? '[&>div]:bg-yellow-500' : ''}`}
+          />
+          <p className="text-xs text-muted-foreground mt-1">{Math.round(storagePercent)}% used</p>
+        </div>
+        
+        <DropdownMenuSeparator />
+        
+        <DropdownMenuItem onClick={() => navigate('/contact')} className="cursor-pointer py-2.5">
+          <MessageSquare className="h-4 w-4 mr-3" />
+          Contact Us
+        </DropdownMenuItem>
+        
+        <DropdownMenuSeparator />
+        
+        <DropdownMenuItem 
+          onClick={() => logout()} 
+          className="cursor-pointer py-2.5 text-destructive focus:text-destructive"
+        >
+          <LogOut className="h-4 w-4 mr-3" />
+          Sign Out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

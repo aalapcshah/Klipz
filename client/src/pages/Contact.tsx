@@ -3,23 +3,70 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Mail, MessageSquare } from "lucide-react";
+import { ArrowLeft, Mail, MessageSquare, Send } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const issueCategories = [
+  { value: "bug", label: "Bug Report" },
+  { value: "feature", label: "Feature Request" },
+  { value: "billing", label: "Billing & Subscription" },
+  { value: "account", label: "Account & Login" },
+  { value: "upload", label: "File Upload Issues" },
+  { value: "ai", label: "AI Enrichment" },
+  { value: "export", label: "Export & Sharing" },
+  { value: "performance", label: "Performance" },
+  { value: "other", label: "Other" },
+];
 
 export default function Contact() {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    subject: "",
+    name: user?.name || "",
+    email: user?.email || "",
+    category: "",
     message: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const submitContact = trpc.support.submitContactForm.useMutation({
+    onSuccess: () => {
+      toast.success("Thank you for reaching out! We'll get back to you within 24 hours.");
+      setFormData({ name: user?.name || "", email: user?.email || "", category: "", message: "" });
+      setSubmitting(false);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to submit. Please try again.");
+      setSubmitting(false);
+    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement actual contact form submission
-    toast.success("Thank you for contacting us. We'll get back to you soon!");
-    setFormData({ name: "", email: "", subject: "", message: "" });
+    if (!formData.category) {
+      toast.error("Please select an issue category.");
+      return;
+    }
+    if (!formData.message.trim()) {
+      toast.error("Please describe your issue.");
+      return;
+    }
+    setSubmitting(true);
+    submitContact.mutate({
+      name: formData.name,
+      email: formData.email,
+      category: formData.category,
+      message: formData.message,
+    });
   };
 
   return (
@@ -35,10 +82,9 @@ export default function Contact() {
         <div className="grid md:grid-cols-2 gap-12">
           {/* Contact Info */}
           <div>
-            <h1 className="text-4xl font-bold mb-6">Get in Touch</h1>
+            <h1 className="text-4xl font-bold mb-6">Contact Us</h1>
             <p className="text-muted-foreground mb-8">
-              Have a question, feedback, or need support? We're here to help. Fill out the form and we'll get back to
-              you as soon as possible.
+              Have a question, found a bug, or need help? Fill out the form and our team will get back to you as soon as possible.
             </p>
 
             <div className="space-y-6">
@@ -47,8 +93,8 @@ export default function Contact() {
                   <Mail className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1">Email Us</h3>
-                  <p className="text-sm text-muted-foreground">support@metaclips.com</p>
+                  <h3 className="font-semibold mb-1">Email Support</h3>
+                  <p className="text-sm text-muted-foreground">We typically respond within 24 hours</p>
                 </div>
               </div>
 
@@ -57,8 +103,8 @@ export default function Contact() {
                   <MessageSquare className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1">Live Chat</h3>
-                  <p className="text-sm text-muted-foreground">Available Monday-Friday, 9am-5pm EST</p>
+                  <h3 className="font-semibold mb-1">Issue Categories</h3>
+                  <p className="text-sm text-muted-foreground">Select a category to help us route your request to the right team</p>
                 </div>
               </div>
             </div>
@@ -91,30 +137,45 @@ export default function Contact() {
               </div>
 
               <div>
-                <Label htmlFor="subject">Subject</Label>
-                <Input
-                  id="subject"
-                  value={formData.subject}
-                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                  required
-                  placeholder="How can we help?"
-                />
+                <Label htmlFor="category">Issue Category</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) => setFormData({ ...formData, category: value })}
+                >
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {issueCategories.map((cat) => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
-                <Label htmlFor="message">Message</Label>
+                <Label htmlFor="message">Describe Your Issue</Label>
                 <Textarea
                   id="message"
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                   required
-                  placeholder="Tell us more about your inquiry..."
-                  rows={5}
+                  placeholder="Please describe your issue in detail. Include steps to reproduce if reporting a bug..."
+                  rows={6}
                 />
               </div>
 
-              <Button type="submit" className="w-full">
-                Send Message
+              <Button type="submit" className="w-full" disabled={submitting}>
+                {submitting ? (
+                  "Submitting..."
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Submit
+                  </>
+                )}
               </Button>
             </form>
           </div>

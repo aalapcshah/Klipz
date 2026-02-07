@@ -260,8 +260,6 @@ export default function FilesView() {
                 </div>
                 {/* Action Buttons - all in one row */}
                 <div className="flex flex-wrap items-center gap-1 md:gap-2">
-                  {/* Usage Overview - compact inline */}
-                  <UsageOverviewCompact />
                   <Button variant="outline" size="sm" className="h-7 md:h-9" onClick={() => setShowCleanupWizard(true)}>
                     <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1" />
                     <span className="hidden sm:inline">Clean Up</span>

@@ -580,6 +580,8 @@ export function FileDetailDialog({
                 )}
               </div>
 
+              {/* Tags + Quality Improvement Side by Side */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Tags */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -752,6 +754,14 @@ export function FileDetailDialog({
                 />
               </div>
 
+              {/* Quality Improvement Panel - Side by Side */}
+              {file.mimeType.startsWith("image/") && (
+                <div className="space-y-3">
+                  <QualityImprovementPanel fileId={file.id} currentScore={file.qualityScore} />
+                </div>
+              )}
+              </div>
+
               {/* Knowledge Graph Connections */}
               {file.knowledgeEdges && file.knowledgeEdges.length > 0 && (
                 <div className="space-y-3">
@@ -829,12 +839,7 @@ export function FileDetailDialog({
                 itemName={file.title || file.filename}
               />
 
-              {/* Quality Improvement Panel - Moved to bottom */}
-              {file.mimeType.startsWith("image/") && (
-                <div className="mt-6">
-                  <QualityImprovementPanel fileId={file.id} currentScore={file.qualityScore} />
-                </div>
-              )}
+
               
               {/* Version History Section */}
               <div className="mt-8 border-t pt-6">
