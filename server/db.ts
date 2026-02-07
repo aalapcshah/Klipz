@@ -3319,6 +3319,33 @@ export async function getFilesForUser(userId: number, options?: { limit?: number
 }
 
 /**
+ * Get direct file-to-tag association edges for the graph
+ * Creates edges between file nodes and their assigned tag nodes
+ */
+export async function getFileToTagEdges(
+  userId: number
+): Promise<Array<{ source: string; target: string; weight: number; type: string }>> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  const fileTagAssociations = await db
+    .select({
+      fileId: fileTags.fileId,
+      tagId: fileTags.tagId,
+    })
+    .from(fileTags)
+    .innerJoin(files, eq(fileTags.fileId, files.id))
+    .where(eq(files.userId, userId));
+  
+  return fileTagAssociations.map(({ fileId, tagId }) => ({
+    source: `file-${fileId}`,
+    target: `tag-${tagId}`,
+    weight: 0.8,
+    type: 'file-tag',
+  }));
+}
+
+/**
  * Get tag co-occurrence edges based on file-tag associations
  * Tags that appear together on the same files are considered related
  */

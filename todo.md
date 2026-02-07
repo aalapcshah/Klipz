@@ -5209,3 +5209,11 @@ Note: The application already has extensive annotation features including voice 
 
 ## Bug Fix - Delete Button Styling - Feb 6, 2026
 - [x] Make Delete button in bulk action bar red to indicate destructive action
+
+## UI Enhancement - Delete Button Consistency & UX - Feb 6, 2026
+- [x] Apply red styling to all Delete buttons across the app (FileDetailDialog, FileGrid, CollectionsManager, VoiceRecorder, BulkOperationsToolbar)
+- [ ] Add confirmation count/details to delete dialogs (show file names or thumbnails of items being deleted)
+- [ ] Implement undo toast after bulk delete with restore functionality (10-second window)
+## Bug Fix - Knowledge Graph Issues - Feb 6, 2026
+- [x] Fix Google Knowledge Graph showing "disconnected" in Settings UI - should check env variable fallback
+- [x] Fix Knowledge Graph visualization - shows 0 connections and oversized blue blobs instead of proper graph

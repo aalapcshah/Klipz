@@ -807,7 +807,7 @@ export function FileDetailDialog({
                     variant="outline"
                     onClick={handleDelete}
                     disabled={deleteMutation.isPending}
-                    className="text-destructive hover:text-destructive"
+                    className="text-red-500 border-red-500/50 hover:bg-red-500/10 hover:text-red-500"
                   >
                     {deleteMutation.isPending ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />

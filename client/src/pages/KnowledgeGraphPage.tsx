@@ -298,10 +298,10 @@ export default function KnowledgeGraphPage() {
   const [showEdges, setShowEdges] = useState(true);
   const [showClusters, setShowClusters] = useState(false);
   const [showFileTypeIndicators, setShowFileTypeIndicators] = useState(true);
-  const [minEdgeWeight, setMinEdgeWeight] = useState(0.3);
+  const [minEdgeWeight, setMinEdgeWeight] = useState(0);
   const [nodeFilter, setNodeFilter] = useState<"all" | "tags" | "files" | "entities">("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
-  const [relationshipTypeFilter, setRelationshipTypeFilter] = useState<"all" | "co-occurrence" | "semantic">("all");
+  const [relationshipTypeFilter, setRelationshipTypeFilter] = useState<"all" | "co-occurrence" | "semantic" | "file-tag">("all");
   const [maxNodes, setMaxNodes] = useState(500);
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -568,9 +568,9 @@ export default function KnowledgeGraphPage() {
   const filteredEdges = useMemo(() => {
     let filtered = edges;
     
-    // Filter by relationship type
+    // Filter by relationship type (always include file-tag edges for connectivity)
     if (relationshipTypeFilter !== 'all') {
-      filtered = filtered.filter(e => e.type === relationshipTypeFilter);
+      filtered = filtered.filter(e => e.type === relationshipTypeFilter || e.type === 'file-tag');
     }
     
     // Filter by minimum edge weight
@@ -1117,10 +1117,11 @@ export default function KnowledgeGraphPage() {
 
   // Count edges by type
   const edgeTypeCounts = useMemo(() => {
-    const counts = { 'co-occurrence': 0, 'semantic': 0, 'other': 0 };
+    const counts = { 'co-occurrence': 0, 'semantic': 0, 'file-tag': 0, 'other': 0 };
     edges.forEach(e => {
       if (e.type === 'co-occurrence') counts['co-occurrence']++;
       else if (e.type === 'semantic') counts['semantic']++;
+      else if (e.type === 'file-tag') counts['file-tag']++;
       else counts['other']++;
     });
     return counts;
@@ -1186,7 +1187,7 @@ export default function KnowledgeGraphPage() {
 
         <div className="space-y-1">
           <Label className="text-xs">Relationship</Label>
-          <Select value={relationshipTypeFilter} onValueChange={(v: "all" | "co-occurrence" | "semantic") => setRelationshipTypeFilter(v)}>
+          <Select value={relationshipTypeFilter} onValueChange={(v: "all" | "co-occurrence" | "semantic" | "file-tag") => setRelationshipTypeFilter(v)}>
             <SelectTrigger className="h-9">
               <SelectValue />
             </SelectTrigger>
@@ -1194,6 +1195,7 @@ export default function KnowledgeGraphPage() {
               <SelectItem value="all">All ({edges.length})</SelectItem>
               <SelectItem value="co-occurrence">Co-occur ({edgeTypeCounts['co-occurrence']})</SelectItem>
               <SelectItem value="semantic">Semantic ({edgeTypeCounts['semantic']})</SelectItem>
+              <SelectItem value="file-tag">File-Tag ({edgeTypeCounts['file-tag']})</SelectItem>
             </SelectContent>
           </Select>
         </div>

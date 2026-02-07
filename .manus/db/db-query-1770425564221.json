@@ -1,0 +1,19 @@
+{
+  "query": "SELECT id, name, type, endpoint, apiKey, enabled, priority FROM external_knowledge_graphs WHERE type = 'google_kg';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, name, type, endpoint, apiKey, enabled, priority FROM external_knowledge_graphs WHERE type = 'google_kg';",
+  "rows": [
+    {
+      "id": "60003",
+      "name": "Google Knowledge Graph",
+      "type": "google_kg",
+      "endpoint": "https://kgsearch.googleapis.com/v1/entities:search",
+      "apiKey": "NULL",
+      "enabled": "0",
+      "priority": "6"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\ttype\tendpoint\tapiKey\tenabled\tpriority\n60003\tGoogle Knowledge Graph\tgoogle_kg\thttps://kgsearch.googleapis.com/v1/entities:search\tNULL\t0\t6\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

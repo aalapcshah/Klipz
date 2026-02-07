@@ -82,7 +82,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
     schemaOrg: true,
     owl: false,
     foaf: true,
-    googleKg: false,
+    googleKg: true,
     musicbrainz: true,
     llm: true,
   },
@@ -128,10 +128,25 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
     schemaOrg: 'connected',
     owl: 'disconnected',
     foaf: 'connected',
-    googleKg: 'disconnected',
+    googleKg: 'checking',
     musicbrainz: 'connected',
     llm: 'connected',
   });
+
+  // Check server-side API key status
+  const apiKeyStatusQuery = trpc.knowledgeGraph.checkApiKeyStatus.useQuery(undefined, {
+    retry: 1,
+  });
+
+  // Update Google KG connection status when API key status is loaded
+  useEffect(() => {
+    if (apiKeyStatusQuery.data) {
+      setConnectionStatus(prev => ({
+        ...prev,
+        googleKg: apiKeyStatusQuery.data.googleKg ? 'connected' : prev.googleKg,
+      }));
+    }
+  }, [apiKeyStatusQuery.data]);
 
   // Initialize default sources mutation
   const initDefaultsMutation = trpc.externalKnowledgeGraphs.initializeDefaults.useMutation({
@@ -207,7 +222,9 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
       key: 'googleKg',
       icon: <Search className="h-5 w-5 text-red-500" />,
       enabled: settings.sources.googleKg,
-      description: 'Google\'s entity database — disambiguates people, places, organizations with Schema.org types. Requires API key.',
+      description: apiKeyStatusQuery.data?.googleKg 
+        ? 'Google\'s entity database — disambiguates people, places, organizations with Schema.org types. API key configured.'
+        : 'Google\'s entity database — disambiguates people, places, organizations with Schema.org types. Requires API key.',
       configurable: true,
       docsUrl: 'https://developers.google.com/knowledge-graph',
     },
@@ -283,8 +300,8 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
       } else if (source.key === 'owl' && !settings.endpoints.owl) {
         // OWL requires an endpoint to be configured
         finalStatus[source.key] = 'disconnected';
-      } else if (source.key === 'googleKg' && !settings.endpoints.googleKg) {
-        // Google KG requires an API key
+      } else if (source.key === 'googleKg' && !settings.endpoints.googleKg && !apiKeyStatusQuery.data?.googleKg) {
+        // Google KG requires an API key (check both user-entered and server-side env)
         finalStatus[source.key] = 'disconnected';
       } else {
         finalStatus[source.key] = 'connected';
@@ -481,19 +498,28 @@ export function KnowledgeGraphSettings({ className }: KnowledgeGraphSettingsProp
 
                       {source.key === 'googleKg' && (
                         <>
-                          <div className="space-y-2 pt-3">
-                            <Label className="text-xs">Google API Key</Label>
-                            <Input
-                              placeholder="AIza..."
-                              value={settings.endpoints.googleKg}
-                              onChange={(e) => updateEndpoint('googleKg', e.target.value)}
-                              className="text-sm"
-                              type="password"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Get a free API key from the <a href="https://console.cloud.google.com/apis/library/kgsearch.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Google Cloud Console</a>. Free tier: 100,000 calls/day.
-                            </p>
-                          </div>
+                          {apiKeyStatusQuery.data?.googleKg ? (
+                            <div className="flex items-center gap-2 pt-3 p-3 bg-green-500/10 rounded border border-green-500/20">
+                              <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                              <p className="text-xs text-green-400">
+                                Google API Key is configured on the server. No additional setup needed.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-2 pt-3">
+                              <Label className="text-xs">Google API Key</Label>
+                              <Input
+                                placeholder="AIza..."
+                                value={settings.endpoints.googleKg}
+                                onChange={(e) => updateEndpoint('googleKg', e.target.value)}
+                                className="text-sm"
+                                type="password"
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                Get a free API key from the <a href="https://console.cloud.google.com/apis/library/kgsearch.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Google Cloud Console</a>. Free tier: 100,000 calls/day.
+                              </p>
+                            </div>
+                          )}
                           <div className="text-xs text-muted-foreground space-y-1 bg-muted/30 p-3 rounded">
                             <p className="font-medium text-foreground">What Google KG provides:</p>
                             <ul className="list-disc list-inside space-y-0.5">

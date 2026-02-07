@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
-import { getAllTags, getTagRelationships, getFilesForUser, getFileTagCoOccurrenceEdges } from "../db";
+import { getAllTags, getTagRelationships, getFilesForUser, getFileTagCoOccurrenceEdges, getFileToTagEdges } from "../db";
 import {
   buildAllTagRelationships,
   getRelatedTags,
@@ -24,6 +24,16 @@ import { searchDBpediaEntities } from "../services/dbpediaService";
 import { classifyContentByTags, getAllSchemaTypes } from "../services/schemaOrgService";
 
 export const knowledgeGraphRouter = router({
+  /**
+   * Check if external API keys are configured on the server
+   */
+  checkApiKeyStatus: protectedProcedure
+    .query(async () => {
+      return {
+        googleKg: !!process.env.GOOGLE_API_KEY,
+      };
+    }),
+
   /**
    * Get smart tag suggestions from all knowledge graph sources
    */
@@ -209,6 +219,9 @@ export const knowledgeGraphRouter = router({
       // Also get file-tag associations to build co-occurrence edges
       const fileTagEdges = await getFileTagCoOccurrenceEdges(ctx.user.id, input.minSimilarity);
       
+      // Get direct file-to-tag association edges
+      const fileToTagEdges = input.includeFiles ? await getFileToTagEdges(ctx.user.id) : [];
+      
       // Build nodes from tags
       const tagNodes = tags.map((tag: { id: number; name: string; usageCount: number }) => ({
         id: `tag-${tag.id}`,
@@ -249,6 +262,14 @@ export const knowledgeGraphRouter = router({
         const key = [edge.source, edge.target].sort().join('-');
         const existing = edgeMap.get(key);
         if (!existing || edge.weight > existing.weight) {
+          edgeMap.set(key, edge);
+        }
+      }
+      
+      // Add file-to-tag association edges
+      for (const edge of fileToTagEdges) {
+        const key = [edge.source, edge.target].sort().join('-');
+        if (!edgeMap.has(key)) {
           edgeMap.set(key, edge);
         }
       }
@@ -361,7 +382,7 @@ export const knowledgeGraphRouter = router({
       format: z.enum(['json', 'csv']),
       includeFiles: z.boolean().default(true),
       minSimilarity: z.number().min(0).max(1).default(0.3),
-      relationshipType: z.enum(['all', 'co-occurrence', 'semantic']).default('all'),
+      relationshipType: z.enum(['all', 'co-occurrence', 'semantic', 'file-tag']).default('all'),
     }))
     .mutation(async ({ ctx, input }) => {
       // Get all tags with their usage counts
@@ -375,6 +396,9 @@ export const knowledgeGraphRouter = router({
       
       // Get file-tag associations to build co-occurrence edges
       const fileTagEdges = await getFileTagCoOccurrenceEdges(ctx.user.id, input.minSimilarity);
+      
+      // Get direct file-to-tag association edges
+      const fileToTagEdges = input.includeFiles ? await getFileToTagEdges(ctx.user.id) : [];
       
       // Build nodes from tags
       const tagNodes = tags.map((tag: { id: number; name: string; usageCount: number }) => ({
@@ -412,6 +436,14 @@ export const knowledgeGraphRouter = router({
         const key = [edge.source, edge.target].sort().join('-');
         const existing = edgeMap.get(key);
         if (!existing || edge.weight > existing.weight) {
+          edgeMap.set(key, edge);
+        }
+      }
+      
+      // Add file-to-tag association edges
+      for (const edge of fileToTagEdges) {
+        const key = [edge.source, edge.target].sort().join('-');
+        if (!edgeMap.has(key)) {
           edgeMap.set(key, edge);
         }
       }

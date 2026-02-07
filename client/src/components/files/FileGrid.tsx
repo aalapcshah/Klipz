@@ -162,6 +162,7 @@ export function FileGrid({ onFileClick }: FileGridProps) {
                 size="sm"
                 onClick={(e) => handleDelete(file.id, e)}
                 disabled={deleteMutation.isPending}
+                className="text-red-500 border-red-500/50 hover:bg-red-500/10 hover:text-red-500"
               >
                 <Trash2 className="h-3 w-3" />
               </Button>

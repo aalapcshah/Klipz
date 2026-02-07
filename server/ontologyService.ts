@@ -1218,7 +1218,7 @@ export async function enrichWithExternalKnowledgeGraphs(
           result = await queryFOAF(kg.endpoint || "", searchTerms, kg.apiKey || undefined);
           break;
         case "google_kg":
-          result = await queryGoogleKG(kg.endpoint || "", searchTerms, kg.apiKey || undefined);
+          result = await queryGoogleKG(kg.endpoint || "", searchTerms, kg.apiKey || process.env.GOOGLE_API_KEY || undefined);
           break;
         case "musicbrainz":
           result = await queryMusicBrainz(kg.endpoint || "", searchTerms, kg.apiKey || undefined);

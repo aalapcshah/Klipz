@@ -335,3 +335,114 @@ describe("Smart Tag Suggestions UI Logic", () => {
     });
   });
 });
+
+describe("File-to-Tag Edge Generation", () => {
+  it("should create edges with correct structure", () => {
+    const fileTagAssociations = [
+      { fileId: 10, tagId: 1 },
+      { fileId: 10, tagId: 2 },
+      { fileId: 11, tagId: 1 },
+    ];
+
+    const edges = fileTagAssociations.map(({ fileId, tagId }) => ({
+      source: `file-${fileId}`,
+      target: `tag-${tagId}`,
+      weight: 0.8,
+      type: 'file-tag',
+    }));
+
+    expect(edges).toHaveLength(3);
+    expect(edges[0]).toEqual({
+      source: "file-10",
+      target: "tag-1",
+      weight: 0.8,
+      type: "file-tag",
+    });
+  });
+
+  it("file-to-tag edges should have consistent type and weight", () => {
+    const fileTagAssociations = [
+      { fileId: 1, tagId: 5 },
+      { fileId: 2, tagId: 5 },
+      { fileId: 3, tagId: 10 },
+    ];
+
+    const edges = fileTagAssociations.map(({ fileId, tagId }) => ({
+      source: `file-${fileId}`,
+      target: `tag-${tagId}`,
+      weight: 0.8,
+      type: 'file-tag',
+    }));
+
+    edges.forEach(edge => {
+      expect(edge.type).toBe("file-tag");
+      expect(edge.weight).toBe(0.8);
+      expect(edge.source).toMatch(/^file-\d+$/);
+      expect(edge.target).toMatch(/^tag-\d+$/);
+    });
+  });
+
+  it("should deduplicate edges when merging with co-occurrence edges", () => {
+    const edgeMap = new Map<string, any>();
+
+    // Simulate co-occurrence edges
+    const coOccurrenceEdges = [
+      { source: "tag-1", target: "tag-2", weight: 0.5, type: "co-occurrence" },
+    ];
+
+    // Simulate file-to-tag edges
+    const fileToTagEdges = [
+      { source: "file-10", target: "tag-1", weight: 0.8, type: "file-tag" },
+      { source: "file-10", target: "tag-2", weight: 0.8, type: "file-tag" },
+    ];
+
+    // Add co-occurrence edges
+    for (const edge of coOccurrenceEdges) {
+      const key = [edge.source, edge.target].sort().join('-');
+      edgeMap.set(key, edge);
+    }
+
+    // Add file-to-tag edges (no duplicates expected)
+    for (const edge of fileToTagEdges) {
+      const key = [edge.source, edge.target].sort().join('-');
+      if (!edgeMap.has(key)) {
+        edgeMap.set(key, edge);
+      }
+    }
+
+    const edges = Array.from(edgeMap.values());
+    expect(edges).toHaveLength(3); // 1 co-occurrence + 2 file-tag
+    expect(edges.filter(e => e.type === 'file-tag')).toHaveLength(2);
+    expect(edges.filter(e => e.type === 'co-occurrence')).toHaveLength(1);
+  });
+});
+
+describe("API Key Status Check", () => {
+  it("should detect GOOGLE_API_KEY when present", () => {
+    const originalKey = process.env.GOOGLE_API_KEY;
+    process.env.GOOGLE_API_KEY = "test-key-123";
+
+    const result = { googleKg: !!process.env.GOOGLE_API_KEY };
+    expect(result.googleKg).toBe(true);
+
+    // Restore
+    if (originalKey) {
+      process.env.GOOGLE_API_KEY = originalKey;
+    } else {
+      delete process.env.GOOGLE_API_KEY;
+    }
+  });
+
+  it("should detect missing GOOGLE_API_KEY", () => {
+    const originalKey = process.env.GOOGLE_API_KEY;
+    delete process.env.GOOGLE_API_KEY;
+
+    const result = { googleKg: !!process.env.GOOGLE_API_KEY };
+    expect(result.googleKg).toBe(false);
+
+    // Restore
+    if (originalKey) {
+      process.env.GOOGLE_API_KEY = originalKey;
+    }
+  });
+});

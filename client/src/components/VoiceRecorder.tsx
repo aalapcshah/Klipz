@@ -203,7 +203,7 @@ export function VoiceRecorder({ onSave, onCancel, maxDuration = 300 }: VoiceReco
                   Pause
                 </Button>
               )}
-              <Button onClick={deleteRecording} size="sm" variant="ghost" className="gap-2">
+              <Button onClick={deleteRecording} size="sm" variant="ghost" className="gap-2 text-red-500 hover:text-red-500 hover:bg-red-500/10">
                 <Trash2 className="h-4 w-4" />
                 Delete
               </Button>

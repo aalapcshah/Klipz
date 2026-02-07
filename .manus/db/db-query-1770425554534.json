@@ -1,0 +1,52 @@
+{
+  "query": "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'external_knowledge_graphs' ORDER BY ORDINAL_POSITION;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'external_knowledge_graphs' ORDER BY ORDINAL_POSITION;",
+  "rows": [
+    {
+      "COLUMN_NAME": "id"
+    },
+    {
+      "COLUMN_NAME": "userId"
+    },
+    {
+      "COLUMN_NAME": "name"
+    },
+    {
+      "COLUMN_NAME": "type"
+    },
+    {
+      "COLUMN_NAME": "endpoint"
+    },
+    {
+      "COLUMN_NAME": "apiKey"
+    },
+    {
+      "COLUMN_NAME": "enabled"
+    },
+    {
+      "COLUMN_NAME": "priority"
+    },
+    {
+      "COLUMN_NAME": "ontologyUrl"
+    },
+    {
+      "COLUMN_NAME": "namespacePrefix"
+    },
+    {
+      "COLUMN_NAME": "lastUsedAt"
+    },
+    {
+      "COLUMN_NAME": "usageCount"
+    },
+    {
+      "COLUMN_NAME": "createdAt"
+    },
+    {
+      "COLUMN_NAME": "updatedAt"
+    }
+  ],
+  "messages": [],
+  "stdout": "COLUMN_NAME\nid\nuserId\nname\ntype\nendpoint\napiKey\nenabled\npriority\nontologyUrl\nnamespacePrefix\nlastUsedAt\nusageCount\ncreatedAt\nupdatedAt\n",
+  "stderr": "",
+  "execution_time_ms": 85
+}
