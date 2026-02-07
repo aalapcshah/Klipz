@@ -1085,8 +1085,14 @@ export default function KnowledgeGraphPage() {
   }, []);
 
   const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
+    // Only zoom when Ctrl key is held (pinch-to-zoom on trackpad sets ctrlKey=true)
+    // Regular trackpad scrolling should pass through to scroll the page
+    if (!e.ctrlKey && !e.metaKey) {
+      return; // Let the event bubble up for normal page scrolling
+    }
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    // Pinch-to-zoom: use smaller increments for smoother zoom
+    const delta = e.deltaY > 0 ? 0.95 : 1.05;
     setZoom((z) => Math.max(0.1, Math.min(5, z * delta)));
   }, []);
 

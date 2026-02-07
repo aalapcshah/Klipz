@@ -1,0 +1,7 @@
+Screenshot 1 (1.26.56AM): Graph is zoomed out extremely - all 500 nodes are compressed into a tiny cluster in the top-left corner of the canvas. Most of the canvas is empty black space. This happened because trackpad scrolling triggered the zoom-out handler repeatedly.
+
+Screenshot 2 (1.26.50AM): Graph at normal zoom - nodes fill the canvas properly with labels visible. This is the correct/expected view.
+
+Root cause: handleWheel in KnowledgeGraphPage.tsx (line 1087-1091) calls e.preventDefault() and zooms on every wheel event. On laptops with trackpads, normal two-finger scrolling fires wheel events, so scrolling the page while cursor is over the canvas zooms the graph instead.
+
+Fix: Only zoom on Ctrl+scroll (pinch-to-zoom on trackpad maps to ctrlKey=true). Regular scroll should pass through to the page.

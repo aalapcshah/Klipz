@@ -5255,3 +5255,20 @@ Note: The application already has extensive annotation features including voice 
 ## Bug Fix - Knowledge Graph Tag File Count - Feb 7, 2026
 - [x] Fix tag nodes showing "0 files tagged" in Knowledge Graph toast - map backend weight to frontend fileCount property
 - [x] Improve toast messaging for AI-suggested tags with 0 file associations ("AI-suggested tag. Not yet assigned to files.")
+
+## Feature - Video Visual Captioning & File Suggestions - Feb 7, 2026
+- [ ] Backend: Extract video frames at regular intervals (e.g., every 5 seconds)
+- [ ] Backend: Use AI vision (LLM) to generate captions/descriptions for each frame
+- [ ] Backend: NLP analysis of captions to extract key entities, topics, objects
+- [ ] Backend: Match extracted entities against uploaded files' metadata/tags with confidence scores
+- [ ] Backend: Store video captions with timestamps in database
+- [ ] Frontend: Video player with synced caption display below the video
+- [ ] Frontend: Caption timeline showing all generated captions at timepoints
+- [ ] Frontend: File suggestions panel showing relevant files per timepoint with metadata and strength %
+- [ ] Frontend: Interactive navigation - click a timepoint to seek video and update suggestions
+- [ ] Integration test with Video 25 (no audio, visual-only captioning)
+
+## Bug Fix - Knowledge Graph Scroll/Zoom on Trackpad - Feb 7, 2026
+- [x] Fix canvas wheel event capturing page scroll - trackpad scroll should scroll the page, not zoom the graph
+- [x] Only zoom graph on intentional gestures (Ctrl+scroll or pinch-to-zoom)
+- [x] Zoom controls (buttons) already exist in bottom-right corner as alternative
