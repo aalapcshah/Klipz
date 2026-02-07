@@ -67,6 +67,7 @@ interface FileGridEnhancedProps {
   onFileClick?: (fileId: number) => void;
   selectedFileIds?: number[];
   onSelectionChange?: (fileIds: number[]) => void;
+  onFilteredCountChange?: (count: number) => void;
   advancedFilters?: {
     dateFrom: string;
     dateTo: string;
@@ -95,6 +96,7 @@ export default function FileGridEnhanced({
   onFileClick,
   selectedFileIds = [],
   onSelectionChange,
+  onFilteredCountChange,
   advancedFilters,
   files: externalFiles
 }: FileGridEnhancedProps) {
@@ -389,6 +391,13 @@ export default function FileGridEnhanced({
     }
     return 0;
   });
+
+  // Report filtered count to parent
+  useEffect(() => {
+    if (onFilteredCountChange) {
+      onFilteredCountChange(files.length);
+    }
+  }, [files.length, onFilteredCountChange]);
 
   // Save preferences to localStorage
   useEffect(() => {

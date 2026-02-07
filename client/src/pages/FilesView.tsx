@@ -113,6 +113,7 @@ export default function FilesView() {
     },
   });
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
+  const [filteredCount, setFilteredCount] = useState<number | null>(null);
   
   // Persist page size preference
   useEffect(() => {
@@ -643,6 +644,7 @@ export default function FilesView() {
                 onFileClick={handleFileClick}
                 selectedFileIds={selectedFileIds}
                 onSelectionChange={setSelectedFileIds}
+                onFilteredCountChange={setFilteredCount}
                 advancedFilters={advancedFilters}
                 files={searchResults || filesData?.files}
               />
@@ -661,7 +663,11 @@ export default function FilesView() {
             <div className="flex items-center justify-between mt-6 pt-4 border-t">
               <div className="flex items-center gap-4">
                 <span className="text-sm text-muted-foreground">
-                  Showing {Math.min((filesData.pagination.page - 1) * filesData.pagination.pageSize + 1, filesData.pagination.totalCount)} - {Math.min(filesData.pagination.page * filesData.pagination.pageSize, filesData.pagination.totalCount)} of {filesData.pagination.totalCount} files
+                  {filteredCount !== null && filteredCount < filesData.pagination.totalCount ? (
+                    <>Showing {filteredCount} of {filesData.pagination.totalCount} files (filtered)</>
+                  ) : (
+                    <>Showing {Math.min((filesData.pagination.page - 1) * filesData.pagination.pageSize + 1, filesData.pagination.totalCount)} - {Math.min(filesData.pagination.page * filesData.pagination.pageSize, filesData.pagination.totalCount)} of {filesData.pagination.totalCount} files</>
+                  )}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Items per page:</span>

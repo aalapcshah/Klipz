@@ -5452,3 +5452,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Smooth spring-like animation with cubic-bezier easing (0.3s)
 - [x] Auto-close when another card is swiped or tapped elsewhere
 - [x] Integrated into FileGridEnhanced for mobile viewports only (md:hidden)
+
+## Bug Fixes - Feb 7, 2026 (Pagination & Upload Progress)
+- [x] Fix pagination count mismatch: shows "1-24 of 24 files" when only 8 are visible in Recently Viewed
+- [x] Fix upload progress stuck at 0% even though bytes are transferring (70MB/675MB but shows 0%)
+
+## Bug Fixes - Feb 7, 2026 (Large Video Upload Failure)
+- [ ] Fix large file upload session expiring mid-upload ("Upload session not found or expired" at chunk 42 of 675MB file)
+- [ ] Fix storageStats.getStats 500 error (database query failure)
+- [ ] Fix upload progress showing 0 B / 675MB instead of actual bytes uploaded
