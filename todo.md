@@ -5424,3 +5424,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Show extracted speech transcript text directly on the upload completion card
 - [x] Display matched file suggestions inline below the transcript (expandable)
 - [x] Show loading state while transcription is in progress (polls every 3s)
+
+## Transcript Timestamps & Keyword Highlighting - Feb 7, 2026
+- [x] Add clickable timestamps to transcript segments that jump to specific video moments
+- [x] Add keyword highlighting for matched terms (e.g. "529", "HSA") in transcript text
+- [x] Implement in both upload completion card (UploadTranscriptInline) and video detail view (FileSuggestions)
+- [x] Ensure timestamps work with the existing video player seek functionality
+- [x] Created shared TranscriptWithTimestamps component for reuse across views

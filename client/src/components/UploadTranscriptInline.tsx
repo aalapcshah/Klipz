@@ -1,37 +1,36 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Loader2,
   FileText,
   ChevronDown,
   ChevronUp,
   Sparkles,
-  MessageSquareText,
   FileIcon,
   Image as ImageIcon,
   Video,
 } from "lucide-react";
+import { TranscriptWithTimestamps } from "./TranscriptWithTimestamps";
 
 interface UploadTranscriptInlineProps {
   fileId: number;
 }
 
 export function UploadTranscriptInline({ fileId }: UploadTranscriptInlineProps) {
-  const [expanded, setExpanded] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const { data: transcript, isLoading: transcriptLoading } =
     trpc.videoTranscription.getTranscript.useQuery(
       { fileId },
-      { refetchInterval: (query) => {
-        // Poll every 3s while processing, stop when completed/failed
-        const data = query.state.data;
-        if (!data) return 3000;
-        if (data.status === "processing") return 3000;
-        return false;
-      }}
+      {
+        refetchInterval: (query) => {
+          const data = query.state.data;
+          if (!data) return 3000;
+          if (data.status === "processing") return 3000;
+          return false;
+        },
+      }
     );
 
   const { data: suggestions, isLoading: suggestionsLoading } =
@@ -40,13 +39,24 @@ export function UploadTranscriptInline({ fileId }: UploadTranscriptInlineProps) 
       {
         enabled: !!transcript && transcript.status === "completed",
         refetchInterval: (query) => {
-          // Poll a few times to catch async suggestions
           const data = query.state.data;
           if (!data || data.length === 0) return 5000;
           return false;
         },
       }
     );
+
+  // Collect all matched keywords from suggestions for highlighting
+  const highlightKeywords = useMemo(() => {
+    if (!suggestions) return [];
+    const keywords = new Set<string>();
+    suggestions.forEach((s: any) => {
+      if (s.matchedKeywords && Array.isArray(s.matchedKeywords)) {
+        s.matchedKeywords.forEach((kw: string) => keywords.add(kw));
+      }
+    });
+    return Array.from(keywords);
+  }, [suggestions]);
 
   const getFileIcon = (mimeType?: string | null) => {
     if (mimeType?.startsWith("image/")) return <ImageIcon className="h-3 w-3" />;
@@ -56,7 +66,7 @@ export function UploadTranscriptInline({ fileId }: UploadTranscriptInlineProps) 
     return <FileIcon className="h-3 w-3" />;
   };
 
-  // Don't show anything if still loading initial data
+  // Loading initial data
   if (transcriptLoading) {
     return (
       <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
@@ -81,48 +91,21 @@ export function UploadTranscriptInline({ fileId }: UploadTranscriptInlineProps) 
     return null;
   }
 
-  // Transcript completed - show it
+  const segments = (transcript.segments as Array<{ text: string; start: number; end: number }>) || [];
   const fullText = transcript.fullText || "";
-  const truncatedText = fullText.length > 200 ? fullText.slice(0, 200) + "..." : fullText;
   const hasSuggestions = suggestions && suggestions.length > 0;
 
   return (
     <div className="mt-3 space-y-2">
-      {/* Transcript Section */}
-      <div className="rounded-md bg-muted/50 p-2.5">
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <MessageSquareText className="h-3.5 w-3.5 text-primary" />
-          <span className="text-xs font-medium text-primary">Speech Transcript</span>
-          {transcript.language && (
-            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
-              {transcript.language.toUpperCase()}
-            </Badge>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          {expanded ? fullText : truncatedText}
-        </p>
-        {fullText.length > 200 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-5 px-1 mt-1 text-[10px] text-primary hover:text-primary"
-            onClick={() => setExpanded(!expanded)}
-          >
-            {expanded ? (
-              <>
-                <ChevronUp className="h-3 w-3 mr-0.5" />
-                Show less
-              </>
-            ) : (
-              <>
-                <ChevronDown className="h-3 w-3 mr-0.5" />
-                Show more
-              </>
-            )}
-          </Button>
-        )}
-      </div>
+      {/* Transcript with timestamps and keyword highlighting */}
+      <TranscriptWithTimestamps
+        segments={segments}
+        fullText={fullText}
+        language={transcript.language}
+        highlightKeywords={highlightKeywords}
+        compact={true}
+        maxVisibleSegments={3}
+      />
 
       {/* File Suggestions Section */}
       {suggestionsLoading && (
@@ -170,10 +153,7 @@ export function UploadTranscriptInline({ fileId }: UploadTranscriptInlineProps) 
                     )}
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] px-1 py-0 h-4"
-                    >
+                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
                       {suggestion.matchType}
                     </Badge>
                     <span className="text-[10px] text-muted-foreground">
