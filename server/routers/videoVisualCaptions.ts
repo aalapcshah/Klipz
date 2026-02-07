@@ -3,6 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../_core/llm";
 import * as db from "../db";
+import { getAutoCaptioningStatus, processScheduledAutoCaptioning } from "../_core/scheduledAutoCaptioning";
 
 /**
  * Video Visual Captions Router
@@ -959,4 +960,19 @@ Focus on: what is shown on screen (text, diagrams, images, UI elements), actions
       );
       return { success: true };
     }),
+
+  /**
+   * Get auto-captioning status (how many videos are uncaptioned, processing, etc.)
+   */
+  getAutoCaptioningStatus: protectedProcedure.query(async () => {
+    return await getAutoCaptioningStatus();
+  }),
+
+  /**
+   * Manually trigger scheduled auto-captioning (processes uncaptioned videos now)
+   */
+  triggerAutoCaptioning: protectedProcedure.mutation(async () => {
+    const result = await processScheduledAutoCaptioning();
+    return result;
+  }),
 });

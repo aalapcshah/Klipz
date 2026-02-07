@@ -56,6 +56,8 @@ vi.mock("./db", async () => {
     searchVisualCaptions: vi.fn(),
     getAllVisualCaptionsByUser: vi.fn(),
     updateVisualCaptionFileMatchStatus: vi.fn(),
+    getCaptionAnalytics: vi.fn(),
+    getCaptionedVideoFileIds: vi.fn(),
   };
 });
 
@@ -64,8 +66,15 @@ vi.mock("./_core/llm", () => ({
   invokeLLM: vi.fn(),
 }));
 
+// Mock scheduled auto-captioning module
+vi.mock("./_core/scheduledAutoCaptioning", () => ({
+  getAutoCaptioningStatus: vi.fn(),
+  processScheduledAutoCaptioning: vi.fn(),
+}));
+
 const db = await import("./db");
 const { invokeLLM } = await import("./_core/llm");
+const { getAutoCaptioningStatus, processScheduledAutoCaptioning } = await import("./_core/scheduledAutoCaptioning");
 
 describe("videoVisualCaptions", () => {
   beforeEach(() => {
@@ -379,6 +388,81 @@ describe("videoVisualCaptions", () => {
         "dismissed",
         "not_helpful"
       );
+    });
+  });
+
+  describe("getAutoCaptioningStatus", () => {
+    it("returns auto-captioning status", async () => {
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      const mockStatus = {
+        uncaptionedCount: 5,
+        processingCount: 1,
+        completedCount: 10,
+        failedCount: 2,
+      };
+      (getAutoCaptioningStatus as any).mockResolvedValue(mockStatus);
+
+      const result = await caller.videoVisualCaptions.getAutoCaptioningStatus();
+      expect(result).toEqual(mockStatus);
+      expect(getAutoCaptioningStatus).toHaveBeenCalled();
+    });
+
+    it("requires authentication", async () => {
+      const ctx = createUnauthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      await expect(
+        caller.videoVisualCaptions.getAutoCaptioningStatus()
+      ).rejects.toThrow("Please login");
+    });
+  });
+
+  describe("triggerAutoCaptioning", () => {
+    it("triggers auto-captioning and returns results", async () => {
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      const mockResult = {
+        processed: 3,
+        captioned: 2,
+        failed: 1,
+        totalCaptions: 25,
+        errors: ["Video 5: timeout"],
+      };
+      (processScheduledAutoCaptioning as any).mockResolvedValue(mockResult);
+
+      const result = await caller.videoVisualCaptions.triggerAutoCaptioning();
+      expect(result).toEqual(mockResult);
+      expect(processScheduledAutoCaptioning).toHaveBeenCalled();
+    });
+
+    it("returns zero counts when no uncaptioned videos", async () => {
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      const mockResult = {
+        processed: 0,
+        captioned: 0,
+        failed: 0,
+        totalCaptions: 0,
+        errors: [],
+      };
+      (processScheduledAutoCaptioning as any).mockResolvedValue(mockResult);
+
+      const result = await caller.videoVisualCaptions.triggerAutoCaptioning();
+      expect(result.processed).toBe(0);
+      expect(result.captioned).toBe(0);
+    });
+
+    it("requires authentication", async () => {
+      const ctx = createUnauthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      await expect(
+        caller.videoVisualCaptions.triggerAutoCaptioning()
+      ).rejects.toThrow("Please login");
     });
   });
 

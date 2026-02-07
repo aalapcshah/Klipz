@@ -5315,3 +5315,14 @@ Note: The application already has extensive annotation features including voice 
 - [x] Backend: bulkFileMatch endpoint (runs file matching across all captioned videos with configurable min relevance)
 - [x] Frontend: Caption Analytics section on Activity Dashboard with 3-column stats tiles, file match stats card, top entities card
 - [x] Frontend: Bulk File Match button with loading state and toast notifications
+
+## Feature - Entity-Based Video Navigation & Scheduled Auto-Captioning - Feb 7, 2026
+- [x] Frontend: Clickable entity tags in Caption Analytics navigate to Caption Search with entity pre-filled
+- [x] Frontend: Caption Search page reads URL query parameter (?q=entity) and auto-executes search
+- [x] Frontend: Entity tags show search icon and hover effect for discoverability
+- [x] Backend: Scheduled auto-captioning module (server/_core/scheduledAutoCaptioning.ts) finds uncaptioned videos and processes them
+- [x] Backend: Cron job runs auto-captioning every 6 hours (added to cronJobs.ts)
+- [x] Backend: getAutoCaptioningStatus endpoint returns uncaptioned/processing/completed/failed counts
+- [x] Backend: triggerAutoCaptioning endpoint for manual trigger of auto-captioning
+- [x] Frontend: Scheduled Auto-Captioning status card on Activity Dashboard with counts and manual trigger button
+- [x] Tests: 23 vitest tests for videoVisualCaptions router (5 new tests for auto-captioning status and trigger)

@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { checkAndResolveAlerts } from "./alertAutoResolution";
 import { sendDailyDigests, sendWeeklyDigests } from "./emailDigest";
 import { processBackgroundEnrichment } from "./backgroundEnrichment";
+import { processScheduledAutoCaptioning } from "./scheduledAutoCaptioning";
 
 /**
  * Initialize all cron jobs for automated monitoring and notifications
@@ -63,9 +64,25 @@ export function initializeCronJobs() {
     }
   });
 
+  // Run scheduled auto-captioning every 6 hours (0:00, 6:00, 12:00, 18:00)
+  cron.schedule("0 */6 * * *", async () => {
+    console.log("[CronJobs] Running scheduled auto-captioning");
+    try {
+      const result = await processScheduledAutoCaptioning();
+      if (result.processed > 0) {
+        console.log(
+          `[CronJobs] Auto-captioning complete: ${result.captioned} captioned, ${result.failed} failed, ${result.totalCaptions} total captions`
+        );
+      }
+    } catch (error) {
+      console.error("[CronJobs] Error in scheduled auto-captioning:", error);
+    }
+  });
+
   console.log("[CronJobs] All scheduled tasks initialized successfully");
   console.log("[CronJobs] - Alert auto-resolution: Every hour");
   console.log("[CronJobs] - Daily digests: 9:00 AM daily");
   console.log("[CronJobs] - Weekly digests: 9:00 AM Monday");
   console.log("[CronJobs] - Background enrichment: Every 5 minutes");
+  console.log("[CronJobs] - Scheduled auto-captioning: Every 6 hours");
 }

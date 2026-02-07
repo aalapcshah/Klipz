@@ -1,10 +1,11 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Upload, Search, FolderPlus, Image, Video, File, Info, Captions, FileSearch, Loader2, CheckCircle2, XCircle, BarChart3, Hash, TrendingUp, Link2 } from "lucide-react";
+import { ArrowLeft, Upload, Search, FolderPlus, Image, Video, File, Info, Captions, FileSearch, Loader2, CheckCircle2, XCircle, BarChart3, Hash, TrendingUp, Link2, Clock, Zap, AlertCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { trpc } from "@/lib/trpc";
 import { StorageAlert } from "@/components/StorageAlert";
@@ -15,6 +16,33 @@ export default function ActivityDashboard() {
   const { data: recentActivity, isLoading: activityLoading } = trpc.activity.getRecentActivity.useQuery({ limit: 10 });
   const { data: captionAnalytics, isLoading: analyticsLoading } = trpc.videoVisualCaptions.getCaptionAnalytics.useQuery();
   const [bulkMatchLoading, setBulkMatchLoading] = useState(false);
+  const [autoCaptionLoading, setAutoCaptionLoading] = useState(false);
+  const { data: autoCaptionStatus } = trpc.videoVisualCaptions.getAutoCaptioningStatus.useQuery();
+  const queryClient = useQueryClient();
+
+  const triggerAutoCaptioning = trpc.videoVisualCaptions.triggerAutoCaptioning.useMutation({
+    onSuccess: (data) => {
+      setAutoCaptionLoading(false);
+      if (data.captioned > 0) {
+        toast.success(`Auto-captioned ${data.captioned} video${data.captioned !== 1 ? 's' : ''} (${data.totalCaptions} captions generated)`);
+      } else if (data.processed === 0) {
+        toast.info('No uncaptioned videos found');
+      } else {
+        toast.warning(`Processed ${data.processed} videos, ${data.failed} failed`);
+      }
+      // Refresh analytics
+      queryClient.invalidateQueries();
+    },
+    onError: (error) => {
+      setAutoCaptionLoading(false);
+      toast.error(`Auto-captioning failed: ${error.message}`);
+    },
+  });
+
+  const handleTriggerAutoCaptioning = () => {
+    setAutoCaptionLoading(true);
+    triggerAutoCaptioning.mutate();
+  };
 
   const bulkFileMatch = trpc.videoVisualCaptions.bulkFileMatch.useMutation({
     onSuccess: (data) => {
@@ -346,14 +374,19 @@ export default function ActivityDashboard() {
                   {captionAnalytics.topEntities.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {captionAnalytics.topEntities.slice(0, 20).map((entity, idx) => (
-                        <Badge
+                        <Link
                           key={idx}
-                          variant={idx < 3 ? "default" : "secondary"}
-                          className="text-xs"
+                          href={`/caption-search?q=${encodeURIComponent(entity.entity)}`}
                         >
-                          {entity.entity}
-                          <span className="ml-1 opacity-70">({entity.count})</span>
-                        </Badge>
+                          <Badge
+                            variant={idx < 3 ? "default" : "secondary"}
+                            className="text-xs cursor-pointer hover:opacity-80 transition-opacity"
+                          >
+                            <Search className="h-3 w-3 mr-1" />
+                            {entity.entity}
+                            <span className="ml-1 opacity-70">({entity.count})</span>
+                          </Badge>
+                        </Link>
                       ))}
                     </div>
                   ) : (
@@ -364,6 +397,84 @@ export default function ActivityDashboard() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Auto-Captioning Status */}
+            {autoCaptionStatus && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Scheduled Auto-Captioning
+                  </CardTitle>
+                  <CardDescription>
+                    Automatically captions uncaptioned videos every 6 hours
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Uncaptioned</p>
+                      <p className="text-2xl font-bold">
+                        {autoCaptionStatus.uncaptionedCount}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Processing</p>
+                      <p className="text-2xl font-bold flex items-center gap-1">
+                        {autoCaptionStatus.processingCount}
+                        {autoCaptionStatus.processingCount > 0 && (
+                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Completed</p>
+                      <p className="text-2xl font-bold text-green-600">
+                        {autoCaptionStatus.completedCount}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Failed</p>
+                      <p className="text-2xl font-bold text-red-500">
+                        {autoCaptionStatus.failedCount}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      onClick={handleTriggerAutoCaptioning}
+                      disabled={autoCaptionLoading || autoCaptionStatus.uncaptionedCount === 0}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      {autoCaptionLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Captioning...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="h-4 w-4 mr-2" />
+                          Caption Uncaptioned Videos Now
+                        </>
+                      )}
+                    </Button>
+                    {autoCaptionStatus.uncaptionedCount === 0 && (
+                      <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        All videos captioned
+                      </Badge>
+                    )}
+                  </div>
+                  {autoCaptionStatus.failedCount > 0 && (
+                    <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {autoCaptionStatus.failedCount} videos failed captioning. They will be retried on the next scheduled run.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </>
         ) : (
           <Card className="mb-8">

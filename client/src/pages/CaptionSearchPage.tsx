@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,16 @@ function highlightMatch(text: string, query: string): React.ReactNode {
 export default function CaptionSearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
+
+  // Support pre-filled search from URL query parameter (e.g., /caption-search?q=IRS)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q");
+    if (q) {
+      setSearchQuery(q);
+      setSubmittedQuery(q);
+    }
+  }, []);
 
   const { data: results, isLoading } = trpc.videoVisualCaptions.searchCaptions.useQuery(
     { query: submittedQuery },
