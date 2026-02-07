@@ -5440,3 +5440,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add transcript export as plain text document (with timestamps)
 - [x] Add export dropdown menu to transcript header (SRT, Text, search results)
 - [x] Pass videoTitle through component chain for proper export filenames
+
+## Mobile UI Fixes - Feb 7, 2026
+- [x] Move red delete button out of "..." dropdown, place next to Enrich button in bottom bar
+- [x] Add clear selection option next to Select All in the list header (shows count)
+- [x] Fix oversized/off-center X close button on file detail modal (h-6 w-6 with centered icon)

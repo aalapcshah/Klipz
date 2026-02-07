@@ -1489,15 +1489,25 @@ export default function FileGridEnhanced({
           </Card>
         )}
 
-        {/* Select All */}
+        {/* Select All / Clear Selection */}
         {!compareMode && files.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Checkbox
-              checked={selectedFilesSet.size === files.length && files.length > 0}
-              onCheckedChange={toggleAll}
-              className="h-4 w-4"
-            />
-            <span className="text-sm text-muted-foreground">Select All</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={selectedFilesSet.size === files.length && files.length > 0}
+                onCheckedChange={toggleAll}
+                className="h-4 w-4"
+              />
+              <span className="text-sm text-muted-foreground">Select All</span>
+            </div>
+            {selectedFilesSet.size > 0 && (
+              <button
+                onClick={() => setSelectedFiles(new Set())}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear ({selectedFilesSet.size})
+              </button>
+            )}
           </div>
         )}
 

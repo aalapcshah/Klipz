@@ -334,6 +334,18 @@ export function BulkOperationsToolbar({
                 Enrich
               </Button>
 
+              {/* Delete button - always visible next to Enrich */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={isProcessing}
+                className="h-7 px-2 text-xs text-destructive border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Delete
+              </Button>
+
               {/* Secondary actions in dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -362,14 +374,6 @@ export function BulkOperationsToolbar({
                   <DropdownMenuItem onClick={() => setShowCompressionDialog(true)}>
                     <Video className="h-3 w-3 mr-2" />
                     Compress
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    onClick={() => setShowDeleteDialog(true)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="h-3 w-3 mr-2" />
-                    Delete
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
