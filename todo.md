@@ -5295,3 +5295,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Frontend: Configurable confidence threshold slider for file matches
 - [x] Frontend: Caption Search page under Tools menu with cross-video search
 - [x] Tests: 18 vitest tests for videoVisualCaptions router (all passing)
+
+## Feature - Caption Timestamp Adjustment & Auto-Caption on Upload - Feb 7, 2026
+- [x] Frontend: Double-click timestamp to enter edit mode with number input, arrow keys ±0.5s
+- [x] Frontend: Move icon hint on hover, Enter to save, Escape to cancel
+- [x] Backend: updateTimestamp endpoint to persist adjusted timestamps (with re-sort)
+- [x] Backend: autoCaptionVideo endpoint - fire-and-forget background captioning
+- [x] Frontend: Auto-caption triggered on both regular and resumable upload completion
+- [x] Frontend: Toast notification when auto-captioning starts in background
+- [x] Bugfix: Fixed uploadThumbnail reference (uploadChunk → files router)

@@ -25,6 +25,7 @@ import {
   Check,
   Download,
   SlidersHorizontal,
+  Move,
 } from "lucide-react";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
@@ -78,6 +79,8 @@ export function VisualCaptionsPanel({
   const [editText, setEditText] = useState("");
   const [minRelevance, setMinRelevance] = useState(30);
   const [showThresholdSlider, setShowThresholdSlider] = useState(false);
+  const [draggingCaption, setDraggingCaption] = useState<number | null>(null);
+  const [dragTimestamp, setDragTimestamp] = useState<number>(0);
   const captionListRef = useRef<HTMLDivElement>(null);
   const activeCaptionRef = useRef<HTMLDivElement>(null);
 
@@ -133,6 +136,20 @@ export function VisualCaptionsPanel({
     trpc.videoVisualCaptions.updateMatchStatus.useMutation({
       onSuccess: () => {
         refetchMatches();
+      },
+    });
+
+  // Update timestamp mutation
+  const updateTimestampMutation =
+    trpc.videoVisualCaptions.updateTimestamp.useMutation({
+      onSuccess: () => {
+        toast.success("Timestamp adjusted");
+        refetchCaptions();
+        setDraggingCaption(null);
+      },
+      onError: (error: any) => {
+        toast.error(`Failed to adjust timestamp: ${error.message}`);
+        setDraggingCaption(null);
       },
     });
 
@@ -264,6 +281,23 @@ export function VisualCaptionsPanel({
     } catch {
       toast.error("Export failed");
     }
+  };
+
+  const handleStartTimestampEdit = (idx: number, timestamp: number) => {
+    setDraggingCaption(idx);
+    setDragTimestamp(timestamp);
+  };
+
+  const handleSaveTimestamp = (originalTimestamp: number) => {
+    if (dragTimestamp === originalTimestamp) {
+      setDraggingCaption(null);
+      return;
+    }
+    updateTimestampMutation.mutate({
+      fileId,
+      originalTimestamp,
+      newTimestamp: Math.max(0, dragTimestamp),
+    });
   };
 
   const handleAcceptMatch = (matchId: number) => {
@@ -721,18 +755,63 @@ export function VisualCaptionsPanel({
                 }}
               >
                 <div className="flex items-start gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-xs flex-shrink-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onJumpToTimestamp?.(caption.timestamp);
-                    }}
-                  >
-                    <Play className="h-3 w-3 mr-1" />
-                    {formatTime(caption.timestamp)}
-                  </Button>
+                  {draggingCaption === realIdx ? (
+                    <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <Move className="h-3 w-3 text-primary" />
+                      <input
+                        type="number"
+                        value={Number(dragTimestamp.toFixed(1))}
+                        onChange={(e) => setDragTimestamp(Math.max(0, parseFloat(e.target.value) || 0))}
+                        className="w-16 text-xs bg-background border border-primary rounded px-1 py-0.5 text-center"
+                        step={0.5}
+                        min={0}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleSaveTimestamp(caption.timestamp);
+                          if (e.key === "Escape") setDraggingCaption(null);
+                          if (e.key === "ArrowUp") { e.preventDefault(); setDragTimestamp(prev => prev + 0.5); }
+                          if (e.key === "ArrowDown") { e.preventDefault(); setDragTimestamp(prev => Math.max(0, prev - 0.5)); }
+                        }}
+                      />
+                      <span className="text-xs text-muted-foreground">s</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5"
+                        onClick={(e) => { e.stopPropagation(); handleSaveTimestamp(caption.timestamp); }}
+                        disabled={updateTimestampMutation.isPending}
+                      >
+                        <Check className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5"
+                        onClick={(e) => { e.stopPropagation(); setDraggingCaption(null); }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs flex-shrink-0 group/ts"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onJumpToTimestamp?.(caption.timestamp);
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        handleStartTimestampEdit(realIdx, caption.timestamp);
+                      }}
+                      title="Click to jump, double-click to adjust time"
+                    >
+                      <Play className="h-3 w-3 mr-1" />
+                      {formatTime(caption.timestamp)}
+                      <Move className="h-2.5 w-2.5 ml-1 opacity-0 group-hover/ts:opacity-50 transition-opacity" />
+                    </Button>
+                  )}
                   {editingCaption === realIdx ? (
                     <div className="flex-1 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                       <input

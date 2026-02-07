@@ -582,6 +582,193 @@ For each relevant match, provide the file index, the timestamp it matches, relev
   }),
 
   /**
+   * Update a caption's timestamp (for drag-to-adjust)
+   */
+  updateTimestamp: protectedProcedure
+    .input(
+      z.object({
+        fileId: z.number(),
+        originalTimestamp: z.number(),
+        newTimestamp: z.number().min(0),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const caption = await db.getVisualCaptionByFileId(input.fileId);
+      if (!caption) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Visual captions not found for this video",
+        });
+      }
+      if (caption.userId !== ctx.user.id) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have permission to edit these captions",
+        });
+      }
+
+      const captions = caption.captions as Array<{
+        timestamp: number;
+        caption: string;
+        entities: string[];
+        confidence: number;
+      }>;
+
+      const idx = captions.findIndex(
+        (c) => Math.abs(c.timestamp - input.originalTimestamp) < 0.5
+      );
+      if (idx === -1) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Caption at this timestamp not found",
+        });
+      }
+
+      captions[idx].timestamp = input.newTimestamp;
+      // Re-sort by timestamp
+      captions.sort((a, b) => a.timestamp - b.timestamp);
+
+      await db.updateVisualCaption(caption.id, {
+        captions: captions,
+      });
+
+      return { success: true, updatedCaption: captions[idx] };
+    }),
+
+  /**
+   * Auto-generate captions for a video (called after upload)
+   * This is a fire-and-forget endpoint that doesn't block the upload flow
+   */
+  autoCaptionVideo: protectedProcedure
+    .input(
+      z.object({
+        fileId: z.number(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const file = await db.getFileById(input.fileId);
+      if (!file || !file.mimeType?.startsWith("video/")) {
+        return { queued: false, reason: "Not a video file" };
+      }
+      if (file.userId !== ctx.user.id) {
+        return { queued: false, reason: "Permission denied" };
+      }
+
+      // Check if captions already exist
+      const existing = await db.getVisualCaptionByFileId(input.fileId);
+      if (existing && existing.status === "completed") {
+        return { queued: false, reason: "Captions already exist" };
+      }
+
+      // Create a pending caption record
+      const captionId = existing
+        ? existing.id
+        : await db.createVisualCaption({
+            fileId: input.fileId,
+            userId: ctx.user.id,
+            intervalSeconds: 5,
+            status: "processing",
+          });
+
+      if (existing) {
+        await db.updateVisualCaption(existing.id, {
+          status: "processing",
+          errorMessage: null,
+        });
+      }
+
+      // Fire-and-forget: run captioning in background
+      (async () => {
+        try {
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `You are an expert video analyst. Analyze the visual content and generate detailed captions at regular time intervals (approximately every 5 seconds).
+
+For each timepoint, provide:
+1. A descriptive caption of what is visually happening
+2. Key entities/topics extracted from the visual content
+3. A confidence score (0.0-1.0)
+
+Focus on: what is shown on screen (text, diagrams, images, UI elements), actions being performed, objects, any visible text, scene changes, and people.`,
+              },
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "file_url" as const,
+                    file_url: {
+                      url: file.url,
+                      mime_type: "video/mp4" as const,
+                    },
+                  },
+                  {
+                    type: "text" as const,
+                    text: "Analyze this video and generate visual captions at approximately 5-second intervals. Return a JSON response with the captions array.",
+                  },
+                ],
+              },
+            ],
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                name: "visual_captions",
+                strict: true,
+                schema: {
+                  type: "object",
+                  properties: {
+                    captions: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          timestamp: { type: "number" },
+                          caption: { type: "string" },
+                          entities: { type: "array", items: { type: "string" } },
+                          confidence: { type: "number" },
+                        },
+                        required: ["timestamp", "caption", "entities", "confidence"],
+                        additionalProperties: false,
+                      },
+                    },
+                    videoDurationEstimate: { type: "number" },
+                    videoSummary: { type: "string" },
+                  },
+                  required: ["captions", "videoDurationEstimate", "videoSummary"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          });
+
+          const content = response.choices[0]?.message?.content;
+          const contentStr = typeof content === "string" ? content : JSON.stringify(content);
+          if (!contentStr) throw new Error("No response from LLM");
+
+          const result = JSON.parse(contentStr);
+          const captions = result.captions || [];
+
+          await db.updateVisualCaption(captionId, {
+            captions,
+            totalFramesAnalyzed: captions.length,
+            status: "completed",
+          });
+
+          console.log(`[AutoCaption] Completed captioning for file ${input.fileId}: ${captions.length} captions`);
+        } catch (error: any) {
+          console.error(`[AutoCaption] Failed for file ${input.fileId}:`, error.message);
+          await db.updateVisualCaption(captionId, {
+            status: "failed",
+            errorMessage: error.message,
+          });
+        }
+      })();
+
+      return { queued: true, captionId };
+    }),
+
+  /**
    * Update match status (accept/dismiss)
    */
   updateMatchStatus: protectedProcedure

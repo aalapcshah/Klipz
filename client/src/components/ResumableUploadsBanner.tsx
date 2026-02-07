@@ -16,6 +16,7 @@ import {
   File
 } from "lucide-react";
 import { useResumableUpload, ResumableUploadSession } from "@/hooks/useResumableUpload";
+import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
 function formatBytes(bytes: number): string {
@@ -80,10 +81,31 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
     errorCount,
     resumableCount,
   } = useResumableUpload({
-    onComplete: () => {
+    onComplete: (_session, result) => {
       onUploadComplete?.();
+      // Auto-generate visual captions for uploaded videos
+      if (result?.fileId) {
+        autoCaptionMutation.mutate(
+          { fileId: result.fileId },
+          {
+            onSuccess: (data) => {
+              if (data.queued) {
+                toast.info("Visual captions are being generated in the background", {
+                  description: "You'll see them when you open the video.",
+                  duration: 4000,
+                });
+              }
+            },
+            onError: () => {
+              console.warn("Auto-caption failed for file", result.fileId);
+            },
+          }
+        );
+      }
     },
   });
+
+  const autoCaptionMutation = trpc.videoVisualCaptions.autoCaptionVideo.useMutation();
 
   // Filter to show only active/paused sessions
   const resumableSessions = sessions.filter(

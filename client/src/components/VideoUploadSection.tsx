@@ -133,7 +133,7 @@ export function VideoUploadSection() {
   const checkDuplicatesMutation = trpc.duplicateCheck.checkBatch.useMutation();
   const updateVideoMutation = trpc.videos.update.useMutation();
   const uploadThumbnailMutation = trpc.files.uploadThumbnail.useMutation();
-
+  const autoCaptionMutation = trpc.videoVisualCaptions.autoCaptionVideo.useMutation();
   // Feature gate hooks
   const { allowed: canUploadVideos, loading: featureLoading } = useFeatureAccess('uploadVideo');
   const { allowed: hasVideoSlots, currentCount: videoCount, limit: videoLimit, message: videoLimitMessage } = useVideoLimit();
@@ -355,6 +355,27 @@ export function VideoUploadSection() {
         fileId: result.fileId,
         url: result.url,
       });
+
+      // Auto-generate visual captions in the background
+      if (result.fileId) {
+        autoCaptionMutation.mutate(
+          { fileId: result.fileId },
+          {
+            onSuccess: (data) => {
+              if (data.queued) {
+                toast.info("Visual captions are being generated in the background", {
+                  description: "You'll see them when you open the video.",
+                  duration: 4000,
+                });
+              }
+            },
+            onError: () => {
+              // Silently fail - auto-caption is a nice-to-have
+              console.warn("Auto-caption failed for file", result.fileId);
+            },
+          }
+        );
+      }
 
       triggerHaptic("success");
 
