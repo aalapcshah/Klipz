@@ -5349,3 +5349,6 @@ Note: The application already has extensive annotation features including voice 
 - [x] Frontend: FileDetailDialog now shows embedded YouTube player (iframe) for YouTube files
 - [x] Frontend: YouTube video can be watched directly in the file detail view
 - [x] Fallback: If no thumbnail available, saves as JSON reference instead of bare text
+
+## Bug Fix - Enrich Button Label - Feb 7, 2026
+- [x] Enrich button should display "Enriched" when enrichment is complete

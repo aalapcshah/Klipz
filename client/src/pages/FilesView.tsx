@@ -405,10 +405,12 @@ export default function FilesView() {
                     }
                   }}
                 >
-                  ✨ Enrich{enrichmentCounts && enrichmentCounts.pending > 0 && (
-                    <span className="ml-1 bg-amber-500 text-white text-[9px] px-1 py-0.5 rounded-full">
+                  {enrichmentCounts && enrichmentCounts.pending > 0 ? (
+                    <>✨ Enrich<span className="ml-1 bg-amber-500 text-white text-[9px] px-1 py-0.5 rounded-full">
                       {enrichmentCounts.pending}
-                    </span>
+                    </span></>
+                  ) : (
+                    <>✨ Enriched</>
                   )}
                 </Button>
               </div>
@@ -527,10 +529,12 @@ export default function FilesView() {
                       }
                     }}
                   >
-                    ✨ Enrich{enrichmentCounts && enrichmentCounts.pending > 0 && (
-                      <span className="ml-1 bg-amber-500 text-white text-[9px] px-1 py-0.5 rounded-full">
+                    {enrichmentCounts && enrichmentCounts.pending > 0 ? (
+                      <>✨ Enrich<span className="ml-1 bg-amber-500 text-white text-[9px] px-1 py-0.5 rounded-full">
                         {enrichmentCounts.pending}
-                      </span>
+                      </span></>
+                    ) : (
+                      <>✨ Enriched</>
                     )}
                   </Button>
                 </div>
