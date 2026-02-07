@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine, Eye, EyeOff, Download, Repeat, Sparkles, FileDown, MoreHorizontal, ChevronUp, Zap, Palette, Headphones, Paintbrush } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine, Eye, EyeOff, Download, Repeat, Sparkles, FileDown, MoreHorizontal, ChevronUp, Zap, Palette, Headphones, Paintbrush, Captions, CaptionsOff } from "lucide-react";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { VideoDrawingCanvas, VideoDrawingCanvasHandle } from "./VideoDrawingCanvas";
 import { AnnotationTimeline } from "./AnnotationTimeline";
@@ -24,6 +24,7 @@ import { HighlightedText } from "./HighlightedText";
 import { AnnotationSearch } from "./videos/AnnotationSearch";
 import { FileSuggestions } from "./FileSuggestions";
 import { VisualCaptionsPanel } from "./VisualCaptionsPanel";
+import { CaptionOverlay } from "./CaptionOverlay";
 import { VideoChapters } from "./VideoChapters";
 import { VideoLoopRegion } from "./VideoLoopRegion";
 import { AutoHighlightDetection } from "./AutoHighlightDetection";
@@ -162,6 +163,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
   }, [isDrawingMode]);
   const [showTimeline, setShowTimeline] = useState(false);
   const [showAnnotationPreview, setShowAnnotationPreview] = useState(true);
+  const [showCaptionOverlay, setShowCaptionOverlay] = useState(true);
   const [visibleAnnotationIds, setVisibleAnnotationIds] = useState<number[]>([]);
   const [drawToggleRequest, setDrawToggleRequest] = useState(0);
   const [copiedAnnotation, setCopiedAnnotation] = useState<typeof visualAnnotations[0] | null>(null);
@@ -786,6 +788,11 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
             </div>
           )}
           
+          {/* Caption subtitle overlay */}
+          {showCaptionOverlay && (
+            <CaptionOverlay fileId={fileId} currentTime={currentTime} />
+          )}
+          
           {/* Visual annotation markers on timeline */}
           {visualAnnotations.length > 0 && duration > 0 && (
             <div className="absolute bottom-16 left-0 right-0 h-1 bg-transparent">
@@ -888,6 +895,20 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
               title={showAnnotationPreview ? "Hide annotations" : "Show annotations"}
             >
               {showAnnotationPreview ? <Eye className="h-5 w-5 md:h-4 md:w-4" /> : <EyeOff className="h-5 w-5 md:h-4 md:w-4" />}
+            </Button>
+            
+            {/* Caption Overlay Toggle */}
+            <Button 
+              size="default" 
+              className="h-11 px-4 md:h-9 md:px-3" 
+              variant={showCaptionOverlay ? "default" : "outline"}
+              onClick={() => {
+                setShowCaptionOverlay(!showCaptionOverlay);
+                toast.success(showCaptionOverlay ? "Captions hidden" : "Captions visible");
+              }}
+              title={showCaptionOverlay ? "Hide captions" : "Show captions"}
+            >
+              {showCaptionOverlay ? <Captions className="h-5 w-5 md:h-4 md:w-4" /> : <CaptionsOff className="h-5 w-5 md:h-4 md:w-4" />}
             </Button>
 
             {/* Export Annotations Button */}

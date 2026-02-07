@@ -1,0 +1,10 @@
+Visual Captions Test - Video 25
+================================
+- Video 25 is open: "Video 25 - HSA - Reel 3 — 2026 Rule Changes You Should Know.mp4"
+- Duration: 0:49
+- Both sections visible at bottom:
+  1. "Intelligent File Suggestions" with "Start Transcription" button (existing feature)
+  2. "Visual Captions & File Matching" with "Generate Visual Captions" button (new feature)
+- The new section shows correct description: "Analyze the video visually using AI to generate descriptive captions at regular intervals. The system will extract entities and match them against your uploaded files with relevance scores."
+- Also shows: "Ideal for videos without audio, screen recordings, presentations, and visual content."
+- Button index 10: "Generate Visual Captions"

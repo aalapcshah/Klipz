@@ -5279,3 +5279,8 @@ Note: The application already has extensive annotation features including voice 
 ## Quick Fixes - Knowledge Graph UX - Feb 7, 2026
 - [x] Add "Ctrl+scroll to zoom" tooltip hint near zoom controls on Knowledge Graph (platform-aware: ⌘ on Mac, Ctrl on others)
 - [x] Change default max nodes from 500 to 100 (mobile: 50), slider range now 10-2000 with step 10
+
+## Feature - Caption Overlay & Batch Generation - Feb 7, 2026
+- [x] Test Video 25 end-to-end with visual captioning and file matching (18 captions, 1 file match at 30%)
+- [x] Add caption subtitle overlay on the video player (CaptionOverlay component with toggle button in controls)
+- [x] Implement batch caption generation - "Caption All" button in Video Library batch actions

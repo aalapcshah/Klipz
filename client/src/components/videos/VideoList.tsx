@@ -22,6 +22,7 @@ import {
   Tag,
   Package,
   Share2,
+  Captions,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -114,6 +115,8 @@ export function VideoList() {
   const transcribeMutation = trpc.videoTranscription.transcribeVideo.useMutation();
   const linkVideoToFileMutation = trpc.videos.linkToFile.useMutation();
   const [transcribingVideos, setTranscribingVideos] = useState<Set<number>>(new Set());
+  const [captioningVideos, setCaptioningVideos] = useState<Set<number>>(new Set());
+  const generateCaptionsMutation = trpc.videoVisualCaptions.generateCaptions.useMutation();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   // Tag management
@@ -217,6 +220,47 @@ export function VideoList() {
     } catch (error) {
       toast.error("Failed to delete videos");
     }
+  };
+
+  const handleBatchCaptions = async () => {
+    if (selectedVideoIds.length === 0) {
+      toast.error("Please select at least one video");
+      return;
+    }
+
+    const videosToCaption = videos.filter(v => selectedVideoIds.includes(v.id));
+    const newCaptioning = new Set(captioningVideos);
+    
+    toast.info(`Starting visual captioning for ${videosToCaption.length} video(s)...`);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const video of videosToCaption) {
+      try {
+        newCaptioning.add(video.id);
+        setCaptioningVideos(new Set(newCaptioning));
+
+        if (!video.fileId) {
+          throw new Error('Video file ID not found');
+        }
+        await generateCaptionsMutation.mutateAsync({ fileId: video.fileId, intervalSeconds: 3 });
+        
+        newCaptioning.delete(video.id);
+        setCaptioningVideos(new Set(newCaptioning));
+        successCount++;
+        
+        toast.success(`Captioned: ${video.title}`);
+      } catch (error: any) {
+        newCaptioning.delete(video.id);
+        setCaptioningVideos(new Set(newCaptioning));
+        failCount++;
+        toast.error(`Failed to caption ${video.title}: ${error.message}`);
+      }
+    }
+
+    setSelectedVideoIds([]);
+    toast.success(`Batch captioning complete: ${successCount} succeeded${failCount > 0 ? `, ${failCount} failed` : ''}`);
   };
 
   const handleBatchTranscribe = async () => {
@@ -617,6 +661,19 @@ export function VideoList() {
                   <Mic className="h-4 w-4 mr-2" />
                 )}
                 Transcribe All
+              </Button>
+              <Button
+                size="sm"
+                variant="default"
+                onClick={handleBatchCaptions}
+                disabled={generateCaptionsMutation.isPending || captioningVideos.size > 0}
+              >
+                {captioningVideos.size > 0 ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Captions className="h-4 w-4 mr-2" />
+                )}
+                Caption All
               </Button>
               <Button
                 size="sm"
