@@ -5230,3 +5230,24 @@ Note: The application already has extensive annotation features including voice 
 - [x] Create Contact Us page with form: contact info fields, issue category dropdown, description textarea
 - [x] Remove Subscription from Tools dropdown menu
 - [x] File Detail dialog: place Tags and Quality Improvement Suggestions side-by-side (two-column layout)
+
+## User Profile Page - Feb 7, 2026
+- [x] Create dedicated profile/settings page at /settings route
+- [x] Add profile section: display name, email, avatar with initials
+- [x] Add avatar upload/change functionality
+- [x] Add notification preferences (email notifications, in-app notifications)
+- [x] Add account info display (member since, subscription status, storage usage)
+- [x] Link hamburger menu "Profile Settings" to the new profile page
+
+## Onboarding Tutorial - Feb 7, 2026
+- [x] Create onboarding walkthrough component with step-by-step highlights
+- [x] Step 1: Welcome + overview of Klipz features
+- [x] Step 2: Upload files (highlight upload button)
+- [x] Step 3: AI Enrichment (explain auto-tagging and metadata)
+- [x] Step 4: Voice tagging (highlight voice search)
+- [x] Step 5: Knowledge Graph (explain visual relationships via Insights)
+- [x] Step 6: Collections and organization
+- [x] Track onboarding completion in database (server-side)
+- [x] Add "Restart Tutorial" option in settings (already existed)
+- [x] Show onboarding automatically for first-time users
+- [x] Move Settings link from main nav bar into hamburger menu

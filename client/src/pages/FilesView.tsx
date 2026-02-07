@@ -388,6 +388,7 @@ export default function FilesView() {
                 </Button>
                 <Button
                   variant={advancedFilters.enrichmentStatus.includes('not_enriched') ? 'default' : 'outline'}
+                  id="enrich-button"
                   size="sm"
                   className={`shrink-0 h-7 text-[10px] px-2 ${advancedFilters.enrichmentStatus.includes('not_enriched') ? 'bg-primary text-primary-foreground' : ''}`}
                   onClick={() => {

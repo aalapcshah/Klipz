@@ -206,7 +206,7 @@ export default function Dashboard() {
                   <Link 
                     key={item.href} 
                     href={item.href}
-                    id={item.label === "Files" ? "files-nav" : item.label === "Collections" ? "collections-nav" : undefined}
+                    id={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
                     className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors text-sm ${
                       isActive
                         ? "bg-primary text-primary-foreground"
@@ -228,7 +228,7 @@ export default function Dashboard() {
                     className="flex items-center gap-1.5 text-sm"
                   >
                     <Wrench className="h-4 w-4" />
-                    <span className="hidden lg:inline">Tools</span>
+                    <span id="nav-tools" className="hidden lg:inline">Tools</span>
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -256,7 +256,7 @@ export default function Dashboard() {
                     className="flex items-center gap-1.5 text-sm"
                   >
                     <BarChart3 className="h-4 w-4" />
-                    <span className="hidden lg:inline">Insights</span>
+                    <span id="nav-insights" className="hidden lg:inline">Insights</span>
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -275,18 +275,7 @@ export default function Dashboard() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Settings */}
-              <Link 
-                href="/settings"
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors text-sm whitespace-nowrap ${
-                  location === "/settings"
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <SettingsIcon className="h-4 w-4 shrink-0" />
-                <span className="hidden lg:inline">Settings</span>
-              </Link>
+
             </nav>
           
             <div className="flex items-center gap-2 ml-auto">
@@ -294,7 +283,9 @@ export default function Dashboard() {
               <GlobalUploadProgress />
               
               {/* Hamburger Menu */}
-              <HamburgerMenu user={user} logout={logout} />
+              <div id="hamburger-menu">
+                <HamburgerMenu user={user} logout={logout} />
+              </div>
             </div>
           </div>
         </div>
@@ -636,6 +627,11 @@ function HamburgerMenu({ user, logout }: { user: any; logout: () => void }) {
         </div>
         
         <DropdownMenuSeparator />
+        
+        <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer py-2.5">
+          <SettingsIcon className="h-4 w-4 mr-3" />
+          Settings
+        </DropdownMenuItem>
         
         <DropdownMenuItem onClick={() => navigate('/contact')} className="cursor-pointer py-2.5">
           <MessageSquare className="h-4 w-4 mr-3" />

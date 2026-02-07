@@ -27,71 +27,95 @@ export function OnboardingTutorial() {
     const driverObj = driver({
       showProgress: true,
       showButtons: ['next', 'previous', 'close'],
+      progressText: '{{current}} of {{total}}',
+      nextBtnText: 'Next →',
+      prevBtnText: '← Back',
+      doneBtnText: 'Get Started!',
       steps: [
+        // Step 1: Welcome
         {
-          element: '#files-nav',
           popover: {
             title: 'Welcome to Klipz! 🎬',
-            description: 'Let\'s take a quick tour of the key features. This will only take a minute!',
-            side: "bottom",
-            align: 'start'
+            description: 'Your AI-powered media management platform. Let\'s take a quick 60-second tour of the key features that will supercharge your workflow.',
+            side: "left",
+            align: 'center'
           }
         },
+        // Step 2: Upload
         {
           element: '#upload-files-button',
           popover: {
             title: 'Upload Your Media',
-            description: 'Start by uploading videos or images. Klipz will automatically enrich them with AI-powered metadata.',
+            description: 'Start by uploading images, videos, or documents. Klipz supports drag-and-drop, batch uploads, and even scheduled imports from URLs.',
             side: "bottom",
             align: 'start'
           }
         },
+        // Step 3: AI Enrichment
+        {
+          element: '#enrich-button',
+          popover: {
+            title: 'AI-Powered Enrichment ✨',
+            description: 'This is where the magic happens. Click "Enrich" to let AI automatically analyze your files — generating tags, descriptions, quality scores, and smart metadata. No manual tagging needed!',
+            side: "bottom",
+            align: 'start'
+          }
+        },
+        // Step 4: Search
         {
           element: '#search-bar',
           popover: {
-            title: 'Search Your Content',
-            description: 'Use powerful search to find files by voice transcripts, text, or metadata. You can even use voice search!',
+            title: 'Smart Search & Voice',
+            description: 'Find any file instantly using text or voice search. Search by tags, descriptions, file content, or even spoken words from video transcripts. Try the microphone button for hands-free search!',
             side: "bottom",
             align: 'center'
           }
         },
+        // Step 5: Collections
         {
-          element: '#collections-nav',
+          element: '#nav-collections',
           popover: {
             title: 'Organize with Collections',
-            description: 'Group related files into collections for better organization and quick access.',
+            description: 'Group related files into collections for projects, campaigns, or themes. Share collections with collaborators and export them in bulk.',
             side: "bottom",
             align: 'start'
           }
         },
+        // Step 6: Tools
         {
+          element: '#nav-tools',
           popover: {
-            title: 'Video Annotations',
-            description: 'When viewing a video, you can add voice notes and drawings at specific timestamps. Perfect for collaboration!',
-            side: "left",
-            align: 'center'
+            title: 'Powerful Tools',
+            description: 'Access the Enrichment Queue to process files in bulk, set up Scheduled Exports for automated workflows, and share files with your team via My Shares.',
+            side: "bottom",
+            align: 'start'
           }
         },
+        // Step 7: Insights
         {
+          element: '#nav-insights',
           popover: {
-            title: 'Keyboard Shortcuts ⌨️',
-            description: 'Speed up your workflow with keyboard shortcuts:\n• Space/K: Play/Pause\n• C: Add Comment\n• A: Approve\n• R: Reject\n• Ctrl+A: Select All',
-            side: "left",
-            align: 'center'
+            title: 'Insights & Knowledge Graph',
+            description: 'Explore your media library through analytics dashboards and an interactive Knowledge Graph that visualizes relationships between your files, tags, and topics.',
+            side: "bottom",
+            align: 'start'
           }
         },
+        // Step 8: Hamburger Menu
         {
+          element: '#hamburger-menu',
           popover: {
-            title: 'Collaboration Features',
-            description: 'Work with your team using:\n\n• Annotation templates for consistency\n\n• Comment threads for discussions\n\n• Approval workflows for review\n\n• Real-time updates when others make changes',
+            title: 'Your Account & Settings',
+            description: 'Access your profile, subscription status, storage usage, settings, and support from this menu. You can also customize your experience in Settings.',
             side: "left",
-            align: 'center'
+            align: 'start'
           }
         },
+        // Step 9: Completion
         {
           popover: {
             title: 'You\'re All Set! 🚀',
-            description: 'That\'s the basics! Explore the app and discover more features. You can restart this tutorial anytime from Settings.',
+            description: 'Start by uploading a few files and clicking "Enrich" to see AI in action. You can restart this tutorial anytime from Settings → Appearance → Restart Tutorial.',
             side: "left",
             align: 'center'
           }
@@ -99,7 +123,7 @@ export function OnboardingTutorial() {
       ],
       onDestroyStarted: () => {
         // Mark tutorial as completed when user finishes or closes
-        if (!driverObj.hasNextStep() || confirm('Skip the tutorial?')) {
+        if (!driverObj.hasNextStep() || confirm('Skip the tutorial? You can restart it anytime from Settings.')) {
           if (!driverObj.hasNextStep()) {
             updateProgressMutation.mutate({ tutorialCompleted: true });
           } else {
@@ -118,10 +142,10 @@ export function OnboardingTutorial() {
 
     setDriverInstance(driverObj);
 
-    // Auto-start tutorial after a short delay
+    // Auto-start tutorial after a short delay to let the page render
     const timer = setTimeout(() => {
       driverObj.drive();
-    }, 1000);
+    }, 1500);
 
     return () => {
       clearTimeout(timer);

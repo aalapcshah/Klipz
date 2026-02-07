@@ -19,6 +19,7 @@ export const users = mysqlTable("users", {
   reasonForUse: text("reasonForUse"),
   company: varchar("company", { length: 255 }),
   jobTitle: varchar("jobTitle", { length: 255 }),
+  avatarUrl: varchar("avatarUrl", { length: 512 }),
   profileCompleted: boolean("profileCompleted").default(false).notNull(),
   
   // Account status

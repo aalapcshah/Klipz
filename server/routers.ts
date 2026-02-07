@@ -425,6 +425,7 @@ export const appRouter = router({
           jobTitle: z.string().optional(),
           bio: z.string().optional(),
           reasonForUse: z.string().optional(),
+          avatarUrl: z.string().optional(),
           profileCompleted: z.boolean().optional(),
         })
       )
@@ -433,6 +434,22 @@ export const appRouter = router({
         return { success: true };
       }),
     
+    uploadAvatar: protectedProcedure
+      .input(
+        z.object({
+          base64Data: z.string(),
+          contentType: z.string(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const ext = input.contentType.split('/')[1] || 'png';
+        const fileKey = `avatars/${ctx.user.id}/${Date.now()}.${ext}`;
+        const buffer = Buffer.from(input.base64Data, 'base64');
+        const { url } = await storagePut(fileKey, buffer, input.contentType);
+        await db.updateUserProfile(ctx.user.id, { avatarUrl: url });
+        return { url };
+      }),
+
     recordConsents: protectedProcedure
       .input(
         z.object({

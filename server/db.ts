@@ -1999,6 +1999,7 @@ export async function updateUserProfile(
     jobTitle?: string;
     bio?: string;
     reasonForUse?: string;
+    avatarUrl?: string;
     profileCompleted?: boolean;
   }
 ) {

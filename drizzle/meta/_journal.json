@@ -428,6 +428,13 @@
       "when": 1770398727637,
       "tag": "0060_happy_zaladane",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "5",
+      "when": 1770454012808,
+      "tag": "0061_pretty_wendigo",
+      "breakpoints": true
     }
   ]
 }
