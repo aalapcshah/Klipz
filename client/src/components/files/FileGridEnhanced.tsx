@@ -523,32 +523,44 @@ export default function FileGridEnhanced({
   // Swipe-to-delete handlers for mobile
   const handleSwipeStart = (e: React.TouchEvent, fileId: number) => {
     if (isSelectionMode) return;
+    // Close any other swiped card first
+    if (swipedFileId !== null && swipedFileId !== fileId) {
+      setSwipeOffset(0);
+    }
     swipeStartXRef.current = e.touches[0].clientX;
+    swipeStartYRef.current = e.touches[0].clientY;
     setSwipedFileId(fileId);
   };
 
   const handleSwipeMove = (e: React.TouchEvent) => {
-    if (swipeStartXRef.current === null || isSelectionMode) return;
+    if (swipeStartXRef.current === null || swipeStartYRef.current === null || isSelectionMode) return;
     const currentX = e.touches[0].clientX;
-    const diff = swipeStartXRef.current - currentX;
-    // Only allow left swipe (positive diff)
-    if (diff > 0) {
-      setSwipeOffset(Math.min(diff, 80)); // Max 80px swipe
-    } else {
+    const currentY = e.touches[0].clientY;
+    const diffX = swipeStartXRef.current - currentX;
+    const diffY = Math.abs(currentY - swipeStartYRef.current);
+    // Only allow left swipe if horizontal movement dominates vertical (prevent scroll interference)
+    if (diffX > 10 && diffX > diffY * 1.5) {
+      setSwipeOffset(Math.min(diffX, 160)); // Max 160px swipe for two buttons
+      e.preventDefault(); // Prevent scrolling while swiping
+    } else if (diffX <= 0) {
       setSwipeOffset(0);
     }
   };
 
   const handleSwipeEnd = () => {
-    if (swipeOffset > 40) {
-      // Keep the delete button visible
-      setSwipeOffset(80);
+    if (swipeOffset > 80) {
+      // Keep both action buttons visible
+      setSwipeOffset(160);
+    } else if (swipeOffset > 40) {
+      // Partial swipe - snap to full reveal
+      setSwipeOffset(160);
     } else {
       // Reset swipe
       setSwipeOffset(0);
       setSwipedFileId(null);
     }
     swipeStartXRef.current = null;
+    swipeStartYRef.current = null;
   };
 
   const handleSwipeDelete = (fileId: number) => {
@@ -573,6 +585,16 @@ export default function FileGridEnhanced({
           onClick: () => handleUndo(),
         },
       });
+    }
+    setSwipeOffset(0);
+    setSwipedFileId(null);
+  };
+
+  const handleSwipeEnrich = (fileId: number) => {
+    const file = files.find((f: any) => f.id === fileId);
+    if (file) {
+      enrichMutation.mutate({ id: fileId });
+      toast.success(`Enriching "${file.title || file.filename}"...`);
     }
     setSwipeOffset(0);
     setSwipedFileId(null);
@@ -1651,6 +1673,16 @@ export default function FileGridEnhanced({
             className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 w-full"
             role="grid"
             aria-label="File grid"
+            onClick={(e) => {
+              // Close any swiped card when tapping on the grid background
+              if (swipedFileId !== null && swipeOffset > 0) {
+                const target = e.target as HTMLElement;
+                // Only reset if clicking on the grid itself, not on a swipe action button
+                if (!target.closest('[data-swipe-actions]')) {
+                  resetSwipe();
+                }
+              }
+            }}
           >
             {files.map((file: any, index: number) => {
               const fileCollections = getFileCollections(file.id);
@@ -1700,19 +1732,26 @@ export default function FileGridEnhanced({
                     setIsDraggingForReorder(false);
                   }}
                 >
-                  {/* Swipe delete button - revealed on swipe */}
+                  {/* Swipe action buttons - revealed on swipe left */}
                   <div 
-                    className="absolute right-0 top-0 bottom-0 w-20 bg-destructive flex items-center justify-center md:hidden"
-                    style={{ opacity: isSwipedFile ? 1 : 0 }}
+                    data-swipe-actions
+                    className="absolute right-0 top-0 bottom-0 w-40 flex md:hidden rounded-r-lg overflow-hidden"
+                    style={{ opacity: isSwipedFile ? 1 : 0, pointerEvents: isSwipedFile && swipeOffset > 40 ? 'auto' : 'none' }}
                   >
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive-foreground h-10 w-10"
-                      onClick={() => handleSwipeDelete(file.id)}
+                    <button
+                      className="flex-1 flex flex-col items-center justify-center gap-1 bg-primary text-primary-foreground active:opacity-80"
+                      onClick={(e) => { e.stopPropagation(); handleSwipeEnrich(file.id); }}
+                    >
+                      <Sparkles className="h-5 w-5" />
+                      <span className="text-[10px] font-medium">Enrich</span>
+                    </button>
+                    <button
+                      className="flex-1 flex flex-col items-center justify-center gap-1 bg-destructive text-destructive-foreground active:opacity-80"
+                      onClick={(e) => { e.stopPropagation(); handleSwipeDelete(file.id); }}
                     >
                       <Trash2 className="h-5 w-5" />
-                    </Button>
+                      <span className="text-[10px] font-medium">Delete</span>
+                    </button>
                   </div>
                   <Card
                     className={`group p-2 md:p-3 hover:border-primary/50 transition-colors cursor-grab active:cursor-grabbing relative ${
@@ -1722,7 +1761,7 @@ export default function FileGridEnhanced({
                     } ${isDraggingForReorder ? "cursor-grabbing" : ""}`}
                     style={{
                       transform: isSwipedFile ? `translateX(-${swipeOffset}px)` : 'translateX(0)',
-                      transition: swipeStartXRef.current === null ? 'transform 0.2s ease-out' : 'none'
+                      transition: swipeStartXRef.current === null ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none'
                     }}
                     draggable
                     onDragStart={(e) => {

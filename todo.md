@@ -5445,3 +5445,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Move red delete button out of "..." dropdown, place next to Enrich button in bottom bar
 - [x] Add clear selection option next to Select All in the list header (shows count)
 - [x] Fix oversized/off-center X close button on file detail modal (h-6 w-6 with centered icon)
+
+## Mobile Swipe Gestures - Feb 7, 2026
+- [x] Enhanced existing swipe gesture handling with two action buttons
+- [x] Swipe left to reveal quick actions (Enrich + Delete) with labels
+- [x] Smooth spring-like animation with cubic-bezier easing (0.3s)
+- [x] Auto-close when another card is swiped or tapped elsewhere
+- [x] Integrated into FileGridEnhanced for mobile viewports only (md:hidden)
