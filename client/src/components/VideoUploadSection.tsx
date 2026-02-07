@@ -1,8 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
+// Select and Slider no longer needed for upload settings (compression moved to server-side)
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -19,12 +18,11 @@ import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
 import { useUploadManager, UploadItem, formatSpeed, formatEta } from "@/contexts/UploadManagerContext";
 import { extractVideoMetadata, generateVideoThumbnail, formatDuration } from "@/lib/videoUtils";
-import { compressVideo, estimateCompressedSize, getVideoMetadata, isCompressionSupported, formatFileSize, COMPRESSION_PRESETS, CompressionProgress } from "@/lib/videoCompression";
+import { formatFileSize, CompressionProgress } from "@/lib/videoCompression";
 import { useFeatureAccess, useVideoLimit } from "@/components/FeatureGate";
 import { Link } from "wouter";
 import { Lock, Crown, Sparkles } from "lucide-react";
-import { CompressionPreviewDialog } from "@/components/CompressionPreviewDialog";
-import { getVideoUploadPreferences } from "@/components/VideoUploadSettings";
+// CompressionPreviewDialog no longer needed (compression moved to server-side)
 
 type VideoQuality = "original" | "high" | "medium" | "low" | "custom";
 
@@ -65,7 +63,7 @@ const QUALITY_SETTINGS = {
 
 export function VideoUploadSection() {
   const [isDragging, setIsDragging] = useState(false);
-  const [selectedQuality, setSelectedQuality] = useState<VideoQuality>("high");
+  const [selectedQuality, setSelectedQuality] = useState<VideoQuality>("original");
   const [customBitrate, setCustomBitrate] = useState<number>(3000); // Custom bitrate in kbps
   const [customResolution, setCustomResolution] = useState<number>(720); // Custom max height
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
@@ -90,13 +88,7 @@ export function VideoUploadSection() {
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [pendingPreviewFiles, setPendingPreviewFiles] = useState<File[]>([]);
   
-  // Load default preferences on mount
-  useEffect(() => {
-    const prefs = getVideoUploadPreferences();
-    setSelectedQuality(prefs.defaultQuality);
-    setCustomBitrate(prefs.customBitrate);
-    setCustomResolution(prefs.customResolution);
-  }, []);
+  // Quality is always 'original' now - server-side compression happens after upload
   
   const {
     uploads,
@@ -180,49 +172,8 @@ export function VideoUploadSection() {
       const upload = uploads.find(u => u.id === uploadId);
       const quality = (upload?.metadata?.quality as VideoQuality) || 'high';
       
-      // Compress video if quality is not original and compression is supported
+      // Always upload original file - server-side compression available after upload
       let fileToUpload = file;
-      if (quality !== 'original' && isCompressionSupported() && !resumeFromChunk) {
-        updateUploadStatus(uploadId, 'uploading'); // Show as active
-        toast.info(`Compressing ${file.name}...`, { duration: 3000 });
-        
-        // Get compression settings - use custom values if quality is 'custom'
-        const compressionSettings = quality === 'custom' 
-          ? { maxHeight: customResolution, videoBitrate: customBitrate, audioBitrate: 128 }
-          : COMPRESSION_PRESETS[quality];
-        try {
-          fileToUpload = await compressVideo(file, compressionSettings, (progress) => {
-            setCompressionProgress(prev => {
-              const newMap = new Map(prev);
-              newMap.set(uploadId, progress);
-              return newMap;
-            });
-            // Update progress during compression (0-30%)
-            if (progress.stage === 'encoding') {
-              // Show estimated compressed bytes based on compression progress
-              const estimatedCompressedSize = file.size * 0.5; // Estimate 50% compression
-              const estimatedBytes = Math.floor(progress.progress * 0.01 * estimatedCompressedSize);
-              updateUploadProgress(uploadId, progress.progress * 0.3, estimatedBytes);
-            }
-          });
-          
-          // Clear compression progress
-          setCompressionProgress(prev => {
-            const newMap = new Map(prev);
-            newMap.delete(uploadId);
-            return newMap;
-          });
-          
-          const savings = ((file.size - fileToUpload.size) / file.size * 100).toFixed(1);
-          if (fileToUpload.size < file.size) {
-            toast.success(`Compressed ${file.name}: ${formatFileSize(file.size)} → ${formatFileSize(fileToUpload.size)} (${savings}% smaller)`);
-          }
-        } catch (compressError) {
-          console.warn('Compression failed, uploading original:', compressError);
-          toast.warning(`Compression failed for ${file.name}, uploading original`);
-          fileToUpload = file;
-        }
-      }
       
       const isLargeFile = fileToUpload.size > LARGE_FILE_THRESHOLD;
 
@@ -256,8 +207,8 @@ export function VideoUploadSection() {
         totalChunks = Math.ceil(fileToUpload.size / CHUNK_SIZE);
       }
       
-      // Upload chunks (progress starts at 30% after compression)
-      const progressOffset = quality !== 'original' && isCompressionSupported() ? 30 : 0;
+      // Upload chunks
+      const progressOffset = 0;
       for (let i = startChunk; i < totalChunks; i++) {
         // Check if paused or cancelled
         if (abortController?.signal.aborted) {
@@ -553,43 +504,7 @@ export function VideoUploadSection() {
     }
     
     const fileArray = Array.from(files);
-    const prefs = getVideoUploadPreferences();
-    
-    // Show preview dialog if enabled and compression is supported
-    if (prefs.showPreviewDialog && prefs.autoCompress && isCompressionSupported() && fileArray.length > 0) {
-      // For single file, show preview dialog
-      if (fileArray.length === 1) {
-        setPreviewFile(fileArray[0]);
-        setPendingPreviewFiles([]);
-        setPreviewDialogOpen(true);
-        return;
-      }
-      // For multiple files, show preview for first file and queue the rest
-      setPreviewFile(fileArray[0]);
-      setPendingPreviewFiles(fileArray.slice(1));
-      setPreviewDialogOpen(true);
-      return;
-    }
-    
-    // Calculate estimated compression for first file (when preview is disabled)
-    if (fileArray.length > 0 && selectedQuality !== 'original' && isCompressionSupported()) {
-      const firstFile = fileArray[0];
-      try {
-        const metadata = await getVideoMetadata(firstFile);
-        const settings = COMPRESSION_PRESETS[selectedQuality];
-        const estimated = estimateCompressedSize(firstFile.size, metadata.duration, settings);
-        const savings = ((firstFile.size - estimated) / firstFile.size * 100).toFixed(1);
-        setPreviewEstimate({
-          filename: firstFile.name,
-          original: firstFile.size,
-          estimated,
-          savings: `${savings}%`,
-        });
-      } catch (e) {
-        console.warn('Could not estimate compression:', e);
-      }
-    }
-    
+    // Always upload original quality - server-side compression available after upload
     await checkAndAddFiles(fileArray);
   };
   
@@ -782,107 +697,21 @@ export function VideoUploadSection() {
   
   return (
     <div className="space-y-6">
-      {/* Quality Selector */}
+      {/* Upload Info */}
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Upload Settings</h3>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">Video Quality</label>
-            <Select value={selectedQuality} onValueChange={(v) => setSelectedQuality(v as VideoQuality)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(QUALITY_SETTINGS).map(([key, { label }]) => (
-                  <SelectItem key={key} value={key}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-sm text-muted-foreground mt-2">
-              {selectedQuality === "original"
-                ? "Upload without any compression or quality reduction"
-                : `Video will be compressed to ${QUALITY_SETTINGS[selectedQuality].label} before upload`}
-            </p>
-            {selectedQuality !== "original" && (
-              <div className="mt-3 p-3 bg-muted/50 rounded-lg">
-                <div className="flex items-center gap-2 text-sm">
-                  {isCompressionSupported() ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      <span className="text-green-600">Browser compression supported</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="w-4 h-4 text-yellow-500" />
-                      <span className="text-yellow-600">Compression not supported - original file will be uploaded</span>
-                    </>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {selectedQuality === 'custom' 
-                    ? `Compression reduces file size by re-encoding at ${customBitrate} kbps (${customResolution}p)`
-                    : `Compression reduces file size by re-encoding at ${QUALITY_SETTINGS[selectedQuality].bitrate} kbps`}
-                </p>
-                <p className="text-xs text-amber-500 mt-1">
-                  Warning: Browser compression may cause audio loss or shorter duration. Use "Original Quality" for important content.
-                </p>
-                
-                {/* Custom compression controls */}
-                {selectedQuality === 'custom' && (
-                  <div className="mt-3 space-y-4 p-3 bg-background rounded border">
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <label className="text-xs font-medium">Video Bitrate</label>
-                        <span className="text-xs text-muted-foreground">{customBitrate} kbps</span>
-                      </div>
-                      <Slider
-                        value={[customBitrate]}
-                        onValueChange={(v) => setCustomBitrate(v[0])}
-                        min={500}
-                        max={8000}
-                        step={100}
-                        className="w-full"
-                      />
-                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                        <span>500 kbps (smaller)</span>
-                        <span>8000 kbps (better quality)</span>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <label className="text-xs font-medium">Max Resolution</label>
-                        <span className="text-xs text-muted-foreground">{customResolution}p</span>
-                      </div>
-                      <Slider
-                        value={[customResolution]}
-                        onValueChange={(v) => setCustomResolution(v[0])}
-                        min={360}
-                        max={1080}
-                        step={90}
-                        className="w-full"
-                      />
-                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                        <span>360p</span>
-                        <span>1080p</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {previewEstimate && (
-                  <div className="mt-2 p-2 bg-background rounded border">
-                    <p className="text-xs font-medium">Estimated for {previewEstimate.filename}:</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs">{formatFileSize(previewEstimate.original)}</span>
-                      <span className="text-xs">→</span>
-                      <span className="text-xs text-green-600 font-medium">{formatFileSize(previewEstimate.estimated)}</span>
-                      <span className="text-xs text-green-600">({previewEstimate.savings} smaller)</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+        <h3 className="text-lg font-semibold mb-3">Upload Settings</h3>
+        <div className="space-y-3">
+          <div className="flex items-start gap-2 text-sm">
+            <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+            <span>Videos are uploaded at <strong>original quality</strong> to preserve audio and full duration</span>
+          </div>
+          <div className="flex items-start gap-2 text-sm">
+            <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+            <span>After upload, use the <strong>Compress</strong> button in Video Library for server-side FFmpeg compression</span>
+          </div>
+          <div className="flex items-start gap-2 text-sm text-muted-foreground">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>Server compression preserves audio, maintains full duration, and lets you revert to the original anytime</span>
           </div>
         </div>
       </Card>
@@ -1282,20 +1111,6 @@ export function VideoUploadSection() {
         onCancel={handleDuplicateCancel}
       />
 
-      {/* Compression Preview Dialog */}
-      <CompressionPreviewDialog
-        open={previewDialogOpen}
-        onOpenChange={(open) => {
-          setPreviewDialogOpen(open);
-          if (!open) {
-            setPreviewFile(null);
-            setPendingPreviewFiles([]);
-          }
-        }}
-        file={previewFile}
-        onConfirm={handlePreviewConfirm}
-        defaultQuality={selectedQuality}
-      />
 
       {/* Schedule Dialog */}
       <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>

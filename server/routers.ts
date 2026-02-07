@@ -48,6 +48,7 @@ import { resumableUploadRouter } from "./routers/resumableUpload";
 import { uploadFromUrlRouter } from "./routers/uploadFromUrl";
 import { socialMediaExtractRouter } from "./routers/socialMediaExtract";
 import { enrichmentJobsRouter } from "./routers/enrichmentJobs";
+import { videoCompressionRouter } from "./routers/videoCompression";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { sendUploadEmail, sendEditEmail, sendDeleteEmail, sendEnrichEmail } from "./_core/activityEmailNotifications";
 import { TRPCError } from "@trpc/server";
@@ -66,6 +67,7 @@ export const appRouter = router({
   uploadFromUrl: uploadFromUrlRouter,
   socialMediaExtract: socialMediaExtractRouter,
   enrichmentJobs: enrichmentJobsRouter,
+  videoCompression: videoCompressionRouter,
   resumableUpload: resumableUploadRouter,
   knowledgeGraph: knowledgeGraphRouter,
   musicLibrary: musicLibraryRouter,

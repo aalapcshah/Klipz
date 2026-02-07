@@ -5376,3 +5376,24 @@ Note: The application already has extensive annotation features including voice 
 - [x] Added amber warning in upload quality selector about compression limitations
 - [x] Added amber warning in Video Upload Settings when auto-compress is enabled
 - [x] Note: Previously uploaded compressed videos are permanently truncated — must be re-uploaded with Original Quality
+
+## Feature - Server-Side Video Compression (FFmpeg) - Feb 7, 2026
+- [ ] Research FFmpeg npm packages suitable for deployed environment (fluent-ffmpeg, ffmpeg-static, etc.)
+- [ ] Create server-side compression endpoint that accepts uploaded video URL and quality settings
+- [ ] Implement FFmpeg compression pipeline: download from S3 → compress → re-upload to S3
+- [ ] Update frontend upload flow to trigger server-side compression after upload completes
+- [ ] Add compression status tracking (pending/processing/complete/failed)
+- [ ] Show compression progress in the UI
+- [ ] Remove or disable broken browser-based compression option
+- [ ] Test full pipeline: upload original → server compresses → compressed version stored
+
+## Server-Side Video Compression (FFmpeg)
+- [x] Add compressionStatus field to files table schema
+- [x] Push database migration for compressionStatus
+- [x] Rewrite videoCompression router with proper DB integration
+- [x] Add compress, getStatus, getBatchStatus, getPresets, revert procedures
+- [x] Build VideoCompressionButton component for video library
+- [x] Add compression button to VideoList video cards
+- [x] Simplify upload settings to remove broken browser compression UI
+- [x] Write vitest tests for videoCompression router (20 tests passing)
+- [x] Verify TypeScript compilation with zero errors

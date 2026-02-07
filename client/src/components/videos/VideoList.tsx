@@ -41,6 +41,7 @@ import { CloudExportDialog } from "./CloudExportDialog";
 import { VideoPlayerWithAnnotations } from "../VideoPlayerWithAnnotations";
 import { VideoTagManager } from "./VideoTagManager";
 import { ShareDialog } from "../ShareDialog";
+import { VideoCompressionButton } from "../VideoCompressionButton";
 import {
   Dialog,
   DialogContent,
@@ -774,6 +775,7 @@ export function VideoList() {
                   </>
                 )}
                 <VideoTagManager videoId={video.id} onTagsChange={refetch} />
+                <VideoCompressionButton fileId={video.fileId} />
                 
                 {/* Action buttons inline - removed Play button, added download/delete */}
                 <div className="flex items-center gap-1 ml-auto shrink-0">

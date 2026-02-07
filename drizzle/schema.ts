@@ -95,6 +95,12 @@ export const files = mysqlTable("files", {
   lastAccessedAt: timestamp("lastAccessedAt").defaultNow().notNull(),
   qualityScore: int("qualityScore").default(0), // 0-100 quality score
   
+  // Server-side compression
+  compressionStatus: mysqlEnum("compressionStatus", ["none", "pending", "processing", "completed", "failed"]).default("none").notNull(),
+  compressedSize: int("compressedSize"), // Size after compression (bytes)
+  originalFileKey: varchar("originalFileKey", { length: 512 }), // Original S3 key before compression
+  originalUrl: text("originalUrl"), // Original S3 URL before compression
+  
   // Custom ordering
   sortOrder: int("sortOrder").default(0).notNull(), // For drag-and-drop reordering
   
