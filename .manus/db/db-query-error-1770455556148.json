@@ -1,0 +1,8 @@
+{
+  "query": "SELECT \n  CASE WHEN ft_count = 0 THEN 'No files' ELSE 'Has files' END as status,\n  COUNT(*) as tag_count\nFROM (\n  SELECT t.id, t.name, COUNT(DISTINCT ft.file_id) as ft_count\n  FROM tags t\n  LEFT JOIN file_tags ft ON t.id = ft.tag_id\n  GROUP BY t.id, t.name\n) sub\nGROUP BY status;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT \n  CASE WHEN ft_count = 0 THEN 'No files' ELSE 'Has files' END as status,\n  COUNT(*) as tag_count\nFROM (\n  SELECT t.id, t.name, COUNT(DISTINCT ft.file_id) as ft_count\n  FROM tags t\n  LEFT JOIN file_tags ft ON t.id = ft.tag_id\n  GROUP BY t.id, t.name\n) sub\nGROUP BY status;\n",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1146 (42S02) at line 1: Table 'saozcd7riw2zyxorraql7d.file_tags' doesn't exist"
+  ]
+}

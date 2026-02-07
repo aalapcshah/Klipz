@@ -518,6 +518,7 @@ export default function KnowledgeGraphPage() {
                  (fileType ? FILE_TYPE_COLORS[fileType] : NODE_TYPE_COLORS.file),
           fileType,
           mimeType: nodeData.metadata?.mimeType,
+          fileCount: nodeData.type === "tag" ? (nodeData.weight || 0) : undefined,
         };
         newNodes.push(graphNode);
         nodeMap.set(graphNode.id, graphNode);
@@ -1017,9 +1018,13 @@ export default function KnowledgeGraphPage() {
           }
         } else if (hoveredNode.type === 'tag') {
           // Show tag info toast with option to filter
+          const fileCount = hoveredNode.fileCount || 0;
+          const description = fileCount > 0 
+            ? `${fileCount} file${fileCount !== 1 ? 's' : ''} tagged. Click to view.`
+            : `AI-suggested tag. Not yet assigned to files.`;
           toast.info(`Tag: ${hoveredNode.label}`, {
-            description: `${hoveredNode.fileCount || 0} files tagged. Click to filter files.`,
-            action: {
+            description,
+            action: fileCount > 0 ? {
               label: 'View Files',
               onClick: () => {
                 // Navigate to files page - the search will filter by tag name
@@ -1033,7 +1038,7 @@ export default function KnowledgeGraphPage() {
                   }
                 }, 300);
               },
-            },
+            } : undefined,
           });
         }
       } else {

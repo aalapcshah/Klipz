@@ -1,0 +1,15 @@
+{
+  "query": "SELECT COUNT(*) as total_tags, SUM(CASE WHEN ft_count = 0 THEN 1 ELSE 0 END) as zero_files, SUM(CASE WHEN ft_count > 0 THEN 1 ELSE 0 END) as has_files FROM (SELECT t.id, COUNT(DISTINCT ft.fileId) as ft_count FROM tags t LEFT JOIN fileTags ft ON t.id = ft.tagId GROUP BY t.id) sub;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT COUNT(*) as total_tags, SUM(CASE WHEN ft_count = 0 THEN 1 ELSE 0 END) as zero_files, SUM(CASE WHEN ft_count > 0 THEN 1 ELSE 0 END) as has_files FROM (SELECT t.id, COUNT(DISTINCT ft.fileId) as ft_count FROM tags t LEFT JOIN fileTags ft ON t.id = ft.tagId GROUP BY t.id) sub;",
+  "rows": [
+    {
+      "total_tags": "947",
+      "zero_files": "133",
+      "has_files": "814"
+    }
+  ],
+  "messages": [],
+  "stdout": "total_tags\tzero_files\thas_files\n947\t133\t814\n",
+  "stderr": "",
+  "execution_time_ms": 61
+}

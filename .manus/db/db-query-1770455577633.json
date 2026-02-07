@@ -1,0 +1,110 @@
+{
+  "query": "SELECT t.id, t.name, COUNT(DISTINCT ft.fileId) as ft_count\nFROM tags t\nLEFT JOIN fileTags ft ON t.id = ft.tagId\nGROUP BY t.id, t.name\nORDER BY ft_count DESC\nLIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT t.id, t.name, COUNT(DISTINCT ft.fileId) as ft_count\nFROM tags t\nLEFT JOIN fileTags ft ON t.id = ft.tagId\nGROUP BY t.id, t.name\nORDER BY ft_count DESC\nLIMIT 20;",
+  "rows": [
+    {
+      "id": "210006",
+      "name": "healthcare",
+      "ft_count": "28"
+    },
+    {
+      "id": "540001",
+      "name": "with",
+      "ft_count": "26"
+    },
+    {
+      "id": "30012",
+      "name": "icon",
+      "ft_count": "16"
+    },
+    {
+      "id": "30003",
+      "name": "text",
+      "ft_count": "13"
+    },
+    {
+      "id": "210097",
+      "name": "medical",
+      "ft_count": "8"
+    },
+    {
+      "id": "570037",
+      "name": "white",
+      "ft_count": "8"
+    },
+    {
+      "id": "30006",
+      "name": "image",
+      "ft_count": "7"
+    },
+    {
+      "id": "210023",
+      "name": "anesthesia",
+      "ft_count": "7"
+    },
+    {
+      "id": "480164",
+      "name": "Medical Devices",
+      "ft_count": "7"
+    },
+    {
+      "id": "480006",
+      "name": "public health",
+      "ft_count": "7"
+    },
+    {
+      "id": "480008",
+      "name": "healthcare economics",
+      "ft_count": "7"
+    },
+    {
+      "id": "480121",
+      "name": "Operating Room",
+      "ft_count": "6"
+    },
+    {
+      "id": "480120",
+      "name": "Medical Equipment",
+      "ft_count": "6"
+    },
+    {
+      "id": "210025",
+      "name": "article",
+      "ft_count": "6"
+    },
+    {
+      "id": "480338",
+      "name": "scholarly article",
+      "ft_count": "5"
+    },
+    {
+      "id": "600004",
+      "name": "visible",
+      "ft_count": "5"
+    },
+    {
+      "id": "480028",
+      "name": "Financial Planning",
+      "ft_count": "5"
+    },
+    {
+      "id": "480045",
+      "name": "social media",
+      "ft_count": "5"
+    },
+    {
+      "id": "3",
+      "name": "test-tag",
+      "ft_count": "5"
+    },
+    {
+      "id": "480011",
+      "name": "planning",
+      "ft_count": "4"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tft_count\n210006\thealthcare\t28\n540001\twith\t26\n30012\ticon\t16\n30003\ttext\t13\n210097\tmedical\t8\n570037\twhite\t8\n30006\timage\t7\n210023\tanesthesia\t7\n480164\tMedical Devices\t7\n480006\tpublic health\t7\n480008\thealthcare economics\t7\n480121\tOperating Room\t6\n480120\tMedical Equipment\t6\n210025\tarticle\t6\n480338\tscholarly article\t5\n600004\tvisible\t5\n480028\tFinancial Planning\t5\n480045\tsocial media\t5\n3\ttest-tag\t5\n480011\tplanning\t4\n",
+  "stderr": "",
+  "execution_time_ms": 67
+}

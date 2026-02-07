@@ -5251,3 +5251,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add "Restart Tutorial" option in settings (already existed)
 - [x] Show onboarding automatically for first-time users
 - [x] Move Settings link from main nav bar into hamburger menu
+
+## Bug Fix - Knowledge Graph Tag File Count - Feb 7, 2026
+- [x] Fix tag nodes showing "0 files tagged" in Knowledge Graph toast - map backend weight to frontend fileCount property
+- [x] Improve toast messaging for AI-suggested tags with 0 file associations ("AI-suggested tag. Not yet assigned to files.")

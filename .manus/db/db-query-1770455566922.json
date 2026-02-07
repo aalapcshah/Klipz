@@ -1,0 +1,18 @@
+{
+  "query": "SELECT \n  CASE WHEN ft_count = 0 THEN 'No files' ELSE 'Has files' END as status,\n  COUNT(*) as tag_count\nFROM (\n  SELECT t.id, t.name, COUNT(DISTINCT ft.fileId) as ft_count\n  FROM tags t\n  LEFT JOIN fileTags ft ON t.id = ft.tagId\n  GROUP BY t.id, t.name\n) sub\nGROUP BY status;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT \n  CASE WHEN ft_count = 0 THEN 'No files' ELSE 'Has files' END as status,\n  COUNT(*) as tag_count\nFROM (\n  SELECT t.id, t.name, COUNT(DISTINCT ft.fileId) as ft_count\n  FROM tags t\n  LEFT JOIN fileTags ft ON t.id = ft.tagId\n  GROUP BY t.id, t.name\n) sub\nGROUP BY status;",
+  "rows": [
+    {
+      "status": "No files",
+      "tag_count": "133"
+    },
+    {
+      "status": "Has files",
+      "tag_count": "814"
+    }
+  ],
+  "messages": [],
+  "stdout": "status\ttag_count\nNo files\t133\nHas files\t814\n",
+  "stderr": "",
+  "execution_time_ms": 60
+}
