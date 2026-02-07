@@ -155,16 +155,27 @@ export function VideoUploadSection() {
 
   const readChunk = (file: File, start: number, end: number): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      const blob = file.slice(start, end);
-      
-      reader.onload = () => {
-        const base64 = (reader.result as string).split(",")[1]; // Remove data:... prefix
-        resolve(base64);
-      };
-      
-      reader.onerror = () => reject(new Error("Failed to read chunk"));
-      reader.readAsDataURL(blob);
+      try {
+        const reader = new FileReader();
+        const blob = file.slice(start, end);
+        
+        reader.onload = () => {
+          try {
+            const result = reader.result as string;
+            const commaIndex = result.indexOf(",");
+            const base64 = commaIndex >= 0 ? result.substring(commaIndex + 1) : result;
+            resolve(base64);
+          } catch (e) {
+            reject(new Error("Failed to encode chunk data"));
+          }
+        };
+        
+        reader.onerror = () => reject(new Error("Failed to read chunk from file"));
+        reader.onabort = () => reject(new Error("Chunk read was aborted"));
+        reader.readAsDataURL(blob);
+      } catch (e) {
+        reject(new Error("Failed to initialize chunk reader"));
+      }
     });
   };
 
@@ -231,13 +242,15 @@ export function VideoUploadSection() {
 
         const start = i * activeChunkSize;
         const end = Math.min(start + activeChunkSize, fileToUpload.size);
-        const chunkData = await readChunk(fileToUpload, start, end);
 
         let retries = 0;
         const maxRetries = 3;
         
         while (retries < maxRetries) {
           try {
+            // Read chunk inside retry loop so file read failures are also retried
+            const chunkData = await readChunk(fileToUpload, start, end);
+            
             if (isLargeFile) {
               await uploadLargeChunkMutation.mutateAsync({
                 sessionId,
@@ -256,10 +269,11 @@ export function VideoUploadSection() {
           } catch (error: any) {
             retries++;
             if (retries >= maxRetries) {
-              throw new Error(`Failed to upload chunk ${i} after ${maxRetries} attempts: ${error.message}`);
+              throw new Error(`Failed to upload chunk ${i} after ${maxRetries} retries: ${error.message}`);
             }
-            // Wait before retry with exponential backoff
-            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
+            console.warn(`[Upload] Chunk ${i} attempt ${retries} failed: ${error.message}, retrying...`);
+            // Wait before retry with exponential backoff (longer on mobile for memory recovery)
+            await new Promise(resolve => setTimeout(resolve, 1500 * Math.pow(2, retries)));
           }
         }
 

@@ -2,6 +2,14 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { 
   Upload, 
   X, 
@@ -13,7 +21,8 @@ import {
   ChevronDown,
   ChevronUp,
   FileVideo,
-  File
+  File,
+  FolderOpen
 } from "lucide-react";
 import { useResumableUpload, ResumableUploadSession } from "@/hooks/useResumableUpload";
 import { trpc } from "@/lib/trpc";
@@ -66,6 +75,8 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
   const [isExpanded, setIsExpanded] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [resumingSessionToken, setResumingSessionToken] = useState<string | null>(null);
+  const [showFileSelectDialog, setShowFileSelectDialog] = useState(false);
+  const [pendingResumeSession, setPendingResumeSession] = useState<ResumableUploadSession | null>(null);
 
   const {
     sessions,
@@ -122,9 +133,33 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
       // File is still in memory, resume directly
       resumeUpload(session.sessionToken, session.file);
     } else {
-      // Need user to re-select file
-      setResumingSessionToken(session.sessionToken);
-      fileInputRef.current?.click();
+      // File not in memory - show dialog explaining they need to re-select the file
+      setPendingResumeSession(session);
+      setShowFileSelectDialog(true);
+    }
+  };
+
+  const handleOpenFilePicker = () => {
+    if (pendingResumeSession) {
+      setResumingSessionToken(pendingResumeSession.sessionToken);
+      // Set accept attribute based on file type
+      if (fileInputRef.current) {
+        const mimeType = pendingResumeSession.mimeType;
+        if (mimeType.startsWith("video/")) {
+          fileInputRef.current.accept = "video/*";
+        } else if (mimeType.startsWith("image/")) {
+          fileInputRef.current.accept = "image/*";
+        } else if (mimeType.startsWith("audio/")) {
+          fileInputRef.current.accept = "audio/*";
+        } else {
+          fileInputRef.current.accept = mimeType || "*/*";
+        }
+      }
+      setShowFileSelectDialog(false);
+      // Small delay to ensure dialog closes before picker opens
+      setTimeout(() => {
+        fileInputRef.current?.click();
+      }, 100);
     }
   };
 
@@ -134,13 +169,17 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
       const session = sessions.find(s => s.sessionToken === resumingSessionToken);
       if (session) {
         if (file.name !== session.filename || file.size !== session.fileSize) {
-          toast.error(`Please select the original file: ${session.filename} (${formatBytes(session.fileSize)})`);
+          toast.error(`File doesn't match. Please select: ${session.filename} (${formatBytes(session.fileSize)})`, {
+            duration: 5000,
+          });
         } else {
           resumeUpload(resumingSessionToken, file);
+          toast.success("Upload resuming from where it left off!");
         }
       }
     }
     setResumingSessionToken(null);
+    setPendingResumeSession(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -191,7 +230,16 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    resumeAll();
+                    // For Resume All, we need to check if files are in memory
+                    const pausedSessions = sessions.filter(s => s.status === "paused");
+                    const allHaveFiles = pausedSessions.every(s => s.file);
+                    if (allHaveFiles) {
+                      resumeAll();
+                    } else {
+                      toast.info("Some uploads need their files re-selected. Please resume them individually.", {
+                        duration: 4000,
+                      });
+                    }
                   }}
                   className="text-green-500 border-green-500 hover:bg-green-500/10"
                 >
@@ -272,6 +320,14 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                       </span>
                     )}
                   </div>
+
+                  {/* Hint when file needs re-selection */}
+                  {!session.file && session.status === "paused" && (
+                    <div className="mt-1 text-xs text-amber-500 flex items-center gap-1">
+                      <FolderOpen className="h-3 w-3" />
+                      Tap resume to re-select file and continue
+                    </div>
+                  )}
                 </div>
 
                 {/* Action buttons */}
@@ -296,8 +352,13 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                         handleResumeClick(session);
                       }}
                       className="text-green-500 hover:text-green-600"
+                      title={session.file ? "Resume upload" : "Re-select file to resume"}
                     >
-                      <Play className="h-4 w-4" />
+                      {session.file ? (
+                        <Play className="h-4 w-4" />
+                      ) : (
+                        <FolderOpen className="h-4 w-4" />
+                      )}
                     </Button>
                   )}
                   <Button
@@ -315,7 +376,7 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
               </div>
             ))}
 
-            {/* Hidden file input for resuming */}
+            {/* Hidden file input for resuming - no capture attribute so it opens file browser */}
             <input
               ref={fileInputRef}
               type="file"
@@ -325,6 +386,63 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
           </div>
         )}
       </Card>
+
+      {/* File re-selection dialog */}
+      <Dialog open={showFileSelectDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowFileSelectDialog(false);
+          setPendingResumeSession(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Re-select File to Resume Upload</DialogTitle>
+            <DialogDescription>
+              Since you closed the browser, we need you to select the same file again. 
+              The upload will continue from where it left off — no data will be re-uploaded.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {pendingResumeSession && (
+            <div className="space-y-3 py-2">
+              <div className="bg-muted rounded-lg p-3 space-y-1">
+                <div className="flex items-center gap-2">
+                  {pendingResumeSession.uploadType === "video" ? (
+                    <FileVideo className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <File className="h-5 w-5 text-muted-foreground" />
+                  )}
+                  <span className="font-medium text-sm truncate">{pendingResumeSession.filename}</span>
+                </div>
+                <div className="text-xs text-muted-foreground pl-7">
+                  Size: {formatBytes(pendingResumeSession.fileSize)} · 
+                  Progress: {formatBytes(pendingResumeSession.uploadedBytes)} uploaded ({Math.round(pendingResumeSession.progress)}%)
+                </div>
+              </div>
+              
+              <p className="text-sm text-muted-foreground">
+                Please select the exact same file: <strong>{pendingResumeSession.filename}</strong>
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowFileSelectDialog(false);
+                setPendingResumeSession(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleOpenFilePicker}>
+              <FolderOpen className="h-4 w-4 mr-2" />
+              Browse Files
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

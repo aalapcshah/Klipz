@@ -5463,3 +5463,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix upload progress showing 0 B / 675MB instead of actual bytes uploaded
 - [x] Fix chunk size mismatch for large files (was using 5MB chunks instead of 10MB for large file router)
 - [x] Fix totalChunks calculation when resuming large file uploads
+
+## Bug Fixes - Feb 7, 2026 (Resume Upload Button)
+- [x] Fix resume upload button opening file picker instead of resuming from stored session
+
+## Bug Fixes - Feb 7, 2026 (Upload Issues Part 2)
+- [x] Fix "Failed to read chunk" error on video upload (307MB file on mobile)
+- [x] Fix resume button on resumable uploads opening camera/file picker instead of showing dialog
