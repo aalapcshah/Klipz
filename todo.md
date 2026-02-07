@@ -5304,3 +5304,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Frontend: Auto-caption triggered on both regular and resumable upload completion
 - [x] Frontend: Toast notification when auto-captioning starts in background
 - [x] Bugfix: Fixed uploadThumbnail reference (uploadChunk → files router)
+
+## Testing - Caption Search & Confidence Threshold - Feb 7, 2026
+- [x] Test Caption Search page under Tools menu - found 1 caption matching 'IRS' across Video 25 with highlighted terms and entity tags
+- [x] Test confidence threshold slider - verified slider UI (0-100%, step 5%) with Apply button, passes minRelevanceScore to backend
+- [x] No issues found during testing - both features working correctly
