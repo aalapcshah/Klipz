@@ -581,13 +581,6 @@ function HamburgerMenu({ user, logout }: { user: any; logout: () => void }) {
           </div>
         </div>
         
-        <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer py-2.5">
-          <User className="h-4 w-4 mr-3" />
-          Profile Settings
-        </DropdownMenuItem>
-        
-        <DropdownMenuSeparator />
-        
         {/* Subscription Status */}
         <div className="px-3 py-2.5">
           <div className="flex items-center justify-between text-sm">

@@ -5272,3 +5272,6 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix canvas wheel event capturing page scroll - trackpad scroll should scroll the page, not zoom the graph
 - [x] Only zoom graph on intentional gestures (Ctrl+scroll or pinch-to-zoom)
 - [x] Zoom controls (buttons) already exist in bottom-right corner as alternative
+
+## UI Cleanup - Remove Redundant Profile Settings Menu Item - Feb 7, 2026
+- [x] Remove "Profile Settings" from hamburger menu dropdown (redundant with Settings item below)
