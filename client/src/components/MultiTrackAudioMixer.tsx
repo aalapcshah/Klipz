@@ -22,6 +22,7 @@ import {
   ChevronUp,
   Sparkles
 } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 
 interface AudioTrack {
@@ -390,14 +391,22 @@ export function MultiTrackAudioMixer({
     }
   };
 
+  const [isSectionOpen, setIsSectionOpen] = useState(false);
+
   return (
     <Card className={cn("w-full", className)}>
+    <Collapsible open={isSectionOpen} onOpenChange={setIsSectionOpen}>
       <CardHeader className="pb-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-            <Headphones className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
-            Multi-Track Audio
-          </CardTitle>
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-2 text-left cursor-pointer hover:opacity-80 transition-opacity">
+              <ChevronDown className={cn("h-4 w-4 transition-transform", isSectionOpen && "rotate-180")} />
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <Headphones className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
+                Multi-Track Audio
+              </CardTitle>
+            </button>
+          </CollapsibleTrigger>
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -413,6 +422,7 @@ export function MultiTrackAudioMixer({
           </div>
         </div>
       </CardHeader>
+      <CollapsibleContent>
       <CardContent className="space-y-4">
         {/* Master Volume */}
         <div className="p-3 bg-muted rounded-lg space-y-2">
@@ -657,6 +667,8 @@ export function MultiTrackAudioMixer({
           Enable tracks to mix multiple audio sources. System audio requires screen sharing permission.
         </p>
       </CardContent>
+      </CollapsibleContent>
+    </Collapsible>
     </Card>
   );
 }

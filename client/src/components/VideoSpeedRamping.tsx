@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Pause, RotateCcw, Zap, Clock, TrendingUp, TrendingDown } from 'lucide-react';
+import { Play, Pause, RotateCcw, Zap, Clock, TrendingUp, TrendingDown, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 
 interface SpeedKeyframe {
@@ -143,16 +144,23 @@ export function VideoSpeedRamping({
     setSelectedKeyframe(null);
   };
 
+  const [isOpen, setIsOpen] = useState(false);
   const currentSpeed = getCurrentSpeed(duration > 0 ? (currentTime / duration) * 100 : 0);
 
   return (
     <Card className={cn("w-full", className)}>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CardHeader className="pb-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-            <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
-            Speed Ramping
-          </CardTitle>
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-2 text-left cursor-pointer hover:opacity-80 transition-opacity">
+              <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
+                Speed Ramping
+              </CardTitle>
+            </button>
+          </CollapsibleTrigger>
           <div className="flex items-center gap-2">
             <Label htmlFor="speed-ramp-toggle" className="text-xs sm:text-sm">Enable</Label>
             <Switch
@@ -163,6 +171,7 @@ export function VideoSpeedRamping({
           </div>
         </div>
       </CardHeader>
+      <CollapsibleContent>
       <CardContent className="space-y-4">
         {/* Current Speed Display */}
         <div className="flex items-center justify-between p-2 sm:p-3 bg-muted rounded-lg">
@@ -366,6 +375,8 @@ export function VideoSpeedRamping({
           </div>
         </div>
       </CardContent>
+      </CollapsibleContent>
+    </Collapsible>
     </Card>
   );
 }

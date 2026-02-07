@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sparkles, Sun, Contrast, Palette, Film, Circle, Square, RotateCcw, Save, FolderOpen, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
@@ -277,18 +278,25 @@ export function VideoEffectsLibrary({
     }
   };
 
+  const [isSectionOpen, setIsSectionOpen] = useState(false);
   const vignetteEffect = effects.find(e => e.id === 'vignette');
   const grainEffect = effects.find(e => e.id === 'filmGrain');
   const glowEffect = effects.find(e => e.id === 'glow');
 
   return (
     <Card className={cn("w-full", className)}>
+    <Collapsible open={isSectionOpen} onOpenChange={setIsSectionOpen}>
       <CardHeader className="pb-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500" />
-            Video Effects
-          </CardTitle>
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-2 text-left cursor-pointer hover:opacity-80 transition-opacity">
+              <ChevronDown className={cn("h-4 w-4 transition-transform", isSectionOpen && "rotate-180")} />
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500" />
+                Video Effects
+              </CardTitle>
+            </button>
+          </CollapsibleTrigger>
           <div className="flex items-center gap-2">
             {/* Presets Toggle */}
             <Button 
@@ -382,6 +390,7 @@ export function VideoEffectsLibrary({
           </div>
         </div>
       </CardHeader>
+      <CollapsibleContent>
       <CardContent>
         {/* Saved Presets Section */}
         {showPresets && (
@@ -711,6 +720,8 @@ export function VideoEffectsLibrary({
           `}</style>
         )}
       </CardContent>
+      </CollapsibleContent>
+    </Collapsible>
     </Card>
   );
 }

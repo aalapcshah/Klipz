@@ -15,8 +15,10 @@ import {
   Upload,
   Trash2,
   Eye,
-  EyeOff
+  EyeOff,
+  ChevronDown
 } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 
 interface ChromaKeySettings {
@@ -295,14 +297,22 @@ export function GreenScreenChromaKey({
     });
   };
 
+  const [isSectionOpen, setIsSectionOpen] = useState(false);
+
   return (
     <Card className={cn("w-full", className)}>
+    <Collapsible open={isSectionOpen} onOpenChange={setIsSectionOpen}>
       <CardHeader className="pb-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-            <Paintbrush className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500" />
-            Green Screen
-          </CardTitle>
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-2 text-left cursor-pointer hover:opacity-80 transition-opacity">
+              <ChevronDown className={cn("h-4 w-4 transition-transform", isSectionOpen && "rotate-180")} />
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <Paintbrush className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500" />
+                Green Screen
+              </CardTitle>
+            </button>
+          </CollapsibleTrigger>
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -322,6 +332,7 @@ export function GreenScreenChromaKey({
           </div>
         </div>
       </CardHeader>
+      <CollapsibleContent>
       <CardContent className="space-y-4">
         {/* Cross-origin error message */}
         {crossOriginError && (
@@ -620,6 +631,8 @@ export function GreenScreenChromaKey({
           Position yourself in front of a solid green or blue background for best results.
         </p>
       </CardContent>
+      </CollapsibleContent>
+    </Collapsible>
     </Card>
   );
 }

@@ -5362,3 +5362,9 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fixed video 600043 null fileId by linking to matching file record
 - [x] Cleaned up 56 test files from vitest runs polluting the file counter
 - [x] File counter now shows correct count (12 non-video files, 13 videos)
+
+## UI Change - Collapsible Menus for Video Editing Sections - Feb 7, 2026
+- [x] Make Speed Ramping section collapsible
+- [x] Make Video Effects section collapsible
+- [x] Make Multi-Track Audio section collapsible
+- [x] Make Green Screen section collapsible
