@@ -5257,15 +5257,15 @@ Note: The application already has extensive annotation features including voice 
 - [x] Improve toast messaging for AI-suggested tags with 0 file associations ("AI-suggested tag. Not yet assigned to files.")
 
 ## Feature - Video Visual Captioning & File Suggestions - Feb 7, 2026
-- [ ] Backend: Extract video frames at regular intervals (e.g., every 5 seconds)
-- [ ] Backend: Use AI vision (LLM) to generate captions/descriptions for each frame
-- [ ] Backend: NLP analysis of captions to extract key entities, topics, objects
-- [ ] Backend: Match extracted entities against uploaded files' metadata/tags with confidence scores
-- [ ] Backend: Store video captions with timestamps in database
-- [ ] Frontend: Video player with synced caption display below the video
-- [ ] Frontend: Caption timeline showing all generated captions at timepoints
-- [ ] Frontend: File suggestions panel showing relevant files per timepoint with metadata and strength %
-- [ ] Frontend: Interactive navigation - click a timepoint to seek video and update suggestions
+- [x] Backend: Send video to LLM vision API for direct analysis (no frame extraction needed)
+- [x] Backend: AI generates captions/descriptions at configurable intervals
+- [x] Backend: NLP entity extraction from visual captions
+- [x] Backend: Match extracted entities against uploaded files with confidence scores via LLM
+- [x] Backend: Store visual captions and file matches in database (visual_captions + visual_caption_file_matches tables)
+- [x] Frontend: Active caption display synced to video playback time
+- [x] Frontend: Caption timeline with expandable entries showing entities
+- [x] Frontend: File suggestions panel per timepoint with relevance %, reasoning, matched entities
+- [x] Frontend: Click timepoint to seek video, accept/dismiss file matches
 - [ ] Integration test with Video 25 (no audio, visual-only captioning)
 
 ## Bug Fix - Knowledge Graph Scroll/Zoom on Trackpad - Feb 7, 2026
@@ -5275,3 +5275,7 @@ Note: The application already has extensive annotation features including voice 
 
 ## UI Cleanup - Remove Redundant Profile Settings Menu Item - Feb 7, 2026
 - [x] Remove "Profile Settings" from hamburger menu dropdown (redundant with Settings item below)
+
+## Quick Fixes - Knowledge Graph UX - Feb 7, 2026
+- [x] Add "Ctrl+scroll to zoom" tooltip hint near zoom controls on Knowledge Graph (platform-aware: ⌘ on Mac, Ctrl on others)
+- [x] Change default max nodes from 500 to 100 (mobile: 50), slider range now 10-2000 with step 10

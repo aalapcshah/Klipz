@@ -23,6 +23,7 @@ import { VoiceAnnotationExport } from "./VoiceAnnotationExport";
 import { HighlightedText } from "./HighlightedText";
 import { AnnotationSearch } from "./videos/AnnotationSearch";
 import { FileSuggestions } from "./FileSuggestions";
+import { VisualCaptionsPanel } from "./VisualCaptionsPanel";
 import { VideoChapters } from "./VideoChapters";
 import { VideoLoopRegion } from "./VideoLoopRegion";
 import { AutoHighlightDetection } from "./AutoHighlightDetection";
@@ -1908,6 +1909,21 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
       {/* File Suggestions Section */}
       <FileSuggestions
         fileId={fileId}
+        onJumpToTimestamp={(timestamp) => {
+          if (videoRef.current) {
+            videoRef.current.currentTime = timestamp;
+            setCurrentTime(timestamp);
+            if (!isPlaying) {
+              videoRef.current.play();
+            }
+          }
+        }}
+      />
+
+      {/* Visual Captions & File Matching Section */}
+      <VisualCaptionsPanel
+        fileId={fileId}
+        currentTime={currentTime}
         onJumpToTimestamp={(timestamp) => {
           if (videoRef.current) {
             videoRef.current.currentTime = timestamp;

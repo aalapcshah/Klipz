@@ -435,6 +435,13 @@
       "when": 1770454012808,
       "tag": "0061_pretty_wendigo",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "5",
+      "when": 1770457233995,
+      "tag": "0062_brainy_rocket_racer",
+      "breakpoints": true
     }
   ]
 }

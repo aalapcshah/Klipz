@@ -309,7 +309,7 @@ export default function KnowledgeGraphPage() {
   const [nodeFilter, setNodeFilter] = useState<"all" | "tags" | "files" | "entities">("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [relationshipTypeFilter, setRelationshipTypeFilter] = useState<"all" | "co-occurrence" | "semantic" | "file-tag">("all");
-  const [maxNodes, setMaxNodes] = useState(500);
+  const [maxNodes, setMaxNodes] = useState(100);
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
@@ -382,8 +382,8 @@ export default function KnowledgeGraphPage() {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
       // Set mobile-optimized defaults on first load
-      if (mobile && maxNodes === 500) {
-        setMaxNodes(100); // Fewer nodes on mobile for better performance
+      if (mobile && maxNodes === 100) {
+        setMaxNodes(50); // Fewer nodes on mobile for better performance
         setShowLabels(false); // Hide labels by default on mobile to reduce clutter
         setShowClusters(true); // Show clusters to help organize the view
       }
@@ -1324,9 +1324,9 @@ export default function KnowledgeGraphPage() {
           <Slider
             value={[maxNodes]}
             onValueChange={([v]) => setMaxNodes(v)}
-            min={100}
+            min={10}
             max={2000}
-            step={100}
+            step={10}
           />
         </div>
       </div>
@@ -1692,6 +1692,9 @@ export default function KnowledgeGraphPage() {
                     <TooltipContent>Reset View</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
+                <div className="mt-1 text-[10px] text-muted-foreground text-center leading-tight px-1">
+                  {navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl'}+scroll<br/>to zoom
+                </div>
               </div>
 
               {/* Info Badge */}

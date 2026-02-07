@@ -32,6 +32,7 @@ import { dashboardLayoutRouter } from "./routers/dashboardLayout";
 import { fileVersionsRouter } from "./routers/fileVersions";
 import { videoTranscriptionRouter } from "./routers/videoTranscription";
 import { videoChaptersRouter } from "./routers/videoChapters";
+import { videoVisualCaptionsRouter } from "./routers/videoVisualCaptions";
 import { s3UploadRouter } from "./routers/s3Upload";
 import { uploadChunkRouter } from "./routers/uploadChunk";
 import { largeFileUploadRouter } from "./routers/largeFileUpload";
@@ -401,6 +402,7 @@ export const appRouter = router({
   fileVersions: fileVersionsRouter,
   videoTranscription: videoTranscriptionRouter,
   videoChapters: videoChaptersRouter,
+  videoVisualCaptions: videoVisualCaptionsRouter,
   s3Upload: s3UploadRouter,
   uploadChunk: uploadChunkRouter,
   largeFileUpload: largeFileUploadRouter,

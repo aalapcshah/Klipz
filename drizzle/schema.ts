@@ -1753,3 +1753,63 @@ export const enrichmentJobsRelations = relations(enrichmentJobs, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+/**
+ * Visual captions table - AI-generated captions from video frame analysis (for videos without audio)
+ */
+export const visualCaptions = mysqlTable("visual_captions", {
+  id: int("id").autoincrement().primaryKey(),
+  fileId: int("fileId").notNull(), // Foreign key to files table (video)
+  userId: int("userId").notNull(),
+  
+  // Caption data - array of timed captions with entities
+  captions: json("captions").$type<Array<{
+    timestamp: number;       // seconds into video
+    caption: string;         // AI-generated description of what's happening
+    entities: string[];      // NLP-extracted entities/topics
+    confidence: number;      // 0-1 confidence score
+  }>>(),
+  
+  // Processing config
+  intervalSeconds: int("intervalSeconds").default(5).notNull(), // Frame sampling interval
+  totalFramesAnalyzed: int("totalFramesAnalyzed").default(0).notNull(),
+  
+  // Processing status
+  status: mysqlEnum("status", ["pending", "processing", "completed", "failed"]).default("pending").notNull(),
+  errorMessage: text("errorMessage"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type VisualCaption = typeof visualCaptions.$inferSelect;
+export type InsertVisualCaption = typeof visualCaptions.$inferInsert;
+
+/**
+ * Visual caption file matches - files matched to visual caption timepoints
+ */
+export const visualCaptionFileMatches = mysqlTable("visual_caption_file_matches", {
+  id: int("id").autoincrement().primaryKey(),
+  visualCaptionId: int("visualCaptionId").notNull(), // FK to visual_captions
+  videoFileId: int("videoFileId").notNull(), // FK to files (the video)
+  suggestedFileId: int("suggestedFileId").notNull(), // FK to files (the matched file)
+  userId: int("userId").notNull(),
+  
+  // Which timepoint this match is for
+  timestamp: float("timestamp").notNull(), // seconds into video
+  captionText: text("captionText").notNull(), // The caption that triggered this match
+  
+  // Match details
+  matchedEntities: json("matchedEntities").$type<string[]>(), // Entities that matched
+  relevanceScore: float("relevanceScore").notNull(), // 0.0-1.0 confidence
+  matchReasoning: text("matchReasoning"), // AI explanation of why this file matches
+  
+  // User feedback
+  status: mysqlEnum("status", ["active", "dismissed", "accepted"]).default("active").notNull(),
+  userFeedback: mysqlEnum("userFeedback", ["helpful", "not_helpful", "irrelevant"]),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type VisualCaptionFileMatch = typeof visualCaptionFileMatches.$inferSelect;
+export type InsertVisualCaptionFileMatch = typeof visualCaptionFileMatches.$inferInsert;

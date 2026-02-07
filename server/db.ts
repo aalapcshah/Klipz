@@ -58,6 +58,10 @@ import {
   shareAccessLog,
   InsertShareAccessLog,
   tagRelationships,
+  visualCaptions,
+  InsertVisualCaption,
+  visualCaptionFileMatches,
+  InsertVisualCaptionFileMatch,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -3419,4 +3423,114 @@ export async function getFileTagCoOccurrenceEdges(
   }
   
   return edges;
+}
+
+
+// ============= VISUAL CAPTIONS QUERIES =============
+
+export async function createVisualCaption(data: InsertVisualCaption) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(visualCaptions).values(data);
+  return result[0].insertId;
+}
+
+export async function getVisualCaptionByFileId(fileId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select()
+    .from(visualCaptions)
+    .where(eq(visualCaptions.fileId, fileId))
+    .orderBy(desc(visualCaptions.createdAt))
+    .limit(1);
+  return result[0] || null;
+}
+
+export async function updateVisualCaption(
+  id: number,
+  updates: Partial<InsertVisualCaption>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(visualCaptions).set(updates).where(eq(visualCaptions.id, id));
+}
+
+export async function createVisualCaptionFileMatch(data: InsertVisualCaptionFileMatch) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(visualCaptionFileMatches).values(data);
+  return result[0].insertId;
+}
+
+export async function getVisualCaptionFileMatches(
+  videoFileId: number,
+  status?: "active" | "dismissed" | "accepted"
+) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const conditions = [eq(visualCaptionFileMatches.videoFileId, videoFileId)];
+  if (status) {
+    conditions.push(eq(visualCaptionFileMatches.status, status));
+  }
+
+  const matches = await db
+    .select({
+      id: visualCaptionFileMatches.id,
+      visualCaptionId: visualCaptionFileMatches.visualCaptionId,
+      videoFileId: visualCaptionFileMatches.videoFileId,
+      suggestedFileId: visualCaptionFileMatches.suggestedFileId,
+      timestamp: visualCaptionFileMatches.timestamp,
+      captionText: visualCaptionFileMatches.captionText,
+      matchedEntities: visualCaptionFileMatches.matchedEntities,
+      relevanceScore: visualCaptionFileMatches.relevanceScore,
+      matchReasoning: visualCaptionFileMatches.matchReasoning,
+      status: visualCaptionFileMatches.status,
+      userFeedback: visualCaptionFileMatches.userFeedback,
+      createdAt: visualCaptionFileMatches.createdAt,
+      // Join with files to get suggested file info
+      suggestedFile: {
+        id: files.id,
+        filename: files.filename,
+        title: files.title,
+        description: files.description,
+        mimeType: files.mimeType,
+        url: files.url,
+        fileSize: files.fileSize,
+      },
+    })
+    .from(visualCaptionFileMatches)
+    .innerJoin(files, eq(visualCaptionFileMatches.suggestedFileId, files.id))
+    .where(and(...conditions))
+    .orderBy(visualCaptionFileMatches.timestamp);
+
+  return matches;
+}
+
+export async function updateVisualCaptionFileMatchStatus(
+  matchId: number,
+  status: "active" | "dismissed" | "accepted",
+  feedback?: "helpful" | "not_helpful" | "irrelevant"
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const updates: any = { status };
+  if (feedback) {
+    updates.userFeedback = feedback;
+  }
+
+  await db
+    .update(visualCaptionFileMatches)
+    .set(updates)
+    .where(eq(visualCaptionFileMatches.id, matchId));
+}
+
+export async function deleteVisualCaptionFileMatches(videoFileId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .delete(visualCaptionFileMatches)
+    .where(eq(visualCaptionFileMatches.videoFileId, videoFileId));
 }
