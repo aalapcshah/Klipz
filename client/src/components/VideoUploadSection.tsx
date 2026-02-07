@@ -132,6 +132,8 @@ export function VideoUploadSection() {
   const updateVideoMutation = trpc.videos.update.useMutation();
   const uploadThumbnailMutation = trpc.files.uploadThumbnail.useMutation();
   const autoCaptionMutation = trpc.videoVisualCaptions.autoCaptionVideo.useMutation();
+  const autoTranscribeMutation = trpc.videoTranscription.transcribeVideo.useMutation();
+  const autoFileSuggestionsMutation = trpc.videoTranscription.generateFileSuggestions.useMutation();
   const compressMutation = trpc.videoCompression.compress.useMutation();
   // Feature gate hooks
   const { allowed: canUploadVideos, loading: featureLoading } = useFeatureAccess('uploadVideo');
@@ -333,6 +335,44 @@ export function VideoUploadSection() {
             },
           }
         );
+
+        // Auto-transcribe speech from video audio
+        autoTranscribeMutation.mutate(
+          { fileId: result.fileId },
+          {
+            onSuccess: (data) => {
+              if (data.status === 'completed' || data.status === 'already_exists') {
+                if (data.status === 'completed') {
+                  toast.info("Speech transcription completed", {
+                    description: "Matching files to spoken content...",
+                    duration: 4000,
+                  });
+                }
+                // Auto-generate file suggestions from transcript
+                autoFileSuggestionsMutation.mutate(
+                  { fileId: result.fileId!, minRelevanceScore: 0.3 },
+                  {
+                    onSuccess: (sugData) => {
+                      if ((sugData.count ?? 0) > 0) {
+                        toast.success(`Found ${sugData.count} file matches from speech`, {
+                          description: "View matched files in the video details.",
+                          duration: 5000,
+                        });
+                      }
+                    },
+                    onError: () => {
+                      console.warn("Auto file suggestion failed for file", result.fileId);
+                    },
+                  }
+                );
+              }
+            },
+            onError: () => {
+              // Silently fail - transcription is a nice-to-have
+              console.warn("Auto-transcription failed for file", result.fileId);
+            },
+          }
+        );
       }
 
       // Auto-compress if a quality preset was selected (not 'original')
@@ -397,6 +437,8 @@ export function VideoUploadSection() {
     updateUploadStatus,
     updatePausedChunk,
     compressMutation,
+    autoTranscribeMutation,
+    autoFileSuggestionsMutation,
   ]);
 
   // Register video processor on mount

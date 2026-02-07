@@ -5412,3 +5412,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Reduced chunk size from 10MB to 5MB for better proxy compatibility
 - [x] Verify upload works for large files (TypeScript compiles clean, tests pass)
 - [x] Restore pre-upload compression quality selector with auto-compress after upload
+
+## Bug: Video Speech Transcription & Entity Matching Not Working - Feb 7, 2026
+- [x] Root cause: Only visual captions (LLM vision) auto-triggered after upload, not speech transcription (Whisper)
+- [x] Added auto-transcription (Whisper) trigger after upload completes
+- [x] Added auto file suggestion generation after transcription completes
+- [x] Handles 'already_exists' status for re-uploads
+- [x] Toast notifications for transcription progress and file match results
