@@ -20,11 +20,11 @@ interface VideoUploadPreferences {
 }
 
 const DEFAULT_PREFERENCES: VideoUploadPreferences = {
-  defaultQuality: "high",
+  defaultQuality: "original",
   customBitrate: 3000,
   customResolution: 720,
   showPreviewDialog: true,
-  autoCompress: true,
+  autoCompress: false,
 };
 
 const STORAGE_KEY = "klipz_video_upload_preferences";
@@ -115,8 +115,13 @@ export function VideoUploadSettings() {
               Auto-Compress Videos
             </Label>
             <p className="text-sm text-muted-foreground">
-              Automatically compress videos before uploading to save storage
+              Compress videos in-browser before uploading to save storage
             </p>
+            {preferences.autoCompress && (
+              <p className="text-xs text-amber-500 mt-1">
+                Note: Browser compression may cause audio loss or shorter duration on some videos. Use "Original Quality" for important content.
+              </p>
+            )}
           </div>
           <Switch
             checked={preferences.autoCompress}

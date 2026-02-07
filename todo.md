@@ -5368,3 +5368,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Make Video Effects section collapsible
 - [x] Make Multi-Track Audio section collapsible
 - [x] Make Green Screen section collapsible
+
+## Bug Fix - Video Playback Issues (No Audio + Shorter Duration) - Feb 7, 2026
+- [x] Root cause: Browser-based MediaRecorder compression (default "high" quality) drops audio and truncates video
+- [x] Fix: Changed default upload quality to "original" (no compression) to preserve full video with audio
+- [x] Fix: Disabled auto-compress by default in VideoUploadSettings
+- [x] Added amber warning in upload quality selector about compression limitations
+- [x] Added amber warning in Video Upload Settings when auto-compress is enabled
+- [x] Note: Previously uploaded compressed videos are permanently truncated — must be re-uploaded with Original Quality

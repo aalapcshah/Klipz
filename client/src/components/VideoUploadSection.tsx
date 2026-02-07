@@ -825,6 +825,9 @@ export function VideoUploadSection() {
                     ? `Compression reduces file size by re-encoding at ${customBitrate} kbps (${customResolution}p)`
                     : `Compression reduces file size by re-encoding at ${QUALITY_SETTINGS[selectedQuality].bitrate} kbps`}
                 </p>
+                <p className="text-xs text-amber-500 mt-1">
+                  Warning: Browser compression may cause audio loss or shorter duration. Use "Original Quality" for important content.
+                </p>
                 
                 {/* Custom compression controls */}
                 {selectedQuality === 'custom' && (
