@@ -5309,3 +5309,9 @@ Note: The application already has extensive annotation features including voice 
 - [x] Test Caption Search page under Tools menu - found 1 caption matching 'IRS' across Video 25 with highlighted terms and entity tags
 - [x] Test confidence threshold slider - verified slider UI (0-100%, step 5%) with Apply button, passes minRelevanceScore to backend
 - [x] No issues found during testing - both features working correctly
+
+## Feature - Caption Analytics & Bulk File Matching - Feb 7, 2026
+- [x] Backend: getCaptionAnalytics endpoint (videos captioned/processing/failed, total captions, avg confidence, unique entities, top entities, file match stats)
+- [x] Backend: bulkFileMatch endpoint (runs file matching across all captioned videos with configurable min relevance)
+- [x] Frontend: Caption Analytics section on Activity Dashboard with 3-column stats tiles, file match stats card, top entities card
+- [x] Frontend: Bulk File Match button with loading state and toast notifications

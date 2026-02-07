@@ -769,6 +769,178 @@ Focus on: what is shown on screen (text, diagrams, images, UI elements), actions
     }),
 
   /**
+   * Get caption analytics (aggregate stats across all user's captioned videos)
+   */
+  getCaptionAnalytics: protectedProcedure.query(async ({ ctx }) => {
+    const analytics = await db.getCaptionAnalytics(ctx.user.id);
+    return analytics;
+  }),
+
+  /**
+   * Bulk file matching: run file matching across all captioned videos at once
+   */
+  bulkFileMatch: protectedProcedure
+    .input(
+      z.object({
+        minRelevanceScore: z.number().min(0).max(1).default(0.3),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Get all captioned video file IDs
+      const videoFileIds = await db.getCaptionedVideoFileIds(ctx.user.id);
+
+      if (videoFileIds.length === 0) {
+        return {
+          processed: 0,
+          totalMatches: 0,
+          results: [],
+          message: "No captioned videos found",
+        };
+      }
+
+      // Get all user's files for matching
+      const userFiles = await db.getFilesByUserId(ctx.user.id);
+
+      const results: Array<{
+        fileId: number;
+        matchCount: number;
+        status: string;
+      }> = [];
+      let totalMatches = 0;
+
+      for (const videoFileId of videoFileIds) {
+        try {
+          const caption = await db.getVisualCaptionByFileId(videoFileId);
+          if (!caption || caption.status !== "completed") {
+            results.push({ fileId: videoFileId, matchCount: 0, status: "skipped" });
+            continue;
+          }
+
+          const candidateFiles = userFiles.filter((f) => f.id !== videoFileId);
+          if (candidateFiles.length === 0) {
+            results.push({ fileId: videoFileId, matchCount: 0, status: "no_candidates" });
+            continue;
+          }
+
+          // Delete old matches
+          await db.deleteVisualCaptionFileMatches(videoFileId);
+
+          const captions = caption.captions as Array<{
+            timestamp: number;
+            caption: string;
+            entities: string[];
+            confidence: number;
+          }>;
+
+          if (!captions || captions.length === 0) {
+            results.push({ fileId: videoFileId, matchCount: 0, status: "no_captions" });
+            continue;
+          }
+
+          // Build file catalog
+          const fileCatalog = candidateFiles
+            .map(
+              (f, idx) =>
+                `${idx + 1}. "${f.filename}" - Title: "${f.title || "N/A"}" - Description: "${f.description || "N/A"}" - AI Analysis: "${f.aiAnalysis?.substring(0, 200) || "N/A"}" - Keywords: ${(f.extractedKeywords as string[])?.join(", ") || "N/A"}`
+            )
+            .join("\n");
+
+          const captionSummary = captions
+            .map(
+              (c) =>
+                `[${c.timestamp.toFixed(1)}s] ${c.caption} | Entities: ${c.entities.join(", ")}`
+            )
+            .join("\n");
+
+          const matchResponse = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `You are a file-matching expert. Given video captions with timestamps and a library of files, identify which files are relevant to specific moments in the video. Return matches with relevance scores.\n\nFor each match, explain WHY the file is relevant.`,
+              },
+              {
+                role: "user",
+                content: `Match these video captions to relevant files.\n\nVIDEO CAPTIONS:\n${captionSummary}\n\nFILE LIBRARY:\n${fileCatalog}\n\nOnly include matches with relevance >= ${input.minRelevanceScore}.`,
+              },
+            ],
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                name: "file_matches",
+                strict: true,
+                schema: {
+                  type: "object",
+                  properties: {
+                    matches: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          fileIndex: { type: "number" },
+                          timestamp: { type: "number" },
+                          relevanceScore: { type: "number" },
+                          matchedEntities: { type: "array", items: { type: "string" } },
+                          reasoning: { type: "string" },
+                        },
+                        required: ["fileIndex", "timestamp", "relevanceScore", "matchedEntities", "reasoning"],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  required: ["matches"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          });
+
+          const matchContent = matchResponse.choices[0]?.message?.content;
+          const matchStr = typeof matchContent === "string" ? matchContent : JSON.stringify(matchContent);
+          const matchResult = matchStr ? JSON.parse(matchStr) : { matches: [] };
+          const rawMatches = matchResult.matches || [];
+
+          let savedCount = 0;
+          for (const match of rawMatches) {
+            const file = candidateFiles[match.fileIndex - 1];
+            if (!file || match.relevanceScore < input.minRelevanceScore) continue;
+
+            const closestCaption = captions.reduce((prev, curr) =>
+              Math.abs(curr.timestamp - match.timestamp) < Math.abs(prev.timestamp - match.timestamp)
+                ? curr
+                : prev
+            );
+
+            await db.createVisualCaptionFileMatch({
+              visualCaptionId: caption.id,
+              videoFileId,
+              suggestedFileId: file.id,
+              userId: ctx.user.id,
+              timestamp: match.timestamp,
+              captionText: closestCaption.caption,
+              matchedEntities: match.matchedEntities,
+              relevanceScore: match.relevanceScore,
+              matchReasoning: match.reasoning,
+            });
+            savedCount++;
+          }
+
+          totalMatches += savedCount;
+          results.push({ fileId: videoFileId, matchCount: savedCount, status: "completed" });
+        } catch (error: any) {
+          console.error(`[BulkMatch] Failed for video ${videoFileId}:`, error.message);
+          results.push({ fileId: videoFileId, matchCount: 0, status: "failed" });
+        }
+      }
+
+      return {
+        processed: videoFileIds.length,
+        totalMatches,
+        results,
+        message: `Processed ${videoFileIds.length} videos, generated ${totalMatches} file matches`,
+      };
+    }),
+
+  /**
    * Update match status (accept/dismiss)
    */
   updateMatchStatus: protectedProcedure

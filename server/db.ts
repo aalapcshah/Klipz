@@ -3629,3 +3629,114 @@ export async function getAllVisualCaptionsByUser(userId: number) {
     .where(eq(visualCaptions.userId, userId))
     .orderBy(desc(visualCaptions.createdAt));
 }
+
+// Get caption analytics for a user (aggregate stats)
+export async function getCaptionAnalytics(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Get all completed captions for the user
+  const allCaptions = await db
+    .select({
+      id: visualCaptions.id,
+      fileId: visualCaptions.fileId,
+      captions: visualCaptions.captions,
+      totalFramesAnalyzed: visualCaptions.totalFramesAnalyzed,
+      status: visualCaptions.status,
+      createdAt: visualCaptions.createdAt,
+    })
+    .from(visualCaptions)
+    .where(eq(visualCaptions.userId, userId));
+
+  const completed = allCaptions.filter((c) => c.status === "completed");
+  const processing = allCaptions.filter((c) => c.status === "processing");
+  const failed = allCaptions.filter((c) => c.status === "failed");
+
+  // Aggregate entity counts and confidence scores
+  let totalCaptions = 0;
+  let totalConfidence = 0;
+  let confidenceCount = 0;
+  const entityCounts: Record<string, number> = {};
+
+  for (const vc of completed) {
+    const caps = vc.captions as Array<{
+      timestamp: number;
+      caption: string;
+      entities: string[];
+      confidence: number;
+    }>;
+    if (!caps) continue;
+    totalCaptions += caps.length;
+    for (const c of caps) {
+      if (c.confidence) {
+        totalConfidence += c.confidence;
+        confidenceCount++;
+      }
+      if (c.entities) {
+        for (const entity of c.entities) {
+          const normalized = entity.toLowerCase().trim();
+          entityCounts[normalized] = (entityCounts[normalized] || 0) + 1;
+        }
+      }
+    }
+  }
+
+  // Get top entities sorted by count
+  const topEntities = Object.entries(entityCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 30)
+    .map(([entity, count]) => ({ entity, count }));
+
+  // Get file match stats
+  const allMatches = await db
+    .select({
+      id: visualCaptionFileMatches.id,
+      status: visualCaptionFileMatches.status,
+      relevanceScore: visualCaptionFileMatches.relevanceScore,
+    })
+    .from(visualCaptionFileMatches)
+    .where(eq(visualCaptionFileMatches.userId, userId));
+
+  const acceptedMatches = allMatches.filter((m) => m.status === "accepted");
+  const dismissedMatches = allMatches.filter((m) => m.status === "dismissed");
+  const activeMatches = allMatches.filter((m) => m.status === "active");
+  const avgRelevance =
+    allMatches.length > 0
+      ? allMatches.reduce((sum, m) => sum + (m.relevanceScore || 0), 0) / allMatches.length
+      : 0;
+
+  return {
+    videosCaptioned: completed.length,
+    videosProcessing: processing.length,
+    videosFailed: failed.length,
+    totalCaptions,
+    avgConfidence: confidenceCount > 0 ? totalConfidence / confidenceCount : 0,
+    topEntities,
+    uniqueEntities: Object.keys(entityCounts).length,
+    fileMatches: {
+      total: allMatches.length,
+      accepted: acceptedMatches.length,
+      dismissed: dismissedMatches.length,
+      active: activeMatches.length,
+      avgRelevance,
+    },
+  };
+}
+
+// Get all captioned video file IDs for a user (for bulk matching)
+export async function getCaptionedVideoFileIds(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const results = await db
+    .select({
+      fileId: visualCaptions.fileId,
+    })
+    .from(visualCaptions)
+    .where(
+      and(
+        eq(visualCaptions.userId, userId),
+        eq(visualCaptions.status, "completed")
+      )
+    );
+  return results.map((r) => r.fileId);
+}

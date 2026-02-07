@@ -1,15 +1,36 @@
 import { Link } from "wouter";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Upload, Search, FolderPlus, Image, Video, File, Info } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Upload, Search, FolderPlus, Image, Video, File, Info, Captions, FileSearch, Loader2, CheckCircle2, XCircle, BarChart3, Hash, TrendingUp, Link2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { trpc } from "@/lib/trpc";
 import { StorageAlert } from "@/components/StorageAlert";
+import { toast } from "sonner";
 
 export default function ActivityDashboard() {
   const { data: stats, isLoading: statsLoading } = trpc.activity.getStats.useQuery();
   const { data: recentActivity, isLoading: activityLoading } = trpc.activity.getRecentActivity.useQuery({ limit: 10 });
+  const { data: captionAnalytics, isLoading: analyticsLoading } = trpc.videoVisualCaptions.getCaptionAnalytics.useQuery();
+  const [bulkMatchLoading, setBulkMatchLoading] = useState(false);
+
+  const bulkFileMatch = trpc.videoVisualCaptions.bulkFileMatch.useMutation({
+    onSuccess: (data) => {
+      setBulkMatchLoading(false);
+      toast.success(data.message);
+    },
+    onError: (error) => {
+      setBulkMatchLoading(false);
+      toast.error(`Bulk matching failed: ${error.message}`);
+    },
+  });
+
+  const handleBulkMatch = () => {
+    setBulkMatchLoading(true);
+    bulkFileMatch.mutate({ minRelevanceScore: 0.3 });
+  };
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
@@ -179,6 +200,180 @@ export default function ActivityDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Caption Analytics */}
+        <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+          <Captions className="h-6 w-6" />
+          Caption Analytics
+        </h2>
+
+        {analyticsLoading ? (
+          <div className="grid md:grid-cols-3 gap-4 mb-8">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : captionAnalytics ? (
+          <>
+            {/* Caption Stats Row */}
+            <div className="grid md:grid-cols-3 gap-4 mb-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Videos Captioned</CardTitle>
+                  <Video className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{captionAnalytics.videosCaptioned}</div>
+                  <div className="flex gap-2 mt-2">
+                    {captionAnalytics.videosProcessing > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        {captionAnalytics.videosProcessing} processing
+                      </Badge>
+                    )}
+                    {captionAnalytics.videosFailed > 0 && (
+                      <Badge variant="destructive" className="text-xs">
+                        <XCircle className="h-3 w-3 mr-1" />
+                        {captionAnalytics.videosFailed} failed
+                      </Badge>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Total Captions</CardTitle>
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{captionAnalytics.totalCaptions}</div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Avg confidence: {(captionAnalytics.avgConfidence * 100).toFixed(0)}%
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Unique Entities</CardTitle>
+                  <Hash className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{captionAnalytics.uniqueEntities}</div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Extracted from visual analysis
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* File Match Stats + Bulk Match */}
+            <div className="grid md:grid-cols-2 gap-6 mb-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Link2 className="h-5 w-5" />
+                    File Match Statistics
+                  </CardTitle>
+                  <CardDescription>How your files connect to video content</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total Matches</p>
+                      <p className="text-2xl font-bold">{captionAnalytics.fileMatches.total}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Avg Relevance</p>
+                      <p className="text-2xl font-bold">{(captionAnalytics.fileMatches.avgRelevance * 100).toFixed(0)}%</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Accepted</p>
+                        <p className="text-lg font-semibold">{captionAnalytics.fileMatches.accepted}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <XCircle className="h-4 w-4 text-red-500" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Dismissed</p>
+                        <p className="text-lg font-semibold">{captionAnalytics.fileMatches.dismissed}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t">
+                    <Button
+                      onClick={handleBulkMatch}
+                      disabled={bulkMatchLoading || captionAnalytics.videosCaptioned === 0}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      {bulkMatchLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Running Bulk Match...
+                        </>
+                      ) : (
+                        <>
+                          <FileSearch className="h-4 w-4 mr-2" />
+                          Bulk Match Files Across All Videos
+                        </>
+                      )}
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                      Re-runs file matching on all {captionAnalytics.videosCaptioned} captioned videos
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Top Entities */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Top Entities
+                  </CardTitle>
+                  <CardDescription>Most frequently detected entities across all videos</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {captionAnalytics.topEntities.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {captionAnalytics.topEntities.slice(0, 20).map((entity, idx) => (
+                        <Badge
+                          key={idx}
+                          variant={idx < 3 ? "default" : "secondary"}
+                          className="text-xs"
+                        >
+                          {entity.entity}
+                          <span className="ml-1 opacity-70">({entity.count})</span>
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No entities extracted yet. Generate visual captions on your videos to see entity analytics.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        ) : (
+          <Card className="mb-8">
+            <CardContent className="pt-6">
+              <p className="text-sm text-muted-foreground">
+                No caption analytics available yet. Upload and caption videos to see analytics here.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Recent Activity */}
         <Card>
