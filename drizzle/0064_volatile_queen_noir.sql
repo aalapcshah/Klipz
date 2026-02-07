@@ -1,0 +1,20 @@
+CREATE TABLE `upload_sessions` (
+	`id` varchar(255) NOT NULL,
+	`userId` int NOT NULL,
+	`uploadType` enum('regular','large') NOT NULL,
+	`filename` varchar(512) NOT NULL,
+	`mimeType` varchar(128) NOT NULL,
+	`totalSize` bigint NOT NULL,
+	`totalChunks` int NOT NULL,
+	`title` varchar(512),
+	`description` text,
+	`width` int,
+	`height` int,
+	`receivedChunks` json NOT NULL,
+	`tempDir` varchar(512),
+	`status` enum('active','completed','expired','cancelled') NOT NULL DEFAULT 'active',
+	`lastActivity` timestamp NOT NULL DEFAULT (now()),
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`expiresAt` timestamp NOT NULL,
+	CONSTRAINT `upload_sessions_id` PRIMARY KEY(`id`)
+);

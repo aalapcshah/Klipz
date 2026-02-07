@@ -449,6 +449,13 @@
       "when": 1770493948175,
       "tag": "0063_magenta_otto_octavius",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "5",
+      "when": 1770503928829,
+      "tag": "0064_volatile_queen_noir",
+      "breakpoints": true
     }
   ]
 }

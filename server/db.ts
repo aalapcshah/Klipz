@@ -2956,6 +2956,7 @@ export async function getStorageStats(userId: number): Promise<StorageStats> {
     };
   }
 
+  try {
   // Get file statistics
   const fileStats = await db
     .select({
@@ -3104,6 +3105,17 @@ export async function getStorageStats(userId: number): Promise<StorageStats> {
     largestFiles,
     recentUploads,
   };
+  } catch (error) {
+    console.error('[StorageStats] Query failed, returning empty stats:', error);
+    return {
+      totalBytes: 0,
+      fileCount: 0,
+      videoCount: 0,
+      breakdown: [],
+      largestFiles: [],
+      recentUploads: [],
+    };
+  }
 }
 
 

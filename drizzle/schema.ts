@@ -1819,3 +1819,45 @@ export const visualCaptionFileMatches = mysqlTable("visual_caption_file_matches"
 
 export type VisualCaptionFileMatch = typeof visualCaptionFileMatches.$inferSelect;
 export type InsertVisualCaptionFileMatch = typeof visualCaptionFileMatches.$inferInsert;
+
+
+/**
+ * Upload sessions - persistent storage for chunked upload sessions
+ * Survives server restarts unlike in-memory Map storage
+ */
+export const uploadSessions = mysqlTable("upload_sessions", {
+  id: varchar("id", { length: 255 }).primaryKey(), // session ID
+  userId: int("userId").notNull(),
+  
+  // Upload type: 'regular' for small files, 'large' for files > 500MB
+  uploadType: mysqlEnum("uploadType", ["regular", "large"]).notNull(),
+  
+  // File metadata
+  filename: varchar("filename", { length: 512 }).notNull(),
+  mimeType: varchar("mimeType", { length: 128 }).notNull(),
+  totalSize: bigint("totalSize", { mode: "number" }).notNull(),
+  totalChunks: int("totalChunks").notNull(),
+  title: varchar("title", { length: 512 }),
+  description: text("description"),
+  width: int("width"),
+  height: int("height"),
+  
+  // Progress tracking
+  receivedChunks: json("receivedChunks").$type<number[]>().notNull(), // Array of received chunk indices
+  
+  // For large uploads: temp directory path on disk
+  tempDir: varchar("tempDir", { length: 512 }),
+  
+  // For regular uploads: we store chunks in memory still but track session in DB
+  // The actual chunk data stays in memory for performance
+  
+  // Status
+  status: mysqlEnum("status", ["active", "completed", "expired", "cancelled"]).default("active").notNull(),
+  
+  lastActivity: timestamp("lastActivity").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+});
+
+export type UploadSession = typeof uploadSessions.$inferSelect;
+export type InsertUploadSession = typeof uploadSessions.$inferInsert;

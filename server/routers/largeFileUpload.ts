@@ -5,53 +5,53 @@ import * as db from "../db";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { eq, and, lt } from "drizzle-orm";
+import { uploadSessions } from "../../drizzle/schema";
 
 // Configuration for large file uploads
 const MAX_FILE_SIZE = 6 * 1024 * 1024 * 1024; // 6 GB
 const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB chunks for better performance
-const SESSION_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour for large files
-
-interface LargeUploadSession {
-  tempDir: string;
-  metadata: {
-    filename: string;
-    mimeType: string;
-    totalSize: number;
-    totalChunks: number;
-    title?: string;
-    description?: string;
-    width?: number;
-    height?: number;
-  };
-  receivedChunks: Set<number>;
-  lastActivity: number;
-  userId: string;
-}
-
-const uploadSessions = new Map<string, LargeUploadSession>();
+const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours for large files
 
 // Cleanup expired sessions every 10 minutes
-setInterval(() => {
-  const now = Date.now();
-  let cleaned = 0;
-  const entries = Array.from(uploadSessions.entries());
-  for (const [sessionId, session] of entries) {
-    if (now - session.lastActivity > SESSION_TIMEOUT_MS) {
+setInterval(async () => {
+  try {
+    const database = await db.getDb();
+    if (!database) return;
+    
+    const expireTime = new Date(Date.now() - SESSION_TIMEOUT_MS);
+    const expired = await database
+      .select({ id: uploadSessions.id, tempDir: uploadSessions.tempDir })
+      .from(uploadSessions)
+      .where(and(
+        eq(uploadSessions.uploadType, "large"),
+        eq(uploadSessions.status, "active"),
+        lt(uploadSessions.lastActivity, expireTime)
+      ));
+    
+    for (const session of expired) {
       // Clean up temp directory
-      try {
-        if (fs.existsSync(session.tempDir)) {
-          fs.rmSync(session.tempDir, { recursive: true, force: true });
+      if (session.tempDir) {
+        try {
+          if (fs.existsSync(session.tempDir)) {
+            fs.rmSync(session.tempDir, { recursive: true, force: true });
+          }
+        } catch (e) {
+          console.error(`[LargeUpload] Failed to clean temp dir for ${session.id}:`, e);
         }
-      } catch (e) {
-        console.error(`[LargeUpload] Failed to clean temp dir for ${sessionId}:`, e);
       }
-      uploadSessions.delete(sessionId);
-      cleaned++;
-      console.log(`[LargeUpload] Cleaned up expired session ${sessionId}`);
+      await database
+        .update(uploadSessions)
+        .set({ status: "expired" })
+        .where(eq(uploadSessions.id, session.id));
+      console.log(`[LargeUpload] Cleaned up expired session ${session.id}`);
     }
-  }
-  if (cleaned > 0) {
-    console.log(`[LargeUpload] Cleaned up ${cleaned} expired sessions. Active: ${uploadSessions.size}`);
+    
+    if (expired.length > 0) {
+      console.log(`[LargeUpload] Cleaned up ${expired.length} expired sessions`);
+    }
+  } catch (e) {
+    console.error("[LargeUpload] Cleanup error:", e);
   }
 }, 10 * 60 * 1000);
 
@@ -80,6 +80,9 @@ export const largeFileUploadRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      const database = await db.getDb();
+      if (!database) throw new Error("Database not available");
+      
       const sessionId = `large-${ctx.user.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const totalChunks = Math.ceil(input.totalSize / CHUNK_SIZE);
       
@@ -87,21 +90,24 @@ export const largeFileUploadRouter = router({
       const tempDir = path.join(os.tmpdir(), `synclips-upload-${sessionId}`);
       fs.mkdirSync(tempDir, { recursive: true });
 
-      uploadSessions.set(sessionId, {
+      // Store session in database
+      await database.insert(uploadSessions).values({
+        id: sessionId,
+        userId: ctx.user.id,
+        uploadType: "large",
+        filename: input.filename,
+        mimeType: input.mimeType,
+        totalSize: input.totalSize,
+        totalChunks,
+        title: input.title,
+        description: input.description,
+        width: input.width,
+        height: input.height,
+        receivedChunks: [],
         tempDir,
-        metadata: {
-          filename: input.filename,
-          mimeType: input.mimeType,
-          totalSize: input.totalSize,
-          totalChunks,
-          title: input.title,
-          description: input.description,
-          width: input.width,
-          height: input.height,
-        },
-        receivedChunks: new Set(),
-        lastActivity: Date.now(),
-        userId: String(ctx.user.id),
+        status: "active",
+        lastActivity: new Date(),
+        expiresAt: new Date(Date.now() + SESSION_TIMEOUT_MS),
       });
 
       console.log(`[LargeUpload] Initialized session ${sessionId} for ${input.filename} (${(input.totalSize / (1024 * 1024 * 1024)).toFixed(2)} GB, ${totalChunks} chunks)`);
@@ -123,36 +129,64 @@ export const largeFileUploadRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const session = uploadSessions.get(input.sessionId);
+      const database = await db.getDb();
+      if (!database) throw new Error("Database not available");
+      
+      const sessions = await database
+        .select()
+        .from(uploadSessions)
+        .where(and(
+          eq(uploadSessions.id, input.sessionId),
+          eq(uploadSessions.status, "active")
+        ));
+      
+      const session = sessions[0];
       
       if (!session) {
         throw new Error("Upload session not found or expired. Please start a new upload.");
       }
 
-      if (session.userId !== String(ctx.user.id)) {
+      if (session.userId !== ctx.user.id) {
         throw new Error("Unauthorized access to upload session");
       }
 
-      // Update last activity timestamp
-      session.lastActivity = Date.now();
+      // Ensure temp directory exists (may have been cleaned if server restarted)
+      if (session.tempDir && !fs.existsSync(session.tempDir)) {
+        fs.mkdirSync(session.tempDir, { recursive: true });
+      }
 
       // Decode base64 chunk and write to temp file
       const chunkBuffer = Buffer.from(input.chunkData, "base64");
-      const chunkPath = path.join(session.tempDir, `chunk-${input.chunkIndex.toString().padStart(6, '0')}`);
+      const chunkPath = path.join(session.tempDir!, `chunk-${input.chunkIndex.toString().padStart(6, '0')}`);
       
       fs.writeFileSync(chunkPath, chunkBuffer);
-      session.receivedChunks.add(input.chunkIndex);
-
-      const progress = Math.round((session.receivedChunks.size / session.metadata.totalChunks) * 100);
       
-      console.log(
-        `[LargeUpload] Session ${input.sessionId}: chunk ${input.chunkIndex + 1}/${session.metadata.totalChunks} (${progress}%)`
-      );
+      // Update received chunks in database
+      const receivedChunks = [...(session.receivedChunks || [])];
+      if (!receivedChunks.includes(input.chunkIndex)) {
+        receivedChunks.push(input.chunkIndex);
+      }
+      
+      await database
+        .update(uploadSessions)
+        .set({ 
+          receivedChunks,
+          lastActivity: new Date(),
+        })
+        .where(eq(uploadSessions.id, input.sessionId));
+
+      const progress = Math.round((receivedChunks.length / session.totalChunks) * 100);
+      
+      if (receivedChunks.length % 10 === 0 || receivedChunks.length === session.totalChunks) {
+        console.log(
+          `[LargeUpload] Session ${input.sessionId}: chunk ${input.chunkIndex + 1}/${session.totalChunks} (${progress}%)`
+        );
+      }
 
       return {
         success: true,
-        receivedChunks: session.receivedChunks.size,
-        totalChunks: session.metadata.totalChunks,
+        receivedChunks: receivedChunks.length,
+        totalChunks: session.totalChunks,
         progress,
       };
     }),
@@ -160,18 +194,27 @@ export const largeFileUploadRouter = router({
   // Check upload progress
   getUploadProgress: protectedProcedure
     .input(z.object({ sessionId: z.string() }))
-    .query(({ input, ctx }) => {
-      const session = uploadSessions.get(input.sessionId);
+    .query(async ({ input }) => {
+      const database = await db.getDb();
+      if (!database) return { found: false, progress: 0, receivedChunks: 0, totalChunks: 0 };
+      
+      const sessions = await database
+        .select()
+        .from(uploadSessions)
+        .where(eq(uploadSessions.id, input.sessionId));
+      
+      const session = sessions[0];
       
       if (!session) {
         return { found: false, progress: 0, receivedChunks: 0, totalChunks: 0 };
       }
 
+      const receivedCount = (session.receivedChunks || []).length;
       return {
         found: true,
-        progress: Math.round((session.receivedChunks.size / session.metadata.totalChunks) * 100),
-        receivedChunks: session.receivedChunks.size,
-        totalChunks: session.metadata.totalChunks,
+        progress: Math.round((receivedCount / session.totalChunks) * 100),
+        receivedChunks: receivedCount,
+        totalChunks: session.totalChunks,
       };
     }),
 
@@ -179,36 +222,50 @@ export const largeFileUploadRouter = router({
   finalizeLargeUpload: protectedProcedure
     .input(z.object({ sessionId: z.string() }))
     .mutation(async ({ input, ctx }) => {
-      const session = uploadSessions.get(input.sessionId);
+      const database = await db.getDb();
+      if (!database) throw new Error("Database not available");
+      
+      const sessions = await database
+        .select()
+        .from(uploadSessions)
+        .where(and(
+          eq(uploadSessions.id, input.sessionId),
+          eq(uploadSessions.status, "active")
+        ));
+      
+      const session = sessions[0];
       
       if (!session) {
         throw new Error("Upload session not found or expired");
       }
 
-      if (session.userId !== String(ctx.user.id)) {
+      if (session.userId !== ctx.user.id) {
         throw new Error("Unauthorized access to upload session");
       }
 
+      const receivedChunks = session.receivedChunks || [];
+
       // Verify all chunks received
-      if (session.receivedChunks.size !== session.metadata.totalChunks) {
+      if (receivedChunks.length !== session.totalChunks) {
+        const receivedSet = new Set(receivedChunks);
         const missing = [];
-        for (let i = 0; i < session.metadata.totalChunks; i++) {
-          if (!session.receivedChunks.has(i)) {
+        for (let i = 0; i < session.totalChunks; i++) {
+          if (!receivedSet.has(i)) {
             missing.push(i);
-            if (missing.length >= 10) break; // Limit to first 10 missing
+            if (missing.length >= 10) break;
           }
         }
         throw new Error(`Missing chunks: ${missing.join(', ')}${missing.length >= 10 ? '...' : ''}`);
       }
 
-      console.log(`[LargeUpload] Session ${input.sessionId}: combining ${session.metadata.totalChunks} chunks`);
+      console.log(`[LargeUpload] Session ${input.sessionId}: combining ${session.totalChunks} chunks`);
 
       // Combine chunks into a single file
-      const combinedPath = path.join(session.tempDir, 'combined');
+      const combinedPath = path.join(session.tempDir!, 'combined');
       const writeStream = fs.createWriteStream(combinedPath);
 
-      for (let i = 0; i < session.metadata.totalChunks; i++) {
-        const chunkPath = path.join(session.tempDir, `chunk-${i.toString().padStart(6, '0')}`);
+      for (let i = 0; i < session.totalChunks; i++) {
+        const chunkPath = path.join(session.tempDir!, `chunk-${i.toString().padStart(6, '0')}`);
         const chunkData = fs.readFileSync(chunkPath);
         writeStream.write(chunkData);
         // Delete chunk after reading to free up space
@@ -230,28 +287,27 @@ export const largeFileUploadRouter = router({
       // Generate unique file key
       const timestamp = Date.now();
       const randomSuffix = Math.random().toString(36).substring(2, 8);
-      const fileKey = `user-${ctx.user.id}/videos/${timestamp}-${randomSuffix}-${session.metadata.filename}`;
+      const fileKey = `user-${ctx.user.id}/videos/${timestamp}-${randomSuffix}-${session.filename}`;
 
       // Upload to S3
-      const { url } = await storagePut(fileKey, completeFile, session.metadata.mimeType);
+      const { url } = await storagePut(fileKey, completeFile, session.mimeType);
 
       console.log(`[LargeUpload] Uploaded to S3: ${fileKey}`);
 
       // Create file record in database
-      // createFile returns the insertId directly (a number), not an object
       const fileId = await db.createFile({
         userId: ctx.user.id,
         fileKey,
         url,
-        filename: session.metadata.filename,
-        mimeType: session.metadata.mimeType,
-        fileSize: session.metadata.totalSize,
-        title: session.metadata.title,
-        description: session.metadata.description,
+        filename: session.filename,
+        mimeType: session.mimeType,
+        fileSize: session.totalSize,
+        title: session.title,
+        description: session.description,
       });
 
       // Create video record if this is a video file
-      const isVideo = session.metadata.mimeType.startsWith('video/');
+      const isVideo = session.mimeType.startsWith('video/');
       let videoId: number | undefined;
       
       if (isVideo) {
@@ -260,12 +316,12 @@ export const largeFileUploadRouter = router({
           fileId,
           fileKey,
           url,
-          filename: session.metadata.filename,
-          title: session.metadata.title || session.metadata.filename,
-          description: session.metadata.description,
+          filename: session.filename,
+          title: session.title || session.filename,
+          description: session.description,
           duration: 0,
-          width: session.metadata.width,
-          height: session.metadata.height,
+          width: session.width ?? undefined,
+          height: session.height ?? undefined,
           exportStatus: 'draft',
         });
         console.log(`[LargeUpload] Created video record, video ID: ${videoId}`);
@@ -273,12 +329,19 @@ export const largeFileUploadRouter = router({
 
       // Clean up temp directory
       try {
-        fs.rmSync(session.tempDir, { recursive: true, force: true });
+        if (session.tempDir) {
+          fs.rmSync(session.tempDir, { recursive: true, force: true });
+        }
       } catch (e) {
         console.error(`[LargeUpload] Failed to clean temp dir:`, e);
       }
       
-      uploadSessions.delete(input.sessionId);
+      // Mark session as completed
+      await database
+        .update(uploadSessions)
+        .set({ status: "completed" })
+        .where(eq(uploadSessions.id, input.sessionId));
+      
       console.log(`[LargeUpload] Upload complete, file ID: ${fileId}`);
 
       return {
@@ -294,18 +357,31 @@ export const largeFileUploadRouter = router({
   cancelLargeUpload: protectedProcedure
     .input(z.object({ sessionId: z.string() }))
     .mutation(async ({ input }) => {
-      const session = uploadSessions.get(input.sessionId);
+      const database = await db.getDb();
+      if (!database) return { success: true };
+      
+      const sessions = await database
+        .select()
+        .from(uploadSessions)
+        .where(eq(uploadSessions.id, input.sessionId));
+      
+      const session = sessions[0];
       
       if (session) {
         // Clean up temp directory
-        try {
-          if (fs.existsSync(session.tempDir)) {
-            fs.rmSync(session.tempDir, { recursive: true, force: true });
+        if (session.tempDir) {
+          try {
+            if (fs.existsSync(session.tempDir)) {
+              fs.rmSync(session.tempDir, { recursive: true, force: true });
+            }
+          } catch (e) {
+            console.error(`[LargeUpload] Failed to clean temp dir:`, e);
           }
-        } catch (e) {
-          console.error(`[LargeUpload] Failed to clean temp dir:`, e);
         }
-        uploadSessions.delete(input.sessionId);
+        await database
+          .update(uploadSessions)
+          .set({ status: "cancelled" })
+          .where(eq(uploadSessions.id, input.sessionId));
       }
       
       console.log(`[LargeUpload] Session ${input.sessionId} cancelled`);

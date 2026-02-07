@@ -5458,6 +5458,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix upload progress stuck at 0% even though bytes are transferring (70MB/675MB but shows 0%)
 
 ## Bug Fixes - Feb 7, 2026 (Large Video Upload Failure)
-- [ ] Fix large file upload session expiring mid-upload ("Upload session not found or expired" at chunk 42 of 675MB file)
-- [ ] Fix storageStats.getStats 500 error (database query failure)
-- [ ] Fix upload progress showing 0 B / 675MB instead of actual bytes uploaded
+- [x] Fix large file upload session expiring mid-upload ("Upload session not found or expired" at chunk 42 of 675MB file)
+- [x] Fix storageStats.getStats 500 error (database query failure)
+- [x] Fix upload progress showing 0 B / 675MB instead of actual bytes uploaded
+- [x] Fix chunk size mismatch for large files (was using 5MB chunks instead of 10MB for large file router)
+- [x] Fix totalChunks calculation when resuming large file uploads

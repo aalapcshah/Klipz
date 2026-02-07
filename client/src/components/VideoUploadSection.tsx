@@ -214,11 +214,14 @@ export function VideoUploadSection() {
         }
         updateUploadSessionId(uploadId, sessionId);
       } else {
-        totalChunks = Math.ceil(fileToUpload.size / CHUNK_SIZE);
+        // When resuming, use the correct chunk size based on file size
+        const chunkSizeForCalc = isLargeFile ? (10 * 1024 * 1024) : CHUNK_SIZE;
+        totalChunks = Math.ceil(fileToUpload.size / chunkSizeForCalc);
       }
       
       // Upload chunks
       const progressOffset = 0;
+      const activeChunkSize = isLargeFile ? (10 * 1024 * 1024) : CHUNK_SIZE;
       for (let i = startChunk; i < totalChunks; i++) {
         // Check if paused or cancelled
         if (abortController?.signal.aborted) {
@@ -226,8 +229,8 @@ export function VideoUploadSection() {
           return;
         }
 
-        const start = i * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, fileToUpload.size);
+        const start = i * activeChunkSize;
+        const end = Math.min(start + activeChunkSize, fileToUpload.size);
         const chunkData = await readChunk(fileToUpload, start, end);
 
         let retries = 0;
@@ -263,7 +266,7 @@ export function VideoUploadSection() {
         // Update progress (account for compression phase if applicable)
         const uploadProgress = ((i + 1) / totalChunks) * (100 - progressOffset);
         const progress = progressOffset + uploadProgress;
-        const uploadedBytes = Math.min((i + 1) * CHUNK_SIZE, fileToUpload.size);
+        const uploadedBytes = Math.min((i + 1) * activeChunkSize, fileToUpload.size);
         updateUploadProgress(uploadId, progress, uploadedBytes);
       }
 
