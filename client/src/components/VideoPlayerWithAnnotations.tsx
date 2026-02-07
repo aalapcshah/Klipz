@@ -37,15 +37,17 @@ import { GreenScreenChromaKey } from "./GreenScreenChromaKey";
 interface VideoPlayerWithAnnotationsProps {
   fileId: number;
   videoUrl: string;
+  initialTime?: number;
 }
 
-export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWithAnnotationsProps) {
+export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime }: VideoPlayerWithAnnotationsProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
   const drawingCanvasComponentRef = useRef<VideoDrawingCanvasHandle>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [currentTime, setCurrentTime] = useState(initialTime || 0);
+  const initialTimeApplied = useRef(false);
   const [duration, setDuration] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(() => {
     const saved = localStorage.getItem('videoPlaybackSpeed');
@@ -301,6 +303,22 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl }: VideoPlayerWith
     // Also try to get duration immediately if video is already loaded
     if (video.readyState >= 1 && isFinite(video.duration) && video.duration > 0) {
       setDuration(video.duration);
+    }
+
+    // Apply initialTime when video is ready
+    if (initialTime && !initialTimeApplied.current) {
+      const applyInitialTime = () => {
+        if (video.readyState >= 1) {
+          video.currentTime = initialTime;
+          setCurrentTime(initialTime);
+          initialTimeApplied.current = true;
+        }
+      };
+      if (video.readyState >= 1) {
+        applyInitialTime();
+      } else {
+        video.addEventListener('loadedmetadata', applyInitialTime, { once: true });
+      }
     }
     
     // Fallback polling for duration if events don't fire

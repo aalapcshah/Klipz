@@ -4,7 +4,10 @@
 
 import { z } from "zod";
 import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
-import { getAllTags, getTagRelationships, getFilesForUser, getFileTagCoOccurrenceEdges, getFileToTagEdges } from "../db";
+import { getAllTags, getTagRelationships, getFilesForUser, getFileTagCoOccurrenceEdges, getFileToTagEdges, getAllVisualCaptionsByUser, getVisualCaptionByFileId } from "../db";
+import { getDb } from "../db";
+import { visualCaptions, files as filesTable } from "../../drizzle/schema";
+import { eq, and, sql } from "drizzle-orm";
 import {
   buildAllTagRelationships,
   getRelatedTags,
@@ -240,6 +243,108 @@ export const knowledgeGraphRouter = router({
         metadata: { fileId: file.id, fileType: file.fileType },
       }));
       
+      // ===== ENTITY NODES FROM VISUAL CAPTIONS =====
+      // Extract entities from completed visual captions and add them as nodes
+      const entityNodeMap = new Map<string, { count: number; fileIds: number[] }>();
+      const entityEdges: Array<{ source: string; target: string; weight: number; type: string }> = [];
+      
+      try {
+        const drizzle = await getDb();
+        if (drizzle) {
+          // Get all completed visual captions for this user
+          const captionRecords = await drizzle
+            .select({
+              fileId: visualCaptions.fileId,
+              captions: visualCaptions.captions,
+            })
+            .from(visualCaptions)
+            .where(
+              and(
+                eq(visualCaptions.userId, ctx.user.id),
+                eq(visualCaptions.status, "completed")
+              )
+            );
+          
+          // Extract entities from each caption record
+          for (const record of captionRecords) {
+            const captions = record.captions as Array<{
+              timestamp: number;
+              caption: string;
+              entities: string[];
+              confidence: number;
+            }> | null;
+            
+            if (!captions || !Array.isArray(captions)) continue;
+            
+            const fileEntitySet = new Set<string>();
+            for (const caption of captions) {
+              if (caption.entities && Array.isArray(caption.entities)) {
+                for (const entity of caption.entities) {
+                  const normalized = entity.trim();
+                  if (!normalized || normalized.length < 2) continue;
+                  fileEntitySet.add(normalized);
+                  
+                  const existing = entityNodeMap.get(normalized);
+                  if (existing) {
+                    if (!existing.fileIds.includes(record.fileId)) {
+                      existing.fileIds.push(record.fileId);
+                    }
+                    existing.count++;
+                  } else {
+                    entityNodeMap.set(normalized, { count: 1, fileIds: [record.fileId] });
+                  }
+                }
+              }
+            }
+            
+            // Create entity-to-file edges
+            for (const entity of Array.from(fileEntitySet)) {
+              entityEdges.push({
+                source: `entity-${entity}`,
+                target: `file-${record.fileId}`,
+                weight: 0.7,
+                type: 'entity-appears-in',
+              });
+            }
+          }
+          
+          // Create entity-to-entity co-occurrence edges (entities appearing in the same video)
+          const entityList = Array.from(entityNodeMap.entries());
+          for (let i = 0; i < entityList.length && i < 100; i++) {
+            for (let j = i + 1; j < entityList.length && j < 100; j++) {
+              const [entityA, dataA] = entityList[i];
+              const [entityB, dataB] = entityList[j];
+              // Check if they share any files
+              const sharedFiles = dataA.fileIds.filter(f => dataB.fileIds.includes(f));
+              if (sharedFiles.length > 0) {
+                const weight = Math.min(1, sharedFiles.length * 0.3);
+                entityEdges.push({
+                  source: `entity-${entityA}`,
+                  target: `entity-${entityB}`,
+                  weight,
+                  type: 'entity-co-occurrence',
+                });
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[KnowledgeGraph] Error loading entity nodes:', err);
+      }
+      
+      // Build entity nodes (limit to top 50 by occurrence count)
+      const sortedEntities = Array.from(entityNodeMap.entries())
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 50);
+      
+      const entityNodes = sortedEntities.map(([name, data]) => ({
+        id: `entity-${name}`,
+        type: 'entity' as const,
+        label: name,
+        weight: data.count,
+        metadata: { videoCount: data.fileIds.length },
+      }));
+      
       // Build edges from tag relationships table
       const storedEdges = tagRelationships.map((rel: { sourceTagId: number; targetTagId: number; similarity: number; relationshipType: string }) => ({
         source: `tag-${rel.sourceTagId}`,
@@ -274,14 +379,33 @@ export const knowledgeGraphRouter = router({
         }
       }
       
+      // Add entity edges (only for entities that made it into the top 50)
+      const entityNodeIds = new Set(entityNodes.map(n => n.id));
+      for (const edge of entityEdges) {
+        if (entityNodeIds.has(edge.source) || entityNodeIds.has(edge.target)) {
+          // Only add if at least one end is an entity node that exists
+          const sourceExists = entityNodeIds.has(edge.source) || edgeMap.has(edge.source) || 
+            [...tagNodes, ...fileNodes].some(n => n.id === edge.source);
+          const targetExists = entityNodeIds.has(edge.target) || edgeMap.has(edge.target) || 
+            [...tagNodes, ...fileNodes].some(n => n.id === edge.target);
+          if (sourceExists && targetExists) {
+            const key = [edge.source, edge.target].sort().join('-');
+            if (!edgeMap.has(key)) {
+              edgeMap.set(key, edge);
+            }
+          }
+        }
+      }
+      
       const edges = Array.from(edgeMap.values());
       
       return {
-        nodes: [...tagNodes, ...fileNodes],
+        nodes: [...tagNodes, ...fileNodes, ...entityNodes],
         edges,
         stats: {
           totalTags: tags.length,
           totalFiles: files.length,
+          totalEntities: entityNodes.length,
           totalRelationships: edges.length,
         },
       };

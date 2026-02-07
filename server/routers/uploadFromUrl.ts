@@ -891,7 +891,7 @@ export const uploadFromUrlRouter = router({
     }),
 });
 
-// Handle YouTube upload - fetch transcript and save as text file
+// Handle YouTube upload - save thumbnail as image file with embedded video metadata
 async function handleYouTubeUpload(
   url: string,
   videoId: string,
@@ -908,79 +908,30 @@ async function handleYouTubeUpload(
 
   // Try to fetch transcript
   const transcriptResult = await fetchYouTubeTranscript(videoId);
+  const transcript = transcriptResult?.transcript || null;
 
-  if (transcriptResult) {
-    // Successfully got transcript - save as text file
-    const { transcript } = transcriptResult;
-    
-    // Create formatted transcript content
-    const transcriptContent = `YouTube Video Transcript
-========================
-
-Title: ${videoTitle}
-Author: ${authorName}
-URL: ${url}
-Video ID: ${videoId}
-Extracted: ${new Date().toISOString()}
-
-========================
-TRANSCRIPT
-========================
-
-${transcript}
-`;
-
-    const buffer = Buffer.from(transcriptContent, "utf-8");
-    const safeTitle = (title || videoTitle)
-      .replace(/[^a-zA-Z0-9-_\s]/g, "")
-      .substring(0, 50)
-      .trim() || "youtube-transcript";
-    const randomSuffix = Math.random().toString(36).substring(2, 10);
-    const filename = `${safeTitle}-transcript.txt`;
-    const fileKey = `${userId}-youtube/${filename}-${randomSuffix}`;
-
-    const { url: s3Url } = await storagePut(fileKey, buffer, "text/plain");
-
-    console.log(`[UploadFromUrl] YouTube transcript uploaded: ${s3Url}`);
-
-    return {
-      success: true,
-      url: s3Url,
-      fileKey,
-      filename,
-      mimeType: "text/plain",
-      fileSize: buffer.length,
-      title: title || `${videoTitle} - Transcript`,
-      description: description || `YouTube video transcript\n\nVideo: ${videoTitle}\nAuthor: ${authorName}\nOriginal URL: ${url}`,
-      metadata: {
-        platform: "youtube",
-        originalUrl: url,
-        videoId,
-        authorName,
-        hasTranscript: true,
-      },
-    };
-  }
-
-  // Fallback: No transcript available - save as rich content file with thumbnail
-  console.log(`[UploadFromUrl] No YouTube captions available, creating rich content file`);
-  
-  // Always try to download and upload thumbnail to S3
+  // Always try to download and upload thumbnail to S3 as the primary file
+  let thumbnailBuffer: Buffer | null = null;
   let thumbnailS3Url: string | undefined;
+  let thumbnailFileKey: string | undefined;
+  let thumbnailFileSize = 0;
+
   if (metadata?.thumbnailUrl) {
     try {
-      // Try direct fetch of the thumbnail
       const thumbResponse = await fetch(metadata.thumbnailUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Klipz/1.0)' },
       });
       if (thumbResponse.ok) {
-        const thumbBuffer = Buffer.from(await thumbResponse.arrayBuffer());
-        if (thumbBuffer.length > 1000) { // Ensure it's a real image, not a placeholder
-          const thumbRandomSuffix = Math.random().toString(36).substring(2, 10);
-          const thumbFileKey = `${userId}-youtube/thumb-${videoId}-${thumbRandomSuffix}.jpg`;
-          const thumbResult = await storagePut(thumbFileKey, thumbBuffer, "image/jpeg");
+        thumbnailBuffer = Buffer.from(await thumbResponse.arrayBuffer());
+        if (thumbnailBuffer.length > 1000) {
+          const randomSuffix = Math.random().toString(36).substring(2, 10);
+          thumbnailFileKey = `${userId}-youtube/youtube-${videoId}-${randomSuffix}.jpg`;
+          const thumbResult = await storagePut(thumbnailFileKey, thumbnailBuffer, "image/jpeg");
           thumbnailS3Url = thumbResult.url;
+          thumbnailFileSize = thumbnailBuffer.length;
           console.log(`[UploadFromUrl] YouTube thumbnail uploaded to S3: ${thumbnailS3Url}`);
+        } else {
+          thumbnailBuffer = null;
         }
       }
     } catch (error) {
@@ -988,69 +939,89 @@ ${transcript}
     }
   }
 
-  // Build a rich text content file (never save as bare JSON reference)
-  const contentParts: string[] = [
-    `YouTube Video Content`,
-    `========================`,
-    ``,
-    `Platform: Youtube`,
-    `Creator: ${authorName}`,
-    `Original URL: ${url}`,
-    `Video ID: ${videoId}`,
-    `Extracted: ${new Date().toISOString()}`,
-  ];
-
-  if (thumbnailS3Url) {
-    contentParts.push(`Thumbnail: ${thumbnailS3Url}`);
+  // Build description with video info
+  const descParts: string[] = [];
+  if (videoTitle) descParts.push(videoTitle);
+  descParts.push(`Video by ${authorName}`);
+  if (metadata?.authorUrl) descParts.push(`Channel: ${metadata.authorUrl}`);
+  descParts.push(`Original URL: ${url}`);
+  if (transcript) {
+    descParts.push(`\n--- Transcript ---\n${transcript}`);
   }
 
-  contentParts.push(
-    ``,
-    `--- Caption ---`,
-    `${videoTitle}`,
-    ``,
-    `Video by ${authorName}`,
-  );
-
-  if (metadata?.authorUrl) {
-    contentParts.push(`Channel: ${metadata.authorUrl}`);
-  }
-
-  contentParts.push(
-    ``,
-    `Note: No transcript/captions available for this video.`,
-  );
-
-  const contentText = contentParts.join('\n');
-  const buffer = Buffer.from(contentText, "utf-8");
   const safeTitle = (title || videoTitle)
     .replace(/[^a-zA-Z0-9-_\s]/g, "")
     .substring(0, 50)
-    .trim() || "youtube-content";
+    .trim() || "youtube-video";
+
+  // If we got a thumbnail, save as image file (much better UX)
+  if (thumbnailS3Url && thumbnailFileKey) {
+    const filename = `${safeTitle}.jpg`;
+    console.log(`[UploadFromUrl] YouTube saved as thumbnail image: ${thumbnailS3Url}`);
+
+    return {
+      success: true,
+      url: thumbnailS3Url,
+      fileKey: thumbnailFileKey,
+      filename,
+      mimeType: "image/jpeg",
+      fileSize: thumbnailFileSize,
+      title: title || videoTitle,
+      description: description || descParts.join('\n'),
+      metadata: {
+        platform: "youtube",
+        originalUrl: url,
+        videoId,
+        authorName,
+        authorUrl: metadata?.authorUrl,
+        hasTranscript: !!transcript,
+        thumbnailUrl: thumbnailS3Url,
+        embedUrl: `https://www.youtube.com/embed/${videoId}`,
+      },
+    };
+  }
+
+  // Fallback: no thumbnail available - save as JSON reference
+  console.log(`[UploadFromUrl] No thumbnail available, saving as reference`);
+  const referenceContent = JSON.stringify({
+    platform: "youtube",
+    originalUrl: url,
+    videoId,
+    title: videoTitle,
+    author: authorName,
+    authorUrl: metadata?.authorUrl,
+    embedUrl: `https://www.youtube.com/embed/${videoId}`,
+    hasTranscript: !!transcript,
+    transcript: transcript || undefined,
+    savedAt: new Date().toISOString(),
+  }, null, 2);
+
+  const buffer = Buffer.from(referenceContent, "utf-8");
   const randomSuffix = Math.random().toString(36).substring(2, 10);
-  const filename = `${safeTitle}-content.txt`;
+  const filename = `${safeTitle}.json`;
   const fileKey = `${userId}-youtube/${filename}-${randomSuffix}`;
 
-  const { url: s3Url } = await storagePut(fileKey, buffer, "text/plain");
+  const { url: s3Url } = await storagePut(fileKey, buffer, "application/json");
 
-  console.log(`[UploadFromUrl] YouTube content file uploaded: ${s3Url}`);
+  console.log(`[UploadFromUrl] YouTube reference file uploaded: ${s3Url}`);
 
   return {
     success: true,
     url: s3Url,
     fileKey,
     filename,
-    mimeType: "text/plain",
+    mimeType: "application/json",
     fileSize: buffer.length,
     title: title || videoTitle,
-    description: description || contentText,
+    description: description || descParts.join('\n'),
     metadata: {
       platform: "youtube",
       originalUrl: url,
       videoId,
       authorName,
-      hasTranscript: false,
-      thumbnailUrl: thumbnailS3Url || metadata?.thumbnailUrl,
+      authorUrl: metadata?.authorUrl,
+      hasTranscript: !!transcript,
+      embedUrl: `https://www.youtube.com/embed/${videoId}`,
     },
   };
 }

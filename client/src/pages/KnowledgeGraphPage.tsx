@@ -513,8 +513,10 @@ export default function KnowledgeGraphPage() {
           label: nodeData.label,
           type: nodeData.type as "tag" | "file" | "entity",
           source: "internal",
-          size: nodeData.type === "tag" ? Math.min(20 + (nodeData.weight || 1) * 3, 40) : 15,
+          size: nodeData.type === "tag" ? Math.min(20 + (nodeData.weight || 1) * 3, 40) : 
+                 nodeData.type === "entity" ? Math.min(15 + (nodeData.weight || 1) * 2, 35) : 15,
           color: nodeData.type === "tag" ? NODE_TYPE_COLORS.tag : 
+                 nodeData.type === "entity" ? NODE_TYPE_COLORS.entity :
                  (fileType ? FILE_TYPE_COLORS[fileType] : NODE_TYPE_COLORS.file),
           fileType,
           mimeType: nodeData.metadata?.mimeType,
@@ -1354,7 +1356,7 @@ export default function KnowledgeGraphPage() {
       {stats && (
         <div className="space-y-2 pt-3 border-t">
           <Label className="text-sm font-semibold">Statistics</Label>
-          <div className="grid grid-cols-4 gap-1">
+          <div className="grid grid-cols-5 gap-1">
             <div className="text-center p-2 bg-muted rounded">
               <div className="text-lg font-bold">{stats.totalTags || 0}</div>
               <div className="text-[10px] text-muted-foreground">Tags</div>
@@ -1362,6 +1364,10 @@ export default function KnowledgeGraphPage() {
             <div className="text-center p-2 bg-muted rounded">
               <div className="text-lg font-bold">{stats.totalFiles || 0}</div>
               <div className="text-[10px] text-muted-foreground">Files</div>
+            </div>
+            <div className="text-center p-2 bg-muted rounded">
+              <div className="text-lg font-bold text-purple-400">{(stats as any).totalEntities || 0}</div>
+              <div className="text-[10px] text-muted-foreground">Entities</div>
             </div>
             <div className="text-center p-2 bg-muted rounded">
               <div className="text-lg font-bold">{filteredEdges.length}</div>

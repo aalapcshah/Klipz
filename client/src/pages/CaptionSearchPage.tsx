@@ -5,6 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Search,
   Video,
   Clock,
@@ -12,8 +18,10 @@ import {
   Loader2,
   Captions,
   ArrowRight,
+  Play,
 } from "lucide-react";
 import { toast } from "sonner";
+import { FileDetailDialog } from "@/components/files/FileDetailDialog";
 
 interface CaptionSearchResult {
   fileId: number;
@@ -51,6 +59,8 @@ function highlightMatch(text: string, query: string): React.ReactNode {
 export default function CaptionSearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
+  const [selectedFileId, setSelectedFileId] = useState<number | null>(null);
+  const [selectedTimestamp, setSelectedTimestamp] = useState<number | undefined>(undefined);
 
   // Support pre-filled search from URL query parameter (e.g., /caption-search?q=IRS)
   useEffect(() => {
@@ -103,6 +113,16 @@ export default function CaptionSearchPage() {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleSearch();
+  };
+
+  const handleOpenVideo = (fileId: number, timestamp: number) => {
+    setSelectedFileId(fileId);
+    setSelectedTimestamp(timestamp);
+  };
+
+  const handleCloseVideo = () => {
+    setSelectedFileId(null);
+    setSelectedTimestamp(undefined);
   };
 
   return (
@@ -195,16 +215,10 @@ export default function CaptionSearchPage() {
                   <div
                     key={idx}
                     className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group"
-                    onClick={() => {
-                      // Navigate to video at this timestamp
-                      toast.info(
-                        `Opening video at ${formatTime(result.timestamp)}`,
-                        { description: "Feature coming soon" }
-                      );
-                    }}
+                    onClick={() => handleOpenVideo(result.fileId, result.timestamp)}
                   >
                     <div className="flex items-center gap-1 text-xs text-primary font-mono bg-primary/10 px-2 py-1 rounded shrink-0">
-                      <Clock className="h-3 w-3" />
+                      <Play className="h-3 w-3" />
                       {formatTime(result.timestamp)}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -248,6 +262,16 @@ export default function CaptionSearchPage() {
           </p>
         </div>
       )}
+
+      {/* Video Player Dialog - opens video at the clicked timestamp */}
+      <FileDetailDialog
+        fileId={selectedFileId}
+        open={selectedFileId !== null}
+        onOpenChange={(open) => {
+          if (!open) handleCloseVideo();
+        }}
+        initialTime={selectedTimestamp}
+      />
     </div>
   );
 }

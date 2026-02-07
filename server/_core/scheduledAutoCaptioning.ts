@@ -2,6 +2,7 @@ import { getDb } from "../db";
 import { visualCaptions, files } from "../../drizzle/schema";
 import { eq, and, sql, notInArray, isNull } from "drizzle-orm";
 import { invokeLLM } from "./llm";
+import { notifyOwner } from "./notification";
 import * as db from "../db";
 
 const BATCH_SIZE = 3; // Process 3 videos at a time to avoid overloading LLM API
@@ -247,6 +248,30 @@ export async function processScheduledAutoCaptioning(): Promise<{
     console.log(
       `[ScheduledAutoCaptioning] Completed: ${result.captioned} captioned, ${result.failed} failed, ${result.totalCaptions} total captions`
     );
+
+    // Send notification to owner with results summary
+    if (result.processed > 0) {
+      try {
+        const lines: string[] = [];
+        lines.push(`Processed ${result.processed} video(s):`);
+        if (result.captioned > 0) lines.push(`  ✅ ${result.captioned} successfully captioned (${result.totalCaptions} total captions generated)`);
+        if (result.failed > 0) lines.push(`  ❌ ${result.failed} failed`);
+        if (result.errors.length > 0) {
+          lines.push("");
+          lines.push("Errors:");
+          result.errors.slice(0, 5).forEach(err => lines.push(`  • ${err}`));
+          if (result.errors.length > 5) lines.push(`  ... and ${result.errors.length - 5} more`);
+        }
+
+        await notifyOwner({
+          title: `Auto-Captioning Complete: ${result.captioned}/${result.processed} videos captioned`,
+          content: lines.join("\n"),
+        });
+      } catch (notifyError) {
+        console.warn("[ScheduledAutoCaptioning] Failed to send notification:", notifyError);
+      }
+    }
+
     return result;
   } catch (error) {
     console.error("[ScheduledAutoCaptioning] Error:", error);

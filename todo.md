@@ -5326,3 +5326,26 @@ Note: The application already has extensive annotation features including voice 
 - [x] Backend: triggerAutoCaptioning endpoint for manual trigger of auto-captioning
 - [x] Frontend: Scheduled Auto-Captioning status card on Activity Dashboard with counts and manual trigger button
 - [x] Tests: 23 vitest tests for videoVisualCaptions router (5 new tests for auto-captioning status and trigger)
+
+## Feature - Click-to-Navigate, Auto-Caption Notifications, Entity Graph - Feb 7, 2026
+- [x] Frontend: Click caption search result opens FileDetailDialog with video player at exact timestamp
+- [x] Frontend: VideoPlayerWithAnnotations accepts initialTime prop and seeks to it on load
+- [x] Frontend: FileDetailDialog passes initialTime to VideoPlayerWithAnnotations
+- [x] Frontend: Caption search results show Play icon instead of Clock for clickable affordance
+- [x] Backend: Auto-captioning completion notification via notifyOwner with summary stats
+- [x] Backend: Notification includes counts (captioned/processed) and error details (up to 5)
+- [x] Backend: Entity extraction from visual captions for Knowledge Graph integration
+- [x] Backend: getGraphData endpoint extracts entities from completed visual captions
+- [x] Backend: Entity-to-file edges (entity-appears-in) and entity-to-entity co-occurrence edges
+- [x] Frontend: Entity nodes rendered in Knowledge Graph with purple color and scaled sizing
+- [x] Frontend: Entity count displayed in Knowledge Graph statistics panel
+- [x] Frontend: Entity filter option available in Node Type dropdown
+- [x] Tests: All 23 videoVisualCaptions tests pass, TypeScript compiles cleanly
+
+## Bug Fix - YouTube Link Upload Not Working - Feb 7, 2026
+- [x] Root cause: handleYouTubeUpload was saving text/plain metadata files instead of usable content
+- [x] Fix: YouTube uploads now save the video thumbnail as image/jpeg file (visible in Files grid)
+- [x] Fix: extractedMetadata includes videoId and embedUrl for embedded YouTube player
+- [x] Frontend: FileDetailDialog now shows embedded YouTube player (iframe) for YouTube files
+- [x] Frontend: YouTube video can be watched directly in the file detail view
+- [x] Fallback: If no thumbnail available, saves as JSON reference instead of bare text

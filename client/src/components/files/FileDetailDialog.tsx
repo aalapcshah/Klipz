@@ -37,6 +37,7 @@ interface FileDetailDialogProps {
   fileId: number | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialTime?: number;
 }
 
 interface DeletedFile {
@@ -54,6 +55,7 @@ export function FileDetailDialog({
   fileId,
   open,
   onOpenChange,
+  initialTime,
 }: FileDetailDialogProps) {
   const [newTagName, setNewTagName] = useState("");
   const [isAddingTag, setIsAddingTag] = useState(false);
@@ -306,8 +308,40 @@ export function FileDetailDialog({
               )}
               
               {file.mimeType.startsWith("video/") && (
-                <VideoPlayerWithAnnotations fileId={file.id} videoUrl={file.url} />
+                <VideoPlayerWithAnnotations fileId={file.id} videoUrl={file.url} initialTime={initialTime} />
               )}
+
+              {/* YouTube Embedded Player */}
+              {(() => {
+                try {
+                  const meta = file.extractedMetadata ? JSON.parse(file.extractedMetadata) : null;
+                  if (meta?.platform === "youtube" && meta?.videoId) {
+                    return (
+                      <div className="space-y-3">
+                        <div className="rounded-lg overflow-hidden border border-border bg-black">
+                          <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                            <iframe
+                              src={`https://www.youtube.com/embed/${meta.videoId}`}
+                              title={file.title || 'YouTube Video'}
+                              className="absolute inset-0 w-full h-full"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                              allowFullScreen
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="#FF0000"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                          <span>YouTube Video</span>
+                          {meta.authorName && <span>by {meta.authorName}</span>}
+                        </div>
+                      </div>
+                    );
+                  }
+                } catch (e) {
+                  // Invalid metadata JSON
+                }
+                return null;
+              })()}
 
               {/* File Metadata */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
