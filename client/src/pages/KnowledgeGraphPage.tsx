@@ -6,8 +6,10 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
+import { FileDetailDialog } from "@/components/files/FileDetailDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -280,9 +282,14 @@ function clusterNodes(nodes: GraphNode[], edges: GraphEdge[], maxClusters: numbe
 }
 
 export default function KnowledgeGraphPage() {
+  const [, setLocation] = useLocation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>(0);
+  
+  // File detail dialog state
+  const [fileDetailId, setFileDetailId] = useState<number | null>(null);
+  const [fileDetailOpen, setFileDetailOpen] = useState(false);
   
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<GraphEdge[]>([]);
@@ -603,9 +610,11 @@ export default function KnowledgeGraphPage() {
       filtered = filtered.filter(n => n.cluster === focusedCluster);
     }
     
-    // Limit to maxNodes
+    // Limit to maxNodes - sort by size to keep the most important nodes
     if (filtered.length > maxNodes) {
-      filtered = filtered.slice(0, maxNodes);
+      filtered = filtered
+        .sort((a, b) => (b.size || 15) - (a.size || 15))
+        .slice(0, maxNodes);
     }
     
     return filtered;
@@ -748,20 +757,8 @@ export default function KnowledgeGraphPage() {
     ctx.translate(offset.x, offset.y);
     ctx.scale(zoom, zoom);
 
-    // Filter nodes
-    let filteredNodes = visibleNodes.filter((node) => {
-      if (nodeFilter !== "all" && node.type !== nodeFilter.slice(0, -1)) return false;
-      if (sourceFilter !== "all" && node.source !== sourceFilter) return false;
-      return true;
-    });
-
-    // Apply max nodes limit
-    if (filteredNodes.length > maxNodes) {
-      filteredNodes = filteredNodes
-        .sort((a, b) => (b.size || 15) - (a.size || 15))
-        .slice(0, maxNodes);
-    }
-
+    // Use visibleNodes directly - already filtered by nodeFilter, sourceFilter, focusedCluster, and maxNodes
+    const filteredNodes = visibleNodes;
     const filteredNodeIds = new Set(filteredNodes.map((n) => n.id));
 
     // Draw cluster backgrounds
@@ -985,6 +982,11 @@ export default function KnowledgeGraphPage() {
       });
 
       setHoveredNode(hovered || null);
+      
+      // Change cursor based on hover state
+      if (canvas) {
+        canvas.style.cursor = hovered ? 'pointer' : (isDragging ? 'grabbing' : 'grab');
+      }
     } catch (err) {
       console.error("Error in mouse move handler:", err);
     }
@@ -1002,6 +1004,38 @@ export default function KnowledgeGraphPage() {
       if (hoveredNode) {
         setSelectedNode(hoveredNode);
         saveToHistory();
+        
+        // Navigation actions based on node type
+        if (hoveredNode.type === 'file') {
+          // Extract numeric file ID from node id (format: "file-123")
+          const fileIdMatch = hoveredNode.id.match(/^file-(\d+)$/);
+          if (fileIdMatch) {
+            const numericId = parseInt(fileIdMatch[1], 10);
+            setFileDetailId(numericId);
+            setFileDetailOpen(true);
+            toast.info(`Opening file: ${hoveredNode.label}`);
+          }
+        } else if (hoveredNode.type === 'tag') {
+          // Show tag info toast with option to filter
+          toast.info(`Tag: ${hoveredNode.label}`, {
+            description: `${hoveredNode.fileCount || 0} files tagged. Click to filter files.`,
+            action: {
+              label: 'View Files',
+              onClick: () => {
+                // Navigate to files page - the search will filter by tag name
+                setLocation('/');
+                // Small delay to let navigation complete, then trigger search
+                setTimeout(() => {
+                  const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+                  if (searchInput) {
+                    searchInput.value = `tag:${hoveredNode.label}`;
+                    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                  }
+                }, 300);
+              },
+            },
+          });
+        }
       } else {
         // Check if clicking on a cluster background (for drill-down)
         if (showClusters && focusedCluster === null) {
@@ -1039,7 +1073,7 @@ export default function KnowledgeGraphPage() {
     } catch (err) {
       console.error("Error in mouse down handler:", err);
     }
-  }, [hoveredNode, zoom, offset, showClusters, focusedCluster, clusters, visibleNodes, saveToHistory]);
+  }, [hoveredNode, zoom, offset, showClusters, focusedCluster, clusters, visibleNodes, saveToHistory, setLocation]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -1682,6 +1716,13 @@ export default function KnowledgeGraphPage() {
         </div>
       </div>
       )}
+
+      {/* File Detail Dialog - opens when clicking a file node */}
+      <FileDetailDialog
+        fileId={fileDetailId}
+        open={fileDetailOpen}
+        onOpenChange={setFileDetailOpen}
+      />
     </div>
   );
 }
