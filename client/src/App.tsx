@@ -52,6 +52,7 @@ function Router() {
       <Route path="/settings" component={Dashboard} />
       <Route path="/upload-history" component={Dashboard} />
       <Route path="/knowledge-graph" component={Dashboard} />
+      <Route path="/caption-search" component={Dashboard} />
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/faq" component={FAQ} />

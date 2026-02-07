@@ -3534,3 +3534,98 @@ export async function deleteVisualCaptionFileMatches(videoFileId: number) {
     .delete(visualCaptionFileMatches)
     .where(eq(visualCaptionFileMatches.videoFileId, videoFileId));
 }
+
+// Search visual captions across all videos for a user
+export async function searchVisualCaptions(userId: number, searchQuery: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  // Get all visual captions for the user
+  const allCaptions = await db
+    .select({
+      id: visualCaptions.id,
+      fileId: visualCaptions.fileId,
+      captions: visualCaptions.captions,
+      status: visualCaptions.status,
+      createdAt: visualCaptions.createdAt,
+      filename: files.filename,
+      title: files.title,
+      url: files.url,
+      mimeType: files.mimeType,
+    })
+    .from(visualCaptions)
+    .innerJoin(files, eq(visualCaptions.fileId, files.id))
+    .where(
+      and(
+        eq(visualCaptions.userId, userId),
+        eq(visualCaptions.status, "completed")
+      )
+    );
+
+  // Search through captions JSON for matching text
+  const query = searchQuery.toLowerCase();
+  const results: Array<{
+    fileId: number;
+    filename: string;
+    title: string | null;
+    url: string;
+    mimeType: string;
+    timestamp: number;
+    caption: string;
+    entities: string[];
+    confidence: number;
+  }> = [];
+
+  for (const row of allCaptions) {
+    const captions = row.captions as Array<{
+      timestamp: number;
+      caption: string;
+      entities: string[];
+      confidence: number;
+    }>;
+    if (!captions) continue;
+
+    for (const cap of captions) {
+      const captionMatch = cap.caption.toLowerCase().includes(query);
+      const entityMatch = cap.entities.some((e) =>
+        e.toLowerCase().includes(query)
+      );
+      if (captionMatch || entityMatch) {
+        results.push({
+          fileId: row.fileId,
+          filename: row.filename,
+          title: row.title,
+          url: row.url,
+          mimeType: row.mimeType,
+          timestamp: cap.timestamp,
+          caption: cap.caption,
+          entities: cap.entities,
+          confidence: cap.confidence,
+        });
+      }
+    }
+  }
+
+  return results;
+}
+
+// Get all visual captions for a user (summary)
+export async function getAllVisualCaptionsByUser(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db
+    .select({
+      id: visualCaptions.id,
+      fileId: visualCaptions.fileId,
+      status: visualCaptions.status,
+      totalFramesAnalyzed: visualCaptions.totalFramesAnalyzed,
+      createdAt: visualCaptions.createdAt,
+      filename: files.filename,
+      title: files.title,
+      url: files.url,
+    })
+    .from(visualCaptions)
+    .innerJoin(files, eq(visualCaptions.fileId, files.id))
+    .where(eq(visualCaptions.userId, userId))
+    .orderBy(desc(visualCaptions.createdAt));
+}

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { getLoginUrl } from "@/const";
-import { 
+import {
   FileIcon, 
   VideoIcon, 
   NetworkIcon, 
@@ -27,7 +27,8 @@ import {
   HardDrive,
   CreditCard,
   MessageSquare,
-  LogOut
+  LogOut,
+  Captions
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -122,6 +123,7 @@ export default function Dashboard() {
     { href: "/enrichment-queue", label: "Enrichment Queue", icon: ListChecks },
     { href: "/scheduled-exports", label: "Scheduled Exports", icon: Calendar },
     { href: "/my-shares", label: "My Shares", icon: Link2 },
+    { href: "/caption-search", label: "Caption Search", icon: Captions },
   ];
 
   const insightsMenuItems = [
@@ -396,6 +398,7 @@ export default function Dashboard() {
         {location === "/scheduled-exports" && <ScheduledExportsView />}
         {location === "/settings" && <SettingsView />}
         {location === "/upload-history" && <UploadHistoryView />}
+        {location === "/caption-search" && <CaptionSearchView />}
       </main>
     </div>
   );
@@ -533,6 +536,12 @@ function AnalyticsView() {
 
 function SettingsView() {
   return <SettingsPage />;
+}
+
+import CaptionSearchPage from "./CaptionSearchPage";
+
+function CaptionSearchView() {
+  return <CaptionSearchPage />;
 }
 
 function ScheduledExportsView() {

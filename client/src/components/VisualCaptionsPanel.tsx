@@ -21,6 +21,10 @@ import {
   Brain,
   Link2,
   BarChart3,
+  Pencil,
+  Check,
+  Download,
+  SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
@@ -70,6 +74,10 @@ export function VisualCaptionsPanel({
   const [matchingFiles, setMatchingFiles] = useState(false);
   const [expandedCaption, setExpandedCaption] = useState<number | null>(null);
   const [showAllCaptions, setShowAllCaptions] = useState(false);
+  const [editingCaption, setEditingCaption] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
+  const [minRelevance, setMinRelevance] = useState(30);
+  const [showThresholdSlider, setShowThresholdSlider] = useState(false);
   const captionListRef = useRef<HTMLDivElement>(null);
   const activeCaptionRef = useRef<HTMLDivElement>(null);
 
@@ -127,6 +135,30 @@ export function VisualCaptionsPanel({
         refetchMatches();
       },
     });
+
+  // Edit caption mutation
+  const editCaptionMutation =
+    trpc.videoVisualCaptions.editCaption.useMutation({
+      onSuccess: () => {
+        toast.success("Caption updated");
+        refetchCaptions();
+        setEditingCaption(null);
+        setEditText("");
+      },
+      onError: (error) => {
+        toast.error(`Failed to update caption: ${error.message}`);
+      },
+    });
+
+  // Export subtitles query (lazy)
+  const exportSRT = trpc.videoVisualCaptions.exportSubtitles.useQuery(
+    { fileId, format: "srt" },
+    { enabled: false }
+  );
+  const exportVTT = trpc.videoVisualCaptions.exportSubtitles.useQuery(
+    { fileId, format: "vtt" },
+    { enabled: false }
+  );
 
   const captions: Caption[] = useMemo(() => {
     if (!captionData?.captions) return [];
@@ -202,7 +234,36 @@ export function VisualCaptionsPanel({
 
   const handleGenerateMatches = () => {
     setMatchingFiles(true);
-    generateMatchesMutation.mutate({ fileId, minRelevanceScore: 0.3 });
+    generateMatchesMutation.mutate({ fileId, minRelevanceScore: minRelevance / 100 });
+  };
+
+  const handleStartEdit = (idx: number, text: string) => {
+    setEditingCaption(idx);
+    setEditText(text);
+  };
+
+  const handleSaveEdit = (timestamp: number) => {
+    if (!editText.trim()) return;
+    editCaptionMutation.mutate({ fileId, timestamp, newCaption: editText.trim() });
+  };
+
+  const handleExport = async (format: "srt" | "vtt") => {
+    try {
+      const query = format === "srt" ? exportSRT : exportVTT;
+      const result = await query.refetch();
+      if (result.data) {
+        const blob = new Blob([result.data.content], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = result.data.filename;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success(`Downloaded ${result.data.filename}`);
+      }
+    } catch {
+      toast.error("Export failed");
+    }
   };
 
   const handleAcceptMatch = (matchId: number) => {
@@ -367,7 +428,7 @@ export function VisualCaptionsPanel({
             AI-generated descriptions with file matching
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {captionData?.status === "completed" &&
             (!fileMatches || (fileMatches as FileMatch[]).length === 0) && (
               <Button
@@ -389,6 +450,24 @@ export function VisualCaptionsPanel({
                 )}
               </Button>
             )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleExport("srt")}
+            title="Download SRT subtitles"
+          >
+            <Download className="h-4 w-4 mr-1" />
+            SRT
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleExport("vtt")}
+            title="Download VTT subtitles"
+          >
+            <Download className="h-4 w-4 mr-1" />
+            VTT
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -424,9 +503,20 @@ export function VisualCaptionsPanel({
                 confident
               </Badge>
             </div>
-            <p className="text-sm font-medium">
-              {captions[activeCaptionIndex].caption}
-            </p>
+            <div className="flex items-start gap-2">
+              <p className="text-sm font-medium flex-1">
+                {captions[activeCaptionIndex].caption}
+              </p>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 flex-shrink-0"
+                onClick={() => handleStartEdit(activeCaptionIndex, captions[activeCaptionIndex].caption)}
+                title="Edit caption"
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+            </div>
             {captions[activeCaptionIndex].entities.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {captions[activeCaptionIndex].entities.map((entity, idx) => (
@@ -541,6 +631,43 @@ export function VisualCaptionsPanel({
         </Card>
       )}
 
+      {/* Confidence Threshold */}
+      {fileMatches && (fileMatches as FileMatch[]).length > 0 && (
+        <div className="space-y-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowThresholdSlider(!showThresholdSlider)}
+            className="text-xs"
+          >
+            <SlidersHorizontal className="h-3 w-3 mr-1" />
+            Min Relevance: {minRelevance}%
+          </Button>
+          {showThresholdSlider && (
+            <div className="flex items-center gap-3 px-2">
+              <span className="text-xs text-muted-foreground">0%</span>
+              <Slider
+                value={[minRelevance]}
+                onValueChange={(v) => setMinRelevance(v[0])}
+                min={0}
+                max={100}
+                step={5}
+                className="flex-1"
+              />
+              <span className="text-xs text-muted-foreground">100%</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateMatches}
+                disabled={matchingFiles}
+              >
+                Apply
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Caption Timeline */}
       <div ref={captionListRef}>
         <div className="flex items-center justify-between mb-2">
@@ -606,11 +733,55 @@ export function VisualCaptionsPanel({
                     <Play className="h-3 w-3 mr-1" />
                     {formatTime(caption.timestamp)}
                   </Button>
-                  <p
-                    className={`text-xs flex-1 ${isActive ? "text-foreground" : "text-muted-foreground"}`}
-                  >
-                    {caption.caption}
-                  </p>
+                  {editingCaption === realIdx ? (
+                    <div className="flex-1 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="text"
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        className="flex-1 text-xs bg-background border border-border rounded px-2 py-1"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleSaveEdit(caption.timestamp);
+                          if (e.key === "Escape") { setEditingCaption(null); setEditText(""); }
+                        }}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={(e) => { e.stopPropagation(); handleSaveEdit(caption.timestamp); }}
+                        disabled={editCaptionMutation.isPending}
+                      >
+                        <Check className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={(e) => { e.stopPropagation(); setEditingCaption(null); setEditText(""); }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex items-center gap-1 group/caption">
+                      <p
+                        className={`text-xs flex-1 ${isActive ? "text-foreground" : "text-muted-foreground"}`}
+                      >
+                        {caption.caption}
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 opacity-0 group-hover/caption:opacity-100 transition-opacity flex-shrink-0"
+                        onClick={(e) => { e.stopPropagation(); handleStartEdit(realIdx, caption.caption); }}
+                        title="Edit caption"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
                   {captionMatches.length > 0 && (
                     <Badge
                       variant="secondary"

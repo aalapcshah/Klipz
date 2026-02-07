@@ -5284,3 +5284,14 @@ Note: The application already has extensive annotation features including voice 
 - [x] Test Video 25 end-to-end with visual captioning and file matching (18 captions, 1 file match at 30%)
 - [x] Add caption subtitle overlay on the video player (CaptionOverlay component with toggle button in controls)
 - [x] Implement batch caption generation - "Caption All" button in Video Library batch actions
+
+## Feature - Caption Editing, Export, Threshold & Search - Feb 7, 2026
+- [x] Backend: editCaption endpoint to update individual caption text
+- [x] Backend: exportSubtitles endpoint for SRT and VTT format export
+- [x] Backend: searchCaptions endpoint to search across all user's visual captions
+- [x] Backend: getAllCaptions endpoint for caption stats
+- [x] Frontend: Inline caption editing with pencil icon, save/cancel in timeline
+- [x] Frontend: SRT and VTT download buttons in caption header
+- [x] Frontend: Configurable confidence threshold slider for file matches
+- [x] Frontend: Caption Search page under Tools menu with cross-video search
+- [x] Tests: 18 vitest tests for videoVisualCaptions router (all passing)

@@ -430,6 +430,158 @@ For each relevant match, provide the file index, the timestamp it matches, relev
     }),
 
   /**
+   * Edit a specific caption's text
+   */
+  editCaption: protectedProcedure
+    .input(
+      z.object({
+        fileId: z.number(),
+        timestamp: z.number(),
+        newCaption: z.string().min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const caption = await db.getVisualCaptionByFileId(input.fileId);
+      if (!caption) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Visual captions not found for this video",
+        });
+      }
+      if (caption.userId !== ctx.user.id) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have permission to edit these captions",
+        });
+      }
+
+      const captions = caption.captions as Array<{
+        timestamp: number;
+        caption: string;
+        entities: string[];
+        confidence: number;
+      }>;
+
+      // Find and update the caption at the given timestamp
+      const idx = captions.findIndex(
+        (c) => Math.abs(c.timestamp - input.timestamp) < 0.5
+      );
+      if (idx === -1) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Caption at this timestamp not found",
+        });
+      }
+
+      captions[idx].caption = input.newCaption;
+
+      await db.updateVisualCaption(caption.id, {
+        captions: captions,
+      });
+
+      return { success: true, updatedCaption: captions[idx] };
+    }),
+
+  /**
+   * Export captions as SRT or VTT subtitle files
+   */
+  exportSubtitles: protectedProcedure
+    .input(
+      z.object({
+        fileId: z.number(),
+        format: z.enum(["srt", "vtt"]),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const caption = await db.getVisualCaptionByFileId(input.fileId);
+      if (!caption || caption.status !== "completed") {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Completed visual captions not found",
+        });
+      }
+      if (caption.userId !== ctx.user.id) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have permission to export these captions",
+        });
+      }
+
+      const captions = (caption.captions as Array<{
+        timestamp: number;
+        caption: string;
+        entities: string[];
+        confidence: number;
+      }>).sort((a, b) => a.timestamp - b.timestamp);
+
+      const formatTimeSRT = (seconds: number) => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        const ms = Math.floor((seconds % 1) * 1000);
+        return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")},${ms.toString().padStart(3, "0")}`;
+      };
+
+      const formatTimeVTT = (seconds: number) => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        const ms = Math.floor((seconds % 1) * 1000);
+        return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}.${ms.toString().padStart(3, "0")}`;
+      };
+
+      let content = "";
+
+      if (input.format === "vtt") {
+        content = "WEBVTT\n\n";
+        for (let i = 0; i < captions.length; i++) {
+          const start = captions[i].timestamp;
+          const end = i < captions.length - 1 ? captions[i + 1].timestamp : start + 5;
+          content += `${i + 1}\n`;
+          content += `${formatTimeVTT(start)} --> ${formatTimeVTT(end)}\n`;
+          content += `${captions[i].caption}\n\n`;
+        }
+      } else {
+        for (let i = 0; i < captions.length; i++) {
+          const start = captions[i].timestamp;
+          const end = i < captions.length - 1 ? captions[i + 1].timestamp : start + 5;
+          content += `${i + 1}\n`;
+          content += `${formatTimeSRT(start)} --> ${formatTimeSRT(end)}\n`;
+          content += `${captions[i].caption}\n\n`;
+        }
+      }
+
+      const ext = input.format === "vtt" ? "vtt" : "srt";
+      return {
+        content,
+        filename: `captions_${input.fileId}.${ext}`,
+        format: input.format,
+      };
+    }),
+
+  /**
+   * Search across all visual captions for a user
+   */
+  searchCaptions: protectedProcedure
+    .input(
+      z.object({
+        query: z.string().min(1).max(200),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const results = await db.searchVisualCaptions(ctx.user.id, input.query);
+      return results;
+    }),
+
+  /**
+   * Get all visual captions summary for a user
+   */
+  getAllCaptions: protectedProcedure.query(async ({ ctx }) => {
+    const captions = await db.getAllVisualCaptionsByUser(ctx.user.id);
+    return captions;
+  }),
+
+  /**
    * Update match status (accept/dismiss)
    */
   updateMatchStatus: protectedProcedure
