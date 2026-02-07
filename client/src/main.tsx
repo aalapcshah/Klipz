@@ -1,7 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { httpBatchLink, TRPCClientError } from "@trpc/client";
+import { httpBatchLink, httpLink, splitLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
@@ -51,17 +51,48 @@ queryClient.getMutationCache().subscribe(event => {
   }
 });
 
+// Upload chunk operations are large payloads that must NOT be batched together.
+// Using splitLink to route them through a non-batching httpLink prevents
+// multiple 10MB+ base64 chunks from being combined into a single HTTP request
+// that exceeds reverse proxy / server body limits.
+const UPLOAD_OPERATIONS = new Set([
+  'uploadChunk.uploadChunk',
+  'uploadChunk.initUpload',
+  'uploadChunk.finalizeUpload',
+  'uploadChunk.cancelUpload',
+  'largeFileUpload.uploadLargeChunk',
+  'largeFileUpload.initLargeUpload',
+  'largeFileUpload.finalizeLargeUpload',
+  'largeFileUpload.cancelLargeUpload',
+]);
+
 const trpcClient = trpc.createClient({
   links: [
-    httpBatchLink({
-      url: "/api/trpc",
-      transformer: superjson,
-      fetch(input, init) {
-        return globalThis.fetch(input, {
-          ...(init ?? {}),
-          credentials: "include",
-        });
+    splitLink({
+      condition(op) {
+        // Route upload chunk operations to the non-batching link
+        return UPLOAD_OPERATIONS.has(op.path);
       },
+      true: httpLink({
+        url: "/api/trpc",
+        transformer: superjson,
+        fetch(input, init) {
+          return globalThis.fetch(input, {
+            ...(init ?? {}),
+            credentials: "include",
+          });
+        },
+      }),
+      false: httpBatchLink({
+        url: "/api/trpc",
+        transformer: superjson,
+        fetch(input, init) {
+          return globalThis.fetch(input, {
+            ...(init ?? {}),
+            credentials: "include",
+          });
+        },
+      }),
     }),
   ],
 });

@@ -5405,3 +5405,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add "Compress" button to batch operations toolbar in VideoList
 - [x] Show batch compression progress/status
 - [x] Write tests for new procedures (30 tests passing)
+
+## Bug: Video Upload Failing on Chunks
+- [x] Investigate chunked upload failure for large video files (277MB, 476MB)
+- [x] Fix root cause: httpBatchLink batching chunk uploads into oversized HTTP requests; added splitLink to isolate upload operations
+- [x] Reduced chunk size from 10MB to 5MB for better proxy compatibility
+- [x] Verify upload works for large files (TypeScript compiles clean, tests pass)
+- [x] Restore pre-upload compression quality selector with auto-compress after upload

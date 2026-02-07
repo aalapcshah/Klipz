@@ -1,7 +1,13 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-// Select and Slider no longer needed for upload settings (compression moved to server-side)
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -36,7 +42,7 @@ const ACCEPTED_VIDEO_FORMATS = [
 ];
 
 const MAX_FILE_SIZE = 6 * 1024 * 1024 * 1024; // 6GB - supports large video files
-const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks for better performance with large files
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks - smaller chunks are more reliable through reverse proxies
 const LARGE_FILE_THRESHOLD = 500 * 1024 * 1024; // 500MB - use large file upload for files above this
 
 // Format time duration for ETA display
@@ -126,6 +132,7 @@ export function VideoUploadSection() {
   const updateVideoMutation = trpc.videos.update.useMutation();
   const uploadThumbnailMutation = trpc.files.uploadThumbnail.useMutation();
   const autoCaptionMutation = trpc.videoVisualCaptions.autoCaptionVideo.useMutation();
+  const compressMutation = trpc.videoCompression.compress.useMutation();
   // Feature gate hooks
   const { allowed: canUploadVideos, loading: featureLoading } = useFeatureAccess('uploadVideo');
   const { allowed: hasVideoSlots, currentCount: videoCount, limit: videoLimit, message: videoLimitMessage } = useVideoLimit();
@@ -328,6 +335,40 @@ export function VideoUploadSection() {
         );
       }
 
+      // Auto-compress if a quality preset was selected (not 'original')
+      if (quality !== 'original' && result.fileId) {
+        const qualityMap: Record<string, 'high' | 'medium' | 'low'> = {
+          high: 'high',
+          medium: 'medium',
+          low: 'low',
+        };
+        const compressionQuality = qualityMap[quality];
+        if (compressionQuality) {
+          toast.info(`Starting server-side compression (${QUALITY_SETTINGS[quality].label})...`, {
+            description: 'You can track progress in the Video Library.',
+            duration: 5000,
+          });
+          compressMutation.mutate(
+            { fileId: result.fileId, quality: compressionQuality },
+            {
+              onSuccess: () => {
+                toast.success(`Compression started for ${file.name}`, {
+                  description: 'The video will be compressed in the background.',
+                  duration: 4000,
+                });
+              },
+              onError: (err) => {
+                console.warn('Auto-compression failed:', err);
+                toast.error('Auto-compression failed', {
+                  description: 'You can manually compress from the Video Library.',
+                  duration: 5000,
+                });
+              },
+            }
+          );
+        }
+      }
+
       triggerHaptic("success");
 
     } catch (error: any) {
@@ -355,6 +396,7 @@ export function VideoUploadSection() {
     updateUploadProgress,
     updateUploadStatus,
     updatePausedChunk,
+    compressMutation,
   ]);
 
   // Register video processor on mount
@@ -697,20 +739,31 @@ export function VideoUploadSection() {
   
   return (
     <div className="space-y-6">
-      {/* Upload Info */}
+      {/* Upload Settings */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-3">Upload Settings</h3>
-        <div className="space-y-3">
-          <div className="flex items-start gap-2 text-sm">
-            <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-            <span>Videos are uploaded at <strong>original quality</strong> to preserve audio and full duration</span>
-          </div>
-          <div className="flex items-start gap-2 text-sm">
-            <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
-            <span>After upload, use the <strong>Compress</strong> button in Video Library for server-side FFmpeg compression</span>
+        <div className="space-y-4">
+          <div>
+            <Label className="text-sm font-medium mb-2 block">Post-Upload Compression</Label>
+            <Select value={selectedQuality} onValueChange={(v) => setSelectedQuality(v as VideoQuality)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select quality" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="original">Original (No Compression)</SelectItem>
+                <SelectItem value="high">High Quality (1080p)</SelectItem>
+                <SelectItem value="medium">Medium Quality (720p)</SelectItem>
+                <SelectItem value="low">Low Quality (480p)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1.5">
+              {selectedQuality === 'original'
+                ? 'Videos will be uploaded as-is. You can compress later from the Video Library.'
+                : `Videos will be uploaded at original quality, then automatically compressed to ${QUALITY_SETTINGS[selectedQuality].label} using server-side FFmpeg after upload completes.`}
+            </p>
           </div>
           <div className="flex items-start gap-2 text-sm text-muted-foreground">
-            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
             <span>Server compression preserves audio, maintains full duration, and lets you revert to the original anytime</span>
           </div>
         </div>
