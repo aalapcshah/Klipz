@@ -238,7 +238,8 @@ export const largeFileUploadRouter = router({
       console.log(`[LargeUpload] Uploaded to S3: ${fileKey}`);
 
       // Create file record in database
-      const fileRecord = await db.createFile({
+      // createFile returns the insertId directly (a number), not an object
+      const fileId = await db.createFile({
         userId: ctx.user.id,
         fileKey,
         url,
@@ -256,7 +257,7 @@ export const largeFileUploadRouter = router({
       if (isVideo) {
         videoId = await db.createVideo({
           userId: ctx.user.id,
-          fileId: fileRecord.id,
+          fileId,
           fileKey,
           url,
           filename: session.metadata.filename,
@@ -278,11 +279,11 @@ export const largeFileUploadRouter = router({
       }
       
       uploadSessions.delete(input.sessionId);
-      console.log(`[LargeUpload] Upload complete, file ID: ${fileRecord.id}`);
+      console.log(`[LargeUpload] Upload complete, file ID: ${fileId}`);
 
       return {
         success: true,
-        fileId: fileRecord.id,
+        fileId,
         videoId,
         url,
         fileKey,

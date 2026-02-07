@@ -1,0 +1,150 @@
+{
+  "query": "SELECT id, filename, mimeType, fileSize, createdAt FROM files ORDER BY createdAt DESC LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, filename, mimeType, fileSize, createdAt FROM files ORDER BY createdAt DESC LIMIT 20;",
+  "rows": [
+    {
+      "id": "1380137",
+      "filename": "Video 25 - HSA - Reel 1 - Why HSA's Still Matter in 2025.mp4",
+      "mimeType": "video/webm",
+      "fileSize": "13386316",
+      "createdAt": "2026-02-07 19:08:05"
+    },
+    {
+      "id": "1380136",
+      "filename": "export-test.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": "1024",
+      "createdAt": "2026-02-07 18:13:38"
+    },
+    {
+      "id": "1380134",
+      "filename": "test1.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": "1000",
+      "createdAt": "2026-02-07 18:13:33"
+    },
+    {
+      "id": "1380135",
+      "filename": "test2.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": "1000",
+      "createdAt": "2026-02-07 18:13:33"
+    },
+    {
+      "id": "1380130",
+      "filename": "test1.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": "1000",
+      "createdAt": "2026-02-07 18:13:31"
+    },
+    {
+      "id": "1380131",
+      "filename": "test2.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": "2000",
+      "createdAt": "2026-02-07 18:13:31"
+    },
+    {
+      "id": "1380129",
+      "filename": "test-export.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": "1024",
+      "createdAt": "2026-02-07 18:13:31"
+    },
+    {
+      "id": "1380128",
+      "filename": "searchable.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": "1024000",
+      "createdAt": "2026-02-07 18:13:30"
+    },
+    {
+      "id": "1380126",
+      "filename": "pagination-3.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": "1024000",
+      "createdAt": "2026-02-07 18:13:29"
+    },
+    {
+      "id": "1380127",
+      "filename": "pagination-4.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": "1024000",
+      "createdAt": "2026-02-07 18:13:29"
+    },
+    {
+      "id": "1380124",
+      "filename": "pagination-1.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": "1024000",
+      "createdAt": "2026-02-07 18:13:29"
+    },
+    {
+      "id": "1380125",
+      "filename": "pagination-2.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": "1024000",
+      "createdAt": "2026-02-07 18:13:29"
+    },
+    {
+      "id": "1380118",
+      "filename": "test-engagement.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": "1024",
+      "createdAt": "2026-02-07 18:13:29"
+    },
+    {
+      "id": "1380123",
+      "filename": "pagination-0.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": "1024000",
+      "createdAt": "2026-02-07 18:13:29"
+    },
+    {
+      "id": "99999",
+      "filename": "test.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": "1024",
+      "createdAt": "2026-02-07 18:13:28"
+    },
+    {
+      "id": "1380114",
+      "filename": "Tony Yayo remembers Good old days in the Hood-content.txt",
+      "mimeType": "text/plain",
+      "fileSize": "529",
+      "createdAt": "2026-02-07 18:12:52"
+    },
+    {
+      "id": "1380113",
+      "filename": "Nobody was Safe from 50 Cent-content.txt",
+      "mimeType": "text/plain",
+      "fileSize": "512",
+      "createdAt": "2026-02-07 18:12:14"
+    },
+    {
+      "id": "1380112",
+      "filename": "Shaolin monks team up with humanoid robots in kung-content.txt",
+      "mimeType": "text/plain",
+      "fileSize": "529",
+      "createdAt": "2026-02-07 18:11:38"
+    },
+    {
+      "id": "1380111",
+      "filename": "export-test.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": "1024",
+      "createdAt": "2026-02-07 17:41:31"
+    },
+    {
+      "id": "1380109",
+      "filename": "test1.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": "1000",
+      "createdAt": "2026-02-07 17:41:26"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfilename\tmimeType\tfileSize\tcreatedAt\n1380137\tVideo 25 - HSA - Reel 1 - Why HSA's Still Matter in 2025.mp4\tvideo/webm\t13386316\t2026-02-07 19:08:05\n1380136\texport-test.jpg\timage/jpeg\t1024\t2026-02-07 18:13:38\n1380134\ttest1.jpg\timage/jpeg\t1000\t2026-02-07 18:13:33\n1380135\ttest2.jpg\timage/jpeg\t1000\t2026-02-07 18:13:33\n1380130\ttest1.jpg\timage/jpeg\t1000\t2026-02-07 18:13:31\n1380131\ttest2.jpg\timage/jpeg\t2000\t2026-02-07 18:13:31\n1380129\ttest-export.jpg\timage/jpeg\t1024\t2026-02-07 18:13:31\n1380128\tsearchable.jpg\timage/jpeg\t1024000\t2026-02-07 18:13:30\n1380126\tpagination-3.jpg\timage/jpeg\t1024000\t2026-02-07 18:13:29\n1380127\tpagination-4.jpg\timage/jpeg\t1024000\t2026-02-07 18:13:29\n1380124\tpagination-1.jpg\timage/jpeg\t1024000\t2026-02-07 18:13:29\n1380125\tpagination-2.jpg\timage/jpeg\t1024000\t2026-02-07 18:13:29\n1380118\ttest-engagement.jpg\timage/jpeg\t1024\t2026-02-07 18:13:29\n1380123\tpagination-0.jpg\timage/jpeg\t1024000\t2026-02-07 18:13:29\n99999\ttest.jpg\timage/jpeg\t1024\t2026-02-07 18:13:28\n1380114\tTony Yayo remembers Good old days in the Hood-content.txt\ttext/plain\t529\t2026-02-07 18:12:52\n1380113\tNobody was Safe from 50 Cent-content.txt\ttext/plain\t512\t2026-02-07 18:12:14\n1380112\tShaolin monks team up with humanoid robots in kung-content.txt\ttext/plain\t529\t2026-02-07 18:11:38\n1380111\texport-test.jpg\timage/jpeg\t1024\t2026-02-07 17:41:31\n1380109\ttest1.jpg\timage/jpeg\t1000\t2026-02-07 17:41:26\n",
+  "stderr": "",
+  "execution_time_ms": 55
+}

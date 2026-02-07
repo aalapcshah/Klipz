@@ -1,0 +1,196 @@
+{
+  "query": "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'files' ORDER BY ORDINAL_POSITION;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'files' ORDER BY ORDINAL_POSITION;",
+  "rows": [
+    {
+      "COLUMN_NAME": "FILE_ID"
+    },
+    {
+      "COLUMN_NAME": "id"
+    },
+    {
+      "COLUMN_NAME": "userId"
+    },
+    {
+      "COLUMN_NAME": "FILE_NAME"
+    },
+    {
+      "COLUMN_NAME": "FILE_TYPE"
+    },
+    {
+      "COLUMN_NAME": "fileKey"
+    },
+    {
+      "COLUMN_NAME": "TABLESPACE_NAME"
+    },
+    {
+      "COLUMN_NAME": "url"
+    },
+    {
+      "COLUMN_NAME": "filename"
+    },
+    {
+      "COLUMN_NAME": "TABLE_CATALOG"
+    },
+    {
+      "COLUMN_NAME": "TABLE_SCHEMA"
+    },
+    {
+      "COLUMN_NAME": "mimeType"
+    },
+    {
+      "COLUMN_NAME": "TABLE_NAME"
+    },
+    {
+      "COLUMN_NAME": "fileSize"
+    },
+    {
+      "COLUMN_NAME": "LOGFILE_GROUP_NAME"
+    },
+    {
+      "COLUMN_NAME": "title"
+    },
+    {
+      "COLUMN_NAME": "LOGFILE_GROUP_NUMBER"
+    },
+    {
+      "COLUMN_NAME": "description"
+    },
+    {
+      "COLUMN_NAME": "voiceRecordingUrl"
+    },
+    {
+      "COLUMN_NAME": "ENGINE"
+    },
+    {
+      "COLUMN_NAME": "voiceTranscript"
+    },
+    {
+      "COLUMN_NAME": "FULLTEXT_KEYS"
+    },
+    {
+      "COLUMN_NAME": "aiAnalysis"
+    },
+    {
+      "COLUMN_NAME": "DELETED_ROWS"
+    },
+    {
+      "COLUMN_NAME": "ocrText"
+    },
+    {
+      "COLUMN_NAME": "UPDATE_COUNT"
+    },
+    {
+      "COLUMN_NAME": "detectedObjects"
+    },
+    {
+      "COLUMN_NAME": "FREE_EXTENTS"
+    },
+    {
+      "COLUMN_NAME": "enrichmentStatus"
+    },
+    {
+      "COLUMN_NAME": "TOTAL_EXTENTS"
+    },
+    {
+      "COLUMN_NAME": "EXTENT_SIZE"
+    },
+    {
+      "COLUMN_NAME": "enrichedAt"
+    },
+    {
+      "COLUMN_NAME": "createdAt"
+    },
+    {
+      "COLUMN_NAME": "INITIAL_SIZE"
+    },
+    {
+      "COLUMN_NAME": "updatedAt"
+    },
+    {
+      "COLUMN_NAME": "MAXIMUM_SIZE"
+    },
+    {
+      "COLUMN_NAME": "extractedMetadata"
+    },
+    {
+      "COLUMN_NAME": "AUTOEXTEND_SIZE"
+    },
+    {
+      "COLUMN_NAME": "extractedKeywords"
+    },
+    {
+      "COLUMN_NAME": "CREATION_TIME"
+    },
+    {
+      "COLUMN_NAME": "perceptualHash"
+    },
+    {
+      "COLUMN_NAME": "LAST_UPDATE_TIME"
+    },
+    {
+      "COLUMN_NAME": "lastAccessedAt"
+    },
+    {
+      "COLUMN_NAME": "LAST_ACCESS_TIME"
+    },
+    {
+      "COLUMN_NAME": "RECOVER_TIME"
+    },
+    {
+      "COLUMN_NAME": "qualityScore"
+    },
+    {
+      "COLUMN_NAME": "TRANSACTION_COUNTER"
+    },
+    {
+      "COLUMN_NAME": "sortOrder"
+    },
+    {
+      "COLUMN_NAME": "VERSION"
+    },
+    {
+      "COLUMN_NAME": "ROW_FORMAT"
+    },
+    {
+      "COLUMN_NAME": "TABLE_ROWS"
+    },
+    {
+      "COLUMN_NAME": "AVG_ROW_LENGTH"
+    },
+    {
+      "COLUMN_NAME": "DATA_LENGTH"
+    },
+    {
+      "COLUMN_NAME": "MAX_DATA_LENGTH"
+    },
+    {
+      "COLUMN_NAME": "INDEX_LENGTH"
+    },
+    {
+      "COLUMN_NAME": "DATA_FREE"
+    },
+    {
+      "COLUMN_NAME": "CREATE_TIME"
+    },
+    {
+      "COLUMN_NAME": "UPDATE_TIME"
+    },
+    {
+      "COLUMN_NAME": "CHECK_TIME"
+    },
+    {
+      "COLUMN_NAME": "CHECKSUM"
+    },
+    {
+      "COLUMN_NAME": "STATUS"
+    },
+    {
+      "COLUMN_NAME": "EXTRA"
+    }
+  ],
+  "messages": [],
+  "stdout": "COLUMN_NAME\nFILE_ID\nid\nuserId\nFILE_NAME\nFILE_TYPE\nfileKey\nTABLESPACE_NAME\nurl\nfilename\nTABLE_CATALOG\nTABLE_SCHEMA\nmimeType\nTABLE_NAME\nfileSize\nLOGFILE_GROUP_NAME\ntitle\nLOGFILE_GROUP_NUMBER\ndescription\nvoiceRecordingUrl\nENGINE\nvoiceTranscript\nFULLTEXT_KEYS\naiAnalysis\nDELETED_ROWS\nocrText\nUPDATE_COUNT\ndetectedObjects\nFREE_EXTENTS\nenrichmentStatus\nTOTAL_EXTENTS\nEXTENT_SIZE\nenrichedAt\ncreatedAt\nINITIAL_SIZE\nupdatedAt\nMAXIMUM_SIZE\nextractedMetadata\nAUTOEXTEND_SIZE\nextractedKeywords\nCREATION_TIME\nperceptualHash\nLAST_UPDATE_TIME\nlastAccessedAt\nLAST_ACCESS_TIME\nRECOVER_TIME\nqualityScore\nTRANSACTION_COUNTER\nsortOrder\nVERSION\nROW_FORMAT\nTABLE_ROWS\nAVG_ROW_LENGTH\nDATA_LENGTH\nMAX_DATA_LENGTH\nINDEX_LENGTH\nDATA_FREE\nCREATE_TIME\nUPDATE_TIME\nCHECK_TIME\nCHECKSUM\nSTATUS\nEXTRA\n",
+  "stderr": "",
+  "execution_time_ms": 53
+}

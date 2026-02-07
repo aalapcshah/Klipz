@@ -5352,3 +5352,13 @@ Note: The application already has extensive annotation features including voice 
 
 ## Bug Fix - Enrich Button Label - Feb 7, 2026
 - [x] Enrich button should display "Enriched" when enrichment is complete
+
+## Bug Fix - Video Upload Not Appearing + File Counter Wrong - Feb 7, 2026
+- [x] Root cause: createFile returns insertId (number) but upload routers used it as object.id → fileId was undefined/null
+- [x] Fixed uploadChunk.ts: use createFile return as number directly, not fileRecord.id
+- [x] Fixed resumableUpload.ts: same fix
+- [x] Fixed largeFileUpload.ts: same fix
+- [x] Repaired 12 orphaned video files by creating missing video records
+- [x] Fixed video 600043 null fileId by linking to matching file record
+- [x] Cleaned up 56 test files from vitest runs polluting the file counter
+- [x] File counter now shows correct count (12 non-video files, 13 videos)

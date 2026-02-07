@@ -355,8 +355,9 @@ export const resumableUploadRouter = router({
       const { url: finalUrl } = await storagePut(finalFileKey, completeFile, session.mimeType);
       
       // Create file record in database
+      // createFile returns the insertId directly (a number), not an object
       const metadata = session.metadata as { title?: string; description?: string; collectionId?: number; tags?: string[] } || {};
-      const fileRecord = await db.createFile({
+      const fileId = await db.createFile({
         userId: ctx.user.id,
         fileKey: finalFileKey,
         url: finalUrl,
@@ -372,7 +373,7 @@ export const resumableUploadRouter = router({
       if (session.uploadType === 'video' && session.mimeType.startsWith('video/')) {
         videoId = await db.createVideo({
           userId: ctx.user.id,
-          fileId: fileRecord.id,
+          fileId,
           fileKey: finalFileKey,
           url: finalUrl,
           filename: session.filename,
@@ -394,11 +395,11 @@ export const resumableUploadRouter = router({
         })
         .where(eq(resumableUploadSessions.id, session.id));
       
-      console.log(`[ResumableUpload] Upload complete: file ID ${fileRecord.id}`);
+      console.log(`[ResumableUpload] Upload complete: file ID ${fileId}`);
       
       return {
         success: true,
-        fileId: fileRecord.id,
+        fileId,
         videoId,
         url: finalUrl,
         fileKey: finalFileKey,
