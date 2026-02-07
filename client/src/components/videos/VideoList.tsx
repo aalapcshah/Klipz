@@ -1056,6 +1056,7 @@ export function VideoList() {
             <VideoPlayerWithAnnotations
               fileId={annotatingVideo.fileId}
               videoUrl={annotatingVideo.url}
+              videoTitle={annotatingVideo.title}
             />
           </DialogContent>
         </Dialog>

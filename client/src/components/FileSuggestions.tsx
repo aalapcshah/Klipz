@@ -22,6 +22,7 @@ import { TranscriptWithTimestamps } from "./TranscriptWithTimestamps";
 interface FileSuggestionsProps {
   fileId: number;
   onJumpToTimestamp?: (timestamp: number) => void;
+  videoTitle?: string;
 }
 
 /**
@@ -60,7 +61,7 @@ function highlightExcerpt(
   });
 }
 
-export function FileSuggestions({ fileId, onJumpToTimestamp }: FileSuggestionsProps) {
+export function FileSuggestions({ fileId, onJumpToTimestamp, videoTitle }: FileSuggestionsProps) {
   const [transcribing, setTranscribing] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
@@ -265,6 +266,7 @@ export function FileSuggestions({ fileId, onJumpToTimestamp }: FileSuggestionsPr
             highlightKeywords={[]}
             onJumpToTimestamp={onJumpToTimestamp}
             compact={false}
+            videoTitle={videoTitle}
           />
 
           <div className="text-center">
@@ -319,6 +321,7 @@ export function FileSuggestions({ fileId, onJumpToTimestamp }: FileSuggestionsPr
             highlightKeywords={highlightKeywords}
             onJumpToTimestamp={onJumpToTimestamp}
             compact={false}
+            videoTitle={videoTitle}
           />
         )}
       </Card>

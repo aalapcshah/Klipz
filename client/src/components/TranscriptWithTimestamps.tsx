@@ -1,13 +1,25 @@
 import { useState, useMemo, useCallback, Fragment } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   ChevronDown,
   ChevronUp,
   Clock,
   MessageSquareText,
   Play,
+  Search,
+  X,
+  Download,
+  FileText,
+  Subtitles,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Segment {
   text: string;
@@ -27,12 +39,25 @@ interface TranscriptWithTimestampsProps {
   compact?: boolean;
   /** Max segments to show before "show more" in compact mode */
   maxVisibleSegments?: number;
+  /** Video title for export filename */
+  videoTitle?: string;
 }
 
 function formatTimestamp(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+/**
+ * Format seconds into SRT timestamp format: HH:MM:SS,mmm
+ */
+function formatSrtTimestamp(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.round((seconds % 1) * 1000);
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")},${ms.toString().padStart(3, "0")}`;
 }
 
 /**
@@ -47,14 +72,12 @@ function highlightText(
     return [text];
   }
 
-  // Escape regex special characters and build pattern
   const escaped = keywords
     .filter((k) => k.length > 0)
     .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 
   if (escaped.length === 0) return [text];
 
-  // Build a regex that matches any keyword (case-insensitive, whole-ish match)
   const pattern = new RegExp(`(${escaped.join("|")})`, "gi");
   const parts = text.split(pattern);
 
@@ -76,6 +99,46 @@ function highlightText(
   });
 }
 
+/**
+ * Generate SRT subtitle content from segments
+ */
+function generateSrt(segments: Segment[]): string {
+  return segments
+    .map((seg, i) => {
+      const index = i + 1;
+      const start = formatSrtTimestamp(seg.start);
+      const end = formatSrtTimestamp(seg.end);
+      return `${index}\n${start} --> ${end}\n${seg.text.trim()}\n`;
+    })
+    .join("\n");
+}
+
+/**
+ * Generate plain text transcript with timestamps
+ */
+function generatePlainText(segments: Segment[], language?: string | null): string {
+  const header = `Transcript${language ? ` (${language.toUpperCase()})` : ""}\n${"=".repeat(40)}\n\n`;
+  const body = segments
+    .map((seg) => `[${formatTimestamp(seg.start)} - ${formatTimestamp(seg.end)}] ${seg.text.trim()}`)
+    .join("\n\n");
+  return header + body;
+}
+
+/**
+ * Trigger a file download in the browser
+ */
+function downloadFile(content: string, filename: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export function TranscriptWithTimestamps({
   segments,
   fullText,
@@ -84,17 +147,46 @@ export function TranscriptWithTimestamps({
   onJumpToTimestamp,
   compact = false,
   maxVisibleSegments = 3,
+  videoTitle,
 }: TranscriptWithTimestampsProps) {
   const [expanded, setExpanded] = useState(false);
   const [activeSegmentIndex, setActiveSegmentIndex] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
 
-  const visibleSegments = useMemo(() => {
+  // Combine highlight keywords with search query
+  const allHighlightKeywords = useMemo(() => {
+    const kws = [...highlightKeywords];
+    if (searchQuery.trim()) {
+      kws.push(searchQuery.trim());
+    }
+    return kws;
+  }, [highlightKeywords, searchQuery]);
+
+  // Filter segments by search query
+  const filteredSegments = useMemo(() => {
     if (!segments || segments.length === 0) return [];
-    if (expanded || !compact) return segments;
-    return segments.slice(0, maxVisibleSegments);
-  }, [segments, expanded, compact, maxVisibleSegments]);
+    if (!searchQuery.trim()) return segments;
 
-  const hasMore = compact && segments && segments.length > maxVisibleSegments;
+    const query = searchQuery.trim().toLowerCase();
+    return segments.filter((seg) =>
+      seg.text.toLowerCase().includes(query)
+    );
+  }, [segments, searchQuery]);
+
+  // Determine visible segments based on compact mode and expansion
+  const visibleSegments = useMemo(() => {
+    const source = searchQuery.trim() ? filteredSegments : segments;
+    if (!source || source.length === 0) return [];
+    if (expanded || !compact) return source;
+    return source.slice(0, maxVisibleSegments);
+  }, [filteredSegments, segments, searchQuery, expanded, compact, maxVisibleSegments]);
+
+  const totalSegments = searchQuery.trim() ? filteredSegments.length : (segments?.length || 0);
+  const hasMore = compact && totalSegments > maxVisibleSegments;
+
+  // Search result count
+  const searchResultCount = searchQuery.trim() ? filteredSegments.length : null;
 
   const handleTimestampClick = useCallback(
     (timestamp: number, index: number) => {
@@ -103,6 +195,30 @@ export function TranscriptWithTimestamps({
     },
     [onJumpToTimestamp]
   );
+
+  const handleExportSrt = useCallback(() => {
+    if (!segments || segments.length === 0) return;
+    const srt = generateSrt(segments);
+    const filename = `${videoTitle || "transcript"}.srt`;
+    downloadFile(srt, filename, "text/srt");
+  }, [segments, videoTitle]);
+
+  const handleExportText = useCallback(() => {
+    if (!segments || segments.length === 0) return;
+    const text = generatePlainText(segments, language);
+    const filename = `${videoTitle || "transcript"}.txt`;
+    downloadFile(text, filename, "text/plain");
+  }, [segments, language, videoTitle]);
+
+  const handleExportSearchResults = useCallback(() => {
+    if (!filteredSegments || filteredSegments.length === 0) return;
+    const header = `Search Results for "${searchQuery}"\n${"=".repeat(40)}\n${filteredSegments.length} matching segment(s)\n\n`;
+    const body = filteredSegments
+      .map((seg) => `[${formatTimestamp(seg.start)} - ${formatTimestamp(seg.end)}] ${seg.text.trim()}`)
+      .join("\n\n");
+    const filename = `transcript-search-${searchQuery.replace(/[^a-zA-Z0-9]/g, "_")}.txt`;
+    downloadFile(header + body, filename, "text/plain");
+  }, [filteredSegments, searchQuery]);
 
   // If no segments, fall back to plain text display
   if (!segments || segments.length === 0) {
@@ -126,7 +242,7 @@ export function TranscriptWithTimestamps({
           )}
         </div>
         <p className={compact ? "text-xs text-muted-foreground leading-relaxed" : "text-sm text-muted-foreground leading-relaxed"}>
-          {highlightText(displayText, highlightKeywords)}
+          {highlightText(displayText, allHighlightKeywords)}
         </p>
         {compact && fullText.length > 200 && (
           <Button
@@ -156,7 +272,7 @@ export function TranscriptWithTimestamps({
   return (
     <div className={compact ? "rounded-md bg-muted/50 p-2.5" : "space-y-2"}>
       {/* Header */}
-      <div className="flex items-center gap-1.5 mb-2">
+      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
         <MessageSquareText className={compact ? "h-3.5 w-3.5 text-primary" : "h-4 w-4 text-primary"} />
         <span className={compact ? "text-xs font-medium text-primary" : "text-sm font-medium text-primary"}>
           Speech Transcript
@@ -166,16 +282,104 @@ export function TranscriptWithTimestamps({
             {language.toUpperCase()}
           </Badge>
         )}
-        <span className={compact ? "text-[10px] text-muted-foreground ml-auto" : "text-xs text-muted-foreground ml-auto"}>
-          {segments.length} segment{segments.length !== 1 ? "s" : ""}
-        </span>
+
+        {/* Action buttons on the right */}
+        <div className="flex items-center gap-1 ml-auto">
+          {/* Search toggle */}
+          {!compact && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-6 w-6 p-0 ${showSearch ? "text-primary" : "text-muted-foreground"}`}
+              onClick={() => {
+                setShowSearch(!showSearch);
+                if (showSearch) {
+                  setSearchQuery("");
+                }
+              }}
+              title="Search transcript"
+            >
+              <Search className="h-3.5 w-3.5" />
+            </Button>
+          )}
+
+          {/* Export dropdown */}
+          {!compact && segments.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-muted-foreground"
+                  title="Export transcript"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handleExportSrt}>
+                  <Subtitles className="h-4 w-4 mr-2" />
+                  Export as SRT
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportText}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Export as Text
+                </DropdownMenuItem>
+                {searchQuery.trim() && filteredSegments.length > 0 && (
+                  <DropdownMenuItem onClick={handleExportSearchResults}>
+                    <Search className="h-4 w-4 mr-2" />
+                    Export search results
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {/* Segment count */}
+          <span className={compact ? "text-[10px] text-muted-foreground" : "text-xs text-muted-foreground"}>
+            {searchResultCount !== null
+              ? `${searchResultCount}/${segments.length}`
+              : `${segments.length}`}{" "}
+            segment{segments.length !== 1 ? "s" : ""}
+          </span>
+        </div>
       </div>
+
+      {/* Search bar */}
+      {showSearch && !compact && (
+        <div className="relative mb-2">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search transcript..."
+            className="h-8 pl-8 pr-8 text-xs"
+            autoFocus
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5 p-0"
+              onClick={() => setSearchQuery("")}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+          {searchQuery.trim() && (
+            <div className="mt-1 text-[10px] text-muted-foreground">
+              {filteredSegments.length === 0
+                ? `No results for "${searchQuery}"`
+                : `Found "${searchQuery}" in ${filteredSegments.length} segment${filteredSegments.length !== 1 ? "s" : ""}`}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Segments */}
       <div className={compact ? "space-y-1.5" : "space-y-2"}>
         {visibleSegments.map((segment, index) => {
           const isActive = activeSegmentIndex === index;
-          const actualIndex = compact && !expanded ? index : index;
 
           return (
             <div
@@ -188,7 +392,7 @@ export function TranscriptWithTimestamps({
             >
               {/* Timestamp button */}
               <button
-                onClick={() => handleTimestampClick(segment.start, actualIndex)}
+                onClick={() => handleTimestampClick(segment.start, index)}
                 className={`flex-shrink-0 flex items-center gap-0.5 font-mono transition-colors ${
                   compact ? "text-[10px]" : "text-xs"
                 } ${
@@ -213,15 +417,22 @@ export function TranscriptWithTimestamps({
                   ? "text-xs text-muted-foreground"
                   : "text-sm text-foreground/80"
               }`}>
-                {highlightText(segment.text.trim(), highlightKeywords)}
+                {highlightText(segment.text.trim(), allHighlightKeywords)}
               </p>
             </div>
           );
         })}
       </div>
 
+      {/* No search results message */}
+      {searchQuery.trim() && filteredSegments.length === 0 && (
+        <div className="text-center py-4 text-xs text-muted-foreground">
+          No segments match &ldquo;{searchQuery}&rdquo;
+        </div>
+      )}
+
       {/* Show more/less toggle */}
-      {hasMore && (
+      {hasMore && !searchQuery.trim() && (
         <Button
           variant="ghost"
           size="sm"
@@ -231,12 +442,12 @@ export function TranscriptWithTimestamps({
           {expanded ? (
             <>
               <ChevronUp className="h-3 w-3 mr-0.5" />
-              Show less ({segments.length - maxVisibleSegments} hidden)
+              Show less ({totalSegments - maxVisibleSegments} hidden)
             </>
           ) : (
             <>
               <ChevronDown className="h-3 w-3 mr-0.5" />
-              Show all {segments.length} segments
+              Show all {totalSegments} segments
             </>
           )}
         </Button>

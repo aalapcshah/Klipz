@@ -38,9 +38,10 @@ interface VideoPlayerWithAnnotationsProps {
   fileId: number;
   videoUrl: string;
   initialTime?: number;
+  videoTitle?: string;
 }
 
-export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime }: VideoPlayerWithAnnotationsProps) {
+export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, videoTitle }: VideoPlayerWithAnnotationsProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
   const drawingCanvasComponentRef = useRef<VideoDrawingCanvasHandle>(null);
@@ -1948,6 +1949,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime }: Vi
       {/* File Suggestions Section */}
       <FileSuggestions
         fileId={fileId}
+        videoTitle={videoTitle}
         onJumpToTimestamp={(timestamp) => {
           if (videoRef.current) {
             videoRef.current.currentTime = timestamp;

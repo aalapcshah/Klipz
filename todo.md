@@ -5431,3 +5431,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Implement in both upload completion card (UploadTranscriptInline) and video detail view (FileSuggestions)
 - [x] Ensure timestamps work with the existing video player seek functionality
 - [x] Created shared TranscriptWithTimestamps component for reuse across views
+
+## Transcript Search & Export - Feb 7, 2026
+- [x] Add search within a video's transcript to find where specific terms were mentioned
+- [x] Highlight matching segments and allow clicking to jump to that moment
+- [x] Search is client-side (instant filtering, no API needed) with result count display
+- [x] Add transcript export as SRT subtitle file (client-side generation)
+- [x] Add transcript export as plain text document (with timestamps)
+- [x] Add export dropdown menu to transcript header (SRT, Text, search results)
+- [x] Pass videoTitle through component chain for proper export filenames
