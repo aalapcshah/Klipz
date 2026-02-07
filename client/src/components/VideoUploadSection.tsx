@@ -28,6 +28,7 @@ import { formatFileSize, CompressionProgress } from "@/lib/videoCompression";
 import { useFeatureAccess, useVideoLimit } from "@/components/FeatureGate";
 import { Link } from "wouter";
 import { Lock, Crown, Sparkles } from "lucide-react";
+import { UploadTranscriptInline } from "@/components/UploadTranscriptInline";
 // CompressionPreviewDialog no longer needed (compression moved to server-side)
 
 type VideoQuality = "original" | "high" | "medium" | "low" | "custom";
@@ -1179,9 +1180,15 @@ export function VideoUploadSection() {
 
                   {/* Success Message */}
                   {upload.status === "completed" && (
-                    <p className="text-sm text-green-600 mt-2">
-                      Upload complete!
-                    </p>
+                    <div>
+                      <p className="text-sm text-green-600 mt-2">
+                        Upload complete!
+                      </p>
+                      {/* Inline transcript and file suggestions */}
+                      {upload.result?.fileId && (
+                        <UploadTranscriptInline fileId={upload.result.fileId} />
+                      )}
+                    </div>
                   )}
                   
                   {/* Cancelled Message */}

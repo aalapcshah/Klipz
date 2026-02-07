@@ -5419,3 +5419,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Added auto file suggestion generation after transcription completes
 - [x] Handles 'already_exists' status for re-uploads
 - [x] Toast notifications for transcription progress and file match results
+
+## Inline Transcript on Upload Completion Card - Feb 7, 2026
+- [x] Show extracted speech transcript text directly on the upload completion card
+- [x] Display matched file suggestions inline below the transcript (expandable)
+- [x] Show loading state while transcription is in progress (polls every 3s)
