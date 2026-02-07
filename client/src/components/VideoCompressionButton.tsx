@@ -22,9 +22,10 @@ import {
   Shrink,
   CheckCircle2,
   AlertCircle,
-  Download,
   RotateCcw,
   Server,
+  ArrowDown,
+  HardDrive,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -53,25 +54,29 @@ export function VideoCompressionButton({
   const [quality, setQuality] = useState<"high" | "medium" | "low">("medium");
   const [polling, setPolling] = useState(false);
 
-  const compressMutation =
-    trpc.videoCompression.compress.useMutation();
+  const compressMutation = trpc.videoCompression.compress.useMutation();
   const revertMutation = trpc.videoCompression.revert.useMutation();
 
-  const {
-    data: status,
-    refetch: refetchStatus,
-  } = trpc.videoCompression.getStatus.useQuery(
-    { fileId: fileId! },
-    {
-      enabled: !!fileId && polling,
-      refetchInterval: polling ? 2000 : false,
-    }
-  );
+  const { data: status, refetch: refetchStatus } =
+    trpc.videoCompression.getStatus.useQuery(
+      { fileId: fileId! },
+      {
+        enabled: !!fileId && polling,
+        refetchInterval: polling ? 2000 : false,
+      }
+    );
 
   const { data: presets } = trpc.videoCompression.getPresets.useQuery(
     undefined,
     { enabled: dialogOpen }
   );
+
+  // Size estimation query - updates when quality changes
+  const { data: estimate, isLoading: estimateLoading } =
+    trpc.videoCompression.estimateSize.useQuery(
+      { fileId: fileId!, quality },
+      { enabled: dialogOpen && !!fileId }
+    );
 
   // Start/stop polling based on status
   useEffect(() => {
@@ -88,7 +93,10 @@ export function VideoCompressionButton({
 
   // Check initial status on mount
   useEffect(() => {
-    if (fileId && (initialStatus === "processing" || initialStatus === "pending")) {
+    if (
+      fileId &&
+      (initialStatus === "processing" || initialStatus === "pending")
+    ) {
       setPolling(true);
     }
   }, [fileId, initialStatus]);
@@ -100,7 +108,8 @@ export function VideoCompressionButton({
       setDialogOpen(false);
       setPolling(true);
       toast.success("Server-side compression started", {
-        description: "Your video is being compressed with FFmpeg. Audio will be preserved.",
+        description:
+          "Your video is being compressed with FFmpeg. Audio will be preserved.",
       });
     } catch (error: any) {
       toast.error("Failed to start compression", {
@@ -126,7 +135,8 @@ export function VideoCompressionButton({
     status?.status === "downloading" ||
     status?.status === "compressing" ||
     status?.status === "uploading";
-  const isComplete = status?.status === "complete" || initialStatus === "completed";
+  const isComplete =
+    status?.status === "complete" || initialStatus === "completed";
   const isFailed = status?.status === "failed" || initialStatus === "failed";
 
   // Show inline progress if actively compressing
@@ -165,11 +175,22 @@ export function VideoCompressionButton({
         >
           <CheckCircle2 className="h-3 w-3" />
           Compressed
-          {status && 'originalSize' in status && 'compressedSize' in status && status.originalSize && status.compressedSize && (
-            <span className="text-green-500">
-              ({Math.round((1 - (status.compressedSize as number) / (status.originalSize as number)) * 100)}% smaller)
-            </span>
-          )}
+          {status &&
+            "originalSize" in status &&
+            "compressedSize" in status &&
+            status.originalSize &&
+            status.compressedSize && (
+              <span className="text-green-500">
+                (
+                {Math.round(
+                  (1 -
+                    (status.compressedSize as number) /
+                      (status.originalSize as number)) *
+                    100
+                )}
+                % smaller)
+              </span>
+            )}
         </Badge>
         <Button
           variant="ghost"
@@ -249,14 +270,6 @@ export function VideoCompressionButton({
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* File size info */}
-            {fileSize && (
-              <div className="flex items-center justify-between text-sm bg-muted/50 rounded-lg px-3 py-2">
-                <span className="text-muted-foreground">Current file size</span>
-                <span className="font-medium">{formatFileSize(fileSize)}</span>
-              </div>
-            )}
-
             {/* Quality selector */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Compression Quality</label>
@@ -275,19 +288,71 @@ export function VideoCompressionButton({
                       <div className="flex flex-col">
                         <span>{preset.label}</span>
                         <span className="text-xs text-muted-foreground">
-                          {preset.maxResolution} · {preset.videoBitrate} video · {preset.audioBitrate} audio
+                          {preset.maxResolution} · {preset.videoBitrate} video ·{" "}
+                          {preset.audioBitrate} audio
                         </span>
                       </div>
                     </SelectItem>
                   )) || (
                     <>
-                      <SelectItem value="high">High Quality (1080p)</SelectItem>
-                      <SelectItem value="medium">Medium Quality (720p)</SelectItem>
+                      <SelectItem value="high">
+                        High Quality (1080p)
+                      </SelectItem>
+                      <SelectItem value="medium">
+                        Medium Quality (720p)
+                      </SelectItem>
                       <SelectItem value="low">Low Quality (480p)</SelectItem>
                     </>
                   )}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Size Estimation Card */}
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <HardDrive className="h-4 w-4 text-muted-foreground" />
+                Size Estimate
+              </div>
+              {estimateLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Calculating...
+                </div>
+              ) : estimate ? (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Current size</span>
+                    <span className="font-mono">
+                      {formatFileSize(estimate.originalSize)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-center">
+                    <ArrowDown className="h-3 w-3 text-muted-foreground" />
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Estimated after
+                    </span>
+                    <span className="font-mono text-green-600">
+                      ~{formatFileSize(estimate.estimatedSize)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-center pt-1">
+                    <Badge
+                      variant="outline"
+                      className="text-xs text-green-600 border-green-300"
+                    >
+                      ~{estimate.savings}% reduction
+                    </Badge>
+                  </div>
+                </div>
+              ) : fileSize ? (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Current size</span>
+                  <span className="font-mono">{formatFileSize(fileSize)}</span>
+                </div>
+              ) : null}
             </div>
 
             {/* Benefits */}
@@ -303,10 +368,6 @@ export function VideoCompressionButton({
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
                 <span>Original file preserved (can revert anytime)</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
-                <span>Runs in background — no browser tab required</span>
               </div>
             </div>
           </div>

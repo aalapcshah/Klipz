@@ -361,6 +361,148 @@ export const videoCompressionRouter = router({
       return statuses;
     }),
 
+  // Estimate compressed file size based on quality preset
+  estimateSize: protectedProcedure
+    .input(
+      z.object({
+        fileId: z.number(),
+        quality: z.enum(["high", "medium", "low"]),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const drizzle = await getDb();
+      if (!drizzle) throw new Error("Database not available");
+
+      const [fileRecord] = await drizzle
+        .select({
+          fileSize: files.fileSize,
+          mimeType: files.mimeType,
+          filename: files.filename,
+        })
+        .from(files)
+        .where(and(eq(files.id, input.fileId), eq(files.userId, ctx.user.id)));
+
+      if (!fileRecord) throw new Error("File not found");
+      if (!fileRecord.mimeType.startsWith("video/")) {
+        throw new Error("File is not a video");
+      }
+
+      const preset = COMPRESSION_PRESETS[input.quality];
+      const originalSize = fileRecord.fileSize;
+
+      // Estimate based on target bitrate vs typical source bitrate
+      // Typical source videos are 5-15 Mbps; compressed output uses CRF + maxBitrate
+      const targetBitrateKbps = parseInt(preset.videoBitrate) + parseInt(preset.audioBitrate);
+      // Assume average source video is ~8 Mbps (8000 kbps)
+      // Estimation: compressed_size ≈ original_size * (target_bitrate / estimated_source_bitrate)
+      // But cap the ratio so we don't predict larger files
+      const estimatedSourceBitrateKbps = Math.max(targetBitrateKbps * 1.5, 8000);
+      const ratio = Math.min(0.95, targetBitrateKbps / estimatedSourceBitrateKbps);
+      const estimatedSize = Math.round(originalSize * ratio);
+      const savings = Math.round((1 - ratio) * 100);
+
+      return {
+        originalSize,
+        estimatedSize,
+        savings,
+        quality: input.quality,
+        preset: preset.label,
+      };
+    }),
+
+  // Batch compress multiple video files
+  batchCompress: protectedProcedure
+    .input(
+      z.object({
+        fileIds: z.array(z.number()).min(1).max(50),
+        quality: z.enum(["high", "medium", "low"]),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { fileIds, quality } = input;
+      const drizzle = await getDb();
+      if (!drizzle) throw new Error("Database not available");
+
+      const results: { fileId: number; started: boolean; error?: string }[] = [];
+
+      for (const fileId of fileIds) {
+        try {
+          // Check if already compressing
+          const existingJob = activeJobs.get(fileId);
+          if (
+            existingJob &&
+            (existingJob.status === "downloading" ||
+              existingJob.status === "compressing" ||
+              existingJob.status === "uploading")
+          ) {
+            results.push({ fileId, started: false, error: "Already compressing" });
+            continue;
+          }
+
+          // Get the file record
+          const [fileRecord] = await drizzle
+            .select()
+            .from(files)
+            .where(and(eq(files.id, fileId), eq(files.userId, ctx.user.id)));
+
+          if (!fileRecord) {
+            results.push({ fileId, started: false, error: "File not found" });
+            continue;
+          }
+
+          if (!fileRecord.mimeType.startsWith("video/")) {
+            results.push({ fileId, started: false, error: "Not a video" });
+            continue;
+          }
+
+          // Mark as pending in database
+          await drizzle
+            .update(files)
+            .set({ compressionStatus: "pending" })
+            .where(eq(files.id, fileId));
+
+          // Initialize job tracking
+          activeJobs.set(fileId, {
+            status: "downloading",
+            progress: 0,
+            originalSize: fileRecord.fileSize,
+            quality,
+          });
+
+          // Run compression in background (don't await)
+          runCompressionJob(fileId, fileRecord, quality, ctx.user.id).catch(
+            (err) => {
+              console.error(
+                `[VideoCompression] Batch job failed for file ${fileId}:`,
+                err
+              );
+              activeJobs.set(fileId, {
+                status: "failed",
+                progress: 0,
+                error: err.message,
+                originalSize: fileRecord.fileSize,
+              });
+              getDb().then((db) => {
+                if (db) {
+                  db.update(files)
+                    .set({ compressionStatus: "failed" })
+                    .where(eq(files.id, fileId))
+                    .catch(console.error);
+                }
+              });
+            }
+          );
+
+          results.push({ fileId, started: true });
+        } catch (err: any) {
+          results.push({ fileId, started: false, error: err.message });
+        }
+      }
+
+      const startedCount = results.filter((r) => r.started).length;
+      return { results, startedCount, totalCount: fileIds.length };
+    }),
+
   // Revert compression - restore original file
   revert: protectedProcedure
     .input(z.object({ fileId: z.number() }))

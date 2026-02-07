@@ -5397,3 +5397,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Simplify upload settings to remove broken browser compression UI
 - [x] Write vitest tests for videoCompression router (20 tests passing)
 - [x] Verify TypeScript compilation with zero errors
+
+## Batch Compression & Size Estimates
+- [x] Add estimateSize procedure to videoCompression router
+- [x] Show estimated file size reduction in compression dialog before starting
+- [x] Add batchCompress procedure to videoCompression router
+- [x] Add "Compress" button to batch operations toolbar in VideoList
+- [x] Show batch compression progress/status
+- [x] Write tests for new procedures (30 tests passing)

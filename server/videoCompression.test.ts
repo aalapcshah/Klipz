@@ -339,6 +339,221 @@ describe("videoCompression", () => {
     });
   });
 
+  describe("estimateSize", () => {
+    it("should return size estimate for a video file", async () => {
+      const mockDb = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([
+              {
+                fileSize: 100000000, // 100MB
+                mimeType: "video/mp4",
+                filename: "test.mp4",
+              },
+            ]),
+          }),
+        }),
+      };
+      (db.getDb as any).mockResolvedValue(mockDb);
+
+      const estimate = await caller.videoCompression.estimateSize({
+        fileId: 1,
+        quality: "medium",
+      });
+
+      expect(estimate.originalSize).toBe(100000000);
+      expect(estimate.estimatedSize).toBeLessThan(100000000);
+      expect(estimate.savings).toBeGreaterThan(0);
+      expect(estimate.quality).toBe("medium");
+      expect(estimate.preset).toBeTruthy();
+    });
+
+    it("should return higher savings for lower quality", async () => {
+      const mockDb = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([
+              {
+                fileSize: 100000000,
+                mimeType: "video/mp4",
+                filename: "test.mp4",
+              },
+            ]),
+          }),
+        }),
+      };
+      (db.getDb as any).mockResolvedValue(mockDb);
+
+      const highEstimate = await caller.videoCompression.estimateSize({
+        fileId: 1,
+        quality: "high",
+      });
+      const lowEstimate = await caller.videoCompression.estimateSize({
+        fileId: 1,
+        quality: "low",
+      });
+
+      expect(lowEstimate.savings).toBeGreaterThan(highEstimate.savings);
+      expect(lowEstimate.estimatedSize).toBeLessThan(highEstimate.estimatedSize);
+    });
+
+    it("should reject for non-video files", async () => {
+      const mockDb = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([
+              {
+                fileSize: 5000000,
+                mimeType: "image/jpeg",
+                filename: "photo.jpg",
+              },
+            ]),
+          }),
+        }),
+      };
+      (db.getDb as any).mockResolvedValue(mockDb);
+
+      await expect(
+        caller.videoCompression.estimateSize({
+          fileId: 1,
+          quality: "medium",
+        })
+      ).rejects.toThrow("File is not a video");
+    });
+
+    it("should reject unauthenticated requests", async () => {
+      await expect(
+        unauthCaller.videoCompression.estimateSize({
+          fileId: 1,
+          quality: "medium",
+        })
+      ).rejects.toThrow();
+    });
+  });
+
+  describe("batchCompress", () => {
+    it("should reject unauthenticated requests", async () => {
+      await expect(
+        unauthCaller.videoCompression.batchCompress({
+          fileIds: [1, 2],
+          quality: "medium",
+        })
+      ).rejects.toThrow();
+    });
+
+    it("should reject when database is not available", async () => {
+      (db.getDb as any).mockResolvedValue(null);
+
+      await expect(
+        caller.videoCompression.batchCompress({
+          fileIds: [1, 2],
+          quality: "medium",
+        })
+      ).rejects.toThrow("Database not available");
+    });
+
+    it("should start compression for multiple valid video files", async () => {
+      const mockDb = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([
+              {
+                id: 1,
+                userId: 1,
+                fileKey: "user-1/videos/test1.mp4",
+                url: "https://s3.example.com/test1.mp4",
+                filename: "test1.mp4",
+                mimeType: "video/mp4",
+                fileSize: 50000000,
+              },
+            ]),
+          }),
+        }),
+        update: vi.fn().mockReturnValue({
+          set: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue({}),
+          }),
+        }),
+      };
+      (db.getDb as any).mockResolvedValue(mockDb);
+
+      const result = await caller.videoCompression.batchCompress({
+        fileIds: [1, 2],
+        quality: "medium",
+      });
+
+      expect(result.totalCount).toBe(2);
+      expect(result.results).toHaveLength(2);
+      expect(result.startedCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it("should handle mix of valid and invalid files", async () => {
+      let callCount = 0;
+      const mockDb = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockImplementation(() => {
+              callCount++;
+              if (callCount === 1) {
+                return Promise.resolve([
+                  {
+                    id: 1,
+                    userId: 1,
+                    fileKey: "user-1/videos/test1.mp4",
+                    url: "https://s3.example.com/test1.mp4",
+                    filename: "test1.mp4",
+                    mimeType: "video/mp4",
+                    fileSize: 50000000,
+                  },
+                ]);
+              }
+              // Second file not found
+              return Promise.resolve([]);
+            }),
+          }),
+        }),
+        update: vi.fn().mockReturnValue({
+          set: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue({}),
+          }),
+        }),
+      };
+      (db.getDb as any).mockResolvedValue(mockDb);
+
+      const result = await caller.videoCompression.batchCompress({
+        fileIds: [1, 2],
+        quality: "high",
+      });
+
+      expect(result.totalCount).toBe(2);
+      expect(result.results).toHaveLength(2);
+      // At least one should have started, one should have failed
+      const started = result.results.filter((r) => r.started);
+      const failed = result.results.filter((r) => !r.started);
+      expect(started.length).toBe(1);
+      expect(failed.length).toBe(1);
+      expect(failed[0].error).toBe("File not found");
+    });
+
+    it("should validate quality input", async () => {
+      await expect(
+        caller.videoCompression.batchCompress({
+          fileIds: [1],
+          quality: "invalid" as any,
+        })
+      ).rejects.toThrow();
+    });
+
+    it("should require at least one fileId", async () => {
+      await expect(
+        caller.videoCompression.batchCompress({
+          fileIds: [],
+          quality: "medium",
+        })
+      ).rejects.toThrow();
+    });
+  });
+
   describe("revert", () => {
     it("should reject unauthenticated requests", async () => {
       await expect(

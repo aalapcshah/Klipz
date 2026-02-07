@@ -23,6 +23,9 @@ import {
   Package,
   Share2,
   Captions,
+  Shrink,
+  ArrowDown,
+  HardDrive,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -47,7 +50,34 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
+
+function formatBatchSize(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function estimateBatchSize(totalSize: number, quality: 'high' | 'medium' | 'low'): number {
+  // Estimate based on target bitrate vs typical source bitrate
+  const presetBitrates = { high: 2628, medium: 1596, low: 864 }; // video + audio kbps
+  const targetKbps = presetBitrates[quality];
+  const estimatedSourceKbps = Math.max(targetKbps * 1.5, 8000);
+  const ratio = Math.min(0.95, targetKbps / estimatedSourceKbps);
+  return Math.round(totalSize * ratio);
+}
+
+function estimateBatchSavings(quality: 'high' | 'medium' | 'low'): number {
+  const presetBitrates = { high: 2628, medium: 1596, low: 864 };
+  const targetKbps = presetBitrates[quality];
+  const estimatedSourceKbps = Math.max(targetKbps * 1.5, 8000);
+  const ratio = Math.min(0.95, targetKbps / estimatedSourceKbps);
+  return Math.round((1 - ratio) * 100);
+}
 
 export function VideoList() {
   const [editingVideoId, setEditingVideoId] = useState<number | null>(null);
@@ -119,6 +149,10 @@ export function VideoList() {
   const [captioningVideos, setCaptioningVideos] = useState<Set<number>>(new Set());
   const generateCaptionsMutation = trpc.videoVisualCaptions.generateCaptions.useMutation();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showBatchCompressDialog, setShowBatchCompressDialog] = useState(false);
+  const [batchCompressQuality, setBatchCompressQuality] = useState<'high' | 'medium' | 'low'>('medium');
+  const [batchCompressing, setBatchCompressing] = useState(false);
+  const batchCompressMutation = trpc.videoCompression.batchCompress.useMutation();
   
   // Tag management
   const { data: allTags = [] } = trpc.videoTags.list.useQuery();
@@ -678,6 +712,19 @@ export function VideoList() {
               </Button>
               <Button
                 size="sm"
+                variant="default"
+                onClick={() => setShowBatchCompressDialog(true)}
+                disabled={batchCompressing}
+              >
+                {batchCompressing ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Shrink className="h-4 w-4 mr-2" />
+                )}
+                Compress
+              </Button>
+              <Button
+                size="sm"
                 variant="destructive"
                 onClick={() => setShowDeleteConfirm(true)}
                 disabled={batchDeleteMutation.isPending}
@@ -1031,6 +1078,144 @@ export function VideoList() {
               Delete
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Batch Compress Dialog */}
+      <Dialog open={showBatchCompressDialog} onOpenChange={setShowBatchCompressDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shrink className="h-5 w-5" />
+              Batch Compress {selectedVideoIds.length} Video{selectedVideoIds.length !== 1 ? 's' : ''}
+            </DialogTitle>
+            <DialogDescription>
+              Compress selected videos using FFmpeg on the server. Audio is fully preserved.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Total size info */}
+            {(() => {
+              const selectedVideos = videos.filter(v => selectedVideoIds.includes(v.id));
+              const totalSize = selectedVideos.reduce((sum, v) => {
+                const file = v as any;
+                return sum + (file.fileSize || 0);
+              }, 0);
+              const videoCount = selectedVideos.filter(v => v.fileId).length;
+              return (
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <HardDrive className="h-4 w-4 text-muted-foreground" />
+                    Size Estimate
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Videos to compress</span>
+                      <span className="font-mono">{videoCount}</span>
+                    </div>
+                    {totalSize > 0 && (
+                      <>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Total current size</span>
+                          <span className="font-mono">{formatBatchSize(totalSize)}</span>
+                        </div>
+                        <div className="flex items-center justify-center">
+                          <ArrowDown className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Estimated after</span>
+                          <span className="font-mono text-green-600">
+                            ~{formatBatchSize(estimateBatchSize(totalSize, batchCompressQuality))}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Estimated savings</span>
+                          <span className="font-mono text-green-600">
+                            ~{estimateBatchSavings(batchCompressQuality)}%
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Quality selector */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Compression Quality</label>
+              <Select
+                value={batchCompressQuality}
+                onValueChange={(v) => setBatchCompressQuality(v as 'high' | 'medium' | 'low')}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="high">High Quality (1080p)</SelectItem>
+                  <SelectItem value="medium">Medium Quality (720p)</SelectItem>
+                  <SelectItem value="low">Low Quality (480p)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Videos will be compressed sequentially in the background. You can leave this page and check back later.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBatchCompressDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                setBatchCompressing(true);
+                setShowBatchCompressDialog(false);
+                try {
+                  // Get fileIds for selected videos
+                  const fileIds = videos
+                    .filter(v => selectedVideoIds.includes(v.id) && v.fileId)
+                    .map(v => v.fileId!);
+                  
+                  if (fileIds.length === 0) {
+                    toast.error('No valid video files found in selection');
+                    setBatchCompressing(false);
+                    return;
+                  }
+
+                  const result = await batchCompressMutation.mutateAsync({
+                    fileIds,
+                    quality: batchCompressQuality,
+                  });
+
+                  toast.success(
+                    `Compression started for ${result.startedCount} of ${result.totalCount} video(s)`,
+                    {
+                      description: result.startedCount < result.totalCount
+                        ? `${result.totalCount - result.startedCount} video(s) were skipped (already compressing or not eligible)`
+                        : 'Videos are being compressed in the background with FFmpeg.',
+                    }
+                  );
+                  setSelectedVideoIds([]);
+                } catch (error: any) {
+                  toast.error('Batch compression failed', { description: error.message });
+                } finally {
+                  setBatchCompressing(false);
+                }
+              }}
+              disabled={batchCompressing}
+              className="gap-1.5"
+            >
+              {batchCompressing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Shrink className="h-4 w-4" />
+              )}
+              Compress All
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
