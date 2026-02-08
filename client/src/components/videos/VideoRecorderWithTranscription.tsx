@@ -38,6 +38,11 @@ import {
   Camera,
   Timer,
   AlertTriangle,
+  Pause,
+  Play,
+  Scissors,
+  SkipBack,
+  SkipForward,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -89,10 +94,19 @@ const TIMER_LIMIT_OPTIONS: TimerLimitOption[] = [
 
 export function VideoRecorderWithTranscription() {
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [uploading, setUploading] = useState(false);
+
+  // Trimming state
+  const [isTrimming, setIsTrimming] = useState(false);
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [trimmedBlob, setTrimmedBlob] = useState<Blob | null>(null);
+  const [isTrimProcessing, setIsTrimProcessing] = useState(false);
   
   // Transcription state
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -266,12 +280,21 @@ export function VideoRecorderWithTranscription() {
             toast.success('Camera flipped (F)');
           }
           break;
+        case 'p':
+          if (isRecording) {
+            if (isPaused) {
+              resumeRecording();
+            } else {
+              pauseRecording();
+            }
+          }
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isRecording, isPreviewing, recordedBlob, showAdvancedFeatures, facingMode, countdown]);
+  }, [isRecording, isPaused, isPreviewing, recordedBlob, showAdvancedFeatures, facingMode, countdown]);
 
   useEffect(() => {
     // Initialize Web Speech API
@@ -592,6 +615,47 @@ export function VideoRecorderWithTranscription() {
   // Alias for keyboard shortcut compatibility
   const startRecording = initiateRecording;
 
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+      setIsPaused(true);
+      // Pause the timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      // Pause transcription
+      if (recognitionRef.current && isTranscribing) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          // ignore
+        }
+      }
+      toast.info('Recording paused');
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+      mediaRecorderRef.current.resume();
+      setIsPaused(false);
+      // Resume the timer
+      timerRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+      // Resume transcription
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch (e) {
+          // ignore - may already be running
+        }
+      }
+      toast.info('Recording resumed');
+    }
+  };
+
   const stopRecording = () => {
     // Clear countdown if still running
     if (countdownRef.current) {
@@ -608,6 +672,7 @@ export function VideoRecorderWithTranscription() {
       timerRef.current = null;
     }
     setIsRecording(false);
+    setIsPaused(false);
     stopCamera();
 
     if (recognitionRef.current && isTranscribing) {
@@ -639,24 +704,26 @@ export function VideoRecorderWithTranscription() {
   }, [isRecording, recordingTime, timerLimitSeconds, timeRemaining]);
 
   const handleUpload = async () => {
-    if (!recordedBlob) return;
+    const blobToUpload = trimmedBlob || recordedBlob;
+    if (!blobToUpload) return;
 
     setUploading(true);
     try {
       const filename = `recording-${Date.now()}.webm`;
       const { url, fileKey } = await uploadFileToStorage(
-        recordedBlob,
+        blobToUpload,
         filename,
         trpcUtils
       );
 
       const fullTranscript = transcript.map(s => s.text).join(' ');
 
+      const uploadDuration = trimmedBlob ? Math.floor(trimEnd - trimStart) : recordingTime;
       await createVideoMutation.mutateAsync({
         fileKey,
         url,
         filename,
-        duration: recordingTime,
+        duration: uploadDuration,
         title: `Recording ${new Date().toLocaleString()}`,
         transcript: fullTranscript || undefined,
       });
@@ -664,6 +731,11 @@ export function VideoRecorderWithTranscription() {
       toast.success("Video uploaded successfully!");
       
       setRecordedBlob(null);
+      setTrimmedBlob(null);
+      setIsTrimming(false);
+      setTrimStart(0);
+      setTrimEnd(0);
+      setVideoDuration(0);
       setRecordingTime(0);
       setTranscript([]);
       setMatchedFiles([]);
@@ -680,11 +752,136 @@ export function VideoRecorderWithTranscription() {
 
   const handleDiscard = () => {
     setRecordedBlob(null);
+    setTrimmedBlob(null);
+    setIsTrimming(false);
+    setTrimStart(0);
+    setTrimEnd(0);
+    setVideoDuration(0);
     setRecordingTime(0);
     setTranscript([]);
     setMatchedFiles([]);
     if (videoRef.current) {
       videoRef.current.src = "";
+    }
+  };
+
+  // Trimming functions
+  const openTrimEditor = () => {
+    if (!recordedBlob || !videoRef.current) return;
+    const vid = videoRef.current;
+    const dur = vid.duration || recordingTime;
+    setVideoDuration(dur);
+    setTrimStart(0);
+    setTrimEnd(dur);
+    setTrimmedBlob(null);
+    setIsTrimming(true);
+  };
+
+  const applyTrim = async () => {
+    if (!recordedBlob) return;
+    setIsTrimProcessing(true);
+    try {
+      // Use MediaSource / OffscreenCanvas approach for client-side trimming
+      // For webm, we re-record the trimmed portion using a video element + MediaRecorder
+      const sourceUrl = URL.createObjectURL(recordedBlob);
+      const tempVideo = document.createElement('video');
+      tempVideo.src = sourceUrl;
+      tempVideo.muted = true;
+      tempVideo.preload = 'auto';
+
+      await new Promise<void>((resolve, reject) => {
+        tempVideo.onloadeddata = () => resolve();
+        tempVideo.onerror = () => reject(new Error('Failed to load video for trimming'));
+      });
+
+      tempVideo.currentTime = trimStart;
+      await new Promise<void>((resolve) => {
+        tempVideo.onseeked = () => resolve();
+      });
+
+      // Create a canvas to capture frames
+      const canvas = document.createElement('canvas');
+      canvas.width = tempVideo.videoWidth;
+      canvas.height = tempVideo.videoHeight;
+      const ctx = canvas.getContext('2d')!;
+
+      // Capture the canvas stream + original audio
+      const canvasStream = canvas.captureStream(30);
+
+      // Try to get audio from original blob
+      const audioCtx = new AudioContext();
+      const arrayBuffer = await recordedBlob.arrayBuffer();
+      let combinedStream: MediaStream;
+      try {
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+        const source = audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        const dest = audioCtx.createMediaStreamDestination();
+        source.connect(dest);
+        source.start(0, trimStart, trimEnd - trimStart);
+        combinedStream = new MediaStream([
+          ...canvasStream.getVideoTracks(),
+          ...dest.stream.getAudioTracks(),
+        ]);
+      } catch {
+        // No audio or decode failed, use video only
+        combinedStream = canvasStream;
+      }
+
+      const trimChunks: Blob[] = [];
+      const trimRecorder = new MediaRecorder(combinedStream, {
+        mimeType: 'video/webm;codecs=vp8,opus',
+      });
+
+      trimRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) trimChunks.push(e.data);
+      };
+
+      const trimPromise = new Promise<Blob>((resolve) => {
+        trimRecorder.onstop = () => {
+          resolve(new Blob(trimChunks, { type: 'video/webm' }));
+        };
+      });
+
+      trimRecorder.start(100);
+      tempVideo.play();
+
+      // Draw frames to canvas
+      const drawFrame = () => {
+        if (tempVideo.currentTime >= trimEnd || tempVideo.ended) {
+          trimRecorder.stop();
+          tempVideo.pause();
+          audioCtx.close();
+          return;
+        }
+        ctx.drawImage(tempVideo, 0, 0);
+        requestAnimationFrame(drawFrame);
+      };
+      drawFrame();
+
+      const result = await trimPromise;
+      URL.revokeObjectURL(sourceUrl);
+
+      setTrimmedBlob(result);
+      // Update the video preview
+      if (videoRef.current) {
+        videoRef.current.src = URL.createObjectURL(result);
+      }
+      toast.success(`Video trimmed! ${formatTime(Math.floor(trimEnd - trimStart))} duration`);
+    } catch (err) {
+      console.error('Trim error:', err);
+      toast.error('Failed to trim video. The original will be used.');
+    } finally {
+      setIsTrimProcessing(false);
+    }
+  };
+
+  const cancelTrim = () => {
+    setIsTrimming(false);
+    setTrimmedBlob(null);
+    // Restore original preview
+    if (recordedBlob && videoRef.current) {
+      videoRef.current.src = URL.createObjectURL(recordedBlob);
     }
   };
 
@@ -839,14 +1036,30 @@ export function VideoRecorderWithTranscription() {
               )}
 
               {isRecording && (
-                <div className="absolute top-4 left-4 flex items-center gap-2 bg-destructive text-destructive-foreground px-3 py-2 rounded-md">
-                  <Circle className="h-4 w-4 fill-current animate-pulse" />
+                <div className={`absolute top-4 left-4 flex items-center gap-2 px-3 py-2 rounded-md ${isPaused ? 'bg-yellow-600 text-white' : 'bg-destructive text-destructive-foreground'}`}>
+                  {isPaused ? (
+                    <Pause className="h-4 w-4 fill-current" />
+                  ) : (
+                    <Circle className="h-4 w-4 fill-current animate-pulse" />
+                  )}
                   <span className="font-mono font-bold">{formatTime(recordingTime)}</span>
-                  {timeRemaining !== null && (
+                  {isPaused && <span className="text-xs font-semibold ml-1">PAUSED</span>}
+                  {!isPaused && timeRemaining !== null && (
                     <span className={`font-mono text-xs ml-1 ${timeRemaining <= 30 ? 'text-yellow-200 animate-pulse' : 'opacity-75'}`}>
                       ({formatTime(timeRemaining)} left)
                     </span>
                   )}
+                </div>
+              )}
+
+              {/* Paused overlay */}
+              {isRecording && isPaused && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-10">
+                  <div className="text-center">
+                    <Pause className="h-16 w-16 text-white mx-auto mb-2" />
+                    <p className="text-white text-lg font-semibold">Recording Paused</p>
+                    <p className="text-white/70 text-sm">Click Resume to continue</p>
+                  </div>
                 </div>
               )}
 
@@ -946,15 +1159,29 @@ export function VideoRecorderWithTranscription() {
               )}
 
               {isRecording && (
-                <Button
-                  onClick={stopRecording}
-                  size="lg"
-                  variant="destructive"
-                  className="active:scale-95 transition-transform min-h-[52px] px-8 text-base"
-                >
-                  <Square className="h-5 w-5 mr-2" />
-                  Stop Recording
-                </Button>
+                <>
+                  <Button
+                    onClick={isPaused ? resumeRecording : pauseRecording}
+                    size="lg"
+                    variant="outline"
+                    className="active:scale-95 transition-transform min-h-[52px] px-6 text-base"
+                  >
+                    {isPaused ? (
+                      <><Play className="h-5 w-5 mr-2" />Resume</>
+                    ) : (
+                      <><Pause className="h-5 w-5 mr-2" />Pause</>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={stopRecording}
+                    size="lg"
+                    variant="destructive"
+                    className="active:scale-95 transition-transform min-h-[52px] px-8 text-base"
+                  >
+                    <Square className="h-5 w-5 mr-2" />
+                    Stop Recording
+                  </Button>
+                </>
               )}
 
               {recordedBlob && !uploading && (
@@ -962,9 +1189,18 @@ export function VideoRecorderWithTranscription() {
                   <Button onClick={handleDiscard} variant="outline" className="min-h-[44px]">
                     Discard
                   </Button>
+                  <Button
+                    onClick={openTrimEditor}
+                    variant="outline"
+                    className="min-h-[44px] gap-1.5"
+                    disabled={isTrimming}
+                  >
+                    <Scissors className="h-4 w-4" />
+                    {trimmedBlob ? 'Re-Trim' : 'Trim'}
+                  </Button>
                   <Button onClick={handleUpload} size="lg" className="min-h-[48px] px-6">
                     <Upload className="h-5 w-5 mr-2" />
-                    Upload Video
+                    {trimmedBlob ? 'Upload Trimmed' : 'Upload Video'}
                   </Button>
                 </>
               )}
@@ -1133,7 +1369,7 @@ export function VideoRecorderWithTranscription() {
                     )}
 
                     <p className="text-xs text-muted-foreground">
-                      Tip: Press <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">F</kbd> to flip camera, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">C</kbd> to start camera, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">R</kbd> to record
+                      Tip: Press <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">F</kbd> to flip camera, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">C</kbd> to start camera, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">R</kbd> to record, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">P</kbd> to pause/resume
                     </p>
                   </div>
                 )}
@@ -1142,20 +1378,108 @@ export function VideoRecorderWithTranscription() {
 
             {recordedBlob && (
               <>
+                {/* Trimming UI */}
+                {isTrimming && (
+                  <div className="mt-4 p-4 border rounded-lg space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Scissors className="h-4 w-4 text-primary" />
+                      <h3 className="font-semibold text-sm">Trim Video</h3>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>Start: {formatTime(Math.floor(trimStart))}</span>
+                          <span>End: {formatTime(Math.floor(trimEnd))}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <SkipBack className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <input
+                            type="range"
+                            min={0}
+                            max={videoDuration}
+                            step={0.1}
+                            value={trimStart}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              setTrimStart(Math.min(val, trimEnd - 0.5));
+                              if (videoRef.current) videoRef.current.currentTime = val;
+                            }}
+                            className="flex-1 accent-primary"
+                          />
+                          <span className="text-xs font-mono w-12 text-right">{formatTime(Math.floor(trimStart))}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <SkipForward className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <input
+                            type="range"
+                            min={0}
+                            max={videoDuration}
+                            step={0.1}
+                            value={trimEnd}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              setTrimEnd(Math.max(val, trimStart + 0.5));
+                              if (videoRef.current) videoRef.current.currentTime = val;
+                            }}
+                            className="flex-1 accent-primary"
+                          />
+                          <span className="text-xs font-mono w-12 text-right">{formatTime(Math.floor(trimEnd))}</span>
+                        </div>
+                      </div>
+
+                      <div className="text-center">
+                        <Badge variant="outline">
+                          Trimmed duration: {formatTime(Math.floor(trimEnd - trimStart))} of {formatTime(Math.floor(videoDuration))}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center justify-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={cancelTrim}
+                          disabled={isTrimProcessing}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={applyTrim}
+                          disabled={isTrimProcessing || (trimStart === 0 && trimEnd === videoDuration)}
+                        >
+                          {isTrimProcessing ? (
+                            <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Processing...</>
+                          ) : (
+                            <><Scissors className="h-4 w-4 mr-1" />Apply Trim</>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                   <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-500 mb-2">
                     <Upload className="h-4 w-4" />
                     <span className="font-semibold">Don't forget to save your recording!</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Click "Upload Video" to save your recording permanently. Unsaved recordings will be lost if you leave this page.
+                    {trimmedBlob
+                      ? 'Your trimmed video is ready to upload. Click "Upload Trimmed" to save it.'
+                      : 'Click "Upload Video" to save your recording permanently. Use "Trim" to cut the start/end before uploading.'}
                   </p>
                 </div>
-                <div className="mt-2 text-center">
+                <div className="mt-2 text-center flex items-center justify-center gap-2 flex-wrap">
                   <Badge variant="secondary">
                     Duration: {formatTime(recordingTime)} • Size:{" "}
                     {(recordedBlob.size / 1024 / 1024).toFixed(2)} MB
                   </Badge>
+                  {trimmedBlob && (
+                    <Badge variant="default" className="bg-green-600">
+                      Trimmed: {formatTime(Math.floor(trimEnd - trimStart))} • {(trimmedBlob.size / 1024 / 1024).toFixed(2)} MB
+                    </Badge>
+                  )}
                 </div>
               </>
             )}

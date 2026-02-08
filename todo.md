@@ -5504,3 +5504,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add 3-2-1 countdown before recording starts
 - [x] Add recording timer limit with auto-stop (1min, 5min, 15min, 30min, 60min options)
 - [x] Add back camera support to CameraCapture component on Files page
+
+## Features - Feb 7, 2026 (Recording Pause/Resume & Video Trimming)
+- [x] Add recording pause/resume button to video recorder
+- [x] Add video trimming UI before upload (trim start/end of recorded video)

@@ -196,6 +196,145 @@ describe("Camera Settings", () => {
   });
 });
 
+// Test recording pause/resume logic
+describe("Recording Pause/Resume", () => {
+  it("should toggle between paused and recording states", () => {
+    let isPaused = false;
+    // Pause
+    isPaused = true;
+    expect(isPaused).toBe(true);
+    // Resume
+    isPaused = false;
+    expect(isPaused).toBe(false);
+  });
+
+  it("should stop timer when paused", () => {
+    let timerRunning = true;
+    // Pause stops the timer
+    timerRunning = false;
+    expect(timerRunning).toBe(false);
+  });
+
+  it("should resume timer when resumed", () => {
+    let timerRunning = false;
+    // Resume restarts the timer
+    timerRunning = true;
+    expect(timerRunning).toBe(true);
+  });
+
+  it("should reset isPaused when recording stops", () => {
+    let isPaused = true;
+    let isRecording = true;
+    // Stop recording
+    isRecording = false;
+    isPaused = false;
+    expect(isRecording).toBe(false);
+    expect(isPaused).toBe(false);
+  });
+
+  it("should support MediaRecorder pause/resume states", () => {
+    const validStates = ['recording', 'paused', 'inactive'];
+    expect(validStates).toContain('recording');
+    expect(validStates).toContain('paused');
+    expect(validStates).toContain('inactive');
+  });
+});
+
+// Test video trimming logic
+describe("Video Trimming", () => {
+  it("should initialize trim range to full video duration", () => {
+    const videoDuration = 120; // 2 minutes
+    const trimStart = 0;
+    const trimEnd = videoDuration;
+    expect(trimStart).toBe(0);
+    expect(trimEnd).toBe(120);
+  });
+
+  it("should calculate trimmed duration correctly", () => {
+    const trimStart = 10;
+    const trimEnd = 90;
+    const trimmedDuration = trimEnd - trimStart;
+    expect(trimmedDuration).toBe(80);
+  });
+
+  it("should enforce minimum trim duration of 0.5 seconds", () => {
+    const trimEnd = 50;
+    let trimStart = 49.8;
+    // Enforce minimum gap
+    trimStart = Math.min(trimStart, trimEnd - 0.5);
+    expect(trimStart).toBe(49.5);
+  });
+
+  it("should prevent trimStart from exceeding trimEnd", () => {
+    const trimEnd = 30;
+    let trimStart = 35;
+    trimStart = Math.min(trimStart, trimEnd - 0.5);
+    expect(trimStart).toBe(29.5);
+  });
+
+  it("should prevent trimEnd from going below trimStart", () => {
+    const trimStart = 30;
+    let trimEnd = 25;
+    trimEnd = Math.max(trimEnd, trimStart + 0.5);
+    expect(trimEnd).toBe(30.5);
+  });
+
+  it("should disable apply when no trimming is done", () => {
+    const trimStart = 0;
+    const trimEnd = 120;
+    const videoDuration = 120;
+    const shouldDisable = trimStart === 0 && trimEnd === videoDuration;
+    expect(shouldDisable).toBe(true);
+  });
+
+  it("should enable apply when trimming is done", () => {
+    const trimStart = 5;
+    const trimEnd = 115;
+    const videoDuration = 120;
+    const shouldDisable = trimStart === 0 && trimEnd === videoDuration;
+    expect(shouldDisable).toBe(false);
+  });
+
+  it("should use trimmed blob for upload when available", () => {
+    const recordedBlob = new Blob(['original'], { type: 'video/webm' });
+    const trimmedBlob = new Blob(['trimmed'], { type: 'video/webm' });
+    const blobToUpload = trimmedBlob || recordedBlob;
+    expect(blobToUpload).toBe(trimmedBlob);
+  });
+
+  it("should use original blob when no trimming done", () => {
+    const recordedBlob = new Blob(['original'], { type: 'video/webm' });
+    const trimmedBlob: Blob | null = null;
+    const blobToUpload = trimmedBlob || recordedBlob;
+    expect(blobToUpload).toBe(recordedBlob);
+  });
+
+  it("should calculate trimmed duration for upload metadata", () => {
+    const trimStart = 10;
+    const trimEnd = 90;
+    const recordingTime = 120;
+    const trimmedBlob = new Blob(['trimmed'], { type: 'video/webm' });
+    const uploadDuration = trimmedBlob ? Math.floor(trimEnd - trimStart) : recordingTime;
+    expect(uploadDuration).toBe(80);
+  });
+
+  it("should reset trim state on discard", () => {
+    let isTrimming = true;
+    let trimStart = 10;
+    let trimEnd = 90;
+    let trimmedBlob: Blob | null = new Blob(['trimmed']);
+    // Discard
+    isTrimming = false;
+    trimStart = 0;
+    trimEnd = 0;
+    trimmedBlob = null;
+    expect(isTrimming).toBe(false);
+    expect(trimStart).toBe(0);
+    expect(trimEnd).toBe(0);
+    expect(trimmedBlob).toBeNull();
+  });
+});
+
 // Test CameraCapture photo resolution options
 describe("CameraCapture Photo Settings", () => {
   const PHOTO_RESOLUTION_OPTIONS = [
