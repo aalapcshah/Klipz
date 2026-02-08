@@ -5517,3 +5517,6 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add per-card "Find Matches" button to trigger file matching from library view
 - [x] Add caption/transcript status badges on video cards (green=transcribed, blue=captioned)
 - [x] Add inline timestamp seeking - clicking timestamps in transcript/captions seeks video player
+
+## Bugs - Feb 8, 2026 (File List Filter)
+- [x] Files page shows "Showing 0 of 63 files (filtered)" — fixed: added clear filters button and improved empty state when filters exclude all files

@@ -1674,8 +1674,28 @@ export default function FileGridEnhanced({
         {files.length === 0 ? (
           <Card className="p-12 text-center">
             <FileIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No files yet</h3>
-            <p className="text-muted-foreground">Upload your first file to get started</p>
+            {(filterType !== 'all' || filterTagSource !== 'all' || filterQualityScore !== 'all' || 
+              (advancedFilters && (advancedFilters.enrichmentStatus.length > 0 || advancedFilters.qualityScore.length > 0 || advancedFilters.dateFrom || advancedFilters.fileSizeMin > 0))) ? (
+              <>
+                <h3 className="text-lg font-semibold mb-2">No files match your filters</h3>
+                <p className="text-muted-foreground mb-4">Try adjusting or clearing your filters to see more files</p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setFilterType('all');
+                    setFilterTagSource('all');
+                    setFilterQualityScore('all');
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold mb-2">No files yet</h3>
+                <p className="text-muted-foreground">Upload your first file to get started</p>
+              </>
+            )}
           </Card>
         ) : (
           <div 

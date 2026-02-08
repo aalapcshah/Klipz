@@ -664,7 +664,30 @@ export default function FilesView() {
               <div className="flex items-center gap-4">
                 <span className="text-sm text-muted-foreground">
                   {filteredCount !== null && filteredCount < filesData.pagination.totalCount ? (
-                    <>Showing {filteredCount} of {filesData.pagination.totalCount} files (filtered)</>
+                    <span className="flex items-center gap-2">
+                      Showing {filteredCount} of {filesData.pagination.totalCount} files (filtered)
+                      {filteredCount === 0 && (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 text-xs text-primary"
+                          onClick={() => {
+                            setAdvancedFilters({
+                              dateFrom: '',
+                              dateTo: '',
+                              fileSizeMin: 0,
+                              fileSizeMax: 100,
+                              enrichmentStatus: [],
+                              qualityScore: [],
+                            });
+                            localStorage.removeItem('advancedFilters');
+                            toast.success('Filters cleared');
+                          }}
+                        >
+                          Clear all filters
+                        </Button>
+                      )}
+                    </span>
                   ) : (
                     <>Showing {Math.min((filesData.pagination.page - 1) * filesData.pagination.pageSize + 1, filesData.pagination.totalCount)} - {Math.min(filesData.pagination.page * filesData.pagination.pageSize, filesData.pagination.totalCount)} of {filesData.pagination.totalCount} files</>
                   )}
