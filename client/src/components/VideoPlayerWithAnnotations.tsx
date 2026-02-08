@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine, Eye, EyeOff, Download, Repeat, Sparkles, FileDown, MoreHorizontal, ChevronUp, Zap, Palette, Headphones, Paintbrush, Captions, CaptionsOff } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, Mic, Trash2, MessageSquare, PenLine, Eye, EyeOff, Download, Repeat, Sparkles, FileDown, MoreHorizontal, ChevronUp, Zap, Palette, Headphones, Paintbrush, Captions, CaptionsOff, ListVideo, RotateCcw, Star, Bookmark } from "lucide-react";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { VideoDrawingCanvas, VideoDrawingCanvasHandle } from "./VideoDrawingCanvas";
 import { AnnotationTimeline } from "./AnnotationTimeline";
@@ -1900,7 +1900,37 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
         </Button>
       </Card>
 
+      {/* Quick Tools Navigation Bar */}
+      <Card className="p-2 max-w-full overflow-x-auto">
+        <div className="flex items-center gap-1 min-w-max">
+          {[
+            { id: 'chapters-section', icon: ListVideo, label: 'Chapters', color: 'text-blue-400' },
+            { id: 'loop-region-section', icon: RotateCcw, label: 'Loop', color: 'text-orange-400' },
+            { id: 'auto-highlight-section', icon: Star, label: 'Highlights', color: 'text-yellow-400' },
+            { id: 'export-section', icon: Bookmark, label: 'Export', color: 'text-cyan-400' },
+            { id: 'speed-ramping-section', icon: Zap, label: 'Speed', color: 'text-yellow-500' },
+            { id: 'effects-section', icon: Sparkles, label: 'Effects', color: 'text-purple-400' },
+            { id: 'audio-mixer-section', icon: Headphones, label: 'Audio', color: 'text-green-400' },
+            { id: 'green-screen-section', icon: Paintbrush, label: 'Green Screen', color: 'text-emerald-400' },
+          ].map((tool) => (
+            <Button
+              key={tool.id}
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs flex items-center gap-1.5 shrink-0 hover:bg-accent/50"
+              onClick={() => {
+                document.getElementById(tool.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }}
+            >
+              <tool.icon className={`h-3.5 w-3.5 ${tool.color}`} />
+              <span className="hidden sm:inline">{tool.label}</span>
+            </Button>
+          ))}
+        </div>
+      </Card>
+
       {/* Video Chapters Section */}
+      <div id="chapters-section">
       <VideoChapters
         fileId={fileId}
         currentTime={currentTime}
@@ -1910,6 +1940,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
           }
         }}
       />
+      </div>
 
       {/* Video Loop Region */}
       <div id="loop-region-section">

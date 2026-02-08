@@ -5574,3 +5574,6 @@ Note: The application already has extensive annotation features including voice 
 ## UI Compactness - Feb 8, 2026
 - [x] Make Chapters section collapsed by default (not showing empty state)
 - [x] Reduce vertical height/padding of Speed Ramping, Video Effects, Multi-Track Audio, Green Screen sections
+
+## Quick Tools Toolbar - Feb 8, 2026
+- [x] Add Quick Tools toolbar with icon buttons at top of video tools area for quick navigation to each section
