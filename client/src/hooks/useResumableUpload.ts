@@ -38,6 +38,10 @@ interface UseResumableUploadOptions {
   onComplete?: (session: ResumableUploadSession, result: { fileId: number; videoId?: number; url: string }) => void;
   onError?: (session: ResumableUploadSession, error: Error) => void;
   onProgress?: (session: ResumableUploadSession) => void;
+  /** If true, auto-resume sessions that have file references in memory on page load */
+  autoResume?: boolean;
+  /** Delay in ms to add between chunk uploads for throttling (0 = no throttle) */
+  chunkDelayMs?: number;
 }
 
 export function useResumableUpload(options: UseResumableUploadOptions = {}) {
@@ -45,6 +49,13 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   const [isLoading, setIsLoading] = useState(true);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const activeUploadsRef = useRef<Set<string>>(new Set());
+  const autoResumedRef = useRef(false);
+  const chunkDelayRef = useRef(options.chunkDelayMs ?? 0);
+
+  // Keep chunkDelay ref in sync with options
+  useEffect(() => {
+    chunkDelayRef.current = options.chunkDelayMs ?? 0;
+  }, [options.chunkDelayMs]);
 
   // tRPC mutations
   const createSessionMutation = trpc.resumableUpload.createSession.useMutation();
@@ -82,7 +93,16 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
         lastActivityAt: s.lastActivityAt,
       }));
       
-      setSessions(mappedSessions);
+      // Merge file references from existing sessions (in case user navigated away and back)
+      setSessions(prev => {
+        return mappedSessions.map(mapped => {
+          const existing = prev.find(p => p.sessionToken === mapped.sessionToken);
+          if (existing?.file) {
+            return { ...mapped, file: existing.file };
+          }
+          return mapped;
+        });
+      });
       setIsLoading(false);
       
       // Show toast if there are resumable sessions
@@ -197,6 +217,11 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, file.size);
 
+        // Apply throttle delay between chunks (skip first chunk)
+        if (i > session.uploadedChunks && chunkDelayRef.current > 0) {
+          await new Promise(resolve => setTimeout(resolve, chunkDelayRef.current));
+        }
+
         // Upload chunk with retries (includes file read retry)
         let retries = 0;
         const maxRetries = 3;
@@ -294,6 +319,38 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
       abortControllersRef.current.delete(session.sessionToken);
     }
   }, [uploadChunkMutation, finalizeUploadMutation, readChunkAsBase64, options]);
+
+  // Auto-resume: when sessions load and have file references in memory, auto-resume them
+  useEffect(() => {
+    if (autoResumedRef.current || isLoading || sessions.length === 0) return;
+    if (!options.autoResume) return;
+
+    const sessionsWithFiles = sessions.filter(
+      s => (s.status === 'active' || s.status === 'paused') && 
+           s.file && 
+           !activeUploadsRef.current.has(s.sessionToken)
+    );
+
+    if (sessionsWithFiles.length > 0) {
+      autoResumedRef.current = true;
+      console.log(`[ResumableUpload] Auto-resuming ${sessionsWithFiles.length} upload(s) with files in memory`);
+      toast.info(`Auto-resuming ${sessionsWithFiles.length} upload(s)...`);
+      
+      // Stagger auto-resumes to avoid overwhelming the server
+      sessionsWithFiles.forEach((session, index) => {
+        setTimeout(() => {
+          if (session.file) {
+            uploadChunks({ ...session, status: 'active' }, session.file);
+            setSessions(prev => prev.map(s => 
+              s.sessionToken === session.sessionToken
+                ? { ...s, status: 'active' as const, isPaused: false }
+                : s
+            ));
+          }
+        }, index * 1000); // 1 second stagger between each
+      });
+    }
+  }, [sessions, isLoading, options.autoResume, uploadChunks]);
 
   // Pause an upload
   const pauseUpload = useCallback(async (sessionToken: string) => {

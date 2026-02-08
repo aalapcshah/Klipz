@@ -5470,3 +5470,7 @@ Note: The application already has extensive annotation features including voice 
 ## Bug Fixes - Feb 7, 2026 (Upload Issues Part 2)
 - [x] Fix "Failed to read chunk" error on video upload (307MB file on mobile)
 - [x] Fix resume button on resumable uploads opening camera/file picker instead of showing dialog
+
+## Features - Feb 7, 2026 (Upload Enhancements)
+- [x] Auto-resume uploads on page load when files are still in memory
+- [x] Upload speed throttling with user-configurable bandwidth limit

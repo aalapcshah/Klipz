@@ -25,6 +25,7 @@ import {
   FolderOpen
 } from "lucide-react";
 import { useResumableUpload, ResumableUploadSession } from "@/hooks/useResumableUpload";
+import { useUploadSettings } from "@/hooks/useUploadSettings";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -77,6 +78,7 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
   const [resumingSessionToken, setResumingSessionToken] = useState<string | null>(null);
   const [showFileSelectDialog, setShowFileSelectDialog] = useState(false);
   const [pendingResumeSession, setPendingResumeSession] = useState<ResumableUploadSession | null>(null);
+  const { settings: uploadSettings } = useUploadSettings();
 
   const {
     sessions,
@@ -92,6 +94,8 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
     errorCount,
     resumableCount,
   } = useResumableUpload({
+    autoResume: true,
+    chunkDelayMs: uploadSettings.chunkDelayMs,
     onComplete: (_session, result) => {
       onUploadComplete?.();
       // Auto-generate visual captions for uploaded videos

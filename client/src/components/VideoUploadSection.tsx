@@ -29,6 +29,7 @@ import { useFeatureAccess, useVideoLimit } from "@/components/FeatureGate";
 import { Link } from "wouter";
 import { Lock, Crown, Sparkles } from "lucide-react";
 import { UploadTranscriptInline } from "@/components/UploadTranscriptInline";
+import { useUploadSettings, type ThrottleLevel, getThrottlePresets, getThrottleLabel } from "@/hooks/useUploadSettings";
 // CompressionPreviewDialog no longer needed (compression moved to server-side)
 
 type VideoQuality = "original" | "high" | "medium" | "low" | "custom";
@@ -136,6 +137,13 @@ export function VideoUploadSection() {
   const autoTranscribeMutation = trpc.videoTranscription.transcribeVideo.useMutation();
   const autoFileSuggestionsMutation = trpc.videoTranscription.generateFileSuggestions.useMutation();
   const compressMutation = trpc.videoCompression.compress.useMutation();
+  // Upload settings (throttle)
+  const { settings: uploadSettings, setThrottleLevel } = useUploadSettings();
+  const chunkDelayRef = useRef(uploadSettings.chunkDelayMs);
+  useEffect(() => {
+    chunkDelayRef.current = uploadSettings.chunkDelayMs;
+  }, [uploadSettings.chunkDelayMs]);
+
   // Feature gate hooks
   const { allowed: canUploadVideos, loading: featureLoading } = useFeatureAccess('uploadVideo');
   const { allowed: hasVideoSlots, currentCount: videoCount, limit: videoLimit, message: videoLimitMessage } = useVideoLimit();
@@ -238,6 +246,11 @@ export function VideoUploadSection() {
         if (abortController?.signal.aborted) {
           updatePausedChunk(uploadId, i);
           return;
+        }
+
+        // Apply throttle delay between chunks (skip first chunk)
+        if (i > startChunk && chunkDelayRef.current > 0) {
+          await new Promise(resolve => setTimeout(resolve, chunkDelayRef.current));
         }
 
         const start = i * activeChunkSize;
@@ -902,6 +915,26 @@ export function VideoUploadSection() {
             {scheduledCount > 0 && `, ${scheduledCount} scheduled`}
             {" "}(max 3 concurrent uploads)
           </span>
+        </div>
+      )}
+
+      {/* Upload Speed Control */}
+      {videoUploads.some(u => u.status === 'uploading' || u.status === 'pending' || u.status === 'paused') && (
+        <div className="flex items-center gap-3 bg-muted/30 rounded-lg px-4 py-2">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Upload Speed:</span>
+          <Select value={uploadSettings.throttleLevel} onValueChange={(val) => setThrottleLevel(val as ThrottleLevel)}>
+            <SelectTrigger className="w-[160px] h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(getThrottlePresets()).map(([key, preset]) => (
+                <SelectItem key={key} value={key}>{preset.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {uploadSettings.throttleLevel !== 'unlimited' && (
+            <span className="text-xs text-amber-500">Throttled — slower upload to save bandwidth</span>
+          )}
         </div>
       )}
 
