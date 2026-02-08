@@ -5557,3 +5557,7 @@ Note: The application already has extensive annotation features including voice 
 ## Mobile UX - Feb 8, 2026 (Upload Settings & Sticky Progress)
 - [x] Make Upload Settings collapsible/accordion on mobile (collapsed by default)
 - [x] Add sticky upload progress bar pinned to bottom of screen on mobile during active uploads
+
+## Mobile UX - Feb 8, 2026 (Sticky Bar Expand & Upload Sounds)
+- [x] Tap-to-expand on sticky progress bar: tapping scrolls to/expands the full uploads list
+- [x] Upload completion notification sounds: play a subtle chime when an upload completes

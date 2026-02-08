@@ -31,6 +31,7 @@ import { Link } from "wouter";
 import { Lock, Crown, Sparkles } from "lucide-react";
 import { UploadTranscriptInline } from "@/components/UploadTranscriptInline";
 import { useUploadSettings, type ThrottleLevel, getThrottlePresets, getThrottleLabel } from "@/hooks/useUploadSettings";
+import { playUploadCompleteSound, playUploadErrorSound } from "@/lib/notificationSound";
 // CompressionPreviewDialog no longer needed (compression moved to server-side)
 
 type VideoQuality = "original" | "high" | "medium" | "low" | "custom";
@@ -81,6 +82,8 @@ export function VideoUploadSection() {
   const [settingsOpen, setSettingsOpen] = useState(false); // collapsed by default on mobile
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const uploadsListRef = useRef<HTMLDivElement>(null);
+  const prevUploadStatusesRef = useRef<Map<string, string>>(new Map());
   
   // Duplicate detection state
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
@@ -152,6 +155,33 @@ export function VideoUploadSection() {
   
   // Filter uploads to show only video uploads
   const videoUploads = uploads.filter(u => u.uploadType === 'video');
+
+  // Track upload status changes to play notification sounds
+  useEffect(() => {
+    const prevStatuses = prevUploadStatusesRef.current;
+    let playedComplete = false;
+    let playedError = false;
+
+    for (const upload of videoUploads) {
+      const prevStatus = prevStatuses.get(upload.id);
+      if (prevStatus && prevStatus !== upload.status) {
+        if (upload.status === 'completed' && !playedComplete) {
+          playUploadCompleteSound();
+          playedComplete = true;
+        } else if (upload.status === 'error' && !playedError) {
+          playUploadErrorSound();
+          playedError = true;
+        }
+      }
+    }
+
+    // Update previous statuses
+    const newStatuses = new Map<string, string>();
+    for (const upload of videoUploads) {
+      newStatuses.set(upload.id, upload.status);
+    }
+    prevUploadStatusesRef.current = newStatuses;
+  }, [videoUploads]);
 
   const validateFile = (file: File): string | null => {
     if (!ACCEPTED_VIDEO_FORMATS.includes(file.type)) {
@@ -916,7 +946,7 @@ export function VideoUploadSection() {
 
       {/* Uploading Files List - moved up before settings on mobile */}
       {videoUploads.length > 0 && (
-        <div className="space-y-3">
+        <div ref={uploadsListRef} className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Uploads ({videoUploads.length})</h3>
             {/* Retry All Failed Button */}
@@ -1347,7 +1377,13 @@ export function VideoUploadSection() {
 
       {/* Sticky Upload Progress Bar - mobile only, shown during active uploads */}
       {videoUploads.some(u => u.status === 'uploading' || u.status === 'pending' || u.status === 'paused' || u.status === 'retrying') && (
-        <div className="fixed bottom-16 left-0 right-0 z-40 md:hidden">
+        <div
+          className="fixed bottom-16 left-0 right-0 z-40 md:hidden cursor-pointer"
+          onClick={() => {
+            uploadsListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            triggerHaptic('light');
+          }}
+        >
           <div className="bg-background/95 backdrop-blur-sm border-t border-border px-4 py-2.5 shadow-lg">
             {(() => {
               const activeUpload = videoUploads.find(u => u.status === 'uploading') || videoUploads.find(u => u.status === 'pending' || u.status === 'paused' || u.status === 'retrying');
@@ -1374,6 +1410,7 @@ export function VideoUploadSection() {
                         <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full">+{activeCount - 1}</span>
                       )}
                     </div>
+                    <ChevronDown className="w-3.5 h-3.5 text-muted-foreground rotate-180 shrink-0" />
                   </div>
                   <div className="w-full bg-secondary rounded-full h-1.5 overflow-hidden">
                     <div
