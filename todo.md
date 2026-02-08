@@ -5499,3 +5499,8 @@ Note: The application already has extensive annotation features including voice 
 ## UI Fix - Feb 7, 2026
 - [x] Move Upload Settings section to just below the Upload Videos drop zone
 - [x] Move Camera Settings section to next to Start Camera button (below camera preview)
+
+## Features - Feb 7, 2026 (Recording Enhancements)
+- [x] Add 3-2-1 countdown before recording starts
+- [x] Add recording timer limit with auto-stop (1min, 5min, 15min, 30min, 60min options)
+- [x] Add back camera support to CameraCapture component on Files page

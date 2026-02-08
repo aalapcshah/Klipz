@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,8 @@ import {
   FlipHorizontal,
   Mic2,
   Camera,
+  Timer,
+  AlertTriangle,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -69,6 +71,20 @@ const RESOLUTION_OPTIONS: ResolutionOption[] = [
   { label: "720p", width: 1280, height: 720 },
   { label: "1080p", width: 1920, height: 1080 },
   { label: "4K", width: 3840, height: 2160 },
+];
+
+interface TimerLimitOption {
+  label: string;
+  seconds: number; // 0 = no limit
+}
+
+const TIMER_LIMIT_OPTIONS: TimerLimitOption[] = [
+  { label: "No limit", seconds: 0 },
+  { label: "1 min", seconds: 60 },
+  { label: "5 min", seconds: 300 },
+  { label: "15 min", seconds: 900 },
+  { label: "30 min", seconds: 1800 },
+  { label: "60 min", seconds: 3600 },
 ];
 
 export function VideoRecorderWithTranscription() {
@@ -106,6 +122,16 @@ export function VideoRecorderWithTranscription() {
     return typeof window !== 'undefined' ? localStorage.getItem('videoVideoDevice') || '' : '';
   });
   const [showCameraSettings, setShowCameraSettings] = useState(false);
+
+  // Countdown state
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Recording timer limit state
+  const [timerLimit, setTimerLimit] = useState<string>(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('videoTimerLimit') || '0' : '0';
+  });
+  const timerLimitWarningShown = useRef(false);
 
   // Feature panels state
   const [showAdvancedFeatures, setShowAdvancedFeatures] = useState(() => {
@@ -185,6 +211,10 @@ export function VideoRecorderWithTranscription() {
     }
   }, [selectedVideoDevice]);
 
+  useEffect(() => {
+    localStorage.setItem('videoTimerLimit', timerLimit);
+  }, [timerLimit]);
+
   // Warn before leaving with unsaved recording
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -211,9 +241,12 @@ export function VideoRecorderWithTranscription() {
             if (isRecording) {
               stopRecording();
               toast.success('Recording stopped (R)');
+            } else if (countdown !== null) {
+              cancelCountdown();
+              toast.success('Countdown cancelled (R)');
             } else if (isPreviewing) {
-              startRecording();
-              toast.success('Recording started (R)');
+              initiateRecording();
+              toast.success('Countdown started (R)');
             }
           }
           break;
@@ -238,7 +271,7 @@ export function VideoRecorderWithTranscription() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isRecording, isPreviewing, recordedBlob, showAdvancedFeatures, facingMode]);
+  }, [isRecording, isPreviewing, recordedBlob, showAdvancedFeatures, facingMode, countdown]);
 
   useEffect(() => {
     // Initialize Web Speech API
@@ -297,6 +330,7 @@ export function VideoRecorderWithTranscription() {
     return () => {
       stopCamera();
       if (timerRef.current) clearInterval(timerRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
@@ -474,7 +508,40 @@ export function VideoRecorderWithTranscription() {
     }
   }, [isPreviewing, isRecording]);
 
-  const startRecording = () => {
+  // Start countdown then begin recording
+  const initiateRecording = () => {
+    if (!streamRef.current) return;
+    
+    // Start 3-2-1 countdown
+    setCountdown(3);
+    timerLimitWarningShown.current = false;
+    
+    let count = 3;
+    countdownRef.current = setInterval(() => {
+      count -= 1;
+      if (count <= 0) {
+        if (countdownRef.current) {
+          clearInterval(countdownRef.current);
+          countdownRef.current = null;
+        }
+        setCountdown(null);
+        actuallyStartRecording();
+      } else {
+        setCountdown(count);
+      }
+    }, 1000);
+  };
+
+  // Cancel countdown
+  const cancelCountdown = () => {
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+    setCountdown(null);
+  };
+
+  const actuallyStartRecording = () => {
     if (!streamRef.current) return;
 
     chunksRef.current = [];
@@ -522,7 +589,17 @@ export function VideoRecorderWithTranscription() {
     }
   };
 
+  // Alias for keyboard shortcut compatibility
+  const startRecording = initiateRecording;
+
   const stopRecording = () => {
+    // Clear countdown if still running
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+    setCountdown(null);
+
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
     }
@@ -538,6 +615,28 @@ export function VideoRecorderWithTranscription() {
       setIsTranscribing(false);
     }
   };
+
+  // Timer limit: auto-stop recording and show warnings
+  const timerLimitSeconds = useMemo(() => parseInt(timerLimit) || 0, [timerLimit]);
+  const timeRemaining = timerLimitSeconds > 0 ? timerLimitSeconds - recordingTime : null;
+
+  useEffect(() => {
+    if (!isRecording || timerLimitSeconds === 0) return;
+
+    // Show warning at 30 seconds remaining
+    if (timeRemaining !== null && timeRemaining === 30 && !timerLimitWarningShown.current) {
+      timerLimitWarningShown.current = true;
+      toast.warning('30 seconds remaining before auto-stop', {
+        duration: 5000,
+      });
+    }
+
+    // Auto-stop at limit
+    if (timeRemaining !== null && timeRemaining <= 0) {
+      toast.info(`Recording auto-stopped at ${TIMER_LIMIT_OPTIONS.find(o => o.seconds === timerLimitSeconds)?.label || 'limit'}`);
+      stopRecording();
+    }
+  }, [isRecording, recordingTime, timerLimitSeconds, timeRemaining]);
 
   const handleUpload = async () => {
     if (!recordedBlob) return;
@@ -719,10 +818,35 @@ export function VideoRecorderWithTranscription() {
               />
               <canvas ref={canvasRef} className="hidden" />
 
+              {/* Countdown Overlay */}
+              {countdown !== null && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
+                  <div className="text-center">
+                    <div className="text-8xl font-bold text-white tabular-nums animate-pulse">
+                      {countdown}
+                    </div>
+                    <p className="text-white/80 text-lg mt-2">Get ready...</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={cancelCountdown}
+                      className="mt-4 text-white border-white/40 hover:bg-white/20"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {isRecording && (
                 <div className="absolute top-4 left-4 flex items-center gap-2 bg-destructive text-destructive-foreground px-3 py-2 rounded-md">
                   <Circle className="h-4 w-4 fill-current animate-pulse" />
                   <span className="font-mono font-bold">{formatTime(recordingTime)}</span>
+                  {timeRemaining !== null && (
+                    <span className={`font-mono text-xs ml-1 ${timeRemaining <= 30 ? 'text-yellow-200 animate-pulse' : 'opacity-75'}`}>
+                      ({formatTime(timeRemaining)} left)
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -780,7 +904,7 @@ export function VideoRecorderWithTranscription() {
                 </Button>
               )}
 
-              {isPreviewing && !isRecording && (
+              {isPreviewing && !isRecording && countdown === null && (
                 <>
                   <Button onClick={stopCamera} variant="outline" className="min-h-[44px] min-w-[44px] px-4">
                     <VideoOff className="h-4 w-4 mr-2" />
@@ -795,11 +919,11 @@ export function VideoRecorderWithTranscription() {
                       if (!streamRef.current) {
                         console.warn('Stream not ready, restarting camera...');
                         startCamera().then(() => {
-                          setTimeout(() => startRecording(), 500);
+                          setTimeout(() => initiateRecording(), 500);
                         });
                         return;
                       }
-                      startRecording();
+                      initiateRecording();
                     }}
                     size="lg"
                     className="bg-destructive hover:bg-destructive/90 active:scale-95 transition-transform min-h-[52px] px-8 text-base"
@@ -808,6 +932,17 @@ export function VideoRecorderWithTranscription() {
                     Start Recording
                   </Button>
                 </>
+              )}
+
+              {/* Countdown in progress - show cancel */}
+              {countdown !== null && (
+                <Button
+                  onClick={cancelCountdown}
+                  variant="outline"
+                  className="min-h-[44px] px-6"
+                >
+                  Cancel Countdown
+                </Button>
               )}
 
               {isRecording && (
@@ -887,6 +1022,25 @@ export function VideoRecorderWithTranscription() {
                         <SelectItem key={opt.label} value={opt.label}>
                           <div className="flex items-center gap-1.5">
                             <Monitor className="h-3 w-3" />
+                            {opt.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={timerLimit} onValueChange={setTimerLimit}>
+                    <SelectTrigger className="w-[110px] h-8">
+                      <div className="flex items-center gap-1.5">
+                        <Timer className="h-3 w-3" />
+                        <SelectValue />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIMER_LIMIT_OPTIONS.map(opt => (
+                        <SelectItem key={opt.seconds.toString()} value={opt.seconds.toString()}>
+                          <div className="flex items-center gap-1.5">
+                            <Timer className="h-3 w-3" />
                             {opt.label}
                           </div>
                         </SelectItem>

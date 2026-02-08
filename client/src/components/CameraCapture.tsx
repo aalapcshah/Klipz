@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, SwitchCamera, X, Check, RotateCcw, Loader2, Sparkles, ImagePlus } from 'lucide-react';
+import { Camera, SwitchCamera, X, Check, RotateCcw, Loader2, Sparkles, ImagePlus, Monitor, FlipHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -8,6 +8,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 import { trpc } from '@/lib/trpc';
 
@@ -17,6 +24,12 @@ interface CameraCaptureProps {
   onCaptureComplete?: (fileId: number) => void;
 }
 
+const PHOTO_RESOLUTION_OPTIONS = [
+  { label: '720p', width: 1280, height: 720 },
+  { label: '1080p', width: 1920, height: 1080 },
+  { label: '4K', width: 3840, height: 2160 },
+];
+
 export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -24,12 +37,61 @@ export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraC
   
   const [isStreaming, setIsStreaming] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('cameraCaptureFacing') : null;
+    return (saved === 'user' ? 'user' : 'environment') as 'user' | 'environment';
+  });
+  const [resolution, setResolution] = useState<string>(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('cameraCaptureResolution') : null;
+    return saved || '1080p';
+  });
+  const [mirrorFront, setMirrorFront] = useState<boolean>(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('cameraCaptureMirror') : null;
+    return saved !== null ? JSON.parse(saved) : true;
+  });
   const [isUploading, setIsUploading] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState<string>('');
   
   const createFileMutation = trpc.files.create.useMutation();
   const utils = trpc.useUtils();
+
+  // Persist settings
+  useEffect(() => {
+    localStorage.setItem('cameraCaptureFacing', facingMode);
+  }, [facingMode]);
+
+  useEffect(() => {
+    localStorage.setItem('cameraCaptureResolution', resolution);
+  }, [resolution]);
+
+  useEffect(() => {
+    localStorage.setItem('cameraCaptureMirror', JSON.stringify(mirrorFront));
+  }, [mirrorFront]);
+
+  // Enumerate devices
+  const enumerateDevices = useCallback(async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = devices.filter(d => d.kind === 'videoinput');
+      setVideoDevices(videoInputs);
+    } catch (err) {
+      console.error('Failed to enumerate devices:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    enumerateDevices();
+    navigator.mediaDevices?.addEventListener?.('devicechange', enumerateDevices);
+    return () => {
+      navigator.mediaDevices?.removeEventListener?.('devicechange', enumerateDevices);
+    };
+  }, [enumerateDevices]);
+
+  const getResolution = () => {
+    return PHOTO_RESOLUTION_OPTIONS.find(r => r.label === resolution) || PHOTO_RESOLUTION_OPTIONS[1];
+  };
 
   // Start camera stream
   const startCamera = useCallback(async () => {
@@ -40,16 +102,41 @@ export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraC
         streamRef.current.getTracks().forEach(track => track.stop());
       }
 
-      const constraints: MediaStreamConstraints = {
-        video: {
-          facingMode: facingMode,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-        audio: false,
+      const res = getResolution();
+      const videoConstraints: MediaTrackConstraints = {
+        width: { ideal: res.width },
+        height: { ideal: res.height },
       };
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      // Use specific device if selected, otherwise use facingMode
+      if (selectedDevice) {
+        videoConstraints.deviceId = { exact: selectedDevice };
+      } else {
+        videoConstraints.facingMode = facingMode;
+      }
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: videoConstraints,
+          audio: false,
+        });
+      } catch (err) {
+        console.warn('Preferred constraints failed, trying facingMode fallback:', err);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: facingMode },
+            audio: false,
+          });
+        } catch (err2) {
+          console.warn('FacingMode fallback failed, trying basic:', err2);
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+        }
+      }
+
       streamRef.current = stream;
 
       if (videoRef.current) {
@@ -57,6 +144,9 @@ export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraC
         await videoRef.current.play();
         setIsStreaming(true);
       }
+
+      // Re-enumerate devices now that we have permission
+      enumerateDevices();
     } catch (err) {
       console.error('Camera error:', err);
       if (err instanceof Error) {
@@ -73,7 +163,7 @@ export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraC
         setCameraError('Failed to access camera. Please check permissions.');
       }
     }
-  }, [facingMode]);
+  }, [facingMode, selectedDevice, resolution]);
 
   // Stop camera stream
   const stopCamera = useCallback(() => {
@@ -101,8 +191,8 @@ export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraC
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // If using front camera, flip horizontally for mirror effect
-    if (facingMode === 'user') {
+    // If using front camera with mirror, flip horizontally
+    if (facingMode === 'user' && mirrorFront) {
       ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
     }
@@ -115,7 +205,7 @@ export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraC
     
     // Stop the camera while reviewing
     stopCamera();
-  }, [facingMode, stopCamera]);
+  }, [facingMode, mirrorFront, stopCamera]);
 
   // Retake photo
   const retakePhoto = useCallback(() => {
@@ -125,8 +215,11 @@ export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraC
 
   // Switch camera (front/back)
   const switchCamera = useCallback(() => {
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-  }, []);
+    const newMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newMode);
+    // Clear specific device selection when flipping
+    setSelectedDevice('');
+  }, [facingMode]);
 
   // Upload captured photo
   const uploadPhoto = useCallback(async () => {
@@ -199,12 +292,14 @@ export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraC
     };
   }, [open, startCamera, stopCamera, capturedImage]);
 
-  // Restart camera when facing mode changes
+  // Restart camera when facing mode or device changes
   useEffect(() => {
     if (open && isStreaming) {
       startCamera();
     }
-  }, [facingMode]);
+  }, [facingMode, selectedDevice, resolution]);
+
+  const shouldMirror = facingMode === 'user' && mirrorFront && !capturedImage;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -240,11 +335,18 @@ export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraC
                 autoPlay
                 playsInline
                 muted
-                className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+                className={`w-full h-full object-cover ${shouldMirror ? 'scale-x-[-1]' : ''}`}
               />
               {!isStreaming && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                   <Loader2 className="w-8 h-8 animate-spin text-white" />
+                </div>
+              )}
+              {/* Camera mode indicator */}
+              {isStreaming && (
+                <div className="absolute top-3 left-3 flex items-center gap-1 bg-black/60 text-white px-2 py-1 rounded text-xs">
+                  <Camera className="h-3 w-3" />
+                  {facingMode === 'user' ? 'Front' : 'Back'} • {resolution}
                 </div>
               )}
             </>
@@ -273,7 +375,8 @@ export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraC
                 size="icon"
                 onClick={switchCamera}
                 disabled={!isStreaming || !!cameraError}
-                className="rounded-full"
+                className="rounded-full min-h-[44px] min-w-[44px]"
+                title={facingMode === 'user' ? 'Switch to back camera' : 'Switch to front camera'}
               >
                 <SwitchCamera className="w-5 h-5" />
               </Button>
@@ -283,7 +386,7 @@ export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraC
                 size="lg"
                 onClick={capturePhoto}
                 disabled={!isStreaming || !!cameraError}
-                className="rounded-full w-16 h-16 p-0"
+                className="rounded-full w-16 h-16 p-0 active:scale-95 transition-transform"
               >
                 <div className="w-12 h-12 rounded-full bg-white" />
               </Button>
@@ -293,7 +396,7 @@ export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraC
                 variant="outline"
                 size="icon"
                 onClick={() => onOpenChange(false)}
-                className="rounded-full"
+                className="rounded-full min-h-[44px] min-w-[44px]"
               >
                 <X className="w-5 h-5" />
               </Button>
@@ -305,6 +408,7 @@ export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraC
                 variant="outline"
                 onClick={retakePhoto}
                 disabled={isUploading}
+                className="min-h-[44px]"
               >
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Retake
@@ -314,7 +418,7 @@ export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraC
               <Button
                 onClick={uploadPhoto}
                 disabled={isUploading}
-                className="min-w-[140px]"
+                className="min-w-[140px] min-h-[44px]"
               >
                 {isUploading ? (
                   <>
@@ -337,6 +441,7 @@ export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraC
                   onOpenChange(false);
                 }}
                 disabled={isUploading}
+                className="min-h-[44px]"
               >
                 <X className="w-4 h-4 mr-2" />
                 Cancel
@@ -344,6 +449,57 @@ export function CameraCapture({ open, onOpenChange, onCaptureComplete }: CameraC
             </>
           )}
         </div>
+
+        {/* Camera Settings Row */}
+        {!capturedImage && (
+          <div className="px-4 pb-2 flex flex-wrap items-center gap-2">
+            <Select value={resolution} onValueChange={setResolution}>
+              <SelectTrigger className="w-[90px] h-8">
+                <div className="flex items-center gap-1">
+                  <Monitor className="h-3 w-3" />
+                  <SelectValue />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                {PHOTO_RESOLUTION_OPTIONS.map(opt => (
+                  <SelectItem key={opt.label} value={opt.label}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {videoDevices.length > 1 && (
+              <Select value={selectedDevice || 'auto'} onValueChange={(val) => {
+                setSelectedDevice(val === 'auto' ? '' : val);
+              }}>
+                <SelectTrigger className="h-8 flex-1 min-w-[120px]">
+                  <SelectValue placeholder="Auto camera" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto ({facingMode === 'user' ? 'Front' : 'Back'})</SelectItem>
+                  {videoDevices.map((device, idx) => (
+                    <SelectItem key={device.deviceId} value={device.deviceId}>
+                      {device.label || `Camera ${idx + 1}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            <Button
+              variant={mirrorFront ? 'default' : 'outline'}
+              size="sm"
+              className="h-8 gap-1 ml-auto"
+              onClick={() => setMirrorFront(!mirrorFront)}
+              disabled={facingMode !== 'user'}
+              title="Mirror front camera"
+            >
+              <FlipHorizontal className="h-3 w-3" />
+              <span className="text-xs">Mirror</span>
+            </Button>
+          </div>
+        )}
 
         {/* Premium Badge */}
         <div className="px-4 pb-4">
