@@ -17,7 +17,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video, Clock, Pause, Play, RefreshCw, Calendar, FolderOpen } from "lucide-react";
+import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video, Clock, Pause, Play, RefreshCw, Calendar, FolderOpen, ChevronDown, Settings } from "lucide-react";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { DuplicateWarningDialog, DuplicateFile, DuplicateAction } from "@/components/DuplicateWarningDialog";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -77,6 +78,7 @@ export function VideoUploadSection() {
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [scheduleUploadId, setScheduleUploadId] = useState<string | null>(null);
   const [scheduleTime, setScheduleTime] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false); // collapsed by default on mobile
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   
@@ -1228,35 +1230,76 @@ export function VideoUploadSection() {
         </div>
       )}
 
-      {/* Upload Settings */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-3">Upload Settings</h3>
-        <div className="space-y-4">
-          <div>
-            <Label className="text-sm font-medium mb-2 block">Post-Upload Compression</Label>
-            <Select value={selectedQuality} onValueChange={(v) => setSelectedQuality(v as VideoQuality)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select quality" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="original">Original (No Compression)</SelectItem>
-                <SelectItem value="high">High Quality (1080p)</SelectItem>
-                <SelectItem value="medium">Medium Quality (720p)</SelectItem>
-                <SelectItem value="low">Low Quality (480p)</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground mt-1.5">
-              {selectedQuality === 'original'
-                ? 'Videos will be uploaded as-is. You can compress later from the Video Library.'
-                : `Videos will be uploaded at original quality, then automatically compressed to ${QUALITY_SETTINGS[selectedQuality].label} using server-side FFmpeg after upload completes.`}
-            </p>
+      {/* Upload Settings - collapsible on mobile */}
+      <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <Card className="p-4 md:p-6">
+          {/* On mobile: collapsible trigger. On desktop: always visible */}
+          <CollapsibleTrigger asChild className="md:hidden">
+            <button className="flex items-center justify-between w-full text-left">
+              <div className="flex items-center gap-2">
+                <Settings className="w-4 h-4 text-muted-foreground" />
+                <h3 className="text-base font-semibold">Upload Settings</h3>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${settingsOpen ? 'rotate-180' : ''}`} />
+            </button>
+          </CollapsibleTrigger>
+          <h3 className="text-lg font-semibold mb-3 hidden md:block">Upload Settings</h3>
+          {/* Desktop: always visible content */}
+          <div className="hidden md:block space-y-4">
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Post-Upload Compression</Label>
+              <Select value={selectedQuality} onValueChange={(v) => setSelectedQuality(v as VideoQuality)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select quality" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="original">Original (No Compression)</SelectItem>
+                  <SelectItem value="high">High Quality (1080p)</SelectItem>
+                  <SelectItem value="medium">Medium Quality (720p)</SelectItem>
+                  <SelectItem value="low">Low Quality (480p)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                {selectedQuality === 'original'
+                  ? 'Videos will be uploaded as-is. You can compress later from the Video Library.'
+                  : `Videos will be uploaded at original quality, then automatically compressed to ${QUALITY_SETTINGS[selectedQuality].label} using server-side FFmpeg after upload completes.`}
+              </p>
+            </div>
+            <div className="flex items-start gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+              <span>Server compression preserves audio, maintains full duration, and lets you revert to the original anytime</span>
+            </div>
           </div>
-          <div className="flex items-start gap-2 text-sm text-muted-foreground">
-            <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-            <span>Server compression preserves audio, maintains full duration, and lets you revert to the original anytime</span>
-          </div>
-        </div>
-      </Card>
+          {/* Mobile: collapsible content */}
+          <CollapsibleContent className="md:hidden">
+            <div className="space-y-4 pt-3">
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Post-Upload Compression</Label>
+                <Select value={selectedQuality} onValueChange={(v) => setSelectedQuality(v as VideoQuality)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select quality" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="original">Original (No Compression)</SelectItem>
+                    <SelectItem value="high">High Quality (1080p)</SelectItem>
+                    <SelectItem value="medium">Medium Quality (720p)</SelectItem>
+                    <SelectItem value="low">Low Quality (480p)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  {selectedQuality === 'original'
+                    ? 'Videos will be uploaded as-is. You can compress later from the Video Library.'
+                    : `Videos will be uploaded at original quality, then automatically compressed to ${QUALITY_SETTINGS[selectedQuality].label} using server-side FFmpeg after upload completes.`}
+                </p>
+              </div>
+              <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                <span>Server compression preserves audio, maintains full duration, and lets you revert to the original anytime</span>
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
 
 
@@ -1301,6 +1344,57 @@ export function VideoUploadSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Sticky Upload Progress Bar - mobile only, shown during active uploads */}
+      {videoUploads.some(u => u.status === 'uploading' || u.status === 'pending' || u.status === 'paused' || u.status === 'retrying') && (
+        <div className="fixed bottom-16 left-0 right-0 z-40 md:hidden">
+          <div className="bg-background/95 backdrop-blur-sm border-t border-border px-4 py-2.5 shadow-lg">
+            {(() => {
+              const activeUpload = videoUploads.find(u => u.status === 'uploading') || videoUploads.find(u => u.status === 'pending' || u.status === 'paused' || u.status === 'retrying');
+              if (!activeUpload) return null;
+              const activeCount = videoUploads.filter(u => u.status === 'uploading' || u.status === 'pending' || u.status === 'paused' || u.status === 'retrying').length;
+              return (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      {activeUpload.status === 'uploading' ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+                      ) : activeUpload.status === 'paused' ? (
+                        <Pause className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
+                      ) : (
+                        <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      )}
+                      <span className="text-sm font-medium truncate">{activeUpload.filename}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-muted-foreground">
+                        {activeUpload.status === 'uploading' ? `${Math.round(activeUpload.progress)}%` : activeUpload.status}
+                      </span>
+                      {activeCount > 1 && (
+                        <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full">+{activeCount - 1}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="w-full bg-secondary rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        activeUpload.status === 'paused' ? 'bg-yellow-500' : 'bg-primary'
+                      }`}
+                      style={{ width: `${Math.max(2, activeUpload.progress || 0)}%` }}
+                    />
+                  </div>
+                  {activeUpload.status === 'uploading' && activeUpload.speed > 0 && (
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{formatSpeed(activeUpload.speed)}</span>
+                      <span>ETA: {formatEta(activeUpload.eta)}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

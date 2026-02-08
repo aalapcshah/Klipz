@@ -5553,3 +5553,7 @@ Note: The application already has extensive annotation features including voice 
 ## Mobile UX - Feb 8, 2026 (Video Upload Layout)
 - [x] Make video upload drop zone compact on mobile (reduce height/padding)
 - [x] Move upload status/progress section up closer to the drop zone on mobile
+
+## Mobile UX - Feb 8, 2026 (Upload Settings & Sticky Progress)
+- [x] Make Upload Settings collapsible/accordion on mobile (collapsed by default)
+- [x] Add sticky upload progress bar pinned to bottom of screen on mobile during active uploads
