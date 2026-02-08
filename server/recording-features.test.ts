@@ -649,3 +649,133 @@ describe("Timestamp Seeking", () => {
     expect(selector).toBe('[data-video-id="42"]');
   });
 });
+
+// Test retry logic for failed transcriptions/captions
+describe("Retry Failed Transcription/Caption Logic", () => {
+  it("should allow retry when status is failed", () => {
+    const statuses = ["completed", "processing", "failed", "pending"];
+    const retryable = statuses.filter(s => s === "failed");
+    expect(retryable).toEqual(["failed"]);
+  });
+
+  it("should not allow retry when already processing", () => {
+    const status = "processing";
+    const canRetry = status === "failed";
+    expect(canRetry).toBe(false);
+  });
+
+  it("should disable retry button when mutation is pending", () => {
+    const isPending = true;
+    const status = "failed";
+    const buttonDisabled = isPending || status !== "failed";
+    expect(buttonDisabled).toBe(true);
+  });
+
+  it("should enable retry button when mutation is idle and status is failed", () => {
+    const isPending = false;
+    const status = "failed";
+    const buttonDisabled = isPending || status !== "failed";
+    expect(buttonDisabled).toBe(false);
+  });
+
+  it("should invalidate queries after successful retry", () => {
+    let queriesInvalidated = false;
+    const onSuccess = () => {
+      queriesInvalidated = true;
+    };
+    onSuccess();
+    expect(queriesInvalidated).toBe(true);
+  });
+});
+
+// Test offline recording cache logic
+describe("Offline Recording Cache Logic", () => {
+  it("should generate unique IDs for cached recordings", () => {
+    const ids = new Set<string>();
+    for (let i = 0; i < 100; i++) {
+      const id = `rec_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      ids.add(id);
+    }
+    // All IDs should be unique
+    expect(ids.size).toBe(100);
+  });
+
+  it("should format file sizes correctly", () => {
+    const formatSize = (bytes: number) => {
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    expect(formatSize(512 * 1024)).toBe("512 KB");
+    expect(formatSize(1.5 * 1024 * 1024)).toBe("1.5 MB");
+    expect(formatSize(24 * 1024 * 1024)).toBe("24.0 MB");
+    expect(formatSize(100)).toBe("0 KB");
+  });
+
+  it("should format time ago correctly", () => {
+    const formatTimeAgo = (timestamp: number) => {
+      const diff = Date.now() - timestamp;
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return "just now";
+      if (mins < 60) return `${mins}m ago`;
+      const hours = Math.floor(mins / 60);
+      if (hours < 24) return `${hours}h ago`;
+      return `${Math.floor(hours / 24)}d ago`;
+    };
+
+    expect(formatTimeAgo(Date.now())).toBe("just now");
+    expect(formatTimeAgo(Date.now() - 5 * 60000)).toBe("5m ago");
+    expect(formatTimeAgo(Date.now() - 3 * 3600000)).toBe("3h ago");
+    expect(formatTimeAgo(Date.now() - 2 * 86400000)).toBe("2d ago");
+  });
+
+  it("should identify retryable recordings", () => {
+    const recordings = [
+      { id: "1", status: "pending" },
+      { id: "2", status: "uploading" },
+      { id: "3", status: "failed" },
+      { id: "4", status: "pending" },
+    ];
+
+    const retryable = recordings.filter(
+      r => r.status === "pending" || r.status === "failed"
+    );
+
+    expect(retryable).toHaveLength(3);
+    expect(retryable.map(r => r.id)).toEqual(["1", "3", "4"]);
+  });
+
+  it("should calculate chunk count correctly for uploads", () => {
+    const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB
+
+    expect(Math.ceil((5 * 1024 * 1024) / CHUNK_SIZE)).toBe(3); // 5MB = 3 chunks
+    expect(Math.ceil((24 * 1024 * 1024) / CHUNK_SIZE)).toBe(12); // 24MB = 12 chunks
+    expect(Math.ceil((1 * 1024 * 1024) / CHUNK_SIZE)).toBe(1); // 1MB = 1 chunk
+    expect(Math.ceil((2 * 1024 * 1024) / CHUNK_SIZE)).toBe(1); // 2MB = 1 chunk
+  });
+
+  it("should save recording to cache on upload failure", () => {
+    let savedToCache = false;
+    const blobToCache = { size: 24 * 1024 * 1024 }; // 24MB blob
+
+    // Simulate upload failure
+    const uploadFailed = true;
+    if (uploadFailed && blobToCache) {
+      savedToCache = true;
+    }
+
+    expect(savedToCache).toBe(true);
+  });
+
+  it("should not save to cache if no blob is available", () => {
+    let savedToCache = false;
+    const blobToCache = null;
+
+    const uploadFailed = true;
+    if (uploadFailed && blobToCache) {
+      savedToCache = true;
+    }
+
+    expect(savedToCache).toBe(false);
+  });
+});

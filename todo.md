@@ -5526,3 +5526,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Failed to upload recorded video from mobile (switched to chunked upload for recordings >5MB)
 - [x] Keyframe bubbles UI confusing (added speed labels, color coding, tooltips, explanatory text)
 - [x] Captioning/transcription stuck "in progress" (added query invalidation + polling when processing)
+
+## Features - Feb 8, 2026 (Retry & Offline Recording)
+- [x] Add retry button for failed transcriptions/captions on video cards
+- [x] Add offline recording support with local caching and auto-retry upload

@@ -832,9 +832,31 @@ export function VideoRecorderWithTranscription() {
       if (videoRef.current) {
         videoRef.current.src = "";
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Failed to upload video");
+      
+      // If upload failed, try to save to offline cache
+      const blobToCache = trimmedBlob || recordedBlob;
+      if (blobToCache) {
+        try {
+          const { saveRecordingToCache } = await import("@/lib/offlineRecordingCache");
+          const filename = `recording_${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}.webm`;
+          await saveRecordingToCache({
+            blob: blobToCache,
+            filename,
+            duration: recordingTime,
+            transcript: transcript.map(s => s.text).join(" "),
+          });
+          toast.warning("Upload failed — recording saved locally. It will auto-upload when connection is restored.", {
+            duration: 6000,
+          });
+        } catch (cacheError) {
+          console.error("Failed to cache recording:", cacheError);
+          toast.error("Failed to upload video. Please try again.");
+        }
+      } else {
+        toast.error("Failed to upload video");
+      }
     } finally {
       setUploading(false);
       setUploadProgress(0);

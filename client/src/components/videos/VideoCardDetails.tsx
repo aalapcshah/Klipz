@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Search,
   CheckCircle2,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -91,6 +92,41 @@ export function VideoCardDetails({ videoId, fileId, hasTranscript, videoRef }: V
   });
 
   const isFindingMatches = generateVisualMatchesMutation.isPending || generateTranscriptMatchesMutation.isPending;
+
+  // Retry mutations for failed transcriptions/captions
+  const retryTranscriptMutation = trpc.videoTranscription.transcribeVideo.useMutation({
+    onSuccess: () => {
+      if (fileId) {
+        utils.videoTranscription.getTranscript.invalidate({ fileId });
+      }
+      toast.success("Transcription restarted successfully!");
+    },
+    onError: (err) => {
+      toast.error(`Retry failed: ${err.message}`);
+    },
+  });
+
+  const retryCaptionMutation = trpc.videoVisualCaptions.generateCaptions.useMutation({
+    onSuccess: () => {
+      if (fileId) {
+        utils.videoVisualCaptions.getCaptions.invalidate({ fileId });
+      }
+      toast.success("Captioning restarted successfully!");
+    },
+    onError: (err) => {
+      toast.error(`Retry failed: ${err.message}`);
+    },
+  });
+
+  const handleRetryTranscript = () => {
+    if (!fileId) return;
+    retryTranscriptMutation.mutate({ fileId });
+  };
+
+  const handleRetryCaptions = () => {
+    if (!fileId) return;
+    retryCaptionMutation.mutate({ fileId });
+  };
 
   const handleFindMatches = async () => {
     if (!fileId) {
@@ -213,16 +249,38 @@ export function VideoCardDetails({ videoId, fileId, hasTranscript, videoRef }: V
           </Badge>
         )}
         {transcriptStatus === "failed" && (
-          <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-red-500/10 text-red-600 border-red-500/30 gap-0.5">
-            <AlertCircle className="h-2.5 w-2.5" />
-            Transcript Failed
-          </Badge>
+          <button
+            onClick={handleRetryTranscript}
+            disabled={retryTranscriptMutation.isPending}
+            className="inline-flex items-center gap-0.5 cursor-pointer"
+            title="Click to retry transcription"
+          >
+            <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-red-500/10 text-red-600 border-red-500/30 gap-0.5 hover:bg-red-500/20 transition-colors">
+              {retryTranscriptMutation.isPending ? (
+                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+              ) : (
+                <RotateCcw className="h-2.5 w-2.5" />
+              )}
+              Retry Transcript
+            </Badge>
+          </button>
         )}
         {captionStatus === "failed" && (
-          <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-red-500/10 text-red-600 border-red-500/30 gap-0.5">
-            <AlertCircle className="h-2.5 w-2.5" />
-            Caption Failed
-          </Badge>
+          <button
+            onClick={handleRetryCaptions}
+            disabled={retryCaptionMutation.isPending}
+            className="inline-flex items-center gap-0.5 cursor-pointer"
+            title="Click to retry captioning"
+          >
+            <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-red-500/10 text-red-600 border-red-500/30 gap-0.5 hover:bg-red-500/20 transition-colors">
+              {retryCaptionMutation.isPending ? (
+                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+              ) : (
+                <RotateCcw className="h-2.5 w-2.5" />
+              )}
+              Retry Captions
+            </Badge>
+          </button>
         )}
       </div>
 
@@ -331,9 +389,25 @@ export function VideoCardDetails({ videoId, fileId, hasTranscript, videoRef }: V
               Transcription in progress...
             </div>
           ) : transcript && transcript.status === "failed" ? (
-            <div className="flex items-center gap-2 text-xs text-destructive py-2">
-              <AlertCircle className="h-3 w-3" />
-              Transcription failed
+            <div className="flex items-center justify-between py-2">
+              <div className="flex items-center gap-2 text-xs text-destructive">
+                <AlertCircle className="h-3 w-3" />
+                Transcription failed
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 text-[10px] gap-1 text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
+                onClick={handleRetryTranscript}
+                disabled={retryTranscriptMutation.isPending}
+              >
+                {retryTranscriptMutation.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-3 w-3" />
+                )}
+                Retry
+              </Button>
             </div>
           ) : (
             <div className="text-xs text-muted-foreground py-2">
@@ -387,9 +461,25 @@ export function VideoCardDetails({ videoId, fileId, hasTranscript, videoRef }: V
               Captioning in progress...
             </div>
           ) : captions && captions.status === "failed" ? (
-            <div className="flex items-center gap-2 text-xs text-destructive py-2">
-              <AlertCircle className="h-3 w-3" />
-              Captioning failed: {captions.errorMessage || "Unknown error"}
+            <div className="flex items-center justify-between py-2">
+              <div className="flex items-center gap-2 text-xs text-destructive">
+                <AlertCircle className="h-3 w-3" />
+                Captioning failed{captions.errorMessage ? `: ${captions.errorMessage}` : ""}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 text-[10px] gap-1 text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
+                onClick={handleRetryCaptions}
+                disabled={retryCaptionMutation.isPending}
+              >
+                {retryCaptionMutation.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-3 w-3" />
+                )}
+                Retry
+              </Button>
             </div>
           ) : (
             <div className="text-xs text-muted-foreground py-2">

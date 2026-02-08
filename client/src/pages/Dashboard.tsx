@@ -417,6 +417,7 @@ import { VideoRecorderWithTranscription } from "@/components/videos/VideoRecorde
 import { VideoList } from "@/components/videos/VideoList";
 import { VideoUploadSection } from "@/components/VideoUploadSection";
 import { RecentlyRecorded } from "@/components/videos/RecentlyRecorded";
+import { PendingUploads } from "@/components/videos/PendingUploads";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 function VideosView() {
@@ -428,6 +429,9 @@ function VideosView() {
           Record and annotate videos with AI assistance
         </p>
       </div>
+
+      {/* Pending Uploads / Offline Indicator */}
+      <PendingUploads />
 
       <Tabs defaultValue="record" className="w-full">
         <TabsList>
