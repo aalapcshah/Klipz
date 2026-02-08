@@ -5530,3 +5530,13 @@ Note: The application already has extensive annotation features including voice 
 ## Features - Feb 8, 2026 (Retry & Offline Recording)
 - [x] Add retry button for failed transcriptions/captions on video cards
 - [x] Add offline recording support with local caching and auto-retry upload
+
+## Features - Feb 8, 2026 (Video Detail Page)
+- [x] Create full-page video detail view with player, transcript, captions, and matches side-by-side
+- [x] Add route /videos/:id for video detail page
+- [x] Add navigation from video cards to detail page (click card title/thumbnail)
+- [x] Add back button to return to video library
+- [x] Support timestamp seeking from transcript/captions in the detail view
+- [x] Show video metadata (title, duration, resolution, status, tags)
+- [x] Add edit capabilities for video title/description
+- [x] Mobile responsive layout (stacked on small screens, side-by-side on desktop)

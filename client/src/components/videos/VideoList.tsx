@@ -788,13 +788,28 @@ export function VideoList() {
                   {formatDuration(video.duration)}
                 </div>
               )}
+              {/* Expand button overlay */}
+              <button
+                className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLocation(`/videos/${video.id}`);
+                }}
+                title="Open detail view"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+              </button>
             </div>
 
             {/* Video Info */}
             <div className="space-y-2">
               {/* Title with draft badge */}
               <div className="flex items-center justify-between gap-2">
-                <h3 className="text-sm font-medium truncate flex-1">
+                <h3 
+                  className="text-sm font-medium truncate flex-1 cursor-pointer hover:text-primary transition-colors"
+                  onClick={() => setLocation(`/videos/${video.id}`)}
+                  title="Open video detail view"
+                >
                   {video.title || video.filename}
                 </h3>
                 {video.exportStatus && (

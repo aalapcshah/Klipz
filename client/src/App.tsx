@@ -29,6 +29,7 @@ import AdminReports from "./pages/AdminReports";
 import AdminShareAnalytics from "./pages/AdminShareAnalytics";
 import AdminSystemOverview from "./pages/AdminSystemOverview";
 import ShareView from "./pages/ShareView";
+import VideoDetail from "./pages/VideoDetail";
 import Share from "./pages/Share";
 import MyShares from "./pages/MyShares";
 import Pricing from "./pages/Pricing";
@@ -45,6 +46,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/videos" component={Dashboard} />
+      <Route path="/videos/:id" component={VideoDetail} />
       <Route path="/collections" component={Dashboard} />
       <Route path="/analytics" component={Dashboard} />
       <Route path="/enrichment-queue" component={Dashboard} />
