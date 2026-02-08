@@ -5584,3 +5584,8 @@ Note: The application already has extensive annotation features including voice 
 ## UI Improvements - Feb 8, 2026
 - [x] Make Quick Tools bar sticky below the video player so it stays visible while scrolling
 - [x] Collapse all tool sections by default so users only expand what they need (already collapsed by default)
+
+## Quick Tools Enhancements - Feb 8, 2026
+- [x] Add active state highlighting to Quick Tools bar via IntersectionObserver
+- [x] Add keyboard shortcuts (1-8) for jumping to tool sections
+- [x] Persist expanded/collapsed state of tool sections in localStorage

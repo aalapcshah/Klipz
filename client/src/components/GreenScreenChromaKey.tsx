@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { usePersistedBoolean } from '@/hooks/usePersistedState';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Card } from '@/components/ui/card';
@@ -298,7 +299,7 @@ export function GreenScreenChromaKey({
     });
   };
 
-  const [isSectionOpen, setIsSectionOpen] = useState(false);
+  const [isSectionOpen, setIsSectionOpen] = usePersistedBoolean('tool-greenscreen-expanded', false);
 
   return (
     <Card className={cn("p-3 max-w-full overflow-hidden", className)}>

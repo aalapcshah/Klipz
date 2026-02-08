@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { usePersistedBoolean } from '@/hooks/usePersistedState';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Card } from '@/components/ui/card';
@@ -144,7 +145,7 @@ export function VideoSpeedRamping({
     setSelectedKeyframe(null);
   };
 
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = usePersistedBoolean('tool-speed-expanded', false);
   const currentSpeed = getCurrentSpeed(duration > 0 ? (currentTime / duration) * 100 : 0);
 
   return (

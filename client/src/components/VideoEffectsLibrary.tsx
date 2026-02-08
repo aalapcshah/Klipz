@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { usePersistedBoolean } from '@/hooks/usePersistedState';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Card } from '@/components/ui/card';
@@ -278,7 +279,7 @@ export function VideoEffectsLibrary({
     }
   };
 
-  const [isSectionOpen, setIsSectionOpen] = useState(false);
+  const [isSectionOpen, setIsSectionOpen] = usePersistedBoolean('tool-effects-expanded', false);
   const vignetteEffect = effects.find(e => e.id === 'vignette');
   const grainEffect = effects.find(e => e.id === 'filmGrain');
   const glowEffect = effects.find(e => e.id === 'glow');

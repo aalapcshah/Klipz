@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { usePersistedBoolean } from "@/hooks/usePersistedState";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +55,7 @@ export function BookmarkChapterExport({
   bookmarks: propBookmarks = [],
   chapters: propChapters = []
 }: BookmarkChapterExportProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = usePersistedBoolean('tool-export-expanded', false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>("vtt");
   const [includeBookmarks, setIncludeBookmarks] = useState(true);
   const [includeChapters, setIncludeChapters] = useState(true);

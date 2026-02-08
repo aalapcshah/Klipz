@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { usePersistedBoolean } from "@/hooks/usePersistedState";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,7 @@ interface VideoChaptersProps {
 }
 
 export function VideoChapters({ fileId, currentTime, onSeek }: VideoChaptersProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = usePersistedBoolean('tool-chapters-expanded', false);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newChapter, setNewChapter] = useState({ name: "", description: "", timestamp: 0 });

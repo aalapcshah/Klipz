@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { usePersistedBoolean } from "@/hooks/usePersistedState";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +49,7 @@ export function AutoHighlightDetection({
   onSaveBookmark,
   onHighlightsChange
 }: AutoHighlightDetectionProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = usePersistedBoolean('tool-highlights-expanded', false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [highlights, setHighlights] = useState<Highlight[]>([]);

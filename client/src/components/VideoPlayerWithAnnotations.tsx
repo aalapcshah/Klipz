@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +68,58 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
   
   // Auto-detected highlights for timeline markers
   const [detectedHighlights, setDetectedHighlights] = useState<Highlight[]>([]);
+
+  // Quick Tools active section tracking via IntersectionObserver
+  const [activeToolSection, setActiveToolSection] = useState<string | null>(null);
+
+  const toolSections = useMemo(() => [
+    { id: 'chapters-section', icon: ListVideo, label: 'Chapters', color: 'text-blue-400', key: '1' },
+    { id: 'loop-region-section', icon: RotateCcw, label: 'Loop', color: 'text-orange-400', key: '2' },
+    { id: 'auto-highlight-section', icon: Star, label: 'Highlights', color: 'text-yellow-400', key: '3' },
+    { id: 'export-section', icon: Bookmark, label: 'Export', color: 'text-cyan-400', key: '4' },
+    { id: 'speed-ramping-section', icon: Zap, label: 'Speed', color: 'text-yellow-500', key: '5' },
+    { id: 'effects-section', icon: Sparkles, label: 'Effects', color: 'text-purple-400', key: '6' },
+    { id: 'audio-mixer-section', icon: Headphones, label: 'Audio', color: 'text-green-400', key: '7' },
+    { id: 'green-screen-section', icon: Paintbrush, label: 'Green Screen', color: 'text-emerald-400', key: '8' },
+  ], []);
+
+  // IntersectionObserver for active section highlighting
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveToolSection(entry.target.id);
+          }
+        }
+      },
+      { threshold: 0.3, rootMargin: '-80px 0px -50% 0px' }
+    );
+    toolSections.forEach(({ id }) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [toolSections]);
+
+  // Keyboard shortcuts (1-8) to jump to tool sections
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger when typing in inputs/textareas
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target as HTMLElement)?.isContentEditable) return;
+      const key = e.key;
+      if (key >= '1' && key <= '8') {
+        const section = toolSections[parseInt(key) - 1];
+        if (section) {
+          e.preventDefault();
+          document.getElementById(section.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toolSections]);
 
   // Direct canvas drawing handlers
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1903,29 +1955,29 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
       {/* Quick Tools Navigation Bar */}
       <Card className="p-2 max-w-full overflow-x-auto sticky top-0 z-20 bg-card/95 backdrop-blur-sm">
         <div className="flex items-center gap-1 min-w-max">
-          {[
-            { id: 'chapters-section', icon: ListVideo, label: 'Chapters', color: 'text-blue-400' },
-            { id: 'loop-region-section', icon: RotateCcw, label: 'Loop', color: 'text-orange-400' },
-            { id: 'auto-highlight-section', icon: Star, label: 'Highlights', color: 'text-yellow-400' },
-            { id: 'export-section', icon: Bookmark, label: 'Export', color: 'text-cyan-400' },
-            { id: 'speed-ramping-section', icon: Zap, label: 'Speed', color: 'text-yellow-500' },
-            { id: 'effects-section', icon: Sparkles, label: 'Effects', color: 'text-purple-400' },
-            { id: 'audio-mixer-section', icon: Headphones, label: 'Audio', color: 'text-green-400' },
-            { id: 'green-screen-section', icon: Paintbrush, label: 'Green Screen', color: 'text-emerald-400' },
-          ].map((tool) => (
-            <Button
-              key={tool.id}
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 text-xs flex items-center gap-1.5 shrink-0 hover:bg-accent/50"
-              onClick={() => {
-                document.getElementById(tool.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }}
-            >
-              <tool.icon className={`h-3.5 w-3.5 ${tool.color}`} />
-              <span className="hidden sm:inline">{tool.label}</span>
-            </Button>
-          ))}
+          {toolSections.map((tool) => {
+            const isActive = activeToolSection === tool.id;
+            return (
+              <Button
+                key={tool.id}
+                variant={isActive ? "secondary" : "ghost"}
+                size="sm"
+                className={`h-8 px-2 text-xs flex items-center gap-1.5 shrink-0 transition-colors ${
+                  isActive
+                    ? 'bg-accent/70 ring-1 ring-accent shadow-sm'
+                    : 'hover:bg-accent/50'
+                }`}
+                onClick={() => {
+                  document.getElementById(tool.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
+                title={`${tool.label} (${tool.key})`}
+              >
+                <tool.icon className={`h-3.5 w-3.5 ${tool.color}`} />
+                <span className="hidden sm:inline">{tool.label}</span>
+                <span className="hidden lg:inline text-[10px] text-muted-foreground ml-0.5">{tool.key}</span>
+              </Button>
+            );
+          })}
         </div>
       </Card>
 
