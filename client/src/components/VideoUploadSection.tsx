@@ -811,7 +811,7 @@ export function VideoUploadSection() {
   }
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Upload Area */}
       <Card
         className={`border-2 border-dashed transition-colors ${
@@ -828,14 +828,16 @@ export function VideoUploadSection() {
           handleFiles(e.dataTransfer.files);
         }}
       >
-        <div className="p-12 text-center">
-          <Video className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-semibold mb-2">Upload Videos</h3>
-          <p className="text-sm text-muted-foreground mb-4">
+        <div className="p-4 md:p-12 text-center">
+          <Video className="w-10 h-10 md:w-16 md:h-16 mx-auto mb-2 md:mb-4 text-muted-foreground" />
+          <h3 className="text-base md:text-lg font-semibold mb-1 md:mb-2">Upload Videos</h3>
+          <p className="text-xs md:text-sm text-muted-foreground mb-3 md:mb-4">
             Drag and drop video files here, or click to browse
           </p>
           <div className="flex gap-2 justify-center mb-2">
             <Button
+              size="sm"
+              className="md:h-10 md:px-4 md:text-sm"
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload className="w-4 h-4 mr-2" />
@@ -843,6 +845,8 @@ export function VideoUploadSection() {
             </Button>
             <Button
               variant="outline"
+              size="sm"
+              className="md:h-10 md:px-4 md:text-sm"
               onClick={() => folderInputRef.current?.click()}
             >
               <FolderOpen className="w-4 h-4 mr-2" />
@@ -873,37 +877,7 @@ export function VideoUploadSection() {
         </div>
       </Card>
 
-      {/* Upload Settings */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-3">Upload Settings</h3>
-        <div className="space-y-4">
-          <div>
-            <Label className="text-sm font-medium mb-2 block">Post-Upload Compression</Label>
-            <Select value={selectedQuality} onValueChange={(v) => setSelectedQuality(v as VideoQuality)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select quality" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="original">Original (No Compression)</SelectItem>
-                <SelectItem value="high">High Quality (1080p)</SelectItem>
-                <SelectItem value="medium">Medium Quality (720p)</SelectItem>
-                <SelectItem value="low">Low Quality (480p)</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground mt-1.5">
-              {selectedQuality === 'original'
-                ? 'Videos will be uploaded as-is. You can compress later from the Video Library.'
-                : `Videos will be uploaded at original quality, then automatically compressed to ${QUALITY_SETTINGS[selectedQuality].label} using server-side FFmpeg after upload completes.`}
-            </p>
-          </div>
-          <div className="flex items-start gap-2 text-sm text-muted-foreground">
-            <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-            <span>Server compression preserves audio, maintains full duration, and lets you revert to the original anytime</span>
-          </div>
-        </div>
-      </Card>
-
-      {/* Queue Status */}
+      {/* Queue Status - moved up on mobile */}
       {(queuedCount > 0 || pausedCount > 0 || scheduledCount > 0 || retryingCount > 0) && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-2">
           <Clock className="w-4 h-4" />
@@ -918,7 +892,7 @@ export function VideoUploadSection() {
         </div>
       )}
 
-      {/* Upload Speed Control */}
+      {/* Upload Speed Control - moved up on mobile */}
       {videoUploads.some(u => u.status === 'uploading' || u.status === 'pending' || u.status === 'paused') && (
         <div className="flex items-center gap-3 bg-muted/30 rounded-lg px-4 py-2">
           <span className="text-sm text-muted-foreground whitespace-nowrap">Upload Speed:</span>
@@ -938,7 +912,7 @@ export function VideoUploadSection() {
         </div>
       )}
 
-      {/* Uploading Files List */}
+      {/* Uploading Files List - moved up before settings on mobile */}
       {videoUploads.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -1253,6 +1227,38 @@ export function VideoUploadSection() {
           ))}
         </div>
       )}
+
+      {/* Upload Settings */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-3">Upload Settings</h3>
+        <div className="space-y-4">
+          <div>
+            <Label className="text-sm font-medium mb-2 block">Post-Upload Compression</Label>
+            <Select value={selectedQuality} onValueChange={(v) => setSelectedQuality(v as VideoQuality)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select quality" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="original">Original (No Compression)</SelectItem>
+                <SelectItem value="high">High Quality (1080p)</SelectItem>
+                <SelectItem value="medium">Medium Quality (720p)</SelectItem>
+                <SelectItem value="low">Low Quality (480p)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1.5">
+              {selectedQuality === 'original'
+                ? 'Videos will be uploaded as-is. You can compress later from the Video Library.'
+                : `Videos will be uploaded at original quality, then automatically compressed to ${QUALITY_SETTINGS[selectedQuality].label} using server-side FFmpeg after upload completes.`}
+            </p>
+          </div>
+          <div className="flex items-start gap-2 text-sm text-muted-foreground">
+            <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+            <span>Server compression preserves audio, maintains full duration, and lets you revert to the original anytime</span>
+          </div>
+        </div>
+      </Card>
+
+
 
       {/* Duplicate Warning Dialog */}
       <DuplicateWarningDialog

@@ -5549,3 +5549,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add S3 upload retry logic with exponential backoff in finalization
 - [x] Extend HTTP request timeout to 10 minutes for finalization endpoint
 - [x] Use streaming chunk combination to avoid memory issues
+
+## Mobile UX - Feb 8, 2026 (Video Upload Layout)
+- [x] Make video upload drop zone compact on mobile (reduce height/padding)
+- [x] Move upload status/progress section up closer to the drop zone on mobile
