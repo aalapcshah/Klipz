@@ -5508,3 +5508,7 @@ Note: The application already has extensive annotation features including voice 
 ## Features - Feb 7, 2026 (Recording Pause/Resume & Video Trimming)
 - [x] Add recording pause/resume button to video recorder
 - [x] Add video trimming UI before upload (trim start/end of recorded video)
+
+## Bugs - Feb 7, 2026 (Video Library Display Issues)
+- [x] Caption/transcript results not showing on video cards after processing
+- [x] No matched files section visible for uploaded videos in Video Library

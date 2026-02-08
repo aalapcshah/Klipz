@@ -45,6 +45,7 @@ import { VideoPlayerWithAnnotations } from "../VideoPlayerWithAnnotations";
 import { VideoTagManager } from "./VideoTagManager";
 import { ShareDialog } from "../ShareDialog";
 import { VideoCompressionButton } from "../VideoCompressionButton";
+import { VideoCardDetails } from "./VideoCardDetails";
 import {
   Dialog,
   DialogContent,
@@ -949,6 +950,13 @@ export function VideoList() {
                   </a>
                 </Button>
               )}
+
+              {/* Transcript, Captions, and Matched Files */}
+              <VideoCardDetails
+                videoId={video.id}
+                fileId={video.fileId}
+                hasTranscript={!!video.transcript}
+              />
             </div>
 
 

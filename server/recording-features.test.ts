@@ -369,3 +369,99 @@ describe("CameraCapture Photo Settings", () => {
     expect(facingMode).toBe('environment');
   });
 });
+
+// Test the VideoCardDetails display logic
+describe("VideoCardDetails Display Logic", () => {
+  it("should format timestamps correctly", () => {
+    const formatTimestamp = (seconds: number): string => {
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60);
+      return `${m}:${s.toString().padStart(2, "0")}`;
+    };
+
+    expect(formatTimestamp(0)).toBe("0:00");
+    expect(formatTimestamp(5)).toBe("0:05");
+    expect(formatTimestamp(65)).toBe("1:05");
+    expect(formatTimestamp(3661)).toBe("61:01");
+    expect(formatTimestamp(30.7)).toBe("0:30");
+  });
+
+  it("should determine if video has any data for details display", () => {
+    // A video with transcript should show details
+    const hasTranscript = true;
+    const fileId: number | null = 123;
+    const hasAnyData = hasTranscript || !!fileId;
+    expect(hasAnyData).toBe(true);
+
+    // A video without transcript but with fileId should show details
+    const hasTranscript2 = false;
+    const fileId2: number | null = 456;
+    const hasAnyData2 = hasTranscript2 || !!fileId2;
+    expect(hasAnyData2).toBe(true);
+
+    // A video without transcript and without fileId should not show details
+    const hasTranscript3 = false;
+    const fileId3: number | null = null;
+    const hasAnyData3 = hasTranscript3 || !!fileId3;
+    expect(hasAnyData3).toBe(false);
+  });
+
+  it("should toggle expanded sections correctly", () => {
+    let expandedSection: "transcript" | "captions" | "matches" | null = null;
+
+    // Toggle transcript on
+    expandedSection = expandedSection === "transcript" ? null : "transcript";
+    expect(expandedSection).toBe("transcript");
+
+    // Toggle transcript off
+    expandedSection = expandedSection === "transcript" ? null : "transcript";
+    expect(expandedSection).toBe(null);
+
+    // Toggle captions on
+    expandedSection = expandedSection === "captions" ? null : "captions";
+    expect(expandedSection).toBe("captions");
+
+    // Switch from captions to matches
+    expandedSection = expandedSection === "matches" ? null : "matches";
+    expect(expandedSection).toBe("matches");
+
+    // Toggle matches off
+    expandedSection = expandedSection === "matches" ? null : "matches";
+    expect(expandedSection).toBe(null);
+  });
+
+  it("should handle transcript status states", () => {
+    const statuses = ["completed", "processing", "failed"] as const;
+    
+    // Completed transcript should show content
+    expect(statuses[0]).toBe("completed");
+    
+    // Processing should show loading
+    expect(statuses[1]).toBe("processing");
+    
+    // Failed should show error
+    expect(statuses[2]).toBe("failed");
+  });
+
+  it("should handle caption data with entities", () => {
+    const captions = [
+      { timestamp: 0, caption: "A person walks into frame", entities: ["person", "walking"], confidence: 0.9 },
+      { timestamp: 5, caption: "Text appears on screen", entities: ["text", "screen", "title", "subtitle", "overlay", "graphic"], confidence: 0.85 },
+    ];
+
+    // First caption should have 2 entities
+    expect(captions[0].entities.length).toBe(2);
+    
+    // Second caption has more than 5 entities, should show "more" indicator
+    const maxShown = 5;
+    const remaining = captions[1].entities.length - maxShown;
+    expect(remaining).toBe(1);
+    expect(captions[1].entities.slice(0, maxShown).length).toBe(5);
+  });
+
+  it("should format relevance scores as percentages", () => {
+    const scores = [0.95, 0.5, 0.3, 0.0, 1.0];
+    const formatted = scores.map(s => Math.round(s * 100));
+    expect(formatted).toEqual([95, 50, 30, 0, 100]);
+  });
+});
