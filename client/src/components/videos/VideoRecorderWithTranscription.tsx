@@ -914,9 +914,9 @@ export function VideoRecorderWithTranscription() {
               )}
             </div>
 
-            <div className="flex items-center justify-center gap-3 flex-wrap">
+            <div className="recording-controls flex items-center justify-center gap-3 flex-wrap">
               {!isPreviewing && !recordedBlob && (
-                <Button onClick={startCamera} size="lg">
+                <Button onClick={startCamera} size="lg" className="min-h-[48px] px-6">
                   <Video className="h-5 w-5 mr-2" />
                   Start Camera
                 </Button>
@@ -924,15 +924,28 @@ export function VideoRecorderWithTranscription() {
 
               {isPreviewing && !isRecording && (
                 <>
-                  <Button onClick={stopCamera} variant="outline" size="sm">
+                  <Button onClick={stopCamera} variant="outline" className="min-h-[44px] min-w-[44px] px-4">
                     <VideoOff className="h-4 w-4 mr-2" />
                     Stop
                   </Button>
-                  <Button onClick={flipCamera} variant="outline" size="sm">
+                  <Button onClick={flipCamera} variant="outline" className="min-h-[44px] min-w-[44px] px-4">
                     <SwitchCamera className="h-4 w-4 mr-2" />
                     Flip
                   </Button>
-                  <Button onClick={startRecording} size="lg" className="bg-destructive hover:bg-destructive/90">
+                  <Button
+                    onClick={() => {
+                      if (!streamRef.current) {
+                        console.warn('Stream not ready, restarting camera...');
+                        startCamera().then(() => {
+                          setTimeout(() => startRecording(), 500);
+                        });
+                        return;
+                      }
+                      startRecording();
+                    }}
+                    size="lg"
+                    className="bg-destructive hover:bg-destructive/90 active:scale-95 transition-transform min-h-[52px] px-8 text-base"
+                  >
                     <Circle className="h-5 w-5 mr-2" />
                     Start Recording
                   </Button>
@@ -940,7 +953,12 @@ export function VideoRecorderWithTranscription() {
               )}
 
               {isRecording && (
-                <Button onClick={stopRecording} size="lg" variant="destructive">
+                <Button
+                  onClick={stopRecording}
+                  size="lg"
+                  variant="destructive"
+                  className="active:scale-95 transition-transform min-h-[52px] px-8 text-base"
+                >
                   <Square className="h-5 w-5 mr-2" />
                   Stop Recording
                 </Button>
@@ -948,10 +966,10 @@ export function VideoRecorderWithTranscription() {
 
               {recordedBlob && !uploading && (
                 <>
-                  <Button onClick={handleDiscard} variant="outline">
+                  <Button onClick={handleDiscard} variant="outline" className="min-h-[44px]">
                     Discard
                   </Button>
-                  <Button onClick={handleUpload} size="lg">
+                  <Button onClick={handleUpload} size="lg" className="min-h-[48px] px-6">
                     <Upload className="h-5 w-5 mr-2" />
                     Upload Video
                   </Button>

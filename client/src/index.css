@@ -349,4 +349,22 @@
       transform: translateX(-100%);
     }
   }
+
+  /* Fix mobile button tap responsiveness - eliminate 300ms delay */
+  button,
+  [role="button"],
+  a,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+
+  /* Larger touch targets for recording controls on mobile */
+  @media (max-width: 768px) {
+    .recording-controls button {
+      min-height: 48px;
+      min-width: 48px;
+    }
+  }
 }

@@ -5485,3 +5485,6 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add keyboard shortcut (F) for camera flip
 - [x] Persist all camera settings to localStorage
 - [x] Ensure camera settings are positioned before matched files section
+
+## Bug Fixes - Feb 7, 2026 (Button Responsiveness)
+- [x] Fix Start Recording button not responsive on mobile (requires multiple taps or long press)
