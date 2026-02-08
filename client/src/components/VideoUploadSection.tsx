@@ -45,7 +45,7 @@ const ACCEPTED_VIDEO_FORMATS = [
 
 const MAX_FILE_SIZE = 6 * 1024 * 1024 * 1024; // 6GB - supports large video files
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks - smaller chunks are more reliable through reverse proxies
-const LARGE_FILE_THRESHOLD = 500 * 1024 * 1024; // 500MB - use large file upload for files above this
+const LARGE_FILE_THRESHOLD = 100 * 1024 * 1024; // 100MB - use large file upload (disk-based) for files above this
 
 // Format time duration for ETA display
 function formatTimeDuration(ms: number): string {

@@ -5540,3 +5540,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Show video metadata (title, duration, resolution, status, tags)
 - [x] Add edit capabilities for video title/description
 - [x] Mobile responsive layout (stacked on small screens, side-by-side on desktop)
+
+## Bug Fixes - Feb 8, 2026 (Video Upload Stuck at 100%)
+- [x] Fix large video upload (360MB) getting stuck at 100% without completing
+- [x] Ensure upload handler properly finalizes large file uploads
+- [x] Lower large file threshold from 500MB to 100MB so medium files use disk-based upload
+- [x] Increase API rate limit from 1000 to 5000 to support chunked uploads
+- [x] Add S3 upload retry logic with exponential backoff in finalization
+- [x] Extend HTTP request timeout to 10 minutes for finalization endpoint
+- [x] Use streaming chunk combination to avoid memory issues

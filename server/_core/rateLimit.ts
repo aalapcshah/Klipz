@@ -86,7 +86,7 @@ export const strictRateLimit = rateLimit({
  */
 export const apiRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 1000,
+  max: 5000, // High limit to support chunked uploads (6GB file with 5MB chunks = ~1200 chunks)
 });
 
 /**

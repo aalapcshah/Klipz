@@ -110,7 +110,7 @@ export const largeFileUploadRouter = router({
         expiresAt: new Date(Date.now() + SESSION_TIMEOUT_MS),
       });
 
-      console.log(`[LargeUpload] Initialized session ${sessionId} for ${input.filename} (${(input.totalSize / (1024 * 1024 * 1024)).toFixed(2)} GB, ${totalChunks} chunks)`);
+      console.log(`[LargeUpload] Initialized session ${sessionId} for ${input.filename} (${(input.totalSize / (1024 * 1024)).toFixed(1)} MB, ${totalChunks} chunks)`);
 
       return {
         sessionId,
@@ -224,6 +224,16 @@ export const largeFileUploadRouter = router({
     .mutation(async ({ input, ctx }) => {
       const database = await db.getDb();
       if (!database) throw new Error("Database not available");
+
+      // Extend the HTTP request timeout for finalization (10 minutes)
+      // This is critical for large files where S3 upload takes time
+      if (ctx.req?.socket) {
+        ctx.req.socket.setTimeout(10 * 60 * 1000); // 10 minutes
+      }
+      if (ctx.res) {
+        // Also set response timeout
+        (ctx.res as any).setTimeout?.(10 * 60 * 1000);
+      }
       
       const sessions = await database
         .select()
@@ -260,16 +270,28 @@ export const largeFileUploadRouter = router({
 
       console.log(`[LargeUpload] Session ${input.sessionId}: combining ${session.totalChunks} chunks`);
 
-      // Combine chunks into a single file
+      // Combine chunks into a single file using streams to avoid memory issues
       const combinedPath = path.join(session.tempDir!, 'combined');
       const writeStream = fs.createWriteStream(combinedPath);
 
       for (let i = 0; i < session.totalChunks; i++) {
         const chunkPath = path.join(session.tempDir!, `chunk-${i.toString().padStart(6, '0')}`);
-        const chunkData = fs.readFileSync(chunkPath);
-        writeStream.write(chunkData);
-        // Delete chunk after reading to free up space
-        fs.unlinkSync(chunkPath);
+        
+        // Use streaming to read chunks to avoid loading all into memory at once
+        await new Promise<void>((resolve, reject) => {
+          const readStream = fs.createReadStream(chunkPath);
+          readStream.on('error', reject);
+          readStream.on('end', () => {
+            // Delete chunk after reading to free up disk space
+            try { fs.unlinkSync(chunkPath); } catch (e) { /* ignore */ }
+            resolve();
+          });
+          readStream.pipe(writeStream, { end: false });
+        });
+        
+        if ((i + 1) % 10 === 0 || i === session.totalChunks - 1) {
+          console.log(`[LargeUpload] Combined ${i + 1}/${session.totalChunks} chunks`);
+        }
       }
 
       await new Promise<void>((resolve, reject) => {
@@ -279,18 +301,39 @@ export const largeFileUploadRouter = router({
         });
       });
 
-      console.log(`[LargeUpload] Combined file created, uploading to S3...`);
+      const combinedStats = fs.statSync(combinedPath);
+      console.log(`[LargeUpload] Combined file created: ${(combinedStats.size / (1024 * 1024)).toFixed(1)} MB, uploading to S3...`);
 
       // Read combined file and upload to S3
+      // For very large files, read in a single buffer - storagePut uses FormData which handles this
       const completeFile = fs.readFileSync(combinedPath);
       
       // Generate unique file key
       const timestamp = Date.now();
       const randomSuffix = Math.random().toString(36).substring(2, 8);
-      const fileKey = `user-${ctx.user.id}/videos/${timestamp}-${randomSuffix}-${session.filename}`;
+      const sanitizedFilename = session.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileKey = `user-${ctx.user.id}/videos/${timestamp}-${randomSuffix}-${sanitizedFilename}`;
 
-      // Upload to S3
-      const { url } = await storagePut(fileKey, completeFile, session.mimeType);
+      // Upload to S3 with retry logic
+      let url: string;
+      let retries = 0;
+      const maxRetries = 3;
+      
+      while (true) {
+        try {
+          const result = await storagePut(fileKey, completeFile, session.mimeType);
+          url = result.url;
+          break;
+        } catch (error: any) {
+          retries++;
+          console.error(`[LargeUpload] S3 upload attempt ${retries} failed:`, error.message);
+          if (retries >= maxRetries) {
+            throw new Error(`Failed to upload to S3 after ${maxRetries} attempts: ${error.message}`);
+          }
+          // Wait before retry with exponential backoff
+          await new Promise(resolve => setTimeout(resolve, 2000 * Math.pow(2, retries)));
+        }
+      }
 
       console.log(`[LargeUpload] Uploaded to S3: ${fileKey}`);
 
