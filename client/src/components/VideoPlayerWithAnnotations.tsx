@@ -27,7 +27,7 @@ import { VisualCaptionsPanel } from "./VisualCaptionsPanel";
 import { CaptionOverlay } from "./CaptionOverlay";
 import { VideoChapters } from "./VideoChapters";
 import { VideoLoopRegion } from "./VideoLoopRegion";
-import { AutoHighlightDetection } from "./AutoHighlightDetection";
+import { AutoHighlightDetection, type Highlight } from "./AutoHighlightDetection";
 import { BookmarkChapterExport } from "./BookmarkChapterExport";
 import { VideoSpeedRamping } from "./VideoSpeedRamping";
 import { VideoEffectsLibrary } from "./VideoEffectsLibrary";
@@ -65,6 +65,9 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
   const [lastDrawPoint, setLastDrawPoint] = useState<{x: number, y: number} | null>(null);
   const [drawingColor] = useState('#00ff00'); // Green for visibility
   const [drawingStrokeWidth] = useState(5);
+  
+  // Auto-detected highlights for timeline markers
+  const [detectedHighlights, setDetectedHighlights] = useState<Highlight[]>([]);
 
   // Direct canvas drawing handlers
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -681,6 +684,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
           <div className="relative">
             <video
               src={videoUrl}
+              crossOrigin="anonymous"
               className="w-full h-32 object-contain"
               onClick={togglePlay}
               ref={(el) => {
@@ -725,6 +729,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
           <video
             ref={videoRef}
             src={videoUrl}
+            crossOrigin="anonymous"
             className="w-full max-h-[360px] object-contain"
             onClick={isDrawingMode ? undefined : togglePlay}
             style={{ pointerEvents: isDrawingMode ? 'none' : 'auto' }}
@@ -875,6 +880,47 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
                     <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg border">
                       {chapter.name}
                       <div className="text-[10px] text-muted-foreground">{formatTime(chapter.timestamp)}</div>
+                    </div>
+                  </div>
+                );
+              })}
+              {/* Auto-detected highlight markers */}
+              {detectedHighlights.length > 0 && duration > 0 && detectedHighlights.map((highlight) => {
+                const position = (highlight.timestamp / duration) * 100;
+                const highlightColor = highlight.type === 'audio' ? '#22c55e' : highlight.type === 'motion' ? '#3b82f6' : '#f59e0b';
+                const typeLabel = highlight.type === 'audio' ? 'Audio Peak' : highlight.type === 'motion' ? 'Motion' : 'Scene Change';
+                return (
+                  <div
+                    key={highlight.id}
+                    className="absolute top-0 bottom-0 cursor-pointer group/highlight"
+                    style={{ 
+                      left: `${position}%`,
+                      width: '6px',
+                      marginLeft: '-3px',
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (videoRef.current) {
+                        videoRef.current.currentTime = highlight.timestamp;
+                      }
+                    }}
+                  >
+                    {/* Marker dot */}
+                    <div
+                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full ring-1 ring-black/20 group-hover/highlight:w-3 group-hover/highlight:h-3 transition-all"
+                      style={{ backgroundColor: highlightColor }}
+                    />
+                    {/* Tooltip on hover */}
+                    <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 opacity-0 group-hover/highlight:opacity-100 transition-opacity pointer-events-none z-50">
+                      <div className="bg-popover text-popover-foreground px-2 py-1.5 rounded text-xs whitespace-nowrap shadow-lg border">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: highlightColor }} />
+                          <span className="font-medium">{typeLabel}</span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                          {formatTime(highlight.timestamp)} &middot; {Math.round(highlight.confidence)}% confidence
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1890,6 +1936,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
             videoRef.current.currentTime = time;
           }
         }}
+        onHighlightsChange={useCallback((h: Highlight[]) => setDetectedHighlights(h), [])}
       />
       </div>
 

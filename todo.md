@@ -5566,3 +5566,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Bug: Captions auto-scrolling drags user view to bottom of screen when populating
 - [x] Bug: Auto Highlight Detection stuck at "Analyzing 0%" and never progresses
 - [x] Bug: Green Screen controls grayed out when viewing video from Uploads section
+
+## Enhancements - Feb 8, 2026 (Crossorigin + Timeline Highlights)
+- [x] Add crossorigin="anonymous" to video elements for full visual analysis of S3 videos
+- [x] Add highlight markers on the video timeline scrubber bar for quick navigation to detected highlights

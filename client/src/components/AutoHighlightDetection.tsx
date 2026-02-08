@@ -22,7 +22,7 @@ import {
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
 
-interface Highlight {
+export interface Highlight {
   id: string;
   timestamp: number;
   type: "audio" | "motion" | "scene";
@@ -37,6 +37,7 @@ interface AutoHighlightDetectionProps {
   currentTime: number;
   onSeek: (time: number) => void;
   onSaveBookmark?: (timestamp: number, label: string, color: string) => void;
+  onHighlightsChange?: (highlights: Highlight[]) => void;
 }
 
 export function AutoHighlightDetection({ 
@@ -44,7 +45,8 @@ export function AutoHighlightDetection({
   duration, 
   currentTime, 
   onSeek,
-  onSaveBookmark 
+  onSaveBookmark,
+  onHighlightsChange
 }: AutoHighlightDetectionProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -57,6 +59,11 @@ export function AutoHighlightDetection({
   const [detectMotion, setDetectMotion] = useState(true);
   const [detectSceneChange, setDetectSceneChange] = useState(true);
   
+  // Notify parent when highlights change
+  useEffect(() => {
+    onHighlightsChange?.(highlights);
+  }, [highlights, onHighlightsChange]);
+
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
