@@ -149,6 +149,7 @@ export function VideoList() {
   const [transcribingVideos, setTranscribingVideos] = useState<Set<number>>(new Set());
   const [captioningVideos, setCaptioningVideos] = useState<Set<number>>(new Set());
   const generateCaptionsMutation = trpc.videoVisualCaptions.generateCaptions.useMutation();
+  const trpcUtils = trpc.useUtils();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showBatchCompressDialog, setShowBatchCompressDialog] = useState(false);
   const [batchCompressQuality, setBatchCompressQuality] = useState<'high' | 'medium' | 'low'>('medium');
@@ -296,6 +297,13 @@ export function VideoList() {
     }
 
     setSelectedVideoIds([]);
+    // Invalidate caption queries so VideoCardDetails picks up new data
+    for (const video of videosToCaption) {
+      if (video.fileId) {
+        trpcUtils.videoVisualCaptions.getCaptions.invalidate({ fileId: video.fileId });
+      }
+    }
+    refetch();
     toast.success(`Batch captioning complete: ${successCount} succeeded${failCount > 0 ? `, ${failCount} failed` : ''}`);
   };
 
@@ -335,6 +343,12 @@ export function VideoList() {
 
     setSelectedVideoIds([]);
     refetch();
+    // Invalidate transcript queries so VideoCardDetails picks up new data
+    for (const video of videosToTranscribe) {
+      if (video.fileId) {
+        trpcUtils.videoTranscription.getTranscript.invalidate({ fileId: video.fileId });
+      }
+    }
     toast.success("Batch transcription complete");
   };
 

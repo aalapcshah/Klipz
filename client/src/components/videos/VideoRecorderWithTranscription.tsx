@@ -46,7 +46,7 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { uploadFileToStorage } from "@/lib/storage";
+// uploadFileToStorage removed - using chunked upload for large recordings
 import { VideoSpeedRamping } from "../VideoSpeedRamping";
 import { VideoEffectsLibrary } from "../VideoEffectsLibrary";
 import { MultiTrackAudioMixer } from "../MultiTrackAudioMixer";
@@ -99,6 +99,12 @@ export function VideoRecorderWithTranscription() {
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Chunked upload mutations for large recordings
+  const initUploadMutation = trpc.uploadChunk.initUpload.useMutation();
+  const uploadChunkMutation = trpc.uploadChunk.uploadChunk.useMutation();
+  const finalizeUploadMutation = trpc.uploadChunk.finalizeUpload.useMutation();
 
   // Trimming state
   const [isTrimming, setIsTrimming] = useState(false);
@@ -110,6 +116,7 @@ export function VideoRecorderWithTranscription() {
   
   // Transcription state
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const isTranscribingRef = useRef(false);
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
   const [currentTranscript, setCurrentTranscript] = useState("");
   const [matchedFiles, setMatchedFiles] = useState<MatchedFile[]>([]);
@@ -342,8 +349,12 @@ export function VideoRecorderWithTranscription() {
       };
       
       recognition.onend = () => {
-        if (isTranscribing) {
-          recognition.start();
+        if (isTranscribingRef.current) {
+          try {
+            recognition.start();
+          } catch (e) {
+            // Already started, ignore
+          }
         }
       };
       
@@ -603,6 +614,7 @@ export function VideoRecorderWithTranscription() {
 
     if (recognitionRef.current) {
       setIsTranscribing(true);
+      isTranscribingRef.current = true;
       try {
         recognitionRef.current.start();
       } catch (error) {
@@ -626,6 +638,7 @@ export function VideoRecorderWithTranscription() {
       }
       // Pause transcription
       if (recognitionRef.current && isTranscribing) {
+        isTranscribingRef.current = false;
         try {
           recognitionRef.current.stop();
         } catch (e) {
@@ -646,6 +659,7 @@ export function VideoRecorderWithTranscription() {
       }, 1000);
       // Resume transcription
       if (recognitionRef.current) {
+        isTranscribingRef.current = true;
         try {
           recognitionRef.current.start();
         } catch (e) {
@@ -678,6 +692,7 @@ export function VideoRecorderWithTranscription() {
     if (recognitionRef.current && isTranscribing) {
       recognitionRef.current.stop();
       setIsTranscribing(false);
+      isTranscribingRef.current = false;
     }
   };
 
@@ -703,21 +718,95 @@ export function VideoRecorderWithTranscription() {
     }
   }, [isRecording, recordingTime, timerLimitSeconds, timeRemaining]);
 
+  const readChunkAsBase64 = (blob: Blob, start: number, end: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      try {
+        const reader = new FileReader();
+        const slice = blob.slice(start, end);
+        reader.onload = () => {
+          try {
+            const result = reader.result as string;
+            const commaIndex = result.indexOf(",");
+            const base64 = commaIndex >= 0 ? result.substring(commaIndex + 1) : result;
+            resolve(base64);
+          } catch (e) {
+            reject(new Error("Failed to encode chunk data"));
+          }
+        };
+        reader.onerror = () => reject(new Error("Failed to read chunk from file"));
+        reader.readAsDataURL(slice);
+      } catch (e) {
+        reject(new Error("Failed to initialize chunk reader"));
+      }
+    });
+  };
+
   const handleUpload = async () => {
     const blobToUpload = trimmedBlob || recordedBlob;
     if (!blobToUpload) return;
 
     setUploading(true);
+    setUploadProgress(0);
     try {
       const filename = `recording-${Date.now()}.webm`;
-      const { url, fileKey } = await uploadFileToStorage(
-        blobToUpload,
-        filename,
-        trpcUtils
-      );
+      const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+
+      // Use chunked upload for recordings over 5MB
+      let url: string;
+      let fileKey: string;
+
+      if (blobToUpload.size > CHUNK_SIZE) {
+        // Chunked upload
+        const initResult = await initUploadMutation.mutateAsync({
+          filename,
+          totalSize: blobToUpload.size,
+          mimeType: blobToUpload.type || 'video/webm',
+        });
+        const sessionId = initResult.sessionId;
+        const totalChunks = Math.ceil(blobToUpload.size / CHUNK_SIZE);
+
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, blobToUpload.size);
+
+          let retries = 0;
+          const maxRetries = 3;
+          while (retries < maxRetries) {
+            try {
+              const chunkData = await readChunkAsBase64(blobToUpload, start, end);
+              await uploadChunkMutation.mutateAsync({
+                sessionId,
+                chunkIndex: i,
+                chunkData,
+                totalChunks,
+              });
+              break;
+            } catch (error: any) {
+              retries++;
+              if (retries >= maxRetries) {
+                throw new Error(`Failed to upload chunk ${i} after ${maxRetries} retries`);
+              }
+              await new Promise(resolve => setTimeout(resolve, 1500 * Math.pow(2, retries)));
+            }
+          }
+
+          setUploadProgress(Math.round(((i + 1) / totalChunks) * 90));
+        }
+
+        const result = await finalizeUploadMutation.mutateAsync({ sessionId });
+        url = result.url;
+        fileKey = result.fileKey;
+      } else {
+        // Small file: use simple base64 upload via storage helper
+        const { uploadFileToStorage } = await import("@/lib/storage");
+        const result = await uploadFileToStorage(blobToUpload, filename, trpcUtils);
+        url = result.url;
+        fileKey = result.fileKey;
+      }
+
+      setUploadProgress(95);
 
       const fullTranscript = transcript.map(s => s.text).join(' ');
-
       const uploadDuration = trimmedBlob ? Math.floor(trimEnd - trimStart) : recordingTime;
       await createVideoMutation.mutateAsync({
         fileKey,
@@ -728,6 +817,7 @@ export function VideoRecorderWithTranscription() {
         transcript: fullTranscript || undefined,
       });
 
+      setUploadProgress(100);
       toast.success("Video uploaded successfully!");
       
       setRecordedBlob(null);
@@ -747,6 +837,7 @@ export function VideoRecorderWithTranscription() {
       toast.error("Failed to upload video");
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -1208,7 +1299,7 @@ export function VideoRecorderWithTranscription() {
               {uploading && (
                 <Button disabled size="lg">
                   <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Uploading...
+                  Uploading{uploadProgress > 0 ? ` ${uploadProgress}%` : '...'}
                 </Button>
               )}
             </div>

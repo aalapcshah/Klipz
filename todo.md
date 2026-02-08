@@ -5520,3 +5520,9 @@ Note: The application already has extensive annotation features including voice 
 
 ## Bugs - Feb 8, 2026 (File List Filter)
 - [x] Files page shows "Showing 0 of 63 files (filtered)" — fixed: added clear filters button and improved empty state when filters exclude all files
+
+## Bugs - Feb 8, 2026 (Multiple Mobile/Recording Issues)
+- [x] Live transcript not appearing during recording (fixed stale closure with isTranscribingRef)
+- [x] Failed to upload recorded video from mobile (switched to chunked upload for recordings >5MB)
+- [x] Keyframe bubbles UI confusing (added speed labels, color coding, tooltips, explanatory text)
+- [x] Captioning/transcription stuck "in progress" (added query invalidation + polling when processing)

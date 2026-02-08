@@ -233,7 +233,10 @@ export function VideoSpeedRamping({
           </div>
           
           {/* Visual Timeline */}
-          <div className="relative h-12 sm:h-16 bg-muted rounded-lg overflow-hidden">
+          <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">
+            Tap a bubble to edit its speed. Each bubble is a speed point on the timeline — the video transitions between them.
+          </p>
+          <div className="relative h-14 sm:h-20 bg-muted rounded-lg overflow-hidden">
             {/* Speed curve visualization */}
             <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
               <defs>
@@ -260,21 +263,33 @@ export function VideoSpeedRamping({
               />
             </svg>
             
-            {/* Keyframe markers */}
-            {keyframes.map(kf => (
-              <button
-                key={kf.id}
-                className={cn(
-                  "absolute top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 rounded-full border-2 transition-all",
-                  selectedKeyframe === kf.id
-                    ? "bg-primary border-primary scale-125"
-                    : "bg-background border-muted-foreground hover:border-primary"
-                )}
-                style={{ left: `${kf.time}%`, transform: `translateX(-50%) translateY(-50%)` }}
-                onClick={() => setSelectedKeyframe(kf.id)}
-                disabled={!isEnabled}
-              />
-            ))}
+            {/* Keyframe markers with speed labels */}
+            {keyframes.map(kf => {
+              const speedColor = kf.speed < 0.8 ? 'bg-blue-500 border-blue-400' 
+                : kf.speed > 1.2 ? 'bg-orange-500 border-orange-400' 
+                : 'bg-green-500 border-green-400';
+              const speedLabel = kf.speed < 0.8 ? 'Slow' : kf.speed > 1.2 ? 'Fast' : 'Normal';
+              return (
+                <button
+                  key={kf.id}
+                  className={cn(
+                    "absolute top-1/2 -translate-y-1/2 rounded-full border-2 transition-all flex items-center justify-center",
+                    selectedKeyframe === kf.id
+                      ? "w-8 h-8 sm:w-10 sm:h-10 z-10 ring-2 ring-primary ring-offset-1 ring-offset-background"
+                      : "w-6 h-6 sm:w-8 sm:h-8 hover:scale-110",
+                    speedColor
+                  )}
+                  style={{ left: `${kf.time}%`, transform: `translateX(-50%) translateY(-50%)` }}
+                  onClick={() => setSelectedKeyframe(kf.id)}
+                  disabled={!isEnabled}
+                  title={`${speedLabel}: ${kf.speed.toFixed(2)}x at ${kf.time}%`}
+                >
+                  <span className="text-[8px] sm:text-[10px] font-bold text-white leading-none">
+                    {kf.speed.toFixed(1)}x
+                  </span>
+                </button>
+              );
+            })}
             
             {/* Current time indicator */}
             <div

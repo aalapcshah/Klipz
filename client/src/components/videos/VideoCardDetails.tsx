@@ -36,15 +36,29 @@ export function VideoCardDetails({ videoId, fileId, hasTranscript, videoRef }: V
   const utils = trpc.useUtils();
 
   // Fetch transcript data when expanded or for status badge
+  // Poll every 3s when status is "processing" to detect completion
   const { data: transcript, isLoading: transcriptLoading } = trpc.videoTranscription.getTranscript.useQuery(
     { fileId: fileId! },
-    { enabled: !!fileId }
+    { 
+      enabled: !!fileId,
+      refetchInterval: (query) => {
+        const data = query.state.data as any;
+        return data?.status === 'processing' ? 3000 : false;
+      },
+    }
   );
 
   // Fetch visual captions for status badge and when expanded
+  // Poll every 3s when status is "processing" to detect completion
   const { data: captions, isLoading: captionsLoading } = trpc.videoVisualCaptions.getCaptions.useQuery(
     { fileId: fileId! },
-    { enabled: !!fileId }
+    { 
+      enabled: !!fileId,
+      refetchInterval: (query) => {
+        const data = query.state.data as any;
+        return data?.status === 'processing' ? 3000 : false;
+      },
+    }
   );
 
   // Fetch file matches when expanded
