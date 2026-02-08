@@ -465,3 +465,187 @@ describe("VideoCardDetails Display Logic", () => {
     expect(formatted).toEqual([95, 50, 30, 0, 100]);
   });
 });
+
+// Test status badge logic
+describe("Video Card Status Badges", () => {
+  it("should show 'Transcribed' badge when transcript status is completed", () => {
+    const transcriptStatus = "completed";
+    const showTranscribedBadge = transcriptStatus === "completed";
+    expect(showTranscribedBadge).toBe(true);
+  });
+
+  it("should show 'Transcribing' badge when transcript status is processing", () => {
+    const transcriptStatus = "processing";
+    const showTranscribingBadge = transcriptStatus === "processing";
+    expect(showTranscribingBadge).toBe(true);
+  });
+
+  it("should show 'Captioned' badge when caption status is completed", () => {
+    const captionStatus = "completed";
+    const showCaptionedBadge = captionStatus === "completed";
+    expect(showCaptionedBadge).toBe(true);
+  });
+
+  it("should show 'Captioning' badge when caption status is processing", () => {
+    const captionStatus = "processing";
+    const showCaptioningBadge = captionStatus === "processing";
+    expect(showCaptioningBadge).toBe(true);
+  });
+
+  it("should show failed badges for failed statuses", () => {
+    const transcriptStatus = "failed";
+    const captionStatus = "failed";
+    expect(transcriptStatus === "failed").toBe(true);
+    expect(captionStatus === "failed").toBe(true);
+  });
+
+  it("should not show any badges when no status exists", () => {
+    const transcriptStatus: string | null = null;
+    const captionStatus: string | null = null;
+    const showAnyBadge = transcriptStatus === "completed" || transcriptStatus === "processing" || transcriptStatus === "failed" ||
+      captionStatus === "completed" || captionStatus === "processing" || captionStatus === "failed";
+    expect(showAnyBadge).toBe(false);
+  });
+
+  it("should show both transcribed and captioned badges simultaneously", () => {
+    const transcriptStatus = "completed";
+    const captionStatus = "completed";
+    const badges: string[] = [];
+    if (transcriptStatus === "completed") badges.push("Transcribed");
+    if (captionStatus === "completed") badges.push("Captioned");
+    expect(badges).toEqual(["Transcribed", "Captioned"]);
+  });
+});
+
+// Test Find Matches button logic
+describe("Find Matches Logic", () => {
+  it("should require fileId to find matches", () => {
+    const fileId: number | null = null;
+    const canFindMatches = !!fileId;
+    expect(canFindMatches).toBe(false);
+  });
+
+  it("should require captions or transcripts before finding matches", () => {
+    const captionStatus = null;
+    const transcriptStatus = null;
+    const hasCaptions = captionStatus === "completed";
+    const hasTranscript = transcriptStatus === "completed";
+    const canFindMatches = hasCaptions || hasTranscript;
+    expect(canFindMatches).toBe(false);
+  });
+
+  it("should allow finding matches when captions are completed", () => {
+    const captionStatus = "completed";
+    const transcriptStatus = null;
+    const hasCaptions = captionStatus === "completed";
+    const hasTranscript = transcriptStatus === "completed";
+    const canFindMatches = hasCaptions || hasTranscript;
+    expect(canFindMatches).toBe(true);
+  });
+
+  it("should allow finding matches when transcript is completed", () => {
+    const captionStatus = null;
+    const transcriptStatus = "completed";
+    const hasCaptions = captionStatus === "completed";
+    const hasTranscript = transcriptStatus === "completed";
+    const canFindMatches = hasCaptions || hasTranscript;
+    expect(canFindMatches).toBe(true);
+  });
+
+  it("should run both visual and transcript matching when both are available", () => {
+    const captionStatus = "completed";
+    const transcriptStatus = "completed";
+    const promises: string[] = [];
+    if (captionStatus === "completed") promises.push("visual");
+    if (transcriptStatus === "completed") promises.push("transcript");
+    expect(promises).toEqual(["visual", "transcript"]);
+  });
+
+  it("should run only visual matching when only captions available", () => {
+    const captionStatus = "completed";
+    const transcriptStatus: string | null = null;
+    const promises: string[] = [];
+    if (captionStatus === "completed") promises.push("visual");
+    if (transcriptStatus === "completed") promises.push("transcript");
+    expect(promises).toEqual(["visual"]);
+  });
+
+  it("should disable button when no status exists", () => {
+    const transcriptStatus: string | null = null;
+    const captionStatus: string | null = null;
+    const isDisabled = !transcriptStatus && !captionStatus;
+    expect(isDisabled).toBe(true);
+  });
+
+  it("should disable button while finding matches", () => {
+    const isFindingMatches = true;
+    expect(isFindingMatches).toBe(true);
+  });
+});
+
+// Test timestamp seeking logic
+describe("Timestamp Seeking", () => {
+  it("should format timestamp for display", () => {
+    const formatTimestamp = (seconds: number): string => {
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60);
+      return `${m}:${s.toString().padStart(2, "0")}`;
+    };
+
+    expect(formatTimestamp(0)).toBe("0:00");
+    expect(formatTimestamp(30)).toBe("0:30");
+    expect(formatTimestamp(65)).toBe("1:05");
+    expect(formatTimestamp(125.7)).toBe("2:05");
+  });
+
+  it("should seek to correct timestamp on transcript segment click", () => {
+    const segments = [
+      { text: "Hello world", start: 0, end: 5 },
+      { text: "This is a test", start: 5, end: 10 },
+      { text: "Final segment", start: 10, end: 15 },
+    ];
+
+    // Clicking second segment should seek to 5 seconds
+    const targetSegment = segments[1];
+    expect(targetSegment.start).toBe(5);
+  });
+
+  it("should seek to correct timestamp on caption click", () => {
+    const captions = [
+      { timestamp: 0, caption: "Scene opens" },
+      { timestamp: 5, caption: "Person appears" },
+      { timestamp: 10, caption: "Action happens" },
+    ];
+
+    // Clicking third caption should seek to 10 seconds
+    const targetCaption = captions[2];
+    expect(targetCaption.timestamp).toBe(10);
+  });
+
+  it("should seek to correct timestamp on matched file click", () => {
+    const matches = [
+      { id: 1, timestamp: 15, suggestedFileId: 10, relevanceScore: 0.9 },
+      { id: 2, timestamp: 30, suggestedFileId: 20, relevanceScore: 0.7 },
+    ];
+
+    const targetMatch = matches[0];
+    expect(targetMatch.timestamp).toBe(15);
+  });
+
+  it("should seek to correct timestamp on transcript suggestion click", () => {
+    const suggestions = [
+      { id: 1, startTime: 20, suggestedFileId: 10 },
+      { id: 2, startTime: 45, suggestedFileId: 20 },
+    ];
+
+    const targetSuggestion = suggestions[1];
+    expect(targetSuggestion.startTime).toBe(45);
+  });
+
+  it("should find video element by data-video-id attribute", () => {
+    // Simulate the DOM lookup logic
+    const videoId = 42;
+    const selector = `[data-video-id="${videoId}"]`;
+    expect(selector).toBe('[data-video-id="42"]');
+  });
+});

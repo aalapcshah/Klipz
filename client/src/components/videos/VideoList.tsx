@@ -744,7 +744,7 @@ export function VideoList() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {videos.map((video) => (
-          <Card key={video.id} className="relative p-4 space-y-3 group">
+          <Card key={video.id} className="relative p-4 space-y-3 group" data-video-id={video.id}>
             {/* Selection Checkbox */}
             <div className="absolute top-2 left-2 z-10">
               <input

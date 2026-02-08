@@ -5512,3 +5512,8 @@ Note: The application already has extensive annotation features including voice 
 ## Bugs - Feb 7, 2026 (Video Library Display Issues)
 - [x] Caption/transcript results not showing on video cards after processing
 - [x] No matched files section visible for uploaded videos in Video Library
+
+## Features - Feb 8, 2026 (Video Card Enhancements)
+- [x] Add per-card "Find Matches" button to trigger file matching from library view
+- [x] Add caption/transcript status badges on video cards (green=transcribed, blue=captioned)
+- [x] Add inline timestamp seeking - clicking timestamps in transcript/captions seeks video player
