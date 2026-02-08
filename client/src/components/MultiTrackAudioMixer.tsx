@@ -396,13 +396,13 @@ export function MultiTrackAudioMixer({
   return (
     <Card className={cn("w-full", className)}>
     <Collapsible open={isSectionOpen} onOpenChange={setIsSectionOpen}>
-      <CardHeader className="pb-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <CardHeader className="py-2 px-3">
+        <div className="flex flex-row items-center justify-between gap-2">
           <CollapsibleTrigger asChild>
             <button className="flex items-center gap-2 text-left cursor-pointer hover:opacity-80 transition-opacity">
               <ChevronDown className={cn("h-4 w-4 transition-transform", isSectionOpen && "rotate-180")} />
-              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                <Headphones className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Headphones className="h-4 w-4 text-green-500" />
                 Multi-Track Audio
               </CardTitle>
             </button>
@@ -423,7 +423,7 @@ export function MultiTrackAudioMixer({
         </div>
       </CardHeader>
       <CollapsibleContent>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3 px-3 pt-0 pb-3">
         {/* Master Volume */}
         <div className="p-3 bg-muted rounded-lg space-y-2">
           <div className="flex items-center justify-between">

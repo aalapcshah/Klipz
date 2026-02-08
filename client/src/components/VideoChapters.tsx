@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit2, Check, X, Clock } from "lucide-react";
+import { Plus, Trash2, Edit2, Check, X, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import { triggerHaptic } from "@/lib/haptics";
 
 interface VideoChaptersProps {
@@ -15,6 +15,7 @@ interface VideoChaptersProps {
 }
 
 export function VideoChapters({ fileId, currentTime, onSeek }: VideoChaptersProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newChapter, setNewChapter] = useState({ name: "", description: "", timestamp: 0 });
@@ -94,22 +95,36 @@ export function VideoChapters({ fileId, currentTime, onSeek }: VideoChaptersProp
   };
 
   return (
-    <Card className="p-4 max-w-full overflow-x-hidden">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-lg">Chapters</h3>
-        <Button
-          size="sm"
-          onClick={() => {
-            setNewChapter({ ...newChapter, timestamp: currentTime });
-            setIsAdding(true);
-            triggerHaptic("light");
-          }}
-          className="h-9 md:h-8"
-        >
-          <Plus className="w-4 h-4 mr-1" />
-          Add Chapter
-        </Button>
+    <Card className="p-3 max-w-full overflow-x-hidden">
+      <div
+        className="flex items-center justify-between cursor-pointer"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-2">
+          {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+          <h3 className="font-semibold text-sm">Chapters</h3>
+          {chapters.length > 0 && (
+            <span className="text-xs text-muted-foreground">({chapters.length})</span>
+          )}
+        </div>
+        {isExpanded && (
+          <Button
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setNewChapter({ ...newChapter, timestamp: currentTime });
+              setIsAdding(true);
+              triggerHaptic("light");
+            }}
+            className="h-7 text-xs px-2"
+          >
+            <Plus className="w-3 h-3 mr-1" />
+            Add
+          </Button>
+        )}
       </div>
+
+      {!isExpanded ? null : <div className="mt-3">
 
       {/* Add Chapter Form */}
       {isAdding && (
@@ -180,9 +195,9 @@ export function VideoChapters({ fileId, currentTime, onSeek }: VideoChaptersProp
       )}
 
       {/* Chapters List */}
-      <div className="space-y-2 max-w-full">
+      <div className="space-y-1.5 max-w-full">
         {chapters.length === 0 && !isAdding && (
-          <p className="text-sm text-muted-foreground text-center py-4">
+          <p className="text-xs text-muted-foreground text-center py-2">
             No chapters yet. Add your first chapter to organize your video.
           </p>
         )}
@@ -287,6 +302,7 @@ export function VideoChapters({ fileId, currentTime, onSeek }: VideoChaptersProp
           </Card>
         ))}
       </div>
+      </div>}
     </Card>
   );
 }

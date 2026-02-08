@@ -302,13 +302,13 @@ export function GreenScreenChromaKey({
   return (
     <Card className={cn("w-full", className)}>
     <Collapsible open={isSectionOpen} onOpenChange={setIsSectionOpen}>
-      <CardHeader className="pb-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <CardHeader className="py-2 px-3">
+        <div className="flex flex-row items-center justify-between gap-2">
           <CollapsibleTrigger asChild>
             <button className="flex items-center gap-2 text-left cursor-pointer hover:opacity-80 transition-opacity">
               <ChevronDown className={cn("h-4 w-4 transition-transform", isSectionOpen && "rotate-180")} />
-              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                <Paintbrush className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500" />
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Paintbrush className="h-4 w-4 text-emerald-500" />
                 Green Screen
               </CardTitle>
             </button>
@@ -336,7 +336,7 @@ export function GreenScreenChromaKey({
         </div>
       </CardHeader>
       <CollapsibleContent>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3 px-3 pt-0 pb-3">
         {/* Cross-origin error message */}
         {crossOriginError && (
           <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">

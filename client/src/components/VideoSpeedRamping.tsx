@@ -150,13 +150,13 @@ export function VideoSpeedRamping({
   return (
     <Card className={cn("w-full", className)}>
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CardHeader className="pb-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <CardHeader className="py-2 px-3">
+        <div className="flex flex-row items-center justify-between gap-2">
           <CollapsibleTrigger asChild>
             <button className="flex items-center gap-2 text-left cursor-pointer hover:opacity-80 transition-opacity">
               <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
-              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Zap className="h-4 w-4 text-yellow-500" />
                 Speed Ramping
               </CardTitle>
             </button>
@@ -172,7 +172,7 @@ export function VideoSpeedRamping({
         </div>
       </CardHeader>
       <CollapsibleContent>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3 px-3 pt-0 pb-3">
         {/* Current Speed Display */}
         <div className="flex items-center justify-between p-2 sm:p-3 bg-muted rounded-lg">
           <div className="flex items-center gap-2">

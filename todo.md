@@ -5570,3 +5570,7 @@ Note: The application already has extensive annotation features including voice 
 ## Enhancements - Feb 8, 2026 (Crossorigin + Timeline Highlights)
 - [x] Add crossorigin="anonymous" to video elements for full visual analysis of S3 videos
 - [x] Add highlight markers on the video timeline scrubber bar for quick navigation to detected highlights
+
+## UI Compactness - Feb 8, 2026
+- [x] Make Chapters section collapsed by default (not showing empty state)
+- [x] Reduce vertical height/padding of Speed Ramping, Video Effects, Multi-Track Audio, Green Screen sections
