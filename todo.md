@@ -5580,3 +5580,7 @@ Note: The application already has extensive annotation features including voice 
 
 ## UI Compactness Fix - Feb 8, 2026
 - [x] Make Speed Ramping, Video Effects, Multi-Track Audio, Green Screen same compact size as Auto-Highlight and Export Timeline
+
+## UI Improvements - Feb 8, 2026
+- [x] Make Quick Tools bar sticky below the video player so it stays visible while scrolling
+- [x] Collapse all tool sections by default so users only expand what they need (already collapsed by default)

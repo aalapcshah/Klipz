@@ -1901,7 +1901,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
       </Card>
 
       {/* Quick Tools Navigation Bar */}
-      <Card className="p-2 max-w-full overflow-x-auto">
+      <Card className="p-2 max-w-full overflow-x-auto sticky top-0 z-20 bg-card/95 backdrop-blur-sm">
         <div className="flex items-center gap-1 min-w-max">
           {[
             { id: 'chapters-section', icon: ListVideo, label: 'Chapters', color: 'text-blue-400' },
