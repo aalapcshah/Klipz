@@ -325,10 +325,13 @@ export function GreenScreenChromaKey({
             <Button variant="ghost" size="sm" onClick={resetSettings} className="h-8">
               <RotateCcw className="h-3 w-3" />
             </Button>
-            <Switch
-              checked={settings.enabled}
-              onCheckedChange={(enabled) => updateSettings({ enabled })}
-            />
+            <div className="flex items-center gap-2">
+              {!settings.enabled && <span className="text-xs text-muted-foreground hidden sm:inline">Toggle to apply</span>}
+              <Switch
+                checked={settings.enabled}
+                onCheckedChange={(enabled) => updateSettings({ enabled })}
+              />
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -384,7 +387,6 @@ export function GreenScreenChromaKey({
                         : "border-border hover:border-primary/50"
                     )}
                     onClick={() => preset.color && updateSettings({ keyColor: preset.color })}
-                    disabled={!settings.enabled}
                   >
                     {preset.color ? (
                       <div 
@@ -409,7 +411,6 @@ export function GreenScreenChromaKey({
                   value={settings.keyColor}
                   onChange={(e) => updateSettings({ keyColor: e.target.value })}
                   className="w-12 h-9 p-1 cursor-pointer"
-                  disabled={!settings.enabled}
                 />
                 <Input
                   type="text"
@@ -422,7 +423,6 @@ export function GreenScreenChromaKey({
                   }}
                   placeholder="#00FF00"
                   className="flex-1"
-                  disabled={!settings.enabled}
                 />
               </div>
             </div>
@@ -441,7 +441,6 @@ export function GreenScreenChromaKey({
                 max={100}
                 step={1}
                 onValueChange={([v]) => updateSettings({ tolerance: v })}
-                disabled={!settings.enabled}
               />
               <p className="text-xs text-muted-foreground">
                 Higher values remove more color variations
@@ -460,7 +459,6 @@ export function GreenScreenChromaKey({
                 max={100}
                 step={1}
                 onValueChange={([v]) => updateSettings({ smoothness: v })}
-                disabled={!settings.enabled}
               />
             </div>
 
@@ -476,7 +474,6 @@ export function GreenScreenChromaKey({
                 max={100}
                 step={1}
                 onValueChange={([v]) => updateSettings({ spillSuppression: v })}
-                disabled={!settings.enabled}
               />
               <p className="text-xs text-muted-foreground">
                 Reduces color spill on edges
@@ -500,7 +497,6 @@ export function GreenScreenChromaKey({
                         : "border-border hover:border-primary/50"
                     )}
                     onClick={() => updateSettings({ backgroundType: type })}
-                    disabled={!settings.enabled}
                   >
                     <div className="text-xs sm:text-sm">{type}</div>
                   </button>
@@ -521,7 +517,6 @@ export function GreenScreenChromaKey({
                   max={50}
                   step={1}
                   onValueChange={([v]) => updateSettings({ blurAmount: v })}
-                  disabled={!settings.enabled}
                 />
               </div>
             )}
@@ -536,14 +531,12 @@ export function GreenScreenChromaKey({
                     value={settings.backgroundColor}
                     onChange={(e) => updateSettings({ backgroundColor: e.target.value })}
                     className="w-12 h-9 p-1 cursor-pointer"
-                    disabled={!settings.enabled}
                   />
                   <Input
                     type="text"
                     value={settings.backgroundColor}
                     onChange={(e) => updateSettings({ backgroundColor: e.target.value })}
                     className="flex-1"
-                    disabled={!settings.enabled}
                   />
                 </div>
               </div>
@@ -561,7 +554,6 @@ export function GreenScreenChromaKey({
                     size="sm"
                     className="flex-1"
                     onClick={() => document.getElementById('bg-image-upload')?.click()}
-                    disabled={!settings.enabled}
                   >
                     <Upload className="h-3 w-3 mr-1" />
                     Upload Image
@@ -571,7 +563,6 @@ export function GreenScreenChromaKey({
                       variant="outline"
                       size="sm"
                       onClick={() => updateSettings({ backgroundImage: null })}
-                      disabled={!settings.enabled}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -597,7 +588,6 @@ export function GreenScreenChromaKey({
                           : "border-border hover:border-primary/50"
                       )}
                       onClick={() => updateSettings({ backgroundImage: preset.url })}
-                      disabled={!settings.enabled}
                     >
                       <img
                         src={preset.url}

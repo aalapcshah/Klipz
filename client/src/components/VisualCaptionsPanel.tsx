@@ -234,13 +234,22 @@ export function VisualCaptionsPanel({
     return map;
   }, [fileMatches, captions]);
 
-  // Auto-scroll to active caption
+  // Auto-scroll to active caption within the caption list container only
+  // (not the whole page, which would drag the user's view)
   useEffect(() => {
-    if (activeCaptionRef.current && !showAllCaptions) {
-      activeCaptionRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+    if (activeCaptionRef.current && captionListRef.current && !showAllCaptions) {
+      const container = captionListRef.current;
+      const element = activeCaptionRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+      
+      // Only scroll if the element is outside the visible area of the container
+      if (elementRect.top < containerRect.top || elementRect.bottom > containerRect.bottom) {
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        });
+      }
     }
   }, [activeCaptionIndex, showAllCaptions]);
 

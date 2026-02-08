@@ -100,7 +100,10 @@ export function AutoHighlightDetection({
     triggerHaptic("medium");
 
     const detectedHighlights: Highlight[] = [];
-    const sampleInterval = 1; // Sample every 1 second
+    // Adaptive sample interval: for longer videos, sample less frequently to avoid
+    // the analysis appearing stuck. Max ~300 samples (5 min video = every 1s, 30 min = every 6s)
+    const maxSamples = 300;
+    const sampleInterval = Math.max(1, Math.ceil(duration / maxSamples));
     const totalSamples = Math.floor(duration / sampleInterval);
     const sensitivityThreshold = (100 - sensitivity) / 100; // Higher sensitivity = lower threshold
 
@@ -141,6 +144,8 @@ export function AutoHighlightDetection({
     let lastFrameData: ImageData | null = null;
     let lastAudioLevel = 0;
 
+    let canvasAccessible = true;
+
     for (let i = 0; i < totalSamples; i++) {
       const timestamp = i * sampleInterval;
       
@@ -153,12 +158,24 @@ export function AutoHighlightDetection({
         };
         video.addEventListener("seeked", onSeeked);
         // Timeout fallback
-        setTimeout(resolve, 200);
+        setTimeout(resolve, 500);
       });
 
-      // Draw current frame
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const currentFrameData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      // Allow UI to update between frames
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // Draw current frame (may fail for cross-origin videos)
+      let currentFrameData: ImageData | null = null;
+      if (canvasAccessible) {
+        try {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          currentFrameData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        } catch (e) {
+          // Cross-origin video: canvas is tainted, skip visual analysis
+          console.warn("Canvas tainted by cross-origin video, skipping visual analysis");
+          canvasAccessible = false;
+        }
+      }
 
       // Audio peak detection
       if (detectAudio && audioAnalyser && audioData) {
@@ -180,8 +197,8 @@ export function AutoHighlightDetection({
         lastAudioLevel = normalizedLevel;
       }
 
-      // Motion/scene change detection
-      if ((detectMotion || detectSceneChange) && lastFrameData) {
+      // Motion/scene change detection (only if canvas is accessible)
+      if (canvasAccessible && currentFrameData && (detectMotion || detectSceneChange) && lastFrameData) {
         let diffSum = 0;
         const pixelCount = currentFrameData.data.length / 4;
         
@@ -219,8 +236,15 @@ export function AutoHighlightDetection({
         }
       }
 
-      lastFrameData = currentFrameData;
+      if (canvasAccessible && currentFrameData) {
+        lastFrameData = currentFrameData;
+      }
       setAnalysisProgress(((i + 1) / totalSamples) * 100);
+    }
+
+    // Warn user if visual analysis was skipped
+    if (!canvasAccessible) {
+      toast.info("Visual analysis (motion/scene) was limited for this video. Audio analysis completed.", { duration: 5000 });
     }
 
     // Restore video state

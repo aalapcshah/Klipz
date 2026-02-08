@@ -5561,3 +5561,8 @@ Note: The application already has extensive annotation features including voice 
 ## Mobile UX - Feb 8, 2026 (Sticky Bar Expand & Upload Sounds)
 - [x] Tap-to-expand on sticky progress bar: tapping scrolls to/expands the full uploads list
 - [x] Upload completion notification sounds: play a subtle chime when an upload completes
+
+## Bug Fixes - Feb 8, 2026 (Captions Scroll, Highlight Detection, Green Screen)
+- [x] Bug: Captions auto-scrolling drags user view to bottom of screen when populating
+- [x] Bug: Auto Highlight Detection stuck at "Analyzing 0%" and never progresses
+- [x] Bug: Green Screen controls grayed out when viewing video from Uploads section
