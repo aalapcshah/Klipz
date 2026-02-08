@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Pause, RotateCcw, Zap, Clock, TrendingUp, TrendingDown, ChevronDown } from 'lucide-react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Play, Pause, RotateCcw, Zap, Clock, TrendingUp, TrendingDown, ChevronDown, ChevronUp } from 'lucide-react';
+
 import { cn } from '@/lib/utils';
 
 interface SpeedKeyframe {
@@ -148,31 +148,31 @@ export function VideoSpeedRamping({
   const currentSpeed = getCurrentSpeed(duration > 0 ? (currentTime / duration) * 100 : 0);
 
   return (
-    <Card className={cn("w-full", className)}>
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CardHeader className="py-2 px-3">
-        <div className="flex flex-row items-center justify-between gap-2">
-          <CollapsibleTrigger asChild>
-            <button className="flex items-center gap-2 text-left cursor-pointer hover:opacity-80 transition-opacity">
-              <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Zap className="h-4 w-4 text-yellow-500" />
-                Speed Ramping
-              </CardTitle>
-            </button>
-          </CollapsibleTrigger>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="speed-ramp-toggle" className="text-xs sm:text-sm">Enable</Label>
-            <Switch
-              id="speed-ramp-toggle"
-              checked={isEnabled}
-              onCheckedChange={setIsEnabled}
-            />
-          </div>
+    <Card className={cn("p-3 max-w-full overflow-hidden", className)}>
+      <div
+        className="flex items-center justify-between cursor-pointer"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div className="flex items-center gap-2">
+          <Zap className="h-4 w-4 text-yellow-500" />
+          <span className="font-medium text-sm">Speed Ramping</span>
         </div>
-      </CardHeader>
-      <CollapsibleContent>
-      <CardContent className="space-y-3 px-3 pt-0 pb-3">
+        <div className="flex items-center gap-2">
+          <Label htmlFor="speed-ramp-toggle" className="text-xs">Enable</Label>
+          <Switch
+            id="speed-ramp-toggle"
+            checked={isEnabled}
+            onCheckedChange={(checked) => { setIsEnabled(checked); }}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+            {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+        </div>
+      </div>
+
+      {isOpen && (
+      <div className="mt-3 space-y-3">
         {/* Current Speed Display */}
         <div className="flex items-center justify-between p-2 sm:p-3 bg-muted rounded-lg">
           <div className="flex items-center gap-2">
@@ -389,9 +389,8 @@ export function VideoSpeedRamping({
             <span>Fast</span>
           </div>
         </div>
-      </CardContent>
-      </CollapsibleContent>
-    </Collapsible>
+      </div>
+      )}
     </Card>
   );
 }

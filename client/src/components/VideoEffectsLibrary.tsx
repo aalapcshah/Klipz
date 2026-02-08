@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sparkles, Sun, Contrast, Palette, Film, Circle, Square, RotateCcw, Save, FolderOpen, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
@@ -284,19 +284,15 @@ export function VideoEffectsLibrary({
   const glowEffect = effects.find(e => e.id === 'glow');
 
   return (
-    <Card className={cn("w-full", className)}>
-    <Collapsible open={isSectionOpen} onOpenChange={setIsSectionOpen}>
-      <CardHeader className="py-2 px-3">
-        <div className="flex flex-row items-center justify-between gap-2">
-          <CollapsibleTrigger asChild>
-            <button className="flex items-center gap-2 text-left cursor-pointer hover:opacity-80 transition-opacity">
-              <ChevronDown className={cn("h-4 w-4 transition-transform", isSectionOpen && "rotate-180")} />
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-purple-500" />
-                Video Effects
-              </CardTitle>
-            </button>
-          </CollapsibleTrigger>
+    <Card className={cn("p-3 max-w-full overflow-hidden", className)}>
+      <div
+        className="flex items-center justify-between cursor-pointer"
+        onClick={() => setIsSectionOpen(!isSectionOpen)}
+      >
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-purple-500" />
+          <span className="font-medium text-sm">Video Effects</span>
+        </div>
           <div className="flex items-center gap-2">
             {/* Presets Toggle */}
             <Button 
@@ -387,11 +383,14 @@ export function VideoEffectsLibrary({
               <RotateCcw className="h-3 w-3 mr-1" />
               Reset
             </Button>
-          </div>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => e.stopPropagation()}>
+            {isSectionOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
         </div>
-      </CardHeader>
-      <CollapsibleContent>
-      <CardContent className="px-3 pt-0 pb-3">
+      </div>
+
+      {isSectionOpen && (
+      <div className="mt-3">
         {/* Saved Presets Section */}
         {showPresets && (
           <div className="mb-4 p-3 bg-muted/30 rounded-lg border">
@@ -719,9 +718,8 @@ export function VideoEffectsLibrary({
             }
           `}</style>
         )}
-      </CardContent>
-      </CollapsibleContent>
-    </Collapsible>
+      </div>
+      )}
     </Card>
   );
 }

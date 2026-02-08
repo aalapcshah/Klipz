@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { 
@@ -22,7 +22,7 @@ import {
   ChevronUp,
   Sparkles
 } from 'lucide-react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
 import { cn } from '@/lib/utils';
 
 interface AudioTrack {
@@ -394,36 +394,35 @@ export function MultiTrackAudioMixer({
   const [isSectionOpen, setIsSectionOpen] = useState(false);
 
   return (
-    <Card className={cn("w-full", className)}>
-    <Collapsible open={isSectionOpen} onOpenChange={setIsSectionOpen}>
-      <CardHeader className="py-2 px-3">
-        <div className="flex flex-row items-center justify-between gap-2">
-          <CollapsibleTrigger asChild>
-            <button className="flex items-center gap-2 text-left cursor-pointer hover:opacity-80 transition-opacity">
-              <ChevronDown className={cn("h-4 w-4 transition-transform", isSectionOpen && "rotate-180")} />
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Headphones className="h-4 w-4 text-green-500" />
-                Multi-Track Audio
-              </CardTitle>
-            </button>
-          </CollapsibleTrigger>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn("h-8", linkedVolumes && "text-primary")}
-              onClick={() => setLinkedVolumes(!linkedVolumes)}
-            >
-              {linkedVolumes ? <Link className="h-3 w-3" /> : <Unlink className="h-3 w-3" />}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={resetAll} className="h-8">
-              <RotateCcw className="h-3 w-3" />
-            </Button>
-          </div>
+    <Card className={cn("p-3 max-w-full overflow-hidden", className)}>
+      <div
+        className="flex items-center justify-between cursor-pointer"
+        onClick={() => setIsSectionOpen(!isSectionOpen)}
+      >
+        <div className="flex items-center gap-2">
+          <Headphones className="h-4 w-4 text-green-500" />
+          <span className="font-medium text-sm">Multi-Track Audio</span>
         </div>
-      </CardHeader>
-      <CollapsibleContent>
-      <CardContent className="space-y-3 px-3 pt-0 pb-3">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn("h-6 w-6 p-0", linkedVolumes && "text-primary")}
+            onClick={(e) => { e.stopPropagation(); setLinkedVolumes(!linkedVolumes); }}
+          >
+            {linkedVolumes ? <Link className="h-3 w-3" /> : <Unlink className="h-3 w-3" />}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); resetAll(); }} className="h-6 w-6 p-0">
+            <RotateCcw className="h-3 w-3" />
+          </Button>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+            {isSectionOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+        </div>
+      </div>
+
+      {isSectionOpen && (
+      <div className="mt-3 space-y-3">
         {/* Master Volume */}
         <div className="p-3 bg-muted rounded-lg space-y-2">
           <div className="flex items-center justify-between">
@@ -666,9 +665,8 @@ export function MultiTrackAudioMixer({
         <p className="text-xs text-muted-foreground">
           Enable tracks to mix multiple audio sources. System audio requires screen sharing permission.
         </p>
-      </CardContent>
-      </CollapsibleContent>
-    </Collapsible>
+      </div>
+      )}
     </Card>
   );
 }

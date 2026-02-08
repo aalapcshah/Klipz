@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
@@ -16,9 +16,10 @@ import {
   Trash2,
   Eye,
   EyeOff,
-  ChevronDown
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
 import { cn } from '@/lib/utils';
 
 interface ChromaKeySettings {
@@ -300,43 +301,42 @@ export function GreenScreenChromaKey({
   const [isSectionOpen, setIsSectionOpen] = useState(false);
 
   return (
-    <Card className={cn("w-full", className)}>
-    <Collapsible open={isSectionOpen} onOpenChange={setIsSectionOpen}>
-      <CardHeader className="py-2 px-3">
-        <div className="flex flex-row items-center justify-between gap-2">
-          <CollapsibleTrigger asChild>
-            <button className="flex items-center gap-2 text-left cursor-pointer hover:opacity-80 transition-opacity">
-              <ChevronDown className={cn("h-4 w-4 transition-transform", isSectionOpen && "rotate-180")} />
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Paintbrush className="h-4 w-4 text-emerald-500" />
-                Green Screen
-              </CardTitle>
-            </button>
-          </CollapsibleTrigger>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8"
-              onClick={() => setShowPreview(!showPreview)}
-            >
-              {showPreview ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={resetSettings} className="h-8">
-              <RotateCcw className="h-3 w-3" />
-            </Button>
-            <div className="flex items-center gap-2">
-              {!settings.enabled && <span className="text-xs text-muted-foreground hidden sm:inline">Toggle to apply</span>}
-              <Switch
-                checked={settings.enabled}
-                onCheckedChange={(enabled) => updateSettings({ enabled })}
-              />
-            </div>
-          </div>
+    <Card className={cn("p-3 max-w-full overflow-hidden", className)}>
+      <div
+        className="flex items-center justify-between cursor-pointer"
+        onClick={() => setIsSectionOpen(!isSectionOpen)}
+      >
+        <div className="flex items-center gap-2">
+          <Paintbrush className="h-4 w-4 text-emerald-500" />
+          <span className="font-medium text-sm">Green Screen</span>
         </div>
-      </CardHeader>
-      <CollapsibleContent>
-      <CardContent className="space-y-3 px-3 pt-0 pb-3">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+            onClick={(e) => { e.stopPropagation(); setShowPreview(!showPreview); }}
+          >
+            {showPreview ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); resetSettings(); }} className="h-6 w-6 p-0">
+            <RotateCcw className="h-3 w-3" />
+          </Button>
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            {!settings.enabled && <span className="text-xs text-muted-foreground hidden sm:inline">Toggle to apply</span>}
+            <Switch
+              checked={settings.enabled}
+              onCheckedChange={(enabled) => updateSettings({ enabled })}
+            />
+          </div>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+            {isSectionOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+        </div>
+      </div>
+
+      {isSectionOpen && (
+      <div className="mt-3 space-y-3">
         {/* Cross-origin error message */}
         {crossOriginError && (
           <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
@@ -620,9 +620,8 @@ export function GreenScreenChromaKey({
         <p className="text-xs text-muted-foreground">
           Position yourself in front of a solid green or blue background for best results.
         </p>
-      </CardContent>
-      </CollapsibleContent>
-    </Collapsible>
+      </div>
+      )}
     </Card>
   );
 }

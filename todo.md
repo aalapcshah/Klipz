@@ -5577,3 +5577,6 @@ Note: The application already has extensive annotation features including voice 
 
 ## Quick Tools Toolbar - Feb 8, 2026
 - [x] Add Quick Tools toolbar with icon buttons at top of video tools area for quick navigation to each section
+
+## UI Compactness Fix - Feb 8, 2026
+- [x] Make Speed Ramping, Video Effects, Multi-Track Audio, Green Screen same compact size as Auto-Highlight and Export Timeline
