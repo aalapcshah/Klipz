@@ -599,148 +599,6 @@ export function VideoRecorderWithTranscription() {
 
   return (
     <div className="space-y-4">
-      {/* Camera Settings - Always visible when camera is active or about to start */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Camera className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold text-sm">Camera Settings</h3>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowCameraSettings(!showCameraSettings)}
-            className="h-8"
-          >
-            {showCameraSettings ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
-        </div>
-
-        {/* Quick camera controls - always visible */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant={facingMode === 'environment' ? 'default' : 'outline'}
-            size="sm"
-            onClick={flipCamera}
-            disabled={isRecording}
-            className="gap-1.5"
-          >
-            <SwitchCamera className="h-4 w-4" />
-            {facingMode === 'user' ? 'Switch to Back' : 'Switch to Front'}
-          </Button>
-
-          <Select value={resolution} onValueChange={(val) => {
-            setResolution(val);
-            if (isPreviewing && !isRecording) {
-              restartCameraWithSettings();
-            }
-          }}>
-            <SelectTrigger className="w-[100px] h-8">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {RESOLUTION_OPTIONS.map(opt => (
-                <SelectItem key={opt.label} value={opt.label}>
-                  <div className="flex items-center gap-1.5">
-                    <Monitor className="h-3 w-3" />
-                    {opt.label}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <div className="flex items-center gap-1.5 ml-auto">
-            <Switch
-              id="mirror-toggle"
-              checked={mirrorFrontCamera}
-              onCheckedChange={setMirrorFrontCamera}
-              disabled={facingMode !== 'user'}
-            />
-            <Label htmlFor="mirror-toggle" className="text-xs cursor-pointer flex items-center gap-1">
-              <FlipHorizontal className="h-3 w-3" />
-              Mirror
-            </Label>
-          </div>
-        </div>
-
-        {/* Expanded camera settings */}
-        {showCameraSettings && (
-          <div className="mt-4 pt-3 border-t space-y-3">
-            {/* Video device selector */}
-            {videoDevices.length > 0 && (
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <Video className="h-3 w-3" />
-                  Camera Device
-                </Label>
-                <Select value={selectedVideoDevice || 'auto'} onValueChange={(val) => {
-                  setSelectedVideoDevice(val === 'auto' ? '' : val);
-                  if (isPreviewing && !isRecording) {
-                    restartCameraWithSettings();
-                  }
-                }}>
-                  <SelectTrigger className="h-8">
-                    <SelectValue placeholder="Auto (based on facing mode)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">Auto (based on facing mode)</SelectItem>
-                    {videoDevices.map((device, idx) => (
-                      <SelectItem key={device.deviceId} value={device.deviceId}>
-                        {device.label || `Camera ${idx + 1}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Audio device selector */}
-            {audioDevices.length > 0 && (
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <Mic2 className="h-3 w-3" />
-                  Microphone
-                </Label>
-                <Select value={selectedAudioDevice} onValueChange={(val) => {
-                  setSelectedAudioDevice(val);
-                  if (isPreviewing && !isRecording) {
-                    restartCameraWithSettings();
-                  }
-                }}>
-                  <SelectTrigger className="h-8">
-                    <SelectValue placeholder="Default microphone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="default">Default microphone</SelectItem>
-                    {audioDevices.map((device, idx) => (
-                      <SelectItem key={device.deviceId} value={device.deviceId}>
-                        {device.label || `Microphone ${idx + 1}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Current camera info */}
-            {isPreviewing && streamRef.current && (
-              <div className="p-2 bg-muted/50 rounded text-xs text-muted-foreground">
-                <div className="flex flex-wrap gap-x-4 gap-y-1">
-                  <span>Camera: {facingMode === 'user' ? 'Front' : 'Back'}</span>
-                  <span>Resolution: {resolution}</span>
-                  <span>Mirror: {shouldMirror ? 'On' : 'Off'}</span>
-                </div>
-              </div>
-            )}
-
-            <p className="text-xs text-muted-foreground">
-              Tip: Press <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">F</kbd> to flip camera, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">C</kbd> to start camera, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">R</kbd> to record
-            </p>
-          </div>
-        )}
-      </Card>
-
       {/* Advanced Recording Features Toggle */}
       <Card className="p-4">
         {isPreviewing && !showAdvancedFeatures && (
@@ -983,6 +841,150 @@ export function VideoRecorderWithTranscription() {
                 </Button>
               )}
             </div>
+
+            {/* Camera Settings - Below controls */}
+            {!recordedBlob && (
+              <div className="mt-4 pt-3 border-t">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Camera className="h-4 w-4 text-primary" />
+                    <h3 className="font-semibold text-sm">Camera Settings</h3>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowCameraSettings(!showCameraSettings)}
+                    className="h-8"
+                  >
+                    {showCameraSettings ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </div>
+
+                {/* Quick camera controls - always visible */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant={facingMode === 'environment' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={flipCamera}
+                    disabled={isRecording}
+                    className="gap-1.5"
+                  >
+                    <SwitchCamera className="h-4 w-4" />
+                    {facingMode === 'user' ? 'Switch to Back' : 'Switch to Front'}
+                  </Button>
+
+                  <Select value={resolution} onValueChange={(val) => {
+                    setResolution(val);
+                    if (isPreviewing && !isRecording) {
+                      restartCameraWithSettings();
+                    }
+                  }}>
+                    <SelectTrigger className="w-[100px] h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RESOLUTION_OPTIONS.map(opt => (
+                        <SelectItem key={opt.label} value={opt.label}>
+                          <div className="flex items-center gap-1.5">
+                            <Monitor className="h-3 w-3" />
+                            {opt.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <Switch
+                      id="mirror-toggle"
+                      checked={mirrorFrontCamera}
+                      onCheckedChange={setMirrorFrontCamera}
+                      disabled={facingMode !== 'user'}
+                    />
+                    <Label htmlFor="mirror-toggle" className="text-xs cursor-pointer flex items-center gap-1">
+                      <FlipHorizontal className="h-3 w-3" />
+                      Mirror
+                    </Label>
+                  </div>
+                </div>
+
+                {/* Expanded camera settings */}
+                {showCameraSettings && (
+                  <div className="mt-4 pt-3 border-t space-y-3">
+                    {/* Video device selector */}
+                    {videoDevices.length > 0 && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <Video className="h-3 w-3" />
+                          Camera Device
+                        </Label>
+                        <Select value={selectedVideoDevice || 'auto'} onValueChange={(val) => {
+                          setSelectedVideoDevice(val === 'auto' ? '' : val);
+                          if (isPreviewing && !isRecording) {
+                            restartCameraWithSettings();
+                          }
+                        }}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Auto (based on facing mode)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="auto">Auto (based on facing mode)</SelectItem>
+                            {videoDevices.map((device, idx) => (
+                              <SelectItem key={device.deviceId} value={device.deviceId}>
+                                {device.label || `Camera ${idx + 1}`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {/* Audio device selector */}
+                    {audioDevices.length > 0 && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <Mic2 className="h-3 w-3" />
+                          Microphone
+                        </Label>
+                        <Select value={selectedAudioDevice} onValueChange={(val) => {
+                          setSelectedAudioDevice(val);
+                          if (isPreviewing && !isRecording) {
+                            restartCameraWithSettings();
+                          }
+                        }}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Default microphone" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="default">Default microphone</SelectItem>
+                            {audioDevices.map((device, idx) => (
+                              <SelectItem key={device.deviceId} value={device.deviceId}>
+                                {device.label || `Microphone ${idx + 1}`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {/* Current camera info */}
+                    {isPreviewing && streamRef.current && (
+                      <div className="p-2 bg-muted/50 rounded text-xs text-muted-foreground">
+                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                          <span>Camera: {facingMode === 'user' ? 'Front' : 'Back'}</span>
+                          <span>Resolution: {resolution}</span>
+                          <span>Mirror: {shouldMirror ? 'On' : 'Off'}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-muted-foreground">
+                      Tip: Press <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">F</kbd> to flip camera, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">C</kbd> to start camera, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">R</kbd> to record
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {recordedBlob && (
               <>

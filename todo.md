@@ -5498,3 +5498,4 @@ Note: The application already has extensive annotation features including voice 
 
 ## UI Fix - Feb 7, 2026
 - [x] Move Upload Settings section to just below the Upload Videos drop zone
+- [x] Move Camera Settings section to next to Start Camera button (below camera preview)
