@@ -1,9 +1,18 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Video,
   VideoOff,
@@ -22,6 +31,11 @@ import {
   ChevronDown,
   ChevronUp,
   Settings,
+  SwitchCamera,
+  Monitor,
+  FlipHorizontal,
+  Mic2,
+  Camera,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -44,6 +58,19 @@ interface MatchedFile {
   matchedKeywords: string[];
 }
 
+interface ResolutionOption {
+  label: string;
+  width: number;
+  height: number;
+}
+
+const RESOLUTION_OPTIONS: ResolutionOption[] = [
+  { label: "480p", width: 854, height: 480 },
+  { label: "720p", width: 1280, height: 720 },
+  { label: "1080p", width: 1920, height: 1080 },
+  { label: "4K", width: 3840, height: 2160 },
+];
+
 export function VideoRecorderWithTranscription() {
   const [isRecording, setIsRecording] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -57,9 +84,31 @@ export function VideoRecorderWithTranscription() {
   const [currentTranscript, setCurrentTranscript] = useState("");
   const [matchedFiles, setMatchedFiles] = useState<MatchedFile[]>([]);
   
+  // Camera settings state
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('videoFacingMode') : null;
+    return (saved === 'environment' ? 'environment' : 'user') as 'user' | 'environment';
+  });
+  const [resolution, setResolution] = useState<string>(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('videoResolution') : null;
+    return saved || '720p';
+  });
+  const [mirrorFrontCamera, setMirrorFrontCamera] = useState<boolean>(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('videoMirrorFront') : null;
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedAudioDevice, setSelectedAudioDevice] = useState<string>(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('videoAudioDevice') || 'default' : 'default';
+  });
+  const [selectedVideoDevice, setSelectedVideoDevice] = useState<string>(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('videoVideoDevice') || '' : '';
+  });
+  const [showCameraSettings, setShowCameraSettings] = useState(false);
+
   // Feature panels state
   const [showAdvancedFeatures, setShowAdvancedFeatures] = useState(() => {
-    // Restore from localStorage
     const saved = typeof window !== 'undefined' ? localStorage.getItem('videoAdvancedFeaturesExpanded') : null;
     return saved !== null ? JSON.parse(saved) : false;
   });
@@ -90,6 +139,52 @@ export function VideoRecorderWithTranscription() {
   const allFiles = allFilesData?.files || [];
   const trpcUtils = trpc.useUtils();
 
+  // Enumerate available devices
+  const enumerateDevices = useCallback(async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices.filter(d => d.kind === 'audioinput');
+      const videoInputs = devices.filter(d => d.kind === 'videoinput');
+      setAudioDevices(audioInputs);
+      setVideoDevices(videoInputs);
+    } catch (err) {
+      console.error('Failed to enumerate devices:', err);
+    }
+  }, []);
+
+  // Enumerate devices on mount and when permissions change
+  useEffect(() => {
+    enumerateDevices();
+    // Re-enumerate when devices change (e.g., plugging in a mic)
+    navigator.mediaDevices?.addEventListener?.('devicechange', enumerateDevices);
+    return () => {
+      navigator.mediaDevices?.removeEventListener?.('devicechange', enumerateDevices);
+    };
+  }, [enumerateDevices]);
+
+  // Persist camera settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('videoFacingMode', facingMode);
+  }, [facingMode]);
+
+  useEffect(() => {
+    localStorage.setItem('videoResolution', resolution);
+  }, [resolution]);
+
+  useEffect(() => {
+    localStorage.setItem('videoMirrorFront', JSON.stringify(mirrorFrontCamera));
+  }, [mirrorFrontCamera]);
+
+  useEffect(() => {
+    localStorage.setItem('videoAudioDevice', selectedAudioDevice);
+  }, [selectedAudioDevice]);
+
+  useEffect(() => {
+    if (selectedVideoDevice) {
+      localStorage.setItem('videoVideoDevice', selectedVideoDevice);
+    }
+  }, [selectedVideoDevice]);
+
   // Warn before leaving with unsaved recording
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -106,14 +201,12 @@ export function VideoRecorderWithTranscription() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts when typing in input fields
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
 
       switch (e.key.toLowerCase()) {
         case 'r':
-          // R - Start/Stop recording
           if (!recordedBlob) {
             if (isRecording) {
               stopRecording();
@@ -125,23 +218,27 @@ export function VideoRecorderWithTranscription() {
           }
           break;
         case 'c':
-          // C - Start camera
           if (!isPreviewing && !recordedBlob) {
             startCamera();
             toast.success('Camera started (C)');
           }
           break;
         case 'e':
-          // E - Expand/collapse advanced features
           toggleAdvancedFeatures();
           toast.success(showAdvancedFeatures ? 'Advanced features collapsed (E)' : 'Advanced features expanded (E)');
+          break;
+        case 'f':
+          if (isPreviewing && !isRecording) {
+            flipCamera();
+            toast.success('Camera flipped (F)');
+          }
           break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isRecording, isPreviewing, recordedBlob, showAdvancedFeatures]);
+  }, [isRecording, isPreviewing, recordedBlob, showAdvancedFeatures, facingMode]);
 
   useEffect(() => {
     // Initialize Web Speech API
@@ -174,7 +271,6 @@ export function VideoRecorderWithTranscription() {
             isFinal: true
           }]);
           
-          // Trigger file matching
           matchFilesFromTranscript(finalTranscript);
         }
         
@@ -184,7 +280,6 @@ export function VideoRecorderWithTranscription() {
       recognition.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error);
         if (event.error === 'no-speech') {
-          // Ignore no-speech errors during pauses
           return;
         }
         toast.error(`Transcription error: ${event.error}`);
@@ -192,7 +287,6 @@ export function VideoRecorderWithTranscription() {
       
       recognition.onend = () => {
         if (isTranscribing) {
-          // Restart if still recording
           recognition.start();
         }
       };
@@ -213,11 +307,9 @@ export function VideoRecorderWithTranscription() {
     if (!allFiles || allFiles.length === 0) return;
     
     try {
-      // Extract keywords from transcript
       const keywords = extractKeywords(text);
       const searchTerms = text.toLowerCase();
       
-      // Calculate confidence scores
       const matched = allFiles
         .map((file: any) => {
           const matchedKeywords = keywords.filter(keyword =>
@@ -226,7 +318,6 @@ export function VideoRecorderWithTranscription() {
             file.aiDescription?.toLowerCase().includes(keyword.toLowerCase())
           );
           
-          // Calculate relevance score
           let score = 0;
           if (file.title?.toLowerCase().includes(searchTerms)) score += 30;
           if (file.description?.toLowerCase().includes(searchTerms)) score += 20;
@@ -247,7 +338,6 @@ export function VideoRecorderWithTranscription() {
       
       if (matched.length > 0) {
         setMatchedFiles(prev => {
-          // Merge with existing, avoiding duplicates
           const existing = new Map(prev.map((f: MatchedFile) => [f.id, f]));
           matched.forEach((m: any) => {
             if (!existing.has(m.id) || existing.get(m.id)!.confidence < m.confidence) {
@@ -265,7 +355,6 @@ export function VideoRecorderWithTranscription() {
   };
 
   const extractKeywords = (text: string): string[] => {
-    // Simple keyword extraction (remove common words)
     const commonWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they']);
     
     return text
@@ -276,22 +365,54 @@ export function VideoRecorderWithTranscription() {
       .slice(0, 10);
   };
 
+  const getResolution = () => {
+    const res = RESOLUTION_OPTIONS.find(r => r.label === resolution);
+    return res || RESOLUTION_OPTIONS[1]; // Default to 720p
+  };
+
   const startCamera = async () => {
     try {
-      // Try with ideal constraints first
+      const res = getResolution();
       let stream;
+      
+      // Build video constraints
+      const videoConstraints: MediaTrackConstraints = {
+        width: { ideal: res.width },
+        height: { ideal: res.height },
+      };
+
+      // Use specific device if selected, otherwise use facingMode
+      if (selectedVideoDevice) {
+        videoConstraints.deviceId = { exact: selectedVideoDevice };
+      } else {
+        videoConstraints.facingMode = facingMode;
+      }
+
+      // Build audio constraints
+      const audioConstraints: MediaTrackConstraints | boolean = selectedAudioDevice && selectedAudioDevice !== 'default'
+        ? { deviceId: { exact: selectedAudioDevice } }
+        : true;
+
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: true,
+          video: videoConstraints,
+          audio: audioConstraints,
         });
       } catch (err) {
-        // Fallback to basic constraints if ideal fails
-        console.warn('Ideal camera constraints failed, trying basic constraints:', err);
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
+        console.warn('Preferred camera constraints failed, trying basic constraints:', err);
+        // Fallback: try with just facingMode
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: facingMode },
+            audio: true,
+          });
+        } catch (err2) {
+          console.warn('FacingMode constraints failed, trying basic:', err2);
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true,
+          });
+        }
       }
 
       streamRef.current = stream;
@@ -299,6 +420,9 @@ export function VideoRecorderWithTranscription() {
         videoRef.current.srcObject = stream;
       }
       setIsPreviewing(true);
+      
+      // Re-enumerate devices now that we have permission
+      enumerateDevices();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       if (errorMessage.includes('not found') || errorMessage.includes('NotFoundError')) {
@@ -322,6 +446,33 @@ export function VideoRecorderWithTranscription() {
     }
     setIsPreviewing(false);
   };
+
+  const flipCamera = useCallback(() => {
+    const newMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newMode);
+    // Clear specific device selection when flipping
+    setSelectedVideoDevice('');
+    localStorage.removeItem('videoVideoDevice');
+    
+    if (isPreviewing && !isRecording) {
+      // Restart camera with new facing mode
+      stopCamera();
+      // Small delay to ensure tracks are fully stopped
+      setTimeout(() => {
+        startCamera();
+      }, 200);
+    }
+  }, [facingMode, isPreviewing, isRecording]);
+
+  // Restart camera when settings change (only if previewing and not recording)
+  const restartCameraWithSettings = useCallback(() => {
+    if (isPreviewing && !isRecording) {
+      stopCamera();
+      setTimeout(() => {
+        startCamera();
+      }, 200);
+    }
+  }, [isPreviewing, isRecording]);
 
   const startRecording = () => {
     if (!streamRef.current) return;
@@ -356,12 +507,10 @@ export function VideoRecorderWithTranscription() {
     setMatchedFiles([]);
     startTimeRef.current = Date.now();
 
-    // Start timer
     timerRef.current = setInterval(() => {
       setRecordingTime((prev) => prev + 1);
     }, 1000);
 
-    // Start transcription
     if (recognitionRef.current) {
       setIsTranscribing(true);
       try {
@@ -384,7 +533,6 @@ export function VideoRecorderWithTranscription() {
     setIsRecording(false);
     stopCamera();
 
-    // Stop transcription
     if (recognitionRef.current && isTranscribing) {
       recognitionRef.current.stop();
       setIsTranscribing(false);
@@ -403,7 +551,6 @@ export function VideoRecorderWithTranscription() {
         trpcUtils
       );
 
-      // Combine all transcript segments
       const fullTranscript = transcript.map(s => s.text).join(' ');
 
       await createVideoMutation.mutateAsync({
@@ -448,11 +595,154 @@ export function VideoRecorderWithTranscription() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const shouldMirror = facingMode === 'user' && mirrorFrontCamera && !recordedBlob;
+
   return (
     <div className="space-y-4">
-      {/* Advanced Recording Features Toggle - Now at Top */}
+      {/* Camera Settings - Always visible when camera is active or about to start */}
       <Card className="p-4">
-        {/* Info about features */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Camera className="h-4 w-4 text-primary" />
+            <h3 className="font-semibold text-sm">Camera Settings</h3>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowCameraSettings(!showCameraSettings)}
+            className="h-8"
+          >
+            {showCameraSettings ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+        </div>
+
+        {/* Quick camera controls - always visible */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant={facingMode === 'environment' ? 'default' : 'outline'}
+            size="sm"
+            onClick={flipCamera}
+            disabled={isRecording}
+            className="gap-1.5"
+          >
+            <SwitchCamera className="h-4 w-4" />
+            {facingMode === 'user' ? 'Switch to Back' : 'Switch to Front'}
+          </Button>
+
+          <Select value={resolution} onValueChange={(val) => {
+            setResolution(val);
+            if (isPreviewing && !isRecording) {
+              restartCameraWithSettings();
+            }
+          }}>
+            <SelectTrigger className="w-[100px] h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {RESOLUTION_OPTIONS.map(opt => (
+                <SelectItem key={opt.label} value={opt.label}>
+                  <div className="flex items-center gap-1.5">
+                    <Monitor className="h-3 w-3" />
+                    {opt.label}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="flex items-center gap-1.5 ml-auto">
+            <Switch
+              id="mirror-toggle"
+              checked={mirrorFrontCamera}
+              onCheckedChange={setMirrorFrontCamera}
+              disabled={facingMode !== 'user'}
+            />
+            <Label htmlFor="mirror-toggle" className="text-xs cursor-pointer flex items-center gap-1">
+              <FlipHorizontal className="h-3 w-3" />
+              Mirror
+            </Label>
+          </div>
+        </div>
+
+        {/* Expanded camera settings */}
+        {showCameraSettings && (
+          <div className="mt-4 pt-3 border-t space-y-3">
+            {/* Video device selector */}
+            {videoDevices.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Video className="h-3 w-3" />
+                  Camera Device
+                </Label>
+                <Select value={selectedVideoDevice || 'auto'} onValueChange={(val) => {
+                  setSelectedVideoDevice(val === 'auto' ? '' : val);
+                  if (isPreviewing && !isRecording) {
+                    restartCameraWithSettings();
+                  }
+                }}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue placeholder="Auto (based on facing mode)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto (based on facing mode)</SelectItem>
+                    {videoDevices.map((device, idx) => (
+                      <SelectItem key={device.deviceId} value={device.deviceId}>
+                        {device.label || `Camera ${idx + 1}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Audio device selector */}
+            {audioDevices.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Mic2 className="h-3 w-3" />
+                  Microphone
+                </Label>
+                <Select value={selectedAudioDevice} onValueChange={(val) => {
+                  setSelectedAudioDevice(val);
+                  if (isPreviewing && !isRecording) {
+                    restartCameraWithSettings();
+                  }
+                }}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue placeholder="Default microphone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">Default microphone</SelectItem>
+                    {audioDevices.map((device, idx) => (
+                      <SelectItem key={device.deviceId} value={device.deviceId}>
+                        {device.label || `Microphone ${idx + 1}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Current camera info */}
+            {isPreviewing && streamRef.current && (
+              <div className="p-2 bg-muted/50 rounded text-xs text-muted-foreground">
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  <span>Camera: {facingMode === 'user' ? 'Front' : 'Back'}</span>
+                  <span>Resolution: {resolution}</span>
+                  <span>Mirror: {shouldMirror ? 'On' : 'Off'}</span>
+                </div>
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              Tip: Press <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">F</kbd> to flip camera, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">C</kbd> to start camera, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">R</kbd> to record
+            </p>
+          </div>
+        )}
+      </Card>
+
+      {/* Advanced Recording Features Toggle */}
+      <Card className="p-4">
         {isPreviewing && !showAdvancedFeatures && (
           <div className="mb-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded text-xs text-blue-600 dark:text-blue-400">
             <strong>Tip:</strong> Video effects and filters are applied in real-time to your camera feed. Expand to configure.
@@ -493,46 +783,43 @@ export function VideoRecorderWithTranscription() {
         </Button>
       </Card>
 
-      {/* Advanced Features Panel - Now at Top */}
+      {/* Advanced Features Panel */}
       {showAdvancedFeatures && (
         <Card className="p-4">
           <Tabs value={activeFeatureTab} onValueChange={setActiveFeatureTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto gap-1">
-              <TabsTrigger value="effects" className="flex items-center gap-1 text-xs sm:text-sm py-2">
-                <Palette className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Effects</span>
+              <TabsTrigger value="speed" className="text-xs sm:text-sm py-1.5">
+                <Zap className="h-3 w-3 mr-1" />
+                Speed
               </TabsTrigger>
-              <TabsTrigger value="speed" className="flex items-center gap-1 text-xs sm:text-sm py-2">
-                <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Speed</span>
+              <TabsTrigger value="effects" className="text-xs sm:text-sm py-1.5">
+                <Palette className="h-3 w-3 mr-1" />
+                Effects
               </TabsTrigger>
-              <TabsTrigger value="audio" className="flex items-center gap-1 text-xs sm:text-sm py-2">
-                <Headphones className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Audio</span>
+              <TabsTrigger value="audio" className="text-xs sm:text-sm py-1.5">
+                <Headphones className="h-3 w-3 mr-1" />
+                Audio
               </TabsTrigger>
-              <TabsTrigger value="greenscreen" className="flex items-center gap-1 text-xs sm:text-sm py-2">
-                <Paintbrush className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Green Screen</span>
+              <TabsTrigger value="greenscreen" className="text-xs sm:text-sm py-1.5">
+                <Paintbrush className="h-3 w-3 mr-1" />
+                Chroma
               </TabsTrigger>
             </TabsList>
-
-            <TabsContent value="effects" className="mt-4">
-              <VideoEffectsLibrary
-                videoRef={videoRef}
-                onEffectsChange={(effects) => {
-                  const enabledEffects = effects.filter((e: any) => e.enabled).map((e: any) => e.name);
-                  setActiveEffects(enabledEffects);
-                }}
-              />
-            </TabsContent>
 
             <TabsContent value="speed" className="mt-4">
               <VideoSpeedRamping
                 videoRef={videoRef}
                 duration={recordingTime}
                 currentTime={0}
-                onTimeUpdate={(time) => {
-                  console.log('Time update:', time);
+              />
+            </TabsContent>
+
+            <TabsContent value="effects" className="mt-4">
+              <VideoEffectsLibrary
+                videoRef={videoRef}
+                canvasRef={canvasRef}
+                onEffectsChange={(effects) => {
+                  setActiveEffects(effects.map(e => e.name));
                 }}
               />
             </TabsContent>
@@ -570,7 +857,7 @@ export function VideoRecorderWithTranscription() {
                 playsInline
                 muted={!recordedBlob}
                 controls={!!recordedBlob}
-                className="w-full h-full object-contain"
+                className={`w-full h-full object-contain ${shouldMirror ? 'scale-x-[-1]' : ''}`}
               />
               <canvas ref={canvasRef} className="hidden" />
 
@@ -585,6 +872,14 @@ export function VideoRecorderWithTranscription() {
                 <div className="absolute top-4 right-4 flex items-center gap-2 bg-primary text-primary-foreground px-3 py-2 rounded-md">
                   <Mic className="h-4 w-4 animate-pulse" />
                   <span className="text-sm font-medium">Transcribing</span>
+                </div>
+              )}
+
+              {/* Camera mode indicator */}
+              {isPreviewing && !recordedBlob && (
+                <div className="absolute bottom-4 right-4 flex items-center gap-1 bg-black/60 text-white px-2 py-1 rounded text-xs">
+                  <Camera className="h-3 w-3" />
+                  {facingMode === 'user' ? 'Front' : 'Back'} • {resolution}
                 </div>
               )}
 
@@ -611,12 +906,15 @@ export function VideoRecorderWithTranscription() {
                   <div className="text-center text-white">
                     <VideoOff className="h-16 w-16 mx-auto mb-4 opacity-50" />
                     <p className="text-lg opacity-75">Camera Off</p>
+                    <p className="text-sm opacity-50 mt-1">
+                      {facingMode === 'environment' ? 'Back camera' : 'Front camera'} • {resolution}
+                    </p>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center justify-center gap-4 flex-wrap">
+            <div className="flex items-center justify-center gap-3 flex-wrap">
               {!isPreviewing && !recordedBlob && (
                 <Button onClick={startCamera} size="lg">
                   <Video className="h-5 w-5 mr-2" />
@@ -626,9 +924,13 @@ export function VideoRecorderWithTranscription() {
 
               {isPreviewing && !isRecording && (
                 <>
-                  <Button onClick={stopCamera} variant="outline">
+                  <Button onClick={stopCamera} variant="outline" size="sm">
                     <VideoOff className="h-4 w-4 mr-2" />
-                    Stop Camera
+                    Stop
+                  </Button>
+                  <Button onClick={flipCamera} variant="outline" size="sm">
+                    <SwitchCamera className="h-4 w-4 mr-2" />
+                    Flip
                   </Button>
                   <Button onClick={startRecording} size="lg" className="bg-destructive hover:bg-destructive/90">
                     <Circle className="h-5 w-5 mr-2" />

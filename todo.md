@@ -5474,3 +5474,14 @@ Note: The application already has extensive annotation features including voice 
 ## Features - Feb 7, 2026 (Upload Enhancements)
 - [x] Auto-resume uploads on page load when files are still in memory
 - [x] Upload speed throttling with user-configurable bandwidth limit
+
+## Features - Feb 7, 2026 (Advanced Camera Options)
+- [x] Add back/rear camera toggle to video recording page
+- [x] Add resolution selection (480p, 720p, 1080p, 4K)
+- [x] Add mirror toggle for front camera
+- [x] Add audio input device selector
+- [x] Add video device selector
+- [x] Add camera settings panel with collapsible advanced options
+- [x] Add keyboard shortcut (F) for camera flip
+- [x] Persist all camera settings to localStorage
+- [x] Ensure camera settings are positioned before matched files section
