@@ -29,6 +29,7 @@ export interface ResumableUploadSession {
   createdAt?: string;
   lastActivityAt?: string;
   error?: string;
+  thumbnailUrl?: string | null;
   // Local tracking
   file?: File;
   isPaused?: boolean;
@@ -42,6 +43,75 @@ interface UseResumableUploadOptions {
   autoResume?: boolean;
   /** Delay in ms to add between chunk uploads for throttling (0 = no throttle) */
   chunkDelayMs?: number;
+}
+
+/**
+ * Generate a thumbnail from a video file using a hidden <video> + <canvas>
+ * Returns a base64-encoded JPEG data URL, or null on failure
+ */
+function generateVideoThumbnail(file: File): Promise<string | null> {
+  return new Promise((resolve) => {
+    try {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.muted = true;
+      video.playsInline = true;
+
+      const objectUrl = URL.createObjectURL(file);
+      video.src = objectUrl;
+
+      const cleanup = () => {
+        URL.revokeObjectURL(objectUrl);
+        video.remove();
+      };
+
+      video.onloadeddata = () => {
+        // Seek to 1 second or 10% of duration, whichever is smaller
+        video.currentTime = Math.min(1, video.duration * 0.1);
+      };
+
+      video.onseeked = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          // Generate a small thumbnail (max 320px wide)
+          const scale = Math.min(320 / video.videoWidth, 240 / video.videoHeight, 1);
+          canvas.width = Math.round(video.videoWidth * scale);
+          canvas.height = Math.round(video.videoHeight * scale);
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            cleanup();
+            resolve(null);
+            return;
+          }
+
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          cleanup();
+          resolve(dataUrl);
+        } catch (e) {
+          console.warn('[Thumbnail] Canvas draw failed:', e);
+          cleanup();
+          resolve(null);
+        }
+      };
+
+      video.onerror = () => {
+        console.warn('[Thumbnail] Video load failed');
+        cleanup();
+        resolve(null);
+      };
+
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        cleanup();
+        resolve(null);
+      }, 10000);
+    } catch (e) {
+      console.warn('[Thumbnail] Generation failed:', e);
+      resolve(null);
+    }
+  });
 }
 
 export function useResumableUpload(options: UseResumableUploadOptions = {}) {
@@ -63,6 +133,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   const finalizeUploadMutation = trpc.resumableUpload.finalizeUpload.useMutation();
   const pauseSessionMutation = trpc.resumableUpload.pauseSession.useMutation();
   const cancelSessionMutation = trpc.resumableUpload.cancelSession.useMutation();
+  const saveThumbnailMutation = trpc.resumableUpload.saveThumbnail.useMutation();
   
   // tRPC queries
   const { data: serverSessions, refetch: refetchSessions } = trpc.resumableUpload.listActiveSessions.useQuery(
@@ -88,6 +159,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
         speed: 0,
         eta: 0,
         metadata: s.metadata,
+        thumbnailUrl: s.thumbnailUrl,
         expiresAt: s.expiresAt,
         createdAt: s.createdAt,
         lastActivityAt: s.lastActivityAt,
@@ -186,6 +258,26 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
       };
 
       setSessions(prev => [...prev, newSession]);
+
+      // Generate and save thumbnail in background (non-blocking)
+      if (file.type.startsWith('video/')) {
+        generateVideoThumbnail(file).then((thumbnailBase64: string | null) => {
+          if (thumbnailBase64) {
+            saveThumbnailMutation.mutateAsync({
+              sessionToken: result.sessionToken,
+              thumbnailBase64,
+            }).then((res: { thumbnailUrl: string | null }) => {
+              if (res.thumbnailUrl) {
+                setSessions(prev => prev.map(s =>
+                  s.sessionToken === result.sessionToken
+                    ? { ...s, thumbnailUrl: res.thumbnailUrl }
+                    : s
+                ));
+              }
+            }).catch((e: unknown) => console.warn('[ResumableUpload] Failed to save thumbnail:', e));
+          }
+        }).catch((e: unknown) => console.warn('[ResumableUpload] Failed to generate thumbnail:', e));
+      }
 
       // Start uploading chunks
       uploadChunks(newSession, file);

@@ -271,9 +271,17 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                 key={session.sessionToken}
                 className="flex items-center gap-3 p-3 bg-background rounded-lg border"
               >
-                {/* File icon */}
+                {/* Thumbnail or file icon */}
                 <div className="flex-shrink-0">
-                  {session.uploadType === "video" ? (
+                  {session.thumbnailUrl ? (
+                    <div className="w-14 h-10 rounded overflow-hidden bg-muted">
+                      <img 
+                        src={session.thumbnailUrl} 
+                        alt={session.filename}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : session.uploadType === "video" ? (
                     <FileVideo className="h-8 w-8 text-muted-foreground" />
                   ) : (
                     <File className="h-8 w-8 text-muted-foreground" />
@@ -409,16 +417,27 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
           
           {pendingResumeSession && (
             <div className="space-y-3 py-2">
-              <div className="bg-muted rounded-lg p-3 space-y-1">
+              <div className="bg-muted rounded-lg p-3 space-y-2">
+                {pendingResumeSession.thumbnailUrl && (
+                  <div className="w-full max-w-[240px] mx-auto rounded overflow-hidden bg-black/20">
+                    <img 
+                      src={pendingResumeSession.thumbnailUrl} 
+                      alt={pendingResumeSession.filename}
+                      className="w-full h-auto object-contain"
+                    />
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
-                  {pendingResumeSession.uploadType === "video" ? (
-                    <FileVideo className="h-5 w-5 text-muted-foreground" />
-                  ) : (
-                    <File className="h-5 w-5 text-muted-foreground" />
+                  {!pendingResumeSession.thumbnailUrl && (
+                    pendingResumeSession.uploadType === "video" ? (
+                      <FileVideo className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <File className="h-5 w-5 text-muted-foreground" />
+                    )
                   )}
                   <span className="font-medium text-sm truncate">{pendingResumeSession.filename}</span>
                 </div>
-                <div className="text-xs text-muted-foreground pl-7">
+                <div className="text-xs text-muted-foreground">
                   Size: {formatBytes(pendingResumeSession.fileSize)} · 
                   Progress: {formatBytes(pendingResumeSession.uploadedBytes)} uploaded ({Math.round(pendingResumeSession.progress)}%)
                 </div>

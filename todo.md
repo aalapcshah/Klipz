@@ -5488,3 +5488,10 @@ Note: The application already has extensive annotation features including voice 
 
 ## Bug Fixes - Feb 7, 2026 (Button Responsiveness)
 - [x] Fix Start Recording button not responsive on mobile (requires multiple taps or long press)
+
+## Features - Feb 7, 2026 (Resumable Upload Thumbnail)
+- [x] Generate and store thumbnail during initial upload for resumable sessions
+- [x] Display thumbnail in resumable upload banner and re-select dialog
+- [x] Add thumbnailUrl column to database schema
+- [x] Add saveThumbnail server endpoint to upload thumbnail to S3
+- [x] Display thumbnail in ResumableUploadsBanner to help users identify which video to re-select

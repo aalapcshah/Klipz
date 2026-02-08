@@ -486,6 +486,7 @@ export const resumableUploadRouter = router({
         uploadedChunks: resumableUploadSessions.uploadedChunks,
         uploadedBytes: resumableUploadSessions.uploadedBytes,
         metadata: resumableUploadSessions.metadata,
+        thumbnailUrl: resumableUploadSessions.thumbnailUrl,
         expiresAt: resumableUploadSessions.expiresAt,
         createdAt: resumableUploadSessions.createdAt,
         lastActivityAt: resumableUploadSessions.lastActivityAt,
@@ -538,4 +539,56 @@ export const resumableUploadRouter = router({
     
     return { cleanedCount: expiredSessions.length };
   }),
+
+  /**
+   * Save a thumbnail for a resumable upload session
+   * Called by the client after generating a thumbnail from the video file
+   */
+  saveThumbnail: protectedProcedure
+    .input(z.object({
+      sessionToken: z.string(),
+      thumbnailBase64: z.string(), // base64-encoded image data (data:image/jpeg;base64,...)
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const drizzle = await getDb();
+      if (!drizzle) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      // Verify session belongs to user
+      const [session] = await drizzle
+        .select({ id: resumableUploadSessions.id })
+        .from(resumableUploadSessions)
+        .where(
+          and(
+            eq(resumableUploadSessions.sessionToken, input.sessionToken),
+            eq(resumableUploadSessions.userId, ctx.user.id)
+          )
+        )
+        .limit(1);
+
+      if (!session) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Upload session not found" });
+      }
+
+      try {
+        // Extract the base64 data (remove data:image/jpeg;base64, prefix)
+        const base64Data = input.thumbnailBase64.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        // Upload thumbnail to S3
+        const thumbnailKey = `upload-thumbnails/${ctx.user.id}/${input.sessionToken}-thumb.jpg`;
+        const { url } = await storagePut(thumbnailKey, buffer, 'image/jpeg');
+
+        // Update session with thumbnail URL
+        await drizzle
+          .update(resumableUploadSessions)
+          .set({ thumbnailUrl: url })
+          .where(eq(resumableUploadSessions.id, session.id));
+
+        return { thumbnailUrl: url };
+      } catch (error) {
+        console.error('[ResumableUpload] Failed to save thumbnail:', error);
+        // Non-critical - don't fail the upload
+        return { thumbnailUrl: null };
+      }
+    }),
 });

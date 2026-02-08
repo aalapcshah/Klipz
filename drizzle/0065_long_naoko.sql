@@ -1,0 +1,1 @@
+ALTER TABLE `resumable_upload_sessions` ADD `thumbnailUrl` text;

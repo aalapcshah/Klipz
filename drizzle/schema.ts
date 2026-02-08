@@ -1661,6 +1661,9 @@ export const resumableUploadSessions = mysqlTable("resumable_upload_sessions", {
     tags?: string[];
   }>(),
   
+  // Thumbnail for visual identification
+  thumbnailUrl: text("thumbnailUrl"),
+  
   // Session status
   status: mysqlEnum("status", ["active", "paused", "completed", "failed", "expired"]).default("active").notNull(),
   errorMessage: text("errorMessage"),
