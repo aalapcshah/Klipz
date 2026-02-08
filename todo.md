@@ -5495,3 +5495,6 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add thumbnailUrl column to database schema
 - [x] Add saveThumbnail server endpoint to upload thumbnail to S3
 - [x] Display thumbnail in ResumableUploadsBanner to help users identify which video to re-select
+
+## UI Fix - Feb 7, 2026
+- [x] Move Upload Settings section to just below the Upload Videos drop zone

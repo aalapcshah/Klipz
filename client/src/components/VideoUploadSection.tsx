@@ -812,36 +812,6 @@ export function VideoUploadSection() {
   
   return (
     <div className="space-y-6">
-      {/* Upload Settings */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-3">Upload Settings</h3>
-        <div className="space-y-4">
-          <div>
-            <Label className="text-sm font-medium mb-2 block">Post-Upload Compression</Label>
-            <Select value={selectedQuality} onValueChange={(v) => setSelectedQuality(v as VideoQuality)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select quality" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="original">Original (No Compression)</SelectItem>
-                <SelectItem value="high">High Quality (1080p)</SelectItem>
-                <SelectItem value="medium">Medium Quality (720p)</SelectItem>
-                <SelectItem value="low">Low Quality (480p)</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground mt-1.5">
-              {selectedQuality === 'original'
-                ? 'Videos will be uploaded as-is. You can compress later from the Video Library.'
-                : `Videos will be uploaded at original quality, then automatically compressed to ${QUALITY_SETTINGS[selectedQuality].label} using server-side FFmpeg after upload completes.`}
-            </p>
-          </div>
-          <div className="flex items-start gap-2 text-sm text-muted-foreground">
-            <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-            <span>Server compression preserves audio, maintains full duration, and lets you revert to the original anytime</span>
-          </div>
-        </div>
-      </Card>
-
       {/* Upload Area */}
       <Card
         className={`border-2 border-dashed transition-colors ${
@@ -900,6 +870,36 @@ export function VideoUploadSection() {
             className="hidden"
             onChange={(e) => handleFolderSelect(e.target.files)}
           />
+        </div>
+      </Card>
+
+      {/* Upload Settings */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-3">Upload Settings</h3>
+        <div className="space-y-4">
+          <div>
+            <Label className="text-sm font-medium mb-2 block">Post-Upload Compression</Label>
+            <Select value={selectedQuality} onValueChange={(v) => setSelectedQuality(v as VideoQuality)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select quality" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="original">Original (No Compression)</SelectItem>
+                <SelectItem value="high">High Quality (1080p)</SelectItem>
+                <SelectItem value="medium">Medium Quality (720p)</SelectItem>
+                <SelectItem value="low">Low Quality (480p)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1.5">
+              {selectedQuality === 'original'
+                ? 'Videos will be uploaded as-is. You can compress later from the Video Library.'
+                : `Videos will be uploaded at original quality, then automatically compressed to ${QUALITY_SETTINGS[selectedQuality].label} using server-side FFmpeg after upload completes.`}
+            </p>
+          </div>
+          <div className="flex items-start gap-2 text-sm text-muted-foreground">
+            <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+            <span>Server compression preserves audio, maintains full duration, and lets you revert to the original anytime</span>
+          </div>
         </div>
       </Card>
 
