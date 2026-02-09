@@ -1774,6 +1774,62 @@ export const appRouter = router({
         
         return { fileId, alreadyLinked: false };
       }),
+
+    // Transcode WebM video to MP4 for cross-browser compatibility
+    transcode: protectedProcedure
+      .input(z.object({ videoId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const video = await db.getVideoById(input.videoId);
+        if (!video || video.userId !== ctx.user.id) {
+          throw new Error("Video not found");
+        }
+
+        // Skip if already transcoded
+        if (video.transcodeStatus === "completed" && video.transcodedUrl) {
+          return {
+            success: true,
+            transcodedUrl: video.transcodedUrl,
+            alreadyTranscoded: true,
+          };
+        }
+
+        // Skip if already processing
+        if (video.transcodeStatus === "processing") {
+          return {
+            success: false,
+            error: "Transcoding already in progress",
+            alreadyTranscoded: false,
+          };
+        }
+
+        // Mark as processing
+        await db.updateVideo(input.videoId, { transcodeStatus: "processing" } as any);
+
+        try {
+          const { transcodeToMp4 } = await import("./videoTranscode");
+          const result = await transcodeToMp4(video.url, video.filename);
+
+          if (result.success && result.url && result.fileKey) {
+            await db.updateVideo(input.videoId, {
+              transcodedUrl: result.url,
+              transcodedKey: result.fileKey,
+              transcodeStatus: "completed",
+            } as any);
+
+            return {
+              success: true,
+              transcodedUrl: result.url,
+              alreadyTranscoded: false,
+            };
+          } else {
+            await db.updateVideo(input.videoId, { transcodeStatus: "failed" } as any);
+            throw new Error(result.error || "Transcoding failed");
+          }
+        } catch (error) {
+          await db.updateVideo(input.videoId, { transcodeStatus: "failed" } as any);
+          throw error;
+        }
+      }),
   }),
 
   // ============= ANNOTATIONS ROUTER =============

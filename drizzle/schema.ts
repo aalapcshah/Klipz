@@ -485,6 +485,11 @@ export const videos = mysqlTable("videos", {
   exportStatus: mysqlEnum("exportStatus", ["draft", "processing", "completed", "failed"]).default("draft").notNull(),
   exportedUrl: text("exportedUrl"), // URL of exported video with overlays
   
+  // Transcoded MP4 version (for cross-browser compatibility)
+  transcodedUrl: text("transcodedUrl"), // S3 URL for transcoded MP4 version
+  transcodedKey: varchar("transcodedKey", { length: 512 }), // S3 key for transcoded MP4
+  transcodeStatus: mysqlEnum("transcodeStatus", ["pending", "processing", "completed", "failed"]).default("pending"),
+  
   // Thumbnail
   thumbnailUrl: text("thumbnailUrl"), // S3 URL for video thumbnail
   thumbnailKey: varchar("thumbnailKey", { length: 512 }), // S3 key for thumbnail

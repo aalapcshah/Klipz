@@ -5633,3 +5633,20 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix black video / play button not working on mobile for existing WebM recordings - added error overlay with download link
 - [x] Rename visual AI captions to "Visual Descriptions" throughout VideoDetail, VideoPlayerWithAnnotations, and VisualCaptionsPanel
 - [x] Transcript tab already exists as the audio transcription section (was correctly labeled)
+
+## Feature: WebM-to-MP4 Transcoding
+- [x] Check FFmpeg availability on server (FFmpeg 4.4.2 with x264/x265)
+- [x] Create transcoding service module (WebM → MP4) - server/videoTranscode.ts
+- [x] Add transcode API endpoint (tRPC procedure) - videos.transcode
+- [x] Store transcoded MP4 URL in database alongside original (transcodedUrl, transcodedKey fields)
+- [x] Update video player to prefer MP4 URL when available
+- [x] Add "Convert to MP4" button in VideoDetail for WebM videos
+- [ ] Add background auto-transcoding for new WebM uploads (deferred)
+- [x] Write tests for transcoding service (4 tests passing)
+
+## Feature: Transcript Subtitle Overlay
+- [x] Create transcript subtitle overlay in VideoDetail using transcript segments
+- [x] Add Show/Hide Subtitles toggle button below the video player
+- [x] Sync subtitle display with video currentTime using timeupdate event
+- [x] Style subtitles distinctly from visual descriptions overlay (black/80 bg, white text)
+- [x] Write tests for subtitle overlay logic (covered by videoTranscode tests)

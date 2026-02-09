@@ -34,6 +34,8 @@ import {
   MessageSquare,
   Video,
   Eye,
+  RefreshCw,
+  Subtitles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getResolutionLabel, formatDuration } from "@/lib/videoUtils";
@@ -65,6 +67,8 @@ export default function VideoDetail() {
   const [editDescription, setEditDescription] = useState("");
   const [activeTab, setActiveTab] = useState("transcript");
   const [shareVideo, setShareVideo] = useState<{ id: number; title: string } | null>(null);
+  const [showSubtitles, setShowSubtitles] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
 
   // Fetch video data
   const { data: videoData, isLoading, refetch } = trpc.videos.get.useQuery(
@@ -164,6 +168,27 @@ export default function VideoDetail() {
       toast.success("Transcript matches generated");
     },
   });
+
+  const transcodeMutation = trpc.videos.transcode.useMutation({
+    onSuccess: (data) => {
+      if (data.alreadyTranscoded) {
+        toast.info("Video already has an MP4 version");
+      } else {
+        toast.success("Video converted to MP4 successfully");
+      }
+      refetch();
+    },
+    onError: (err) => toast.error(`Transcoding failed: ${err.message}`),
+  });
+
+  // Track video currentTime for subtitle overlay
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const handleTimeUpdate = () => setCurrentTime(video.currentTime);
+    video.addEventListener("timeupdate", handleTimeUpdate);
+    return () => video.removeEventListener("timeupdate", handleTimeUpdate);
+  }, [videoRef.current]);
 
   // Seek video to timestamp
   const seekTo = useCallback((seconds: number) => {
@@ -291,6 +316,11 @@ export default function VideoDetail() {
                 <DropdownMenuItem asChild>
                   <a href={videoData.url} download={videoData.filename}>Download Original</a>
                 </DropdownMenuItem>
+                {(videoData as any).transcodedUrl && (
+                  <DropdownMenuItem asChild>
+                    <a href={(videoData as any).transcodedUrl} download>Download MP4</a>
+                  </DropdownMenuItem>
+                )}
                 {videoData.exportedUrl && (
                   <DropdownMenuItem asChild>
                     <a href={videoData.exportedUrl} download>Download Exported</a>
@@ -323,12 +353,17 @@ export default function VideoDetail() {
             <div className="rounded-lg overflow-hidden bg-black aspect-video relative">
               <video
                 ref={videoRef}
-                src={videoData.url}
+                src={(videoData as any).transcodedUrl || videoData.url}
                 controls
                 className="w-full h-full object-contain"
                 playsInline
                 onError={(e) => {
                   const video = e.currentTarget;
+                  // If transcoded URL failed, fall back to original
+                  if ((videoData as any).transcodedUrl && video.src.includes('transcoded')) {
+                    video.src = videoData.url;
+                    return;
+                  }
                   // Check if the format is unsupported (common with WebM on iOS Safari)
                   if (video.error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED ||
                       video.error?.code === MediaError.MEDIA_ERR_DECODE) {
@@ -347,6 +382,68 @@ export default function VideoDetail() {
                   }
                 }}
               />
+              {/* Transcript Subtitle Overlay */}
+              {showSubtitles && transcript?.status === "completed" && transcript.segments && (
+                <div className="absolute bottom-12 left-0 right-0 flex justify-center pointer-events-none z-20 px-4">
+                  {(() => {
+                    const activeSeg = transcript.segments.find(
+                      (seg: any) => currentTime >= seg.startTime && currentTime <= (seg.endTime || seg.startTime + 5)
+                    );
+                    if (!activeSeg) return null;
+                    return (
+                      <div className="bg-black/80 text-white text-sm px-4 py-2 rounded-lg max-w-[90%] text-center leading-relaxed shadow-lg">
+                        {activeSeg.text}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Subtitle + Transcode Controls */}
+            <div className="flex flex-wrap items-center gap-2">
+              {transcript?.status === "completed" && transcript.segments && transcript.segments.length > 0 && (
+                <Button
+                  size="sm"
+                  variant={showSubtitles ? "default" : "outline"}
+                  onClick={() => setShowSubtitles(!showSubtitles)}
+                  className="gap-1.5"
+                >
+                  <Subtitles className="h-3.5 w-3.5" />
+                  {showSubtitles ? "Hide Subtitles" : "Show Subtitles"}
+                </Button>
+              )}
+              {/* Show transcode button for WebM videos without an MP4 version */}
+              {videoData.filename.endsWith('.webm') && !(videoData as any).transcodedUrl && (videoData as any).transcodeStatus !== "completed" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => transcodeMutation.mutate({ videoId: videoData.id })}
+                  disabled={transcodeMutation.isPending || (videoData as any).transcodeStatus === "processing"}
+                  className="gap-1.5"
+                >
+                  {transcodeMutation.isPending || (videoData as any).transcodeStatus === "processing" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  )}
+                  Convert to MP4
+                </Button>
+              )}
+              {(videoData as any).transcodeStatus === "completed" && (videoData as any).transcodedUrl && (
+                <Badge className="bg-green-500/20 text-green-400 border-green-500/30 gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> MP4 Available
+                </Badge>
+              )}
+              {(videoData as any).transcodeStatus === "failed" && (
+                <Badge
+                  className="bg-red-500/20 text-red-400 border-red-500/30 gap-1 cursor-pointer"
+                  onClick={() => transcodeMutation.mutate({ videoId: videoData.id })}
+                >
+                  <AlertCircle className="h-3 w-3" /> Transcode Failed
+                  <RotateCcw className="h-3 w-3 ml-1" />
+                </Badge>
+              )}
             </div>
 
             {/* Video Info */}
