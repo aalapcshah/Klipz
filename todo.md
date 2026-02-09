@@ -5752,3 +5752,10 @@ Note: The application already has extensive annotation features including voice 
 
 ## Bug Fix - Voice Search Microphone
 - [x] Fix voice search microphone button - replaced hardcoded demo text with real Whisper transcription via tRPC
+
+## Bug Fix - Upload Stuck at Queued
+- [ ] Fix file upload stuck at "Queued" status (0 B uploaded) for large files (~112 MB)
+
+## UI/Bug Fix - Retry Buttons and Retry Functionality
+- [x] Remove redundant "Retry Transcript" and "Retry Captions" buttons from VideoCardDetails
+- [x] Fix retry transcription/captioning not working for previously uploaded files

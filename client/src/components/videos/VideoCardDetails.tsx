@@ -204,11 +204,27 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
     }
   }, [videoRef, videoId]);
 
+  // Toggle section: if status is "failed", also trigger retry
   const toggleSection = (section: "transcript" | "captions" | "matches") => {
     if (!fileId) {
       toast.error("This video doesn't have a linked file yet. Try clicking Annotate first.");
       return;
     }
+
+    // If clicking on a failed transcript/caption section, trigger retry
+    if (section === "transcript" && transcript?.status === "failed" && !retryTranscriptMutation.isPending) {
+      handleRetryTranscript();
+      // Also expand the section to show progress
+      setExpandedSection("transcript");
+      return;
+    }
+    if (section === "captions" && captions?.status === "failed" && !retryCaptionMutation.isPending) {
+      handleRetryCaptions();
+      // Also expand the section to show progress
+      setExpandedSection("captions");
+      return;
+    }
+
     setExpandedSection(expandedSection === section ? null : section);
   };
 
@@ -219,8 +235,6 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
   // Determine statuses for badges
   const transcriptStatus = transcript?.status || null;
   const captionStatus = captions?.status || null;
-  const hasFileMatches = fileMatches && fileMatches.length > 0;
-  const hasFileSuggestions = fileSuggestions && fileSuggestions.length > 0;
 
   // Clickable timestamp component
   const TimestampButton = ({ seconds, className }: { seconds: number; className?: string }) => (
@@ -236,36 +250,83 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
     </button>
   );
 
+  // Helper to get button style based on status
+  const getTranscriptButtonStyle = () => {
+    if (expandedSection === "transcript") return "secondary" as const;
+    if (transcriptStatus === "failed") return "destructive" as const;
+    return "ghost" as const;
+  };
+
+  const getCaptionsButtonStyle = () => {
+    if (expandedSection === "captions") return "secondary" as const;
+    if (captionStatus === "failed") return "destructive" as const;
+    return "ghost" as const;
+  };
+
   return (
     <div className="space-y-1.5 pt-1.5 border-t border-border/50">
-      {/* Section toggle buttons + Find Matches */}
+      {/* Section toggle buttons */}
       <div className="flex items-center gap-1 flex-wrap">
         <Button
-          variant={expandedSection === "transcript" ? "secondary" : "ghost"}
+          variant={getTranscriptButtonStyle()}
           size="sm"
-          className="h-6 px-2 text-[10px] gap-1"
+          className={`h-6 px-2 text-[10px] gap-1 ${
+            transcriptStatus === "failed" && expandedSection !== "transcript"
+              ? "bg-red-500/10 text-red-600 border-red-500/30 hover:bg-red-500/20"
+              : ""
+          }`}
           onClick={() => toggleSection("transcript")}
+          disabled={retryTranscriptMutation.isPending}
         >
-          <FileText className="h-3 w-3" />
-          Transcript
-          {expandedSection === "transcript" ? (
-            <ChevronUp className="h-2.5 w-2.5" />
+          {retryTranscriptMutation.isPending ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : transcriptStatus === "failed" ? (
+            <RotateCcw className="h-3 w-3" />
           ) : (
-            <ChevronDown className="h-2.5 w-2.5" />
+            <FileText className="h-3 w-3" />
+          )}
+          {retryTranscriptMutation.isPending
+            ? "Retrying..."
+            : transcriptStatus === "failed"
+            ? "Retry Transcript"
+            : "Transcript"}
+          {!retryTranscriptMutation.isPending && transcriptStatus !== "failed" && (
+            expandedSection === "transcript" ? (
+              <ChevronUp className="h-2.5 w-2.5" />
+            ) : (
+              <ChevronDown className="h-2.5 w-2.5" />
+            )
           )}
         </Button>
         <Button
-          variant={expandedSection === "captions" ? "secondary" : "ghost"}
+          variant={getCaptionsButtonStyle()}
           size="sm"
-          className="h-6 px-2 text-[10px] gap-1"
+          className={`h-6 px-2 text-[10px] gap-1 ${
+            captionStatus === "failed" && expandedSection !== "captions"
+              ? "bg-red-500/10 text-red-600 border-red-500/30 hover:bg-red-500/20"
+              : ""
+          }`}
           onClick={() => toggleSection("captions")}
+          disabled={retryCaptionMutation.isPending}
         >
-          <Captions className="h-3 w-3" />
-          Captions
-          {expandedSection === "captions" ? (
-            <ChevronUp className="h-2.5 w-2.5" />
+          {retryCaptionMutation.isPending ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : captionStatus === "failed" ? (
+            <RotateCcw className="h-3 w-3" />
           ) : (
-            <ChevronDown className="h-2.5 w-2.5" />
+            <Captions className="h-3 w-3" />
+          )}
+          {retryCaptionMutation.isPending
+            ? "Retrying..."
+            : captionStatus === "failed"
+            ? "Retry Captions"
+            : "Captions"}
+          {!retryCaptionMutation.isPending && captionStatus !== "failed" && (
+            expandedSection === "captions" ? (
+              <ChevronUp className="h-2.5 w-2.5" />
+            ) : (
+              <ChevronDown className="h-2.5 w-2.5" />
+            )
           )}
         </Button>
         <Button
@@ -282,8 +343,6 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
             <ChevronDown className="h-2.5 w-2.5" />
           )}
         </Button>
-
-
       </div>
 
       {/* Expanded content */}
@@ -328,25 +387,9 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
               Transcription in progress...
             </div>
           ) : transcript && transcript.status === "failed" ? (
-            <div className="flex items-center justify-between py-2">
-              <div className="flex items-center gap-2 text-xs text-destructive">
-                <AlertCircle className="h-3 w-3" />
-                Transcription failed
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 px-2 text-[10px] gap-1 text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
-                onClick={handleRetryTranscript}
-                disabled={retryTranscriptMutation.isPending}
-              >
-                {retryTranscriptMutation.isPending ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <RotateCcw className="h-3 w-3" />
-                )}
-                Retry
-              </Button>
+            <div className="flex items-center gap-2 text-xs text-destructive py-2">
+              <AlertCircle className="h-3 w-3" />
+              Transcription failed. Click the Transcript button above to retry.
             </div>
           ) : (
             <div className="text-xs text-muted-foreground py-2">
@@ -400,25 +443,9 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
               Captioning in progress...
             </div>
           ) : captions && captions.status === "failed" ? (
-            <div className="flex items-center justify-between py-2">
-              <div className="flex items-center gap-2 text-xs text-destructive">
-                <AlertCircle className="h-3 w-3" />
-                Captioning failed{captions.errorMessage ? `: ${captions.errorMessage}` : ""}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 px-2 text-[10px] gap-1 text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
-                onClick={handleRetryCaptions}
-                disabled={retryCaptionMutation.isPending}
-              >
-                {retryCaptionMutation.isPending ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <RotateCcw className="h-3 w-3" />
-                )}
-                Retry
-              </Button>
+            <div className="flex items-center gap-2 text-xs text-destructive py-2">
+              <AlertCircle className="h-3 w-3" />
+              Captioning failed{captions.errorMessage ? `: ${captions.errorMessage}` : ""}. Click the Captions button above to retry.
             </div>
           ) : (
             <div className="text-xs text-muted-foreground py-2">
@@ -524,67 +551,6 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
           )}
         </div>
       )}
-      {/* Status badges row - at the bottom */}
-      <div className="flex items-center gap-1 flex-wrap">
-        {transcriptStatus === "completed" && (
-          <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-green-500/10 text-green-600 border-green-500/30 gap-0.5">
-            <CheckCircle2 className="h-2.5 w-2.5" />
-            Transcribed
-          </Badge>
-        )}
-        {transcriptStatus === "processing" && (
-          <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-yellow-500/10 text-yellow-600 border-yellow-500/30 gap-0.5">
-            <Loader2 className="h-2.5 w-2.5 animate-spin" />
-            Transcribing
-          </Badge>
-        )}
-        {captionStatus === "completed" && (
-          <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-blue-500/10 text-blue-600 border-blue-500/30 gap-0.5">
-            <CheckCircle2 className="h-2.5 w-2.5" />
-            Captioned
-          </Badge>
-        )}
-        {captionStatus === "processing" && (
-          <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-yellow-500/10 text-yellow-600 border-yellow-500/30 gap-0.5">
-            <Loader2 className="h-2.5 w-2.5 animate-spin" />
-            Captioning
-          </Badge>
-        )}
-        {transcriptStatus === "failed" && (
-          <button
-            onClick={handleRetryTranscript}
-            disabled={retryTranscriptMutation.isPending}
-            className="inline-flex items-center gap-0.5 cursor-pointer"
-            title="Click to retry transcription"
-          >
-            <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-red-500/10 text-red-600 border-red-500/30 gap-0.5 hover:bg-red-500/20 transition-colors">
-              {retryTranscriptMutation.isPending ? (
-                <Loader2 className="h-2.5 w-2.5 animate-spin" />
-              ) : (
-                <RotateCcw className="h-2.5 w-2.5" />
-              )}
-              Retry Transcript
-            </Badge>
-          </button>
-        )}
-        {captionStatus === "failed" && (
-          <button
-            onClick={handleRetryCaptions}
-            disabled={retryCaptionMutation.isPending}
-            className="inline-flex items-center gap-0.5 cursor-pointer"
-            title="Click to retry captioning"
-          >
-            <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-red-500/10 text-red-600 border-red-500/30 gap-0.5 hover:bg-red-500/20 transition-colors">
-              {retryCaptionMutation.isPending ? (
-                <Loader2 className="h-2.5 w-2.5 animate-spin" />
-              ) : (
-                <RotateCcw className="h-2.5 w-2.5" />
-              )}
-              Retry Captions
-            </Badge>
-          </button>
-        )}
-      </div>
     </div>
   );
 });
