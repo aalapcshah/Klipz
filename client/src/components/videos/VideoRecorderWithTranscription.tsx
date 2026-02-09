@@ -1224,16 +1224,16 @@ export function VideoRecorderWithTranscription() {
 
             {/* Quick camera controls - inline below preview */}
             {!recordedBlob && !isRecording && (
-              <div className="flex flex-wrap items-center gap-2 mt-2">
+              <div className="flex items-center gap-1.5 mt-2">
                 <Button
                   variant={facingMode === 'environment' ? 'default' : 'outline'}
                   size="sm"
                   onClick={flipCamera}
                   disabled={isRecording}
-                  className="gap-1.5 h-8"
+                  className="gap-1 h-8 px-2.5 shrink-0"
                 >
                   <SwitchCamera className="h-3.5 w-3.5" />
-                  {facingMode === 'user' ? 'Back' : 'Front'}
+                  <span className="hidden sm:inline">{facingMode === 'user' ? 'Back' : 'Front'}</span>
                 </Button>
 
                 <Select value={resolution} onValueChange={(val) => {
@@ -1242,7 +1242,7 @@ export function VideoRecorderWithTranscription() {
                     restartCameraWithSettings();
                   }
                 }}>
-                  <SelectTrigger className="w-[85px] h-8">
+                  <SelectTrigger className="w-[80px] h-8 shrink-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1258,8 +1258,8 @@ export function VideoRecorderWithTranscription() {
                 </Select>
 
                 <Select value={timerLimit} onValueChange={setTimerLimit}>
-                  <SelectTrigger className="w-[100px] h-8">
-                    <div className="flex items-center gap-1.5">
+                  <SelectTrigger className="w-[90px] h-8 shrink-0">
+                    <div className="flex items-center gap-1">
                       <Timer className="h-3 w-3" />
                       <SelectValue />
                     </div>
@@ -1276,7 +1276,7 @@ export function VideoRecorderWithTranscription() {
                   </SelectContent>
                 </Select>
 
-                <div className="flex items-center gap-1.5 ml-auto">
+                <div className="flex items-center gap-1.5 ml-auto shrink-0">
                   <Switch
                     id="mirror-toggle-inline"
                     checked={mirrorFrontCamera}
@@ -1285,7 +1285,7 @@ export function VideoRecorderWithTranscription() {
                   />
                   <Label htmlFor="mirror-toggle-inline" className="text-xs cursor-pointer flex items-center gap-1">
                     <FlipHorizontal className="h-3 w-3" />
-                    Mirror
+                    <span className="hidden sm:inline">Mirror</span>
                   </Label>
                 </div>
               </div>

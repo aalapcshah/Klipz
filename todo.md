@@ -5622,3 +5622,4 @@ Note: The application already has extensive annotation features including voice 
 ## Mobile Camera UI Optimization
 - [x] Move camera quality selector and switch button from Camera Settings into the camera preview area
 - [x] Reduce vertical space consumption on mobile video recording page
+- [x] Fix cramped camera controls: remove Mirror toggle wrapping to second line on mobile
