@@ -860,7 +860,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
             </div>
           )}
           
-          {/* Caption subtitle overlay */}
+          {/* Visual description subtitle overlay */}
           {showCaptionOverlay && (
             <CaptionOverlay fileId={fileId} currentTime={currentTime} />
           )}
@@ -1010,16 +1010,16 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
               {showAnnotationPreview ? <Eye className="h-5 w-5 md:h-4 md:w-4" /> : <EyeOff className="h-5 w-5 md:h-4 md:w-4" />}
             </Button>
             
-            {/* Caption Overlay Toggle */}
+            {/* Visual Descriptions Overlay Toggle */}
             <Button 
               size="default" 
               className="h-11 px-4 md:h-9 md:px-3" 
               variant={showCaptionOverlay ? "default" : "outline"}
               onClick={() => {
                 setShowCaptionOverlay(!showCaptionOverlay);
-                toast.success(showCaptionOverlay ? "Captions hidden" : "Captions visible");
+                toast.success(showCaptionOverlay ? "Visual descriptions hidden" : "Visual descriptions visible");
               }}
-              title={showCaptionOverlay ? "Hide captions" : "Show captions"}
+              title={showCaptionOverlay ? "Hide visual descriptions" : "Show visual descriptions"}
             >
               {showCaptionOverlay ? <Captions className="h-5 w-5 md:h-4 md:w-4" /> : <CaptionsOff className="h-5 w-5 md:h-4 md:w-4" />}
             </Button>

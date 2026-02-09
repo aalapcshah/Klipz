@@ -366,11 +366,11 @@ export function VisualCaptionsPanel({
           </div>
           <div>
             <h3 className="text-base sm:text-lg font-semibold mb-2">
-              Visual Captions & File Matching
+              Visual Descriptions & File Matching
             </h3>
             <p className="text-xs sm:text-sm text-muted-foreground mb-4">
               Analyze the video visually using AI to generate descriptive
-              captions at regular intervals. The system will extract entities and
+              summaries at regular intervals. The system will extract entities and
               match them against your uploaded files with relevance scores.
             </p>
             <p className="text-xs text-muted-foreground/70 mb-4">
@@ -391,7 +391,7 @@ export function VisualCaptionsPanel({
             ) : (
               <>
                 <Eye className="h-4 w-4 mr-2" />
-                Generate Visual Captions
+                Generate Visual Descriptions
               </>
             )}
           </Button>
@@ -465,10 +465,10 @@ export function VisualCaptionsPanel({
         <div>
           <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
             <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-            Visual Captions ({captions.length})
+            Visual Descriptions ({captions.length})
           </h3>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            AI-generated descriptions with file matching
+            AI-generated visual summaries with file matching
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

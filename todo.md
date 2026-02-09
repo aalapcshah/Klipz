@@ -5628,3 +5628,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix black video on mobile playback - use MediaRecorder.isTypeSupported() for cross-browser format detection
 - [x] Fix "Transcription failed" - add video/* mime types to voiceTranscription helper
 - [x] Pass actual mimeType from client to server instead of hardcoding video/webm
+
+## Bug Fixes - Video Playback & Captions Labeling
+- [x] Fix black video / play button not working on mobile for existing WebM recordings - added error overlay with download link
+- [x] Rename visual AI captions to "Visual Descriptions" throughout VideoDetail, VideoPlayerWithAnnotations, and VisualCaptionsPanel
+- [x] Transcript tab already exists as the audio transcription section (was correctly labeled)

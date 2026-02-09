@@ -33,6 +33,7 @@ import {
   Trash2,
   MessageSquare,
   Video,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getResolutionLabel, formatDuration } from "@/lib/videoUtils";
@@ -319,13 +320,32 @@ export default function VideoDetail() {
           {/* Left Column: Video Player + Metadata */}
           <div className="lg:col-span-3 space-y-4">
             {/* Video Player */}
-            <div className="rounded-lg overflow-hidden bg-black aspect-video">
+            <div className="rounded-lg overflow-hidden bg-black aspect-video relative">
               <video
                 ref={videoRef}
                 src={videoData.url}
                 controls
                 className="w-full h-full object-contain"
                 playsInline
+                onError={(e) => {
+                  const video = e.currentTarget;
+                  // Check if the format is unsupported (common with WebM on iOS Safari)
+                  if (video.error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED ||
+                      video.error?.code === MediaError.MEDIA_ERR_DECODE) {
+                    const container = video.parentElement;
+                    if (container && !container.querySelector('.video-error-overlay')) {
+                      const overlay = document.createElement('div');
+                      overlay.className = 'video-error-overlay absolute inset-0 flex flex-col items-center justify-center bg-black/90 text-white p-4 text-center z-10';
+                      overlay.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-3 opacity-50"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                        <p class="text-sm font-medium mb-1">Video format not supported</p>
+                        <p class="text-xs text-gray-400 mb-3">This video was recorded in WebM format which may not play on this device.</p>
+                        <a href="${videoData.url}" download="${videoData.filename}" class="text-xs px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors">Download to play externally</a>
+                      `;
+                      container.appendChild(overlay);
+                    }
+                  }
+                }}
               />
             </div>
 
@@ -491,8 +511,9 @@ export default function VideoDetail() {
                   <span>Transcript</span>
                 </TabsTrigger>
                 <TabsTrigger value="captions" className="gap-1 text-xs sm:text-sm">
-                  <Captions className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span>Captions</span>
+                  <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Visual Desc.</span>
+                  <span className="sm:hidden">Visual</span>
                 </TabsTrigger>
                 <TabsTrigger value="matches" className="gap-1 text-xs sm:text-sm">
                   <Files className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -570,7 +591,7 @@ export default function VideoDetail() {
                 </Card>
               </TabsContent>
 
-              {/* Captions Tab */}
+              {/* Visual Descriptions Tab */}
               <TabsContent value="captions" className="mt-3">
                 <Card className="p-4 max-h-[60vh] overflow-y-auto">
                   {captionsLoading ? (
@@ -579,8 +600,8 @@ export default function VideoDetail() {
                     </div>
                   ) : !captions || captions.status === "pending" ? (
                     <div className="text-center py-8 text-muted-foreground text-sm">
-                      <Captions className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>No captions yet.</p>
+                      <Eye className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No visual descriptions yet.</p>
                       {videoData.fileId && (
                         <Button
                           size="sm"
@@ -590,19 +611,19 @@ export default function VideoDetail() {
                           disabled={retryCaptionMutation.isPending}
                         >
                           {retryCaptionMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                          Generate Captions
+                          Generate Visual Descriptions
                         </Button>
                       )}
                     </div>
                   ) : captions.status === "processing" ? (
                     <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm">Captioning...</span>
+                      <span className="text-sm">Analyzing video...</span>
                     </div>
                   ) : captions.status === "failed" ? (
                     <div className="text-center py-8">
                       <AlertCircle className="h-8 w-8 mx-auto mb-2 text-red-400 opacity-70" />
-                      <p className="text-sm text-red-400">Captioning failed.</p>
+                      <p className="text-sm text-red-400">Visual analysis failed.</p>
                       <Button
                         size="sm"
                         variant="outline"
