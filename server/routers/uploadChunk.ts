@@ -251,6 +251,51 @@ export const uploadChunkRouter = router({
       };
     }),
 
+  // Get session status - used for resume after failure
+  getSessionStatus: protectedProcedure
+    .input(
+      z.object({
+        sessionId: z.string(),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const database = await db.getDb();
+      if (!database) throw new Error("Database not available");
+      
+      const sessions = await database
+        .select()
+        .from(uploadSessions)
+        .where(and(
+          eq(uploadSessions.id, input.sessionId),
+          eq(uploadSessions.userId, ctx.user.id)
+        ));
+      
+      const session = sessions[0];
+      
+      if (!session) {
+        return { exists: false as const };
+      }
+
+      // Check if chunks are still in memory
+      const hasChunksInMemory = chunkBuffers.has(input.sessionId);
+      const memoryChunks = hasChunksInMemory 
+        ? chunkBuffers.get(input.sessionId)!.filter(Boolean).length 
+        : 0;
+
+      return {
+        exists: true as const,
+        status: session.status,
+        receivedChunks: session.receivedChunks || [],
+        totalChunks: session.totalChunks,
+        totalSize: session.totalSize,
+        filename: session.filename,
+        hasChunksInMemory,
+        memoryChunks,
+        // Can resume if session is active and chunks are in memory
+        canResume: session.status === 'active' && hasChunksInMemory,
+      };
+    }),
+
   // Cancel upload session
   cancelUpload: protectedProcedure
     .input(

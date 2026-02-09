@@ -10,14 +10,28 @@ import superjson from "superjson";
  * - The operation must survive component lifecycle changes
  * - You need stable function references without React hook dependencies
  */
-export async function trpcCall<T>(procedure: string, input: any): Promise<T> {
-  const serialized = superjson.serialize(input);
-  const response = await fetch(`/api/trpc/${procedure}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(serialized),
-  });
+export async function trpcCall<T>(procedure: string, input: any, method: 'mutation' | 'query' = 'mutation'): Promise<T> {
+  let response: Response;
+
+  if (method === 'query') {
+    // Queries use GET with input in the URL
+    const serialized = superjson.serialize(input);
+    const encodedInput = encodeURIComponent(JSON.stringify(serialized));
+    response = await fetch(`/api/trpc/${procedure}?input=${encodedInput}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    });
+  } else {
+    // Mutations use POST with input in the body
+    const serialized = superjson.serialize(input);
+    response = await fetch(`/api/trpc/${procedure}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(serialized),
+    });
+  }
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "Unknown error");

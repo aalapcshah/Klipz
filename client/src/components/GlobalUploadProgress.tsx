@@ -407,14 +407,14 @@ export function GlobalUploadProgress() {
                                 </Button>
                               )}
                               
-                              {/* Retry button for errors */}
+                              {/* Retry/Resume button for errors */}
                               {upload.status === 'error' && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6"
                                   onClick={() => retryUpload(upload.id)}
-                                  title="Retry upload"
+                                  title={upload.sessionId && upload.pausedAtChunk ? `Resume from ${Math.round((upload.pausedAtChunk / Math.ceil(upload.fileSize / (5 * 1024 * 1024))) * 100)}%` : "Retry upload"}
                                 >
                                   <RefreshCw className="h-3 w-3" />
                                 </Button>
@@ -522,10 +522,19 @@ export function GlobalUploadProgress() {
                           )}
                           
                           {/* Error message */}
-                          {upload.status === 'error' && upload.error && (
-                            <p className="text-xs text-red-500 mt-1 truncate" title={upload.error}>
-                              {upload.error}
-                            </p>
+                          {upload.status === 'error' && (
+                            <div className="mt-1">
+                              {upload.error && (
+                                <p className="text-xs text-red-500 truncate" title={upload.error}>
+                                  {upload.error}
+                                </p>
+                              )}
+                              {upload.sessionId && upload.pausedAtChunk !== undefined && upload.pausedAtChunk > 0 && (
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {Math.round((upload.pausedAtChunk / Math.ceil(upload.fileSize / (5 * 1024 * 1024))) * 100)}% uploaded • Click retry to resume
+                                </p>
+                              )}
+                            </div>
                           )}
                           
                           {/* Cancelled message */}

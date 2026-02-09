@@ -10,7 +10,23 @@ import { trpcCall } from "@/lib/trpcCall";
  * Uses direct fetch() calls (via trpcCall) instead of React Query mutations
  * so the upload loop is independent of React component lifecycle. This prevents
  * uploads from getting stuck at "Queued" when the component re-renders.
+ *
+ * Supports resume: when retrying a failed upload, it checks if the previous
+ * session is still valid and skips already-uploaded chunks.
  */
+
+interface SessionStatus {
+  exists: boolean;
+  status?: string;
+  receivedChunks?: number[];
+  totalChunks?: number;
+  totalSize?: number;
+  filename?: string;
+  hasChunksInMemory?: boolean;
+  memoryChunks?: number;
+  canResume?: boolean;
+}
+
 export function FileUploadProcessor() {
   const {
     registerProcessor,
@@ -48,6 +64,7 @@ export function FileUploadProcessor() {
     uploadId: string,
     file: File,
     resumeFromChunk?: number,
+    existingSessionId?: string,
   ) => {
     const { getAbortController: getAbort, updateUploadProgress: updateProgress, updateUploadStatus: updateStatus, updateUploadSessionId: updateSessionId, updatePausedChunk: updateChunk } = callbacksRef.current;
     const abortController = getAbort(uploadId);
@@ -61,24 +78,81 @@ export function FileUploadProcessor() {
 
       console.log(`[FileUpload] Starting upload for ${file.name} (${file.size} bytes, ${totalChunks} chunks)`);
 
-      // Initialize upload session via direct fetch
-      const { sessionId } = await trpcCall<{ sessionId: string }>('uploadChunk.initUpload', {
-        filename: file.name,
-        mimeType: file.type || "application/octet-stream",
-        totalSize: file.size,
-      });
+      let sessionId: string;
+      let alreadyReceivedChunks: number[] = [];
 
-      console.log(`[FileUpload] Session initialized: ${sessionId}`);
-      updateSessionId(uploadId, sessionId);
+      // Try to resume from existing session
+      if (existingSessionId) {
+        console.log(`[FileUpload] Checking existing session ${existingSessionId} for resume...`);
+        try {
+          // Query session status to see if we can resume
+          const sessionStatus = await trpcCall<SessionStatus>(
+            'uploadChunk.getSessionStatus',
+            { sessionId: existingSessionId },
+            'query'
+          );
 
-      const startChunk = resumeFromChunk || 0;
+          if (sessionStatus.exists && sessionStatus.canResume) {
+            // Session is still active and chunks are in memory - we can resume!
+            sessionId = existingSessionId;
+            alreadyReceivedChunks = sessionStatus.receivedChunks || [];
+            console.log(`[FileUpload] Resuming session ${sessionId}: ${alreadyReceivedChunks.length}/${totalChunks} chunks already uploaded`);
+            
+            // Update progress to reflect already-uploaded chunks
+            if (alreadyReceivedChunks.length > 0) {
+              const maxChunk = Math.max(...alreadyReceivedChunks);
+              const progress = ((maxChunk + 1) / totalChunks) * 100;
+              const uploadedBytes = Math.min((maxChunk + 1) * CHUNK_SIZE, file.size);
+              updateProgress(uploadId, progress, uploadedBytes);
+            }
+          } else {
+            // Session exists but can't resume (chunks lost from memory, expired, etc.)
+            console.log(`[FileUpload] Session ${existingSessionId} cannot be resumed (status: ${sessionStatus.status}, chunksInMemory: ${sessionStatus.hasChunksInMemory}). Starting fresh.`);
+            const initResult = await trpcCall<{ sessionId: string }>('uploadChunk.initUpload', {
+              filename: file.name,
+              mimeType: file.type || "application/octet-stream",
+              totalSize: file.size,
+            });
+            sessionId = initResult.sessionId;
+            updateSessionId(uploadId, sessionId);
+          }
+        } catch (err) {
+          // Failed to check session - start fresh
+          console.warn(`[FileUpload] Failed to check session status, starting fresh:`, err);
+          const initResult = await trpcCall<{ sessionId: string }>('uploadChunk.initUpload', {
+            filename: file.name,
+            mimeType: file.type || "application/octet-stream",
+            totalSize: file.size,
+          });
+          sessionId = initResult.sessionId;
+          updateSessionId(uploadId, sessionId);
+        }
+      } else {
+        // No existing session - initialize new one
+        const initResult = await trpcCall<{ sessionId: string }>('uploadChunk.initUpload', {
+          filename: file.name,
+          mimeType: file.type || "application/octet-stream",
+          totalSize: file.size,
+        });
+        sessionId = initResult.sessionId;
+        console.log(`[FileUpload] New session initialized: ${sessionId}`);
+        updateSessionId(uploadId, sessionId);
+      }
 
       // Upload chunks using direct fetch calls
-      for (let i = startChunk; i < totalChunks; i++) {
+      for (let i = 0; i < totalChunks; i++) {
         // Check if cancelled
         if (abortController?.signal.aborted) {
           console.log(`[FileUpload] Upload cancelled at chunk ${i}`);
           return;
+        }
+
+        // Skip chunks that were already received (for resume)
+        if (alreadyReceivedChunks.includes(i)) {
+          const progress = ((i + 1) / totalChunks) * 100;
+          const uploadedBytes = Math.min((i + 1) * CHUNK_SIZE, file.size);
+          updateProgress(uploadId, progress, uploadedBytes);
+          continue;
         }
 
         const start = i * CHUNK_SIZE;
@@ -94,25 +168,34 @@ export function FileUploadProcessor() {
           )
         );
 
-        // Upload chunk with retry
+        // Upload chunk with retry (per-chunk retry with exponential backoff)
         let retries = 0;
-        const maxRetries = 3;
-        while (retries < maxRetries) {
+        const maxChunkRetries = 5;
+        while (retries < maxChunkRetries) {
           try {
+            // Check if cancelled before each attempt
+            if (abortController?.signal.aborted) {
+              console.log(`[FileUpload] Upload cancelled during chunk ${i} retry`);
+              return;
+            }
+
             await trpcCall<{ success: boolean; receivedChunks: number; totalChunks: number }>('uploadChunk.uploadChunk', {
               sessionId,
               chunkIndex: i,
               chunkData: base64,
               totalChunks,
             });
-            break;
+            break; // Success
           } catch (error: any) {
             retries++;
-            if (retries >= maxRetries) {
-              throw new Error(`Failed to upload chunk ${i + 1}/${totalChunks} after ${maxRetries} retries: ${error.message}`);
+            if (retries >= maxChunkRetries) {
+              // Save the current chunk position so we can resume later
+              updateChunk(uploadId, i);
+              throw new Error(`Failed to upload chunk ${i + 1}/${totalChunks} after ${maxChunkRetries} retries: ${error.message}`);
             }
-            console.warn(`[FileUpload] Chunk ${i + 1}/${totalChunks} attempt ${retries} failed, retrying in ${1.5 * Math.pow(2, retries)}s...`);
-            await new Promise(resolve => setTimeout(resolve, 1500 * Math.pow(2, retries)));
+            const backoffDelay = 1500 * Math.pow(2, retries - 1);
+            console.warn(`[FileUpload] Chunk ${i + 1}/${totalChunks} attempt ${retries} failed, retrying in ${backoffDelay / 1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, backoffDelay));
           }
         }
 

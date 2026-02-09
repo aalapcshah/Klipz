@@ -220,7 +220,7 @@ export function VideoUploadSection() {
   };
 
   // Video upload processor - registered with UploadManager
-  const processVideoUpload = useCallback(async (uploadId: string, file: File, resumeFromChunk?: number) => {
+  const processVideoUpload = useCallback(async (uploadId: string, file: File, resumeFromChunk?: number, _existingSessionId?: string) => {
     const abortController = getAbortController(uploadId);
     
     try {

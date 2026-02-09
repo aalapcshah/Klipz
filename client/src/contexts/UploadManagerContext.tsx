@@ -79,7 +79,7 @@ interface SerializedUploadItem {
 }
 
 // Upload processor callback type
-type UploadProcessor = (uploadId: string, file: File, resumeFromChunk?: number) => Promise<void>;
+type UploadProcessor = (uploadId: string, file: File, resumeFromChunk?: number, existingSessionId?: string) => Promise<void>;
 
 interface UploadManagerContextType {
   uploads: UploadItem[];
@@ -263,8 +263,8 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
           u.id === upload.id ? { ...u, status: 'uploading' as const } : u
         ));
         
-        // Start the upload
-        processor(upload.id, upload.file, upload.pausedAtChunk)
+        // Start the upload - pass sessionId for resume support
+        processor(upload.id, upload.file, upload.pausedAtChunk, upload.sessionId)
           .finally(() => {
             processingRef.current.delete(upload.id);
           });
@@ -488,16 +488,15 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
     
     setUploads(prev => prev.map(item => {
       if (item.id === id && (item.status === 'error' || item.status === 'retrying')) {
+        // PRESERVE sessionId and pausedAtChunk so the processor can attempt resume
+        // The processor will check if the session is still valid and resume from last chunk
         return { 
           ...item, 
           status: 'pending' as const,
           error: undefined,
-          progress: 0,
-          uploadedBytes: 0,
-          pausedAtChunk: undefined,
-          sessionId: undefined,
+          // Keep progress/uploadedBytes/pausedAtChunk/sessionId for resume
           lastSpeedUpdate: Date.now(),
-          lastBytesForSpeed: 0,
+          lastBytesForSpeed: item.uploadedBytes,
           nextRetryAt: undefined,
           retryCountdown: undefined,
         };
@@ -505,7 +504,7 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
       return item;
     }));
     
-    toast.info("Retrying upload...");
+    toast.info("Resuming upload...");
   }, []);
 
   const scheduleUpload = useCallback((id: string, scheduledFor: number) => {
@@ -640,14 +639,14 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
           
           setUploads(prevUploads => prevUploads.map(u => {
             if (u.id === id && u.status === 'retrying') {
+              // PRESERVE sessionId and pausedAtChunk for resume capability
               return { 
                 ...u, 
                 status: 'pending' as const,
                 error: undefined,
-                progress: 0,
-                uploadedBytes: 0,
-                pausedAtChunk: undefined,
-                sessionId: undefined,
+                // Keep progress/uploadedBytes/pausedAtChunk/sessionId for resume
+                lastSpeedUpdate: Date.now(),
+                lastBytesForSpeed: u.uploadedBytes,
                 nextRetryAt: undefined,
                 retryCountdown: undefined,
               };

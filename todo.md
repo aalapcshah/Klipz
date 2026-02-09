@@ -5770,3 +5770,17 @@ Note: The application already has extensive annotation features including voice 
 - [x] Store user-friendly error messages in database for both transcript and caption failures
 - [x] Display stored error messages in VideoCardDetails expanded sections
 - [x] Write unit tests for error message helpers (17 tests passing)
+
+## Upload Retry/Resume for Failed Uploads
+- [x] Investigate current upload architecture (chunked uploads, UploadManager, FileUploadProcessor)
+- [x] Add server-side tracking of uploaded chunks per upload session (getSessionStatus endpoint)
+- [x] Implement resume endpoint to query which chunks are already uploaded
+- [x] Add retry logic with exponential backoff for individual chunk failures (5 retries per chunk)
+- [x] Add resume capability to skip already-uploaded chunks on retry
+- [x] Preserve sessionId and pausedAtChunk in UploadManager on retry/auto-retry
+- [x] Extended UploadProcessor interface to pass sessionId for resume
+- [x] Updated trpcCall utility to support both mutations (POST) and queries (GET)
+- [x] Add retry/resume UI button for failed uploads in GlobalUploadProgress
+- [x] Show progress correctly when resuming (start from where it left off)
+- [x] Show resume info in error state ("X% uploaded • Click retry to resume")
+- [x] All 698 tests passing
