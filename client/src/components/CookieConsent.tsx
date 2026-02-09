@@ -4,33 +4,48 @@ import { X, Cookie } from "lucide-react";
 import { Link } from "wouter";
 import { useBannerQueue } from "@/contexts/BannerQueueContext";
 
+const COOKIE_CONSENT_KEY = "cookie-consent";
+const COOKIE_CONSENT_TIMESTAMP_KEY = "cookie-consent-timestamp";
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
 export function CookieConsent() {
   const [needsConsent, setNeedsConsent] = useState(false);
   const { activeBanner, register, dismiss } = useBannerQueue();
 
   useEffect(() => {
-    const consent = localStorage.getItem("cookie-consent");
+    const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
+    const timestamp = localStorage.getItem(COOKIE_CONSENT_TIMESTAMP_KEY);
+
     if (!consent) {
+      // Never consented
       setNeedsConsent(true);
       register("cookie");
+      return;
+    }
+
+    // Check if consent has expired (older than 30 days)
+    if (timestamp) {
+      const consentTime = parseInt(timestamp, 10);
+      if (Date.now() - consentTime > THIRTY_DAYS_MS) {
+        // Consent expired — clear and re-prompt
+        localStorage.removeItem(COOKIE_CONSENT_KEY);
+        localStorage.removeItem(COOKIE_CONSENT_TIMESTAMP_KEY);
+        setNeedsConsent(true);
+        register("cookie");
+      }
     }
   }, [register]);
 
-  const acceptAll = () => {
-    localStorage.setItem("cookie-consent", "all");
+  const saveConsent = (type: string) => {
+    localStorage.setItem(COOKIE_CONSENT_KEY, type);
+    localStorage.setItem(COOKIE_CONSENT_TIMESTAMP_KEY, Date.now().toString());
     setNeedsConsent(false);
     dismiss("cookie");
   };
 
-  const acceptEssential = () => {
-    localStorage.setItem("cookie-consent", "essential");
-    setNeedsConsent(false);
-    dismiss("cookie");
-  };
-
-  const handleDismiss = () => {
-    acceptEssential();
-  };
+  const acceptAll = () => saveConsent("all");
+  const acceptEssential = () => saveConsent("essential");
+  const handleDismiss = () => acceptEssential();
 
   if (!needsConsent || activeBanner !== "cookie") return null;
 

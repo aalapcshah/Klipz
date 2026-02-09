@@ -1,7 +1,11 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Download, Smartphone, Monitor } from "lucide-react";
+import { X, Download, Smartphone, Monitor, EyeOff } from "lucide-react";
 import { useBannerQueue } from "@/contexts/BannerQueueContext";
+
+const PWA_DISMISSED_KEY = "pwa-install-dismissed";
+const PWA_NEVER_SHOW_KEY = "pwa-install-never-show";
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -23,11 +27,17 @@ export function PWAInstallBanner() {
       return;
     }
 
-    // Check if dismissed recently
-    const dismissed = localStorage.getItem("pwa-install-dismissed");
-    if (dismissed) {
-      const dismissedTime = parseInt(dismissed, 10);
-      if (Date.now() - dismissedTime < 7 * 24 * 60 * 60 * 1000) {
+    // Check if permanently dismissed
+    const neverShow = localStorage.getItem(PWA_NEVER_SHOW_KEY);
+    if (neverShow === "true") {
+      return;
+    }
+
+    // Check if dismissed recently (7-day cooldown)
+    const dismissedAt = localStorage.getItem(PWA_DISMISSED_KEY);
+    if (dismissedAt) {
+      const dismissedTime = parseInt(dismissedAt, 10);
+      if (Date.now() - dismissedTime < SEVEN_DAYS_MS) {
         return;
       }
     }
@@ -86,9 +96,17 @@ export function PWAInstallBanner() {
     }
   };
 
+  /** Dismiss for 7 days */
   const handleDismiss = () => {
     setWantsToShow(false);
-    localStorage.setItem("pwa-install-dismissed", Date.now().toString());
+    localStorage.setItem(PWA_DISMISSED_KEY, Date.now().toString());
+    dismiss("pwa-install");
+  };
+
+  /** Permanently dismiss — never show again */
+  const handleNeverShow = () => {
+    setWantsToShow(false);
+    localStorage.setItem(PWA_NEVER_SHOW_KEY, "true");
     dismiss("pwa-install");
   };
 
@@ -119,13 +137,22 @@ export function PWAInstallBanner() {
               <p className="text-sm text-white/90 mb-3">
                 Add Klipz to your home screen for quick access and to share content directly from any app!
               </p>
-              <Button
-                className="w-full bg-white text-blue-600 hover:bg-white/90"
-                onClick={() => setShowIOSInstructions(true)}
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1 bg-white text-blue-600 hover:bg-white/90"
+                  onClick={() => setShowIOSInstructions(true)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Show Me How
+                </Button>
+              </div>
+              <button
+                onClick={handleNeverShow}
+                className="w-full mt-2 text-xs text-white/60 hover:text-white/90 flex items-center justify-center gap-1"
               >
-                <Download className="h-4 w-4 mr-2" />
-                Show Me How
-              </Button>
+                <EyeOff className="h-3 w-3" />
+                Don't show again
+              </button>
             </>
           ) : (
             <div className="text-sm space-y-2">
@@ -188,6 +215,14 @@ export function PWAInstallBanner() {
             Later
           </Button>
         </div>
+        
+        <button
+          onClick={handleNeverShow}
+          className="w-full mt-2 text-xs text-white/60 hover:text-white/90 flex items-center justify-center gap-1"
+        >
+          <EyeOff className="h-3 w-3" />
+          Don't show again
+        </button>
       </div>
       
       <div className="bg-black/20 px-4 py-2 text-xs text-white/80">

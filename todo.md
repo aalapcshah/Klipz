@@ -5734,3 +5734,8 @@ Note: The application already has extensive annotation features including voice 
 ## UI Fixes - Empty State & Stacking Banners
 - [x] Verify empty state hides properly when files exist (already correct - shows only when files.length === 0)
 - [x] Consolidate/reduce stacking banners (cookie, install app, notifications) via BannerQueue - only one shows at a time
+
+## Cookie, PWA, and Stale Uploads Cleanup
+- [x] Add 30-day expiry to cookie consent banner so it re-prompts after 30 days
+- [x] Add "Don't show again" permanent dismiss option to PWA install banner
+- [x] Clear the 2 stale resumable upload sessions from the database (already cleaned up by cron/expiry)
