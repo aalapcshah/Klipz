@@ -5730,3 +5730,7 @@ Note: The application already has extensive annotation features including voice 
 
 ## UI Fix - Files Empty State Feature Cards
 - [x] Make Video & Audio, Images, Smart Search cards smaller and side by side in one row
+
+## UI Fixes - Empty State & Stacking Banners
+- [x] Verify empty state hides properly when files exist (already correct - shows only when files.length === 0)
+- [x] Consolidate/reduce stacking banners (cookie, install app, notifications) via BannerQueue - only one shows at a time

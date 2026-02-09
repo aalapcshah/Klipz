@@ -2,34 +2,37 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Cookie } from "lucide-react";
 import { Link } from "wouter";
+import { useBannerQueue } from "@/contexts/BannerQueueContext";
 
 export function CookieConsent() {
-  const [showBanner, setShowBanner] = useState(false);
+  const [needsConsent, setNeedsConsent] = useState(false);
+  const { activeBanner, register, dismiss } = useBannerQueue();
 
   useEffect(() => {
-    // Check if user has already consented
     const consent = localStorage.getItem("cookie-consent");
     if (!consent) {
-      setShowBanner(true);
+      setNeedsConsent(true);
+      register("cookie");
     }
-  }, []);
+  }, [register]);
 
   const acceptAll = () => {
     localStorage.setItem("cookie-consent", "all");
-    setShowBanner(false);
+    setNeedsConsent(false);
+    dismiss("cookie");
   };
 
   const acceptEssential = () => {
     localStorage.setItem("cookie-consent", "essential");
-    setShowBanner(false);
+    setNeedsConsent(false);
+    dismiss("cookie");
   };
 
-  const dismiss = () => {
-    // Treat dismiss as accepting essential only
+  const handleDismiss = () => {
     acceptEssential();
   };
 
-  if (!showBanner) return null;
+  if (!needsConsent || activeBanner !== "cookie") return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-background/95 backdrop-blur-sm border-t shadow-lg">
@@ -68,7 +71,7 @@ export function CookieConsent() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={dismiss}
+              onClick={handleDismiss}
               className="shrink-0"
             >
               <X className="h-4 w-4" />

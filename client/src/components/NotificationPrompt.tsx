@@ -3,60 +3,57 @@ import { Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { notificationService } from "@/lib/notificationService";
+import { useBannerQueue } from "@/contexts/BannerQueueContext";
 
 /**
  * Notification Permission Prompt
- * Shows a prompt to request notification permission from the user
+ * Shows a prompt to request notification permission from the user.
+ * Coordinated via BannerQueue so it only shows after cookie/install banners are dismissed.
  */
 export function NotificationPrompt() {
-  const [show, setShow] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [wantsToShow, setWantsToShow] = useState(false);
+  const { activeBanner, register, dismiss } = useBannerQueue();
 
   useEffect(() => {
-    // Check if we should show the prompt
-    const checkPermission = () => {
-      if (dismissed) return;
+    // Don't show if notifications aren't supported
+    if (!("Notification" in window)) return;
 
-      // Don't show if notifications aren't supported
-      if (!("Notification" in window)) return;
+    // Don't show if permission already granted or denied
+    if (Notification.permission !== "default") return;
 
-      // Don't show if permission already granted or denied
-      if (Notification.permission !== "default") return;
+    // Check if user has dismissed the prompt before
+    const hasDismissed = localStorage.getItem("notification-prompt-dismissed");
+    if (hasDismissed) return;
 
-      // Check if user has dismissed the prompt before
-      const hasDismissed = localStorage.getItem("notification-prompt-dismissed");
-      if (hasDismissed) {
-        setDismissed(true);
-        return;
-      }
+    // Register after a short delay
+    const timer = setTimeout(() => {
+      setWantsToShow(true);
+      register("notification");
+    }, 5000);
 
-      // Show prompt after 5 seconds
-      setTimeout(() => setShow(true), 5000);
-    };
-
-    checkPermission();
-  }, [dismissed]);
+    return () => clearTimeout(timer);
+  }, [register]);
 
   const handleEnable = async () => {
     const granted = await notificationService.requestPermission();
     if (granted) {
-      setShow(false);
-      // Show a test notification
       await notificationService.show({
         title: "Notifications Enabled",
         body: "You'll now receive notifications for important activities",
         type: "mention",
       });
     }
+    setWantsToShow(false);
+    dismiss("notification");
   };
 
   const handleDismiss = () => {
-    setShow(false);
-    setDismissed(true);
+    setWantsToShow(false);
     localStorage.setItem("notification-prompt-dismissed", "true");
+    dismiss("notification");
   };
 
-  if (!show) return null;
+  if (!wantsToShow || activeBanner !== "notification") return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50 max-w-sm">

@@ -39,6 +39,7 @@ import { CookieConsent } from "./components/CookieConsent";
 import { GlobalSearchModal } from "./components/GlobalSearchModal";
 import { PWAInstallBanner } from "./components/PWAInstallBanner";
 import { useCallback } from "react";
+import { BannerQueueProvider } from "./contexts/BannerQueueContext";
 // SearchWithSaved is now rendered inside Dashboard
 
 function Router() {
@@ -127,10 +128,12 @@ function App() {
               open={showOnboarding}
               onComplete={() => setShowOnboarding(false)}
             />
-            <CookieConsent />
-            <PWAInstallBanner />
+            <BannerQueueProvider>
+              <CookieConsent />
+              <PWAInstallBanner />
+              <NotificationPrompt />
+            </BannerQueueProvider>
             <OnboardingTutorial />
-            <NotificationPrompt />
             <NotificationListener />
             <GlobalSearchModal
               open={showGlobalSearch}

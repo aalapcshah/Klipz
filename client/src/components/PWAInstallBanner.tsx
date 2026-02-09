@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Download, Smartphone, Monitor } from "lucide-react";
+import { useBannerQueue } from "@/contexts/BannerQueueContext";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -9,10 +10,11 @@ interface BeforeInstallPromptEvent extends Event {
 
 export function PWAInstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [showBanner, setShowBanner] = useState(false);
+  const [wantsToShow, setWantsToShow] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [showIOSInstructions, setShowIOSInstructions] = useState(false);
+  const { activeBanner, register, dismiss } = useBannerQueue();
 
   useEffect(() => {
     // Check if already installed
@@ -25,7 +27,6 @@ export function PWAInstallBanner() {
     const dismissed = localStorage.getItem("pwa-install-dismissed");
     if (dismissed) {
       const dismissedTime = parseInt(dismissed, 10);
-      // Show again after 7 days
       if (Date.now() - dismissedTime < 7 * 24 * 60 * 60 * 1000) {
         return;
       }
@@ -36,8 +37,10 @@ export function PWAInstallBanner() {
     setIsIOS(isIOSDevice);
 
     if (isIOSDevice) {
-      // Show iOS instructions after a delay
-      setTimeout(() => setShowBanner(true), 3000);
+      setTimeout(() => {
+        setWantsToShow(true);
+        register("pwa-install");
+      }, 3000);
       return;
     }
 
@@ -45,23 +48,24 @@ export function PWAInstallBanner() {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      // Show banner after a short delay
-      setTimeout(() => setShowBanner(true), 2000);
+      setTimeout(() => {
+        setWantsToShow(true);
+        register("pwa-install");
+      }, 2000);
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 
-    // Listen for app installed event
     window.addEventListener("appinstalled", () => {
       setIsInstalled(true);
-      setShowBanner(false);
+      setWantsToShow(false);
       setDeferredPrompt(null);
     });
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     };
-  }, []);
+  }, [register]);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
@@ -75,18 +79,20 @@ export function PWAInstallBanner() {
       }
       
       setDeferredPrompt(null);
-      setShowBanner(false);
+      setWantsToShow(false);
+      dismiss("pwa-install");
     } catch (error) {
       console.error("Install prompt error:", error);
     }
   };
 
   const handleDismiss = () => {
-    setShowBanner(false);
+    setWantsToShow(false);
     localStorage.setItem("pwa-install-dismissed", Date.now().toString());
+    dismiss("pwa-install");
   };
 
-  if (isInstalled || !showBanner) return null;
+  if (isInstalled || !wantsToShow || activeBanner !== "pwa-install") return null;
 
   // iOS-specific instructions
   if (isIOS) {
@@ -184,7 +190,6 @@ export function PWAInstallBanner() {
         </div>
       </div>
       
-      {/* Benefits list */}
       <div className="bg-black/20 px-4 py-2 text-xs text-white/80">
         <div className="flex items-center gap-4">
           <span>✓ Share from any app</span>
