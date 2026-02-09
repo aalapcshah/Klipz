@@ -5727,3 +5727,6 @@ Note: The application already has extensive annotation features including voice 
 - [x] Move Upload Settings (Post-Upload Compression) into the Upload Videos dropzone area
 - [x] Reduce vertical space of the Upload Videos dropzone
 - [x] Consolidate layout to be more compact
+
+## UI Fix - Files Empty State Feature Cards
+- [x] Make Video & Audio, Images, Smart Search cards smaller and side by side in one row
