@@ -1,0 +1,1 @@
+ALTER TABLE `resumable_upload_sessions` MODIFY COLUMN `status` enum('active','paused','finalizing','completed','failed','expired') NOT NULL DEFAULT 'active';

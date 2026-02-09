@@ -11,7 +11,7 @@ export interface ResumableUploadSession {
   fileSize: number;
   mimeType: string;
   uploadType: "video" | "file";
-  status: "active" | "paused" | "completed" | "error" | "expired";
+  status: "active" | "paused" | "finalizing" | "completed" | "error" | "expired";
   totalChunks: number;
   uploadedChunks: number;
   uploadedBytes: number;

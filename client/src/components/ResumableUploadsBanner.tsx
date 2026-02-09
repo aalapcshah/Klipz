@@ -124,7 +124,7 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
 
   // Filter to show only active/paused sessions
   const resumableSessions = sessions.filter(
-    s => s.status === "active" || s.status === "paused" || s.status === "error"
+    s => s.status === "active" || s.status === "paused" || s.status === "error" || s.status === "finalizing"
   );
 
   // Don't show if no resumable sessions
@@ -325,6 +325,12 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                         Paused {formatTimeAgo(session.lastActivityAt)}
                       </span>
                     )}
+                    {session.status === "finalizing" && (
+                      <span className="flex items-center gap-1 text-blue-500">
+                        <RefreshCw className="h-3 w-3 animate-spin" />
+                        Assembling and uploading to storage...
+                      </span>
+                    )}
                     {session.status === "error" && (
                       <span className="flex items-center gap-1 text-red-500">
                         <AlertCircle className="h-3 w-3" />
@@ -344,7 +350,9 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
 
                 {/* Action buttons */}
                 <div className="flex items-center gap-1">
-                  {session.status === "active" ? (
+                  {session.status === "finalizing" ? (
+                    <span className="text-xs text-blue-500 px-2">Finalizing...</span>
+                  ) : session.status === "active" ? (
                     <Button
                       variant="ghost"
                       size="sm"

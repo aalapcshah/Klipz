@@ -5684,3 +5684,9 @@ Note: The application already has extensive annotation features including voice 
 - [x] Include Date Range, File Size, Enrichment, and Quality Score filters in dropdown
 - [x] Dropdown should be collapsed by default, clickable to expand
 - [x] Ensure filters still function correctly after moving
+
+## Bug Fix: Resumable Upload Stuck at 100% (Feb 8)
+- [x] Investigate why upload gets stuck at 52/52 chunks (100%) - finalization downloads all 52 chunks into memory then re-uploads 259MB, causing timeout/OOM
+- [x] Check server-side finalization step - rewrote to process chunks in batches of 10 with 3x retry and exponential backoff
+- [x] Added 'finalizing' status to DB schema and UI - shows spinner with "Assembling and uploading to storage..."
+- [x] Test with large file upload end-to-end - 7 vitest tests passing

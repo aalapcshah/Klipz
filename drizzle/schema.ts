@@ -1670,7 +1670,7 @@ export const resumableUploadSessions = mysqlTable("resumable_upload_sessions", {
   thumbnailUrl: text("thumbnailUrl"),
   
   // Session status
-  status: mysqlEnum("status", ["active", "paused", "completed", "failed", "expired"]).default("active").notNull(),
+  status: mysqlEnum("status", ["active", "paused", "finalizing", "completed", "failed", "expired"]).default("active").notNull(),
   errorMessage: text("errorMessage"),
   
   // Timing

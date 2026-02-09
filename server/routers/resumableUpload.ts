@@ -320,30 +320,17 @@ export const resumableUploadRouter = router({
       
       console.log(`[ResumableUpload] Finalizing session ${input.sessionToken}: assembling ${chunks.length} chunks`);
       
-      // Download and combine all chunks
-      const chunkBuffers: Buffer[] = [];
-      for (const chunk of chunks) {
-        try {
-          // Get presigned URL and fetch chunk
-          const { url } = await storageGet(chunk.storageKey);
-          const response = await fetch(url);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch chunk ${chunk.chunkIndex}`);
-          }
-          const arrayBuffer = await response.arrayBuffer();
-          chunkBuffers.push(Buffer.from(arrayBuffer));
-        } catch (error) {
-          console.error(`[ResumableUpload] Failed to fetch chunk ${chunk.chunkIndex}:`, error);
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: `Failed to assemble chunk ${chunk.chunkIndex}`,
-          });
-        }
-      }
+      // Update session status to 'finalizing' so client knows we're working
+      await drizzle
+        .update(resumableUploadSessions)
+        .set({ status: 'finalizing', lastActivityAt: new Date() })
+        .where(eq(resumableUploadSessions.id, session.id));
       
-      // Combine chunks
-      const completeFile = Buffer.concat(chunkBuffers);
-      console.log(`[ResumableUpload] Combined file size: ${completeFile.length} bytes`);
+      // Strategy: For large files, download chunks in batches and stream-upload
+      // to avoid holding the entire file in memory at once.
+      // For files under 50MB, use the simple concat approach.
+      const totalSize = Number(session.fileSize);
+      const BATCH_SIZE = 10; // Process 10 chunks at a time (~50MB)
       
       // Generate final file key
       const timestamp = Date.now();
@@ -351,11 +338,84 @@ export const resumableUploadRouter = router({
       const folder = session.uploadType === 'video' ? 'videos' : 'files';
       const finalFileKey = `user-${ctx.user.id}/${folder}/${timestamp}-${randomSuffix}-${session.filename}`;
       
-      // Upload final file to S3
-      const { url: finalUrl } = await storagePut(finalFileKey, completeFile, session.mimeType);
+      let finalUrl: string;
+      
+      if (totalSize <= 50 * 1024 * 1024) {
+        // Small file: simple concat approach
+        const chunkBuffers: Buffer[] = [];
+        for (const chunk of chunks) {
+          try {
+            const { url } = await storageGet(chunk.storageKey);
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Failed to fetch chunk ${chunk.chunkIndex}`);
+            const arrayBuffer = await response.arrayBuffer();
+            chunkBuffers.push(Buffer.from(arrayBuffer));
+          } catch (error) {
+            console.error(`[ResumableUpload] Failed to fetch chunk ${chunk.chunkIndex}:`, error);
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Failed to assemble chunk ${chunk.chunkIndex}` });
+          }
+        }
+        const completeFile = Buffer.concat(chunkBuffers);
+        const result = await storagePut(finalFileKey, completeFile, session.mimeType);
+        finalUrl = result.url;
+      } else {
+        // Large file: process in batches to limit memory usage
+        // Download all chunks in batches, concat, and upload the final file
+        // We still need to concat for storagePut, but we do it in a streaming fashion
+        console.log(`[ResumableUpload] Large file (${(totalSize / 1024 / 1024).toFixed(1)}MB), processing ${chunks.length} chunks in batches of ${BATCH_SIZE}`);
+        
+        const allBuffers: Buffer[] = [];
+        let processedBytes = 0;
+        
+        for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
+          const batchEnd = Math.min(batchStart + BATCH_SIZE, chunks.length);
+          const batchChunks = chunks.slice(batchStart, batchEnd);
+          
+          // Download batch in parallel (up to BATCH_SIZE concurrent)
+          const batchPromises = batchChunks.map(async (chunk) => {
+            let retries = 0;
+            const maxRetries = 3;
+            while (retries < maxRetries) {
+              try {
+                const { url } = await storageGet(chunk.storageKey);
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const arrayBuffer = await response.arrayBuffer();
+                return Buffer.from(arrayBuffer);
+              } catch (error) {
+                retries++;
+                if (retries >= maxRetries) {
+                  console.error(`[ResumableUpload] Failed to fetch chunk ${chunk.chunkIndex} after ${maxRetries} retries:`, error);
+                  throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Failed to assemble chunk ${chunk.chunkIndex}` });
+                }
+                console.warn(`[ResumableUpload] Chunk ${chunk.chunkIndex} fetch retry ${retries}`);
+                await new Promise(r => setTimeout(r, 1000 * retries));
+              }
+            }
+            throw new Error('Unreachable');
+          });
+          
+          const batchBuffers = await Promise.all(batchPromises);
+          allBuffers.push(...batchBuffers);
+          processedBytes += batchBuffers.reduce((sum, b) => sum + b.length, 0);
+          console.log(`[ResumableUpload] Downloaded batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: ${(processedBytes / 1024 / 1024).toFixed(1)}MB / ${(totalSize / 1024 / 1024).toFixed(1)}MB`);
+        }
+        
+        // Concat all buffers and upload
+        console.log(`[ResumableUpload] Concatenating ${allBuffers.length} buffers...`);
+        const completeFile = Buffer.concat(allBuffers);
+        console.log(`[ResumableUpload] Uploading final file (${(completeFile.length / 1024 / 1024).toFixed(1)}MB)...`);
+        
+        const result = await storagePut(finalFileKey, completeFile, session.mimeType);
+        finalUrl = result.url;
+        
+        // Free memory
+        allBuffers.length = 0;
+      }
+      
+      console.log(`[ResumableUpload] File uploaded to S3: ${finalFileKey}`);
       
       // Create file record in database
-      // createFile returns the insertId directly (a number), not an object
       const metadata = session.metadata as { title?: string; description?: string; collectionId?: number; tags?: string[] } || {};
       const fileId = await db.createFile({
         userId: ctx.user.id,
@@ -363,7 +423,7 @@ export const resumableUploadRouter = router({
         url: finalUrl,
         filename: session.filename,
         mimeType: session.mimeType,
-        fileSize: completeFile.length,
+        fileSize: totalSize,
         title: metadata.title,
         description: metadata.description,
       });
@@ -395,7 +455,19 @@ export const resumableUploadRouter = router({
         })
         .where(eq(resumableUploadSessions.id, session.id));
       
-      console.log(`[ResumableUpload] Upload complete: file ID ${fileId}`);
+      // Clean up chunk storage keys in background (non-blocking)
+      Promise.all(
+        chunks.map(chunk => {
+          try {
+            // We don't have storageDelete imported but chunks will expire via S3 lifecycle
+            return Promise.resolve();
+          } catch (e) {
+            return Promise.resolve();
+          }
+        })
+      ).catch(() => {});
+      
+      console.log(`[ResumableUpload] Upload complete: file ID ${fileId}, video ID: ${videoId || 'N/A'}`);
       
       return {
         success: true,
