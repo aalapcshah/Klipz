@@ -5623,3 +5623,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Move camera quality selector and switch button from Camera Settings into the camera preview area
 - [x] Reduce vertical space consumption on mobile video recording page
 - [x] Fix cramped camera controls: remove Mirror toggle wrapping to second line on mobile
+
+## Bug Fixes - Video Playback & Transcription
+- [x] Fix black video on mobile playback - use MediaRecorder.isTypeSupported() for cross-browser format detection
+- [x] Fix "Transcription failed" - add video/* mime types to voiceTranscription helper
+- [x] Pass actual mimeType from client to server instead of hardcoding video/webm

@@ -1647,16 +1647,20 @@ export const appRouter = router({
           title: z.string().optional(),
           description: z.string().optional(),
           transcript: z.string().optional(),
+          mimeType: z.string().optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
+        // Determine mime type from input or filename extension
+        const mimeType = input.mimeType || (input.filename.endsWith('.mp4') ? 'video/mp4' : 'video/webm');
+        
         // First create a files entry for annotation support
         const fileId = await db.createFile({
           userId: ctx.user.id,
           fileKey: input.fileKey,
           url: input.url,
           filename: input.filename,
-          mimeType: "video/webm",
+          mimeType,
           fileSize: 0, // Size not tracked for recorded videos
           title: input.title || input.filename,
           description: input.description,
@@ -1752,12 +1756,13 @@ export const appRouter = router({
         }
         
         // Create a file record for this video
+        const videoMimeType = video.filename.endsWith('.mp4') ? 'video/mp4' : 'video/webm';
         const fileId = await db.createFile({
           userId: ctx.user.id,
           fileKey: video.fileKey,
           url: video.url,
           filename: video.filename,
-          mimeType: "video/mp4",
+          mimeType: videoMimeType,
           fileSize: 0, // Size not tracked for legacy videos
           title: video.title || video.filename,
           description: video.description,

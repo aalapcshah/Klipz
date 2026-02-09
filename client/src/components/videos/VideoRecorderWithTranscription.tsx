@@ -186,6 +186,36 @@ export function VideoRecorderWithTranscription() {
   const allFiles = allFilesData?.files || [];
   const trpcUtils = trpc.useUtils();
 
+  // Detect best supported recording mime type for cross-browser compatibility
+  const getRecordingMimeType = useCallback((): string => {
+    const candidates = [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm;codecs=vp8',
+      'video/webm',
+      'video/mp4;codecs=h264,aac',
+      'video/mp4',
+    ];
+    for (const type of candidates) {
+      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type)) {
+        return type;
+      }
+    }
+    return '';
+  }, []);
+
+  const getRecordingFileExtension = useCallback((): string => {
+    const mimeType = getRecordingMimeType();
+    if (mimeType.startsWith('video/mp4')) return 'mp4';
+    return 'webm';
+  }, [getRecordingMimeType]);
+
+  const getRecordingBlobType = useCallback((): string => {
+    const mimeType = getRecordingMimeType();
+    if (mimeType.startsWith('video/mp4')) return 'video/mp4';
+    return 'video/webm';
+  }, [getRecordingMimeType]);
+
   // Enumerate available devices
   const enumerateDevices = useCallback(async () => {
     try {
@@ -579,9 +609,9 @@ export function VideoRecorderWithTranscription() {
     if (!streamRef.current) return;
 
     chunksRef.current = [];
-    const mediaRecorder = new MediaRecorder(streamRef.current, {
-      mimeType: "video/webm;codecs=vp8,opus",
-    });
+    const recordMimeType = getRecordingMimeType();
+    const recorderOptions: MediaRecorderOptions = recordMimeType ? { mimeType: recordMimeType } : {};
+    const mediaRecorder = new MediaRecorder(streamRef.current, recorderOptions);
 
     mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
@@ -590,7 +620,8 @@ export function VideoRecorderWithTranscription() {
     };
 
     mediaRecorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      const blobType = getRecordingBlobType();
+      const blob = new Blob(chunksRef.current, { type: blobType });
       setRecordedBlob(blob);
       
       if (videoRef.current) {
@@ -748,7 +779,8 @@ export function VideoRecorderWithTranscription() {
     setUploading(true);
     setUploadProgress(0);
     try {
-      const filename = `recording-${Date.now()}.webm`;
+      const ext = getRecordingFileExtension();
+      const filename = `recording-${Date.now()}.${ext}`;
       const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
 
       // Use chunked upload for recordings over 5MB
@@ -760,7 +792,7 @@ export function VideoRecorderWithTranscription() {
         const initResult = await initUploadMutation.mutateAsync({
           filename,
           totalSize: blobToUpload.size,
-          mimeType: blobToUpload.type || 'video/webm',
+          mimeType: blobToUpload.type || getRecordingBlobType(),
         });
         const sessionId = initResult.sessionId;
         const totalChunks = Math.ceil(blobToUpload.size / CHUNK_SIZE);
@@ -815,6 +847,7 @@ export function VideoRecorderWithTranscription() {
         duration: uploadDuration,
         title: `Recording ${new Date().toLocaleString()}`,
         transcript: fullTranscript || undefined,
+        mimeType: blobToUpload.type || getRecordingBlobType(),
       });
 
       setUploadProgress(100);
@@ -840,7 +873,8 @@ export function VideoRecorderWithTranscription() {
       if (blobToCache) {
         try {
           const { saveRecordingToCache } = await import("@/lib/offlineRecordingCache");
-          const filename = `recording_${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}.webm`;
+          const cacheExt = getRecordingFileExtension();
+          const filename = `recording_${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}.${cacheExt}`;
           await saveRecordingToCache({
             blob: blobToCache,
             filename,
@@ -942,9 +976,9 @@ export function VideoRecorderWithTranscription() {
       }
 
       const trimChunks: Blob[] = [];
-      const trimRecorder = new MediaRecorder(combinedStream, {
-        mimeType: 'video/webm;codecs=vp8,opus',
-      });
+      const trimMimeType = getRecordingMimeType();
+      const trimRecorderOptions: MediaRecorderOptions = trimMimeType ? { mimeType: trimMimeType } : {};
+      const trimRecorder = new MediaRecorder(combinedStream, trimRecorderOptions);
 
       trimRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) trimChunks.push(e.data);
@@ -952,7 +986,7 @@ export function VideoRecorderWithTranscription() {
 
       const trimPromise = new Promise<Blob>((resolve) => {
         trimRecorder.onstop = () => {
-          resolve(new Blob(trimChunks, { type: 'video/webm' }));
+          resolve(new Blob(trimChunks, { type: getRecordingBlobType() }));
         };
       });
 

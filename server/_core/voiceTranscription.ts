@@ -207,9 +207,15 @@ function getFileExtension(mimeType: string): string {
     'audio/ogg': 'ogg',
     'audio/m4a': 'm4a',
     'audio/mp4': 'm4a',
+    'video/webm': 'webm',
+    'video/mp4': 'mp4',
+    'video/ogg': 'ogg',
+    'video/mpeg': 'mpeg',
+    'video/quicktime': 'mov',
+    'video/x-matroska': 'mkv',
   };
   
-  return mimeToExt[mimeType] || 'audio';
+  return mimeToExt[mimeType] || 'mp3';
 }
 
 /**
