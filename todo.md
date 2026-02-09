@@ -5677,3 +5677,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix silent failure - show proper toast message for background resumable uploads instead of misleading "0 files uploaded"
 - [x] Added resumableUpload operations to non-batching tRPC link for reliability
 - [x] Test large file upload end-to-end - verified via vitest
+
+## Move Advanced Filters to Collapsible Dropdown (Feb 8)
+- [x] Remove Advanced Filters sidebar panel from left side
+- [x] Create collapsible dropdown menu for Advanced Filters next to Enriched filter button
+- [x] Include Date Range, File Size, Enrichment, and Quality Score filters in dropdown
+- [x] Dropdown should be collapsed by default, clickable to expand
+- [x] Ensure filters still function correctly after moving

@@ -4,25 +4,21 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import {
-  ChevronLeft,
-  ChevronRight,
   X,
   Calendar,
   HardDrive,
   Sparkles,
   ChevronDown,
   ChevronUp,
-  Filter,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetClose,
-} from "@/components/ui/sheet";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Collapsible,
   CollapsibleContent,
@@ -64,20 +60,12 @@ export function AdvancedFiltersPanel({
     filters.fileSizeMin,
     filters.fileSizeMax,
   ]);
-  const [isMobile, setIsMobile] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
     date: false,
     size: false,
     enrichment: true,
     quality: false,
   });
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   useEffect(() => {
     setFileSizeRange([filters.fileSizeMin, filters.fileSizeMax]);
@@ -132,41 +120,41 @@ export function AdvancedFiltersPanel({
 
   // Shared filter content component
   const FilterContent = () => (
-    <div className="space-y-3">
+    <div className="space-y-1">
       {/* Date Range - Collapsible */}
       <Collapsible open={expandedSections.date} onOpenChange={() => toggleSection('date')}>
         <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm" className="w-full justify-between h-9 px-3">
+          <Button variant="ghost" size="sm" className="w-full justify-between h-8 px-2">
             <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Date Range</span>
+              <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium">Date Range</span>
               {(filters.dateFrom || filters.dateTo) && (
-                <Badge variant="secondary" className="h-5 px-1.5 text-xs">Active</Badge>
+                <Badge variant="secondary" className="h-4 px-1 text-[10px]">Active</Badge>
               )}
             </div>
-            {expandedSections.date ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {expandedSections.date ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </Button>
         </CollapsibleTrigger>
-        <CollapsibleContent className="pt-2 px-3">
-          <div className="grid grid-cols-2 gap-3">
+        <CollapsibleContent className="pt-1 px-2 pb-2">
+          <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label htmlFor="date-from" className="text-xs text-muted-foreground">From</Label>
+              <Label htmlFor="date-from" className="text-[10px] text-muted-foreground">From</Label>
               <Input
                 id="date-from"
                 type="date"
                 value={filters.dateFrom}
                 onChange={(e) => onFiltersChange({ ...filters, dateFrom: e.target.value })}
-                className="h-9 text-sm"
+                className="h-7 text-xs"
               />
             </div>
             <div>
-              <Label htmlFor="date-to" className="text-xs text-muted-foreground">To</Label>
+              <Label htmlFor="date-to" className="text-[10px] text-muted-foreground">To</Label>
               <Input
                 id="date-to"
                 type="date"
                 value={filters.dateTo}
                 onChange={(e) => onFiltersChange({ ...filters, dateTo: e.target.value })}
-                className="h-9 text-sm"
+                className="h-7 text-xs"
               />
             </div>
           </div>
@@ -176,18 +164,18 @@ export function AdvancedFiltersPanel({
       {/* File Size - Collapsible */}
       <Collapsible open={expandedSections.size} onOpenChange={() => toggleSection('size')}>
         <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm" className="w-full justify-between h-9 px-3">
+          <Button variant="ghost" size="sm" className="w-full justify-between h-8 px-2">
             <div className="flex items-center gap-2">
-              <HardDrive className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium">File Size</span>
+              <HardDrive className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium">File Size</span>
               {(filters.fileSizeMin > 0 || filters.fileSizeMax < 100) && (
-                <Badge variant="secondary" className="h-5 px-1.5 text-xs">{fileSizeRange[0]}-{fileSizeRange[1]}MB</Badge>
+                <Badge variant="secondary" className="h-4 px-1 text-[10px]">{fileSizeRange[0]}-{fileSizeRange[1]}MB</Badge>
               )}
             </div>
-            {expandedSections.size ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {expandedSections.size ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </Button>
         </CollapsibleTrigger>
-        <CollapsibleContent className="pt-2 px-3">
+        <CollapsibleContent className="pt-1 px-2 pb-2">
           <Slider
             min={0}
             max={100}
@@ -197,7 +185,7 @@ export function AdvancedFiltersPanel({
             onValueCommit={handleFileSizeCommit}
             className="w-full"
           />
-          <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1">
             <span>{fileSizeRange[0]} MB</span>
             <span>{fileSizeRange[1]} MB</span>
           </div>
@@ -207,28 +195,28 @@ export function AdvancedFiltersPanel({
       {/* Enrichment Status - Collapsible */}
       <Collapsible open={expandedSections.enrichment} onOpenChange={() => toggleSection('enrichment')}>
         <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm" className="w-full justify-between h-9 px-3">
+          <Button variant="ghost" size="sm" className="w-full justify-between h-8 px-2">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Enrichment</span>
+              <Sparkles className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium">Enrichment</span>
               {filters.enrichmentStatus.length > 0 && (
-                <Badge variant="secondary" className="h-5 px-1.5 text-xs">{filters.enrichmentStatus.length}</Badge>
+                <Badge variant="secondary" className="h-4 px-1 text-[10px]">{filters.enrichmentStatus.length}</Badge>
               )}
             </div>
-            {expandedSections.enrichment ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {expandedSections.enrichment ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </Button>
         </CollapsibleTrigger>
-        <CollapsibleContent className="pt-2 px-3">
-          <div className="flex flex-wrap gap-4">
+        <CollapsibleContent className="pt-1 px-2 pb-2">
+          <div className="flex flex-wrap gap-3">
             {["not_enriched", "enriched", "failed"].map((status) => (
-              <label key={status} className="flex items-center gap-2 cursor-pointer">
+              <label key={status} className="flex items-center gap-1.5 cursor-pointer">
                 <Checkbox
                   id={`enrichment-${status}`}
                   checked={filters.enrichmentStatus.includes(status)}
                   onCheckedChange={(checked) => handleEnrichmentStatusChange(status, checked as boolean)}
-                  className="h-4 w-4"
+                  className="h-3.5 w-3.5"
                 />
-                <span className="text-sm">
+                <span className="text-xs">
                   {status === "not_enriched" ? "Not Enriched" : status === "enriched" ? "Enriched" : "Failed"}
                 </span>
               </label>
@@ -240,27 +228,27 @@ export function AdvancedFiltersPanel({
       {/* Quality Score - Collapsible */}
       <Collapsible open={expandedSections.quality} onOpenChange={() => toggleSection('quality')}>
         <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm" className="w-full justify-between h-9 px-3">
+          <Button variant="ghost" size="sm" className="w-full justify-between h-8 px-2">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Quality Score</span>
+              <span className="text-xs font-medium">Quality Score</span>
               {filters.qualityScore.length > 0 && (
-                <Badge variant="secondary" className="h-5 px-1.5 text-xs">{filters.qualityScore.length}</Badge>
+                <Badge variant="secondary" className="h-4 px-1 text-[10px]">{filters.qualityScore.length}</Badge>
               )}
             </div>
-            {expandedSections.quality ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {expandedSections.quality ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </Button>
         </CollapsibleTrigger>
-        <CollapsibleContent className="pt-2 px-3">
-          <div className="flex flex-wrap gap-4">
+        <CollapsibleContent className="pt-1 px-2 pb-2">
+          <div className="flex flex-wrap gap-3">
             {["high", "medium", "low"].map((score) => (
-              <label key={score} className="flex items-center gap-2 cursor-pointer">
+              <label key={score} className="flex items-center gap-1.5 cursor-pointer">
                 <Checkbox
                   id={`quality-${score}`}
                   checked={filters.qualityScore.includes(score)}
                   onCheckedChange={(checked) => handleQualityScoreChange(score, checked as boolean)}
-                  className="h-4 w-4"
+                  className="h-3.5 w-3.5"
                 />
-                <span className="text-sm capitalize">{score}</span>
+                <span className="text-xs capitalize">{score}</span>
               </label>
             ))}
           </div>
@@ -269,63 +257,49 @@ export function AdvancedFiltersPanel({
     </div>
   );
 
-  // Mobile: Bottom sheet popup
-  if (isMobile) {
-    return (
-      <Sheet open={isOpen} onOpenChange={onToggle}>
-        <SheetContent side="bottom" className="h-auto max-h-[70vh] rounded-t-xl">
-          <SheetHeader className="flex flex-row items-center justify-between pb-2 border-b">
-            <SheetTitle className="text-base font-semibold">Filters</SheetTitle>
-            <div className="flex items-center gap-2">
-              {activeFilterCount > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearAllFilters}
-                  className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  <X className="w-3 h-3 mr-1" />
-                  Clear
-                </Button>
-              )}
-              <SheetClose asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <X className="w-4 h-4" />
-                </Button>
-              </SheetClose>
-            </div>
-          </SheetHeader>
-          <div className="py-3 overflow-y-auto max-h-[calc(70vh-60px)]">
-            <FilterContent />
-          </div>
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
-  // Desktop: Sidebar layout
   return (
-    <>
-      {isOpen && (
-        <div className="w-80 border-r border-border bg-card p-6 space-y-6 overflow-y-auto">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Advanced Filters</h3>
-            {activeFilterCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearAllFilters}
-                className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-4 h-4 mr-1" />
-                Clear All
-              </Button>
-            )}
-          </div>
-
+    <Popover open={isOpen} onOpenChange={onToggle}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className={`shrink-0 h-6 text-[10px] px-2 md:h-7 md:text-xs md:px-3 gap-1 ${activeFilterCount > 0 ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground' : ''}`}
+        >
+          <SlidersHorizontal className="w-3 h-3 md:w-3.5 md:h-3.5" />
+          Advanced
+          {activeFilterCount > 0 && (
+            <Badge variant="secondary" className="h-4 px-1 text-[10px] ml-0.5 bg-primary-foreground/20 text-primary-foreground">
+              {activeFilterCount}
+            </Badge>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent 
+        className="w-72 p-0" 
+        align="start"
+        sideOffset={4}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2 border-b">
+          <span className="text-xs font-semibold">Advanced Filters</span>
+          {activeFilterCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearAllFilters}
+              className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-3 h-3 mr-0.5" />
+              Clear All
+            </Button>
+          )}
+        </div>
+        
+        {/* Filter Content */}
+        <div className="py-1 max-h-[400px] overflow-y-auto">
           <FilterContent />
         </div>
-      )}
-    </>
+      </PopoverContent>
+    </Popover>
   );
 }

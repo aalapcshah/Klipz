@@ -224,14 +224,6 @@ export default function FilesView() {
 
   return (
     <div className="flex h-full">
-      {/* Advanced Filters Sidebar - Hidden on mobile by default */}
-      <AdvancedFiltersPanel
-        filters={advancedFilters}
-        onFiltersChange={setAdvancedFilters}
-        isOpen={filtersOpen}
-        onToggle={() => setFiltersOpen(!filtersOpen)}
-      />
-
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <div 
@@ -335,33 +327,6 @@ export default function FilesView() {
                     <List className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-                {/* Filters dropdown with Clear option */}
-                <Select
-                  value=""
-                  onValueChange={(value) => {
-                    if (value === 'toggle') {
-                      setFiltersOpen(!filtersOpen);
-                    } else if (value === 'clear') {
-                      setAdvancedFilters({
-                        dateFrom: '',
-                        dateTo: '',
-                        fileSizeMin: 0,
-                        fileSizeMax: 100,
-                        enrichmentStatus: [],
-                        qualityScore: [],
-                      });
-                      toast.success('Filters cleared');
-                    }
-                  }}
-                >
-                  <SelectTrigger className="shrink-0 h-7 text-[10px] px-2 w-auto min-w-[55px]">
-                    <span>⚙️ {filtersOpen ? 'Hide' : 'Filter'}</span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="toggle">{filtersOpen ? '🔼 Hide Filters' : '🔽 Show Filters'}</SelectItem>
-                    <SelectItem value="clear">🔄 Clear All Filters</SelectItem>
-                  </SelectContent>
-                </Select>
                 {/* Quick filter preset buttons */}
                 <Button
                   variant={advancedFilters.dateFrom ? 'default' : 'outline'}
@@ -432,6 +397,13 @@ export default function FilesView() {
                     <>✨ Enriched</>
                   )}
                 </Button>
+                {/* Advanced Filters Dropdown - Mobile */}
+                <AdvancedFiltersPanel
+                  filters={advancedFilters}
+                  onFiltersChange={setAdvancedFilters}
+                  isOpen={filtersOpen}
+                  onToggle={() => setFiltersOpen(!filtersOpen)}
+                />
               </div>
               
               {/* Search and Filters Row - Desktop only (mobile has it at top) */}
@@ -455,35 +427,8 @@ export default function FilesView() {
                     <List className="h-4 w-4" />
                   </Button>
                 </div>
-                {/* Show Filters + Clear + Quick Filter Presets - ALL on same line on mobile */}
+                {/* Quick Filter Presets + Advanced Filters */}
                 <div className="flex items-center gap-1 flex-nowrap overflow-x-auto">
-                  {/* Filters dropdown with Clear option */}
-                  <Select
-                    value=""
-                    onValueChange={(value) => {
-                      if (value === 'toggle') {
-                        setFiltersOpen(!filtersOpen);
-                      } else if (value === 'clear') {
-                        setAdvancedFilters({
-                          dateFrom: '',
-                          dateTo: '',
-                          fileSizeMin: 0,
-                          fileSizeMax: 100,
-                          enrichmentStatus: [],
-                          qualityScore: [],
-                        });
-                        toast.success('Filters cleared');
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="shrink-0 h-6 text-[10px] px-2 md:h-8 md:text-xs md:px-3 w-auto min-w-[60px] md:min-w-[80px]">
-                      <span>⚙️ {filtersOpen ? 'Hide' : 'Filter'}</span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="toggle">{filtersOpen ? '🔼 Hide Filters' : '🔽 Show Filters'}</SelectItem>
-                      <SelectItem value="clear">🔄 Clear All Filters</SelectItem>
-                    </SelectContent>
-                  </Select>
                   {/* Quick filter preset buttons with active state */}
                   <Button
                     variant={advancedFilters.dateFrom ? 'default' : 'outline'}
@@ -556,6 +501,13 @@ export default function FilesView() {
                       <>✨ Enriched</>
                     )}
                   </Button>
+                  {/* Advanced Filters Dropdown */}
+                  <AdvancedFiltersPanel
+                    filters={advancedFilters}
+                    onFiltersChange={setAdvancedFilters}
+                    isOpen={filtersOpen}
+                    onToggle={() => setFiltersOpen(!filtersOpen)}
+                  />
                 </div>
               </div>
             </div>
