@@ -1201,12 +1201,36 @@ export const appRouter = router({
         return suggestions;
       }),
 
-    // Transcribe voice recording
+    // Transcribe voice recording (accepts either a URL or base64 data URL)
     transcribeVoice: protectedProcedure
-      .input(z.object({ audioUrl: z.string() }))
-      .mutation(async ({ input }) => {
+      .input(z.object({ 
+        audioUrl: z.string().optional(),
+        audioDataUrl: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        let audioUrl = input.audioUrl;
+        
+        // If base64 data URL provided, upload to S3 first
+        if (input.audioDataUrl && !audioUrl) {
+          const matches = input.audioDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+          if (!matches) {
+            throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid audio data URL format' });
+          }
+          const mimeType = matches[1];
+          const base64Data = matches[2];
+          const buffer = Buffer.from(base64Data, 'base64');
+          const ext = mimeType.includes('webm') ? 'webm' : mimeType.includes('mp4') ? 'mp4' : 'wav';
+          const fileKey = `voice-search/${ctx.user.id}/${nanoid()}.${ext}`;
+          const { url } = await storagePut(fileKey, buffer, mimeType);
+          audioUrl = url;
+        }
+        
+        if (!audioUrl) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Either audioUrl or audioDataUrl is required' });
+        }
+        
         const result = await transcribeAudio({
-          audioUrl: input.audioUrl,
+          audioUrl,
         });
         
         if ('error' in result) {

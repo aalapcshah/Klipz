@@ -21,6 +21,27 @@ export function VoiceSearchBar({ onSearch, placeholder = "Search files..." }: Vo
   // Get files list for fallback search
   const { data: filesData } = trpc.files.list.useQuery({ page: 1, pageSize: 200 });
 
+  // Real transcription mutation
+  const transcribeMutation = trpc.files.transcribeVoice.useMutation({
+    onSuccess: (data) => {
+      const text = data.transcript?.trim();
+      if (text) {
+        setSearchQuery(text);
+        setIsTranscribing(false);
+        toast.success(`Heard: "${text}"`);
+        performSearch(text);
+      } else {
+        setIsTranscribing(false);
+        toast.error("Could not understand the audio. Please try again.");
+      }
+    },
+    onError: (error) => {
+      console.error("Transcription failed:", error);
+      setIsTranscribing(false);
+      toast.error("Failed to transcribe audio. Please try again.");
+    },
+  });
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -36,14 +57,27 @@ export function VoiceSearchBar({ onSearch, placeholder = "Search files..." }: Vo
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        await transcribeAudio(audioBlob);
         
         // Stop all tracks
         stream.getTracks().forEach(track => track.stop());
+        
+        // Convert blob to base64 data URL and send to server
+        setIsTranscribing(true);
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const dataUrl = reader.result as string;
+          transcribeMutation.mutate({ audioDataUrl: dataUrl });
+        };
+        reader.onerror = () => {
+          setIsTranscribing(false);
+          toast.error("Failed to process audio recording.");
+        };
       };
 
       mediaRecorder.start();
       setIsRecording(true);
+      toast.info("Listening... Speak your search query, then tap the mic again to stop.");
     } catch (error) {
       console.error("Failed to start recording:", error);
       toast.error("Microphone access denied. Please enable microphone permissions.");
@@ -54,34 +88,6 @@ export function VoiceSearchBar({ onSearch, placeholder = "Search files..." }: Vo
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      setIsTranscribing(true);
-    }
-  };
-
-  const transcribeAudio = async (audioBlob: Blob) => {
-    try {
-      // Convert blob to base64 data URL
-      const reader = new FileReader();
-      reader.readAsDataURL(audioBlob);
-      
-      reader.onloadend = async () => {
-        // Simulate transcription for demo
-        // In production, call transcribeAudio API with uploaded audio URL
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        // Simulated transcription result
-        const transcribedText = "beach photos from last summer";
-        
-        setSearchQuery(transcribedText);
-        setIsTranscribing(false);
-        
-        // Automatically trigger semantic search
-        await performSearch(transcribedText);
-      };
-    } catch (error) {
-      console.error("Transcription failed:", error);
-      setIsTranscribing(false);
-      toast.error("Failed to transcribe audio. Please try again.");
     }
   };
 
@@ -100,11 +106,9 @@ export function VoiceSearchBar({ onSearch, placeholder = "Search files..." }: Vo
         ...(file.tags?.map((t: any) => t.name) || [])
       ].join(' ').toLowerCase();
       
-      // Check if any search term matches
       return queryTerms.some(term => searchableText.includes(term));
     });
     
-    // Sort by relevance (number of matching terms)
     filteredFiles.sort((a: any, b: any) => {
       const aText = [a.title, a.description, a.filename, a.aiAnalysis].join(' ').toLowerCase();
       const bText = [b.title, b.description, b.filename, b.aiAnalysis].join(' ').toLowerCase();
@@ -120,11 +124,9 @@ export function VoiceSearchBar({ onSearch, placeholder = "Search files..." }: Vo
     setIsSearching(true);
     
     try {
-      // Try semantic search first via API
       const response = await fetch(`/api/trpc/semanticSearch.search?input=${encodeURIComponent(JSON.stringify({ query }))}`);
       const data = await response.json();
       
-      // Check for API errors or empty results
       if (data.error || !data.result?.data?.results) {
         console.log("Semantic search unavailable, using local search");
         const localResults = performLocalSearch(query);
@@ -141,7 +143,6 @@ export function VoiceSearchBar({ onSearch, placeholder = "Search files..." }: Vo
       onSearch(results);
       
       if (results.length === 0) {
-        // Try local search as backup
         const localResults = performLocalSearch(query);
         if (localResults.length > 0) {
           onSearch(localResults);
@@ -155,7 +156,6 @@ export function VoiceSearchBar({ onSearch, placeholder = "Search files..." }: Vo
     } catch (error) {
       console.error("Search error:", error);
       
-      // Fall back to local search
       const localResults = performLocalSearch(query);
       onSearch(localResults);
       

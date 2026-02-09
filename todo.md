@@ -5746,3 +5746,9 @@ Note: The application already has extensive annotation features including voice 
 
 ## Processing Indicator on Video Cards
 - [x] Add visible processing indicator on video cards while transcription/captioning runs in background
+
+## Move Advanced Recording Features to Upload Video Tab
+- [x] Move Advanced Recording Features collapsible section to below the camera preview area in Record New tab
+
+## Bug Fix - Voice Search Microphone
+- [x] Fix voice search microphone button - replaced hardcoded demo text with real Whisper transcription via tRPC
