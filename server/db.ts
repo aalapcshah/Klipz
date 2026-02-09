@@ -819,11 +819,11 @@ export async function getVideosByUserId(userId: number, limit?: number, offset?:
       .offset(offset || 0);
   }
 
-  // Get annotation counts for each video
+  // Get annotation counts and processing status for each video
   const videosWithCounts = await Promise.all(
     videoList.map(async (video) => {
       if (!video.fileId) {
-        return { ...video, voiceAnnotationCount: 0, visualAnnotationCount: 0, totalAnnotationCount: 0 };
+        return { ...video, voiceAnnotationCount: 0, visualAnnotationCount: 0, totalAnnotationCount: 0, transcriptionStatus: null as string | null, captioningStatus: null as string | null };
       }
 
       const voiceNotes = await db
@@ -836,11 +836,27 @@ export async function getVideosByUserId(userId: number, limit?: number, offset?:
         .from(visualAnnotations)
         .where(eq(visualAnnotations.fileId, video.fileId));
 
+      // Get transcription status
+      const [transcriptRecord] = await db
+        .select({ status: videoTranscripts.status })
+        .from(videoTranscripts)
+        .where(eq(videoTranscripts.fileId, video.fileId))
+        .limit(1);
+
+      // Get captioning status
+      const [captionRecord] = await db
+        .select({ status: visualCaptions.status })
+        .from(visualCaptions)
+        .where(eq(visualCaptions.fileId, video.fileId))
+        .limit(1);
+
       return {
         ...video,
         voiceAnnotationCount: voiceNotes.length,
         visualAnnotationCount: drawings.length,
         totalAnnotationCount: voiceNotes.length + drawings.length,
+        transcriptionStatus: transcriptRecord?.status || null,
+        captioningStatus: captionRecord?.status || null,
       };
     })
   );
@@ -869,11 +885,11 @@ export async function getRecentlyRecordedVideos(userId: number, since: Date, lim
     .orderBy(desc(videos.createdAt))
     .limit(limit);
 
-  // Get annotation counts for each video
+  // Get annotation counts and processing status for each video
   const videosWithCounts = await Promise.all(
     videoList.map(async (video) => {
       if (!video.fileId) {
-        return { ...video, voiceAnnotationCount: 0, visualAnnotationCount: 0, totalAnnotationCount: 0 };
+        return { ...video, voiceAnnotationCount: 0, visualAnnotationCount: 0, totalAnnotationCount: 0, transcriptionStatus: null as string | null, captioningStatus: null as string | null };
       }
 
       const voiceNotes = await db
@@ -886,11 +902,27 @@ export async function getRecentlyRecordedVideos(userId: number, since: Date, lim
         .from(visualAnnotations)
         .where(eq(visualAnnotations.fileId, video.fileId));
 
+      // Get transcription status
+      const [transcriptRecord] = await db
+        .select({ status: videoTranscripts.status })
+        .from(videoTranscripts)
+        .where(eq(videoTranscripts.fileId, video.fileId))
+        .limit(1);
+
+      // Get captioning status
+      const [captionRecord] = await db
+        .select({ status: visualCaptions.status })
+        .from(visualCaptions)
+        .where(eq(visualCaptions.fileId, video.fileId))
+        .limit(1);
+
       return {
         ...video,
         voiceAnnotationCount: voiceNotes.length,
         visualAnnotationCount: drawings.length,
         totalAnnotationCount: voiceNotes.length + drawings.length,
+        transcriptionStatus: transcriptRecord?.status || null,
+        captioningStatus: captionRecord?.status || null,
       };
     })
   );

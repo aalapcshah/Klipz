@@ -5743,3 +5743,6 @@ Note: The application already has extensive annotation features including voice 
 ## Bug Fixes - Transcription & Captioning Failures
 - [x] Fix transcription failure for large videos - added LLM fallback when Whisper 16MB limit exceeded
 - [x] Fix visual captioning bug - added null checks for response.choices[0] in generateCaptions, autoCaptionVideo, scheduledAutoCaptioning
+
+## Processing Indicator on Video Cards
+- [x] Add visible processing indicator on video cards while transcription/captioning runs in background

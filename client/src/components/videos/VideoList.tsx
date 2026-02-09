@@ -149,6 +149,16 @@ export function VideoList() {
     search: debouncedSearch,
     tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
     tagFilterMode: selectedTagIds.length > 1 ? tagFilterMode : undefined
+  }, {
+    refetchInterval: (query) => {
+      const vids = query.state.data?.videos;
+      if (!vids) return false;
+      const hasProcessing = vids.some((v: any) =>
+        v.transcriptionStatus === 'processing' || v.transcriptionStatus === 'pending' ||
+        v.captioningStatus === 'processing' || v.captioningStatus === 'pending'
+      );
+      return hasProcessing ? 5000 : false;
+    },
   });
   const videos = videosData?.videos || [];
   const deleteMutation = trpc.videos.delete.useMutation();
@@ -846,6 +856,34 @@ export function VideoList() {
                   </Badge>
                 )}
               </div>
+
+              {/* Processing status indicators */}
+              {((video as any).transcriptionStatus === 'processing' || (video as any).transcriptionStatus === 'pending' || (video as any).transcriptionStatus === 'failed' || (video as any).captioningStatus === 'processing' || (video as any).captioningStatus === 'pending' || (video as any).captioningStatus === 'failed') && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {((video as any).transcriptionStatus === 'processing' || (video as any).transcriptionStatus === 'pending') && (
+                    <Badge variant="outline" className="text-xs flex items-center gap-1 text-amber-500 border-amber-500/30 bg-amber-500/5">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Transcribing...
+                    </Badge>
+                  )}
+                  {((video as any).captioningStatus === 'processing' || (video as any).captioningStatus === 'pending') && (
+                    <Badge variant="outline" className="text-xs flex items-center gap-1 text-purple-500 border-purple-500/30 bg-purple-500/5">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Captioning...
+                    </Badge>
+                  )}
+                  {((video as any).transcriptionStatus === 'failed') && (
+                    <Badge variant="outline" className="text-xs flex items-center gap-1 text-red-500 border-red-500/30 bg-red-500/5">
+                      Transcript failed
+                    </Badge>
+                  )}
+                  {((video as any).captioningStatus === 'failed') && (
+                    <Badge variant="outline" className="text-xs flex items-center gap-1 text-red-500 border-red-500/30 bg-red-500/5">
+                      Captions failed
+                    </Badge>
+                  )}
+                </div>
+              )}
               
               {/* Annotations, tags, share, and action buttons on same line */}
               <div className="flex items-center gap-1 flex-nowrap">
