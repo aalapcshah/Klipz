@@ -5650,3 +5650,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Sync subtitle display with video currentTime using timeupdate event
 - [x] Style subtitles distinctly from visual descriptions overlay (black/80 bg, white text)
 - [x] Write tests for subtitle overlay logic (covered by videoTranscode tests)
+
+## Feature: Auto-Transcoding on Upload
+- [x] Hook into video creation flow to detect WebM uploads
+- [x] Trigger background FFmpeg transcoding after WebM video is saved (fire-and-forget)
+- [x] Update video record with transcodedUrl/transcodedKey when complete
+- [x] Ensure transcoding runs asynchronously (non-blocking via dynamic import + .then())
+- [x] Add transcoding status indicator in VideoDetail UI (auto-polling every 5s, blue badge)
+- [x] Write tests for auto-transcoding logic (4 tests in videoTranscode.test.ts)

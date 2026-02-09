@@ -70,10 +70,17 @@ export default function VideoDetail() {
   const [showSubtitles, setShowSubtitles] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
 
-  // Fetch video data
+  // Fetch video data - auto-poll while transcoding is in progress
   const { data: videoData, isLoading, refetch } = trpc.videos.get.useQuery(
     { id: videoId! },
-    { enabled: !!videoId && isAuthenticated }
+    {
+      enabled: !!videoId && isAuthenticated,
+      refetchInterval: (query) => {
+        const data = query.state.data as any;
+        // Poll every 5s while transcoding is in progress
+        return data?.filename?.endsWith('.webm') && !data?.transcodedUrl && data?.transcodeStatus !== 'failed' ? 5000 : false;
+      },
+    }
   );
 
   // Fetch transcript
@@ -413,8 +420,8 @@ export default function VideoDetail() {
                   {showSubtitles ? "Hide Subtitles" : "Show Subtitles"}
                 </Button>
               )}
-              {/* Show transcode button for WebM videos without an MP4 version */}
-              {videoData.filename.endsWith('.webm') && !(videoData as any).transcodedUrl && (videoData as any).transcodeStatus !== "completed" && (
+              {/* Show transcode status for WebM videos */}
+              {videoData.filename.endsWith('.webm') && !(videoData as any).transcodedUrl && (videoData as any).transcodeStatus !== "completed" && (videoData as any).transcodeStatus !== "processing" && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -429,6 +436,11 @@ export default function VideoDetail() {
                   )}
                   Convert to MP4
                 </Button>
+              )}
+              {videoData.filename.endsWith('.webm') && !(videoData as any).transcodedUrl && (videoData as any).transcodeStatus !== "completed" && (videoData as any).transcodeStatus !== "failed" && (transcodeMutation.isPending || (videoData as any).transcodeStatus === "processing") && (
+                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Converting to MP4...
+                </Badge>
               )}
               {(videoData as any).transcodeStatus === "completed" && (videoData as any).transcodedUrl && (
                 <Badge className="bg-green-500/20 text-green-400 border-green-500/30 gap-1">

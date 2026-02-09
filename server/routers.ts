@@ -1674,7 +1674,31 @@ export const appRouter = router({
           fileId, // Link to files table
           exportStatus: "draft",
         });
-        
+
+        // Auto-transcode WebM videos to MP4 in the background for cross-browser compatibility
+        if (mimeType === 'video/webm') {
+          import('./videoTranscode').then(({ transcodeToMp4 }) => {
+            console.log(`[AutoTranscode] Starting background transcode for video ${videoId}`);
+            transcodeToMp4(input.url, input.filename)
+              .then(async (result) => {
+                if (result.success && result.url && result.fileKey) {
+                  await db.updateVideo(videoId, {
+                    transcodedUrl: result.url,
+                    transcodedKey: result.fileKey,
+                  } as any);
+                  console.log(`[AutoTranscode] Video ${videoId} transcoded successfully`);
+                } else {
+                  console.error(`[AutoTranscode] Video ${videoId} transcode failed:`, result.error);
+                }
+              })
+              .catch((err) => {
+                console.error(`[AutoTranscode] Video ${videoId} transcode error:`, err);
+              });
+          }).catch((err) => {
+            console.error('[AutoTranscode] Failed to load transcode module:', err);
+          });
+        }
+
         return { id: videoId, fileId };
       }),
 
