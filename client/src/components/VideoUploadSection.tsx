@@ -860,34 +860,65 @@ export function VideoUploadSection() {
           handleFiles(e.dataTransfer.files);
         }}
       >
-        <div className="p-4 md:p-12 text-center">
-          <Video className="w-10 h-10 md:w-16 md:h-16 mx-auto mb-2 md:mb-4 text-muted-foreground" />
-          <h3 className="text-base md:text-lg font-semibold mb-1 md:mb-2">Upload Videos</h3>
-          <p className="text-xs md:text-sm text-muted-foreground mb-3 md:mb-4">
-            Drag and drop video files here, or click to browse
-          </p>
-          <div className="flex gap-2 justify-center mb-2">
-            <Button
-              size="sm"
-              className="md:h-10 md:px-4 md:text-sm"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Choose Files
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="md:h-10 md:px-4 md:text-sm"
-              onClick={() => folderInputRef.current?.click()}
-            >
-              <FolderOpen className="w-4 h-4 mr-2" />
-              Choose Folder
-            </Button>
+        <div className="p-4 md:p-6">
+          {/* Compact layout: dropzone + settings side by side on desktop */}
+          <div className="flex flex-col md:flex-row md:items-start md:gap-6">
+            {/* Left: Dropzone area */}
+            <div className="flex-1 text-center md:text-left">
+              <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+                <Video className="w-6 h-6 text-muted-foreground" />
+                <h3 className="text-base font-semibold">Upload Videos</h3>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Drag and drop video files here, or click to browse
+              </p>
+              <div className="flex gap-2 justify-center md:justify-start mb-2">
+                <Button
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Choose Files
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => folderInputRef.current?.click()}
+                >
+                  <FolderOpen className="w-4 h-4 mr-2" />
+                  Choose Folder
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Supported: MP4, MOV, AVI, WebM, MKV, MPEG (max 4GB)
+              </p>
+            </div>
+
+            {/* Right: Upload Settings inline */}
+            <div className="mt-4 md:mt-0 md:w-64 shrink-0 border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-6">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Settings className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Compression</span>
+              </div>
+              <Select value={selectedQuality} onValueChange={(v) => setSelectedQuality(v as VideoQuality)}>
+                <SelectTrigger className="w-full h-8 text-xs">
+                  <SelectValue placeholder="Select quality" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="original">Original (No Compression)</SelectItem>
+                  <SelectItem value="high">High Quality (1080p)</SelectItem>
+                  <SelectItem value="medium">Medium Quality (720p)</SelectItem>
+                  <SelectItem value="low">Low Quality (480p)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground mt-1.5 leading-tight">
+                {selectedQuality === 'original'
+                  ? 'Uploaded as-is. Compress later from Video Library.'
+                  : `Auto-compressed to ${QUALITY_SETTINGS[selectedQuality].label} after upload.`}
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Supported: MP4, MOV, AVI, WebM, MKV, MPEG (max 4GB)
-          </p>
+
           <input
             ref={fileInputRef}
             type="file"
@@ -1260,76 +1291,7 @@ export function VideoUploadSection() {
         </div>
       )}
 
-      {/* Upload Settings - collapsible on mobile */}
-      <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <Card className="p-4 md:p-6">
-          {/* On mobile: collapsible trigger. On desktop: always visible */}
-          <CollapsibleTrigger asChild className="md:hidden">
-            <button className="flex items-center justify-between w-full text-left">
-              <div className="flex items-center gap-2">
-                <Settings className="w-4 h-4 text-muted-foreground" />
-                <h3 className="text-base font-semibold">Upload Settings</h3>
-              </div>
-              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${settingsOpen ? 'rotate-180' : ''}`} />
-            </button>
-          </CollapsibleTrigger>
-          <h3 className="text-lg font-semibold mb-3 hidden md:block">Upload Settings</h3>
-          {/* Desktop: always visible content */}
-          <div className="hidden md:block space-y-4">
-            <div>
-              <Label className="text-sm font-medium mb-2 block">Post-Upload Compression</Label>
-              <Select value={selectedQuality} onValueChange={(v) => setSelectedQuality(v as VideoQuality)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select quality" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="original">Original (No Compression)</SelectItem>
-                  <SelectItem value="high">High Quality (1080p)</SelectItem>
-                  <SelectItem value="medium">Medium Quality (720p)</SelectItem>
-                  <SelectItem value="low">Low Quality (480p)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-1.5">
-                {selectedQuality === 'original'
-                  ? 'Videos will be uploaded as-is. You can compress later from the Video Library.'
-                  : `Videos will be uploaded at original quality, then automatically compressed to ${QUALITY_SETTINGS[selectedQuality].label} using server-side FFmpeg after upload completes.`}
-              </p>
-            </div>
-            <div className="flex items-start gap-2 text-sm text-muted-foreground">
-              <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-              <span>Server compression preserves audio, maintains full duration, and lets you revert to the original anytime</span>
-            </div>
-          </div>
-          {/* Mobile: collapsible content */}
-          <CollapsibleContent className="md:hidden">
-            <div className="space-y-4 pt-3">
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Post-Upload Compression</Label>
-                <Select value={selectedQuality} onValueChange={(v) => setSelectedQuality(v as VideoQuality)}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select quality" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="original">Original (No Compression)</SelectItem>
-                    <SelectItem value="high">High Quality (1080p)</SelectItem>
-                    <SelectItem value="medium">Medium Quality (720p)</SelectItem>
-                    <SelectItem value="low">Low Quality (480p)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground mt-1.5">
-                  {selectedQuality === 'original'
-                    ? 'Videos will be uploaded as-is. You can compress later from the Video Library.'
-                    : `Videos will be uploaded at original quality, then automatically compressed to ${QUALITY_SETTINGS[selectedQuality].label} using server-side FFmpeg after upload completes.`}
-                </p>
-              </div>
-              <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                <span>Server compression preserves audio, maintains full duration, and lets you revert to the original anytime</span>
-              </div>
-            </div>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
+
 
 
 

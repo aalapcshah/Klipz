@@ -5722,3 +5722,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Move "Find Matches" button from VideoCardDetails to video card actions row
 - [x] Expose handleFindMatches via forwardRef/useImperativeHandle from VideoCardDetails
 - [x] Fix infinite render loop caused by callback state change pattern
+
+## UI Consolidation - Upload Videos Tab
+- [x] Move Upload Settings (Post-Upload Compression) into the Upload Videos dropzone area
+- [x] Reduce vertical space of the Upload Videos dropzone
+- [x] Consolidate layout to be more compact
