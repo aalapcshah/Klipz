@@ -2769,20 +2769,10 @@ export async function getUploadHistoryStats(userId: number) {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const recentUploads = await db
-    .select({
-      date: sql<string>`DATE(${uploadHistory.completedAt})`,
-      count: sql<number>`count(*)`,
-      totalSize: sql<number>`sum(${uploadHistory.fileSize})`,
-    })
-    .from(uploadHistory)
-    .where(
-      and(
-        eq(uploadHistory.userId, userId),
-        gte(uploadHistory.completedAt, sevenDaysAgo)
-      )
-    )
-    .groupBy(sql`DATE(${uploadHistory.completedAt})`);
+  const recentUploadsRaw: any[] = await db.execute(
+    sql`SELECT DATE(${uploadHistory.completedAt}) AS upload_date, COUNT(*) AS upload_count, COALESCE(SUM(${uploadHistory.fileSize}), 0) AS total_size FROM ${uploadHistory} WHERE ${uploadHistory.userId} = ${userId} AND ${uploadHistory.completedAt} >= ${sevenDaysAgo} GROUP BY upload_date ORDER BY upload_date`
+  ).then((rows: any) => (rows.rows || rows));
+  const recentUploads = recentUploadsRaw.map((r: any) => ({ date: String(r.upload_date), count: Number(r.upload_count), totalSize: Number(r.total_size) }));
 
   return {
     statusCounts,
@@ -3072,27 +3062,11 @@ export async function getStorageStats(userId: number): Promise<StorageStats> {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const recentUploadsResult = await db
-    .select({
-      date: sql<string>`DATE(${files.createdAt})`,
-      bytes: sql<number>`COALESCE(SUM(${files.fileSize}), 0)`,
-      count: sql<number>`COUNT(*)`,
-    })
-    .from(files)
-    .where(
-      and(
-        eq(files.userId, userId),
-        gte(files.createdAt, thirtyDaysAgo)
-      )
-    )
-    .groupBy(sql`DATE(${files.createdAt})`)
-    .orderBy(sql`DATE(${files.createdAt})`);
+  const recentUploadsResult: { date: string; bytes: number; count: number }[] = await db.execute(
+    sql`SELECT DATE(${files.createdAt}) AS upload_date, COALESCE(SUM(${files.fileSize}), 0) AS total_bytes, COUNT(*) AS file_count FROM ${files} WHERE ${files.userId} = ${userId} AND ${files.createdAt} >= ${thirtyDaysAgo} GROUP BY upload_date ORDER BY upload_date`
+  ).then((rows: any) => (rows.rows || rows).map((r: any) => ({ date: String(r.upload_date), bytes: Number(r.total_bytes), count: Number(r.file_count) })));
 
-  const recentUploads = recentUploadsResult.map(r => ({
-    date: String(r.date),
-    bytes: Number(r.bytes),
-    count: Number(r.count),
-  }));
+  const recentUploads = recentUploadsResult;
 
   const totalFileBytes = Number(fileStats[0]?.totalBytes || 0);
   const totalVideoBytes = Number(videoStorageStats[0]?.totalBytes || 0);

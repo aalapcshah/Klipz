@@ -222,20 +222,10 @@ export const adminRouter = router({
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
       // Get daily activity for the user
-      const dailyActivityRaw = await db
-        .select({
-          date: sql<string>`DATE(${fileActivityLogs.createdAt})`,
-          count: sql<number>`COUNT(*)`,
-        })
-        .from(fileActivityLogs)
-        .where(
-          and(
-            eq(fileActivityLogs.userId, input.userId),
-            gte(fileActivityLogs.createdAt, thirtyDaysAgo)
-          )
-        )
-        .groupBy(sql`DATE(${fileActivityLogs.createdAt})`)
-        .orderBy(sql`DATE(${fileActivityLogs.createdAt})`);
+      const dailyActivityResult: any[] = await db.execute(
+        sql`SELECT DATE(${fileActivityLogs.createdAt}) AS activity_date, COUNT(*) AS activity_count FROM ${fileActivityLogs} WHERE ${fileActivityLogs.userId} = ${input.userId} AND ${fileActivityLogs.createdAt} >= ${thirtyDaysAgo} GROUP BY activity_date ORDER BY activity_date`
+      ).then((rows: any) => (rows.rows || rows));
+      const dailyActivityRaw = dailyActivityResult.map((r: any) => ({ date: String(r.activity_date), count: Number(r.activity_count) }));
 
       return {
         dailyActivity: dailyActivityRaw,

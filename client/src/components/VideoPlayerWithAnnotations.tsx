@@ -217,7 +217,6 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
   
   // Debug logging for drawing mode changes
   useEffect(() => {
-    console.log('[VideoPlayerWithAnnotations] isDrawingMode changed to:', isDrawingMode);
   }, [isDrawingMode]);
   const [showTimeline, setShowTimeline] = useState(false);
   const [showAnnotationPreview, setShowAnnotationPreview] = useState(true);
@@ -309,7 +308,6 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
           const duration = ann.duration || 5;
           const endTime = startTime + duration;
           const isVisible = time >= startTime && time < endTime;
-          console.log('[Annotation Visibility]', { id: ann.id, startTime, duration, endTime, currentTime: time, isVisible });
           return isVisible;
         })
         .map(ann => ann.id);
@@ -799,7 +797,6 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
             onMouseLeave={() => drawingCanvasComponentRef.current?.handleMouseUp()}
             onTouchStart={(e) => {
               e.preventDefault();
-              console.log('[Canvas] Touch start, ref exists:', !!drawingCanvasComponentRef.current);
               drawingCanvasComponentRef.current?.handleTouchStart(e);
             }}
             onTouchMove={(e) => {
@@ -807,7 +804,6 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
               drawingCanvasComponentRef.current?.handleTouchMove(e);
             }}
             onTouchEnd={() => {
-              console.log('[Canvas] Touch end');
               drawingCanvasComponentRef.current?.handleTouchEnd();
             }}
             onTouchCancel={() => drawingCanvasComponentRef.current?.handleTouchEnd()}
@@ -2051,7 +2047,6 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
       <VideoEffectsLibrary
         videoRef={videoRef}
         onEffectsChange={(effects) => {
-          console.log('Effects changed:', effects);
         }}
       />
       </div>
@@ -2060,7 +2055,6 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
       <div id="audio-mixer-section">
       <MultiTrackAudioMixer
         onTracksChange={(tracks) => {
-          console.log('Audio tracks changed:', tracks);
         }}
       />
       </div>
@@ -2071,7 +2065,6 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
         videoRef={videoRef}
         canvasRef={drawingCanvasRef}
         onSettingsChange={(settings) => {
-          console.log('Green screen settings changed:', settings);
         }}
       />
       </div>

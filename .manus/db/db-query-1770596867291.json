@@ -1,0 +1,25 @@
+{
+  "query": "SELECT COUNT(*) as c FROM activity_notification_preferences; SELECT COUNT(*) as c FROM users; SELECT COUNT(*) as c FROM file_activity_logs;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT COUNT(*) as c FROM activity_notification_preferences; SELECT COUNT(*) as c FROM users; SELECT COUNT(*) as c FROM file_activity_logs;",
+  "rows": [
+    {
+      "c": "164"
+    },
+    {
+      "c": "c"
+    },
+    {
+      "c": "666"
+    },
+    {
+      "c": "c"
+    },
+    {
+      "c": "510"
+    }
+  ],
+  "messages": [],
+  "stdout": "c\n164\nc\n666\nc\n510\n",
+  "stderr": "",
+  "execution_time_ms": 446
+}

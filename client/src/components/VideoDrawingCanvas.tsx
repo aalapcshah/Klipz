@@ -96,16 +96,7 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
   canvasRef: externalCanvasRef,
   onCanvasHandlersReady,
 }: VideoDrawingCanvasProps, ref) {
-  console.log('[VideoDrawingCanvas] Component rendering, onToggleRequest:', onToggleRequest);
   
-  // Check if component renders at all
-  if (typeof window !== 'undefined' && (window as any).__drawingRenderCount === undefined) {
-    (window as any).__drawingRenderCount = 0;
-  }
-  if (typeof window !== 'undefined') {
-    (window as any).__drawingRenderCount++;
-    console.log('[VideoDrawingCanvas] Render count:', (window as any).__drawingRenderCount);
-  }
   const localCanvasRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = externalCanvasRef || localCanvasRef; // Use external ref if provided
   const [isDrawing, setIsDrawing] = useState(false);
@@ -118,7 +109,6 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
   const [history, setHistory] = useState<DrawingElement[][]>([[]]);
   const [historyStep, setHistoryStep] = useState(0);
   const [showCanvas, setShowCanvas] = useState(false);
-  console.log('[VideoDrawingCanvas] Current showCanvas value:', showCanvas);
   const [textInput, setTextInput] = useState("");
   const [textPosition, setTextPosition] = useState<Point | null>(null);
   const [debugTouchPos, setDebugTouchPos] = useState<{x: number, y: number} | null>(null);
@@ -250,12 +240,9 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
 
   // Handle external toggle request
   useEffect(() => {
-    console.log('[VideoDrawingCanvas] Toggle request changed:', onToggleRequest);
     if (onToggleRequest !== undefined && onToggleRequest > 0) {
-      console.log('[VideoDrawingCanvas] Toggling canvas');
       setShowCanvas(prev => {
         const newValue = !prev;
-        console.log('[VideoDrawingCanvas] showCanvas changing from', prev, 'to', newValue);
         // Notify parent component about drawing mode change
         if (onDrawingModeChange) {
           onDrawingModeChange(newValue);
@@ -277,22 +264,17 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
       const video = videoRef.current;
       
       if (!canvas || !video) {
-        console.log('[VideoDrawingCanvas] Canvas or video not ready yet');
         return;
       }
     
-    console.log('[VideoDrawingCanvas] Canvas and video found! Setting up...');
-    console.log('[VideoDrawingCanvas] Attaching event listeners');
     
     // Immediately size the canvas to match video
     const rect = video.getBoundingClientRect();
     canvas.width = rect.width;
     canvas.height = rect.height;
-    console.log('[VideoDrawingCanvas] Canvas sized to:', rect.width, 'x', rect.height);
     
     // Add touch event listeners
     const touchStart = (e: TouchEvent) => {
-      console.log('[VideoDrawingCanvas] touchStart fired!', e.touches.length, 'touches');
       setTouchDetected(true);
       e.preventDefault();
       e.stopPropagation();
@@ -333,7 +315,6 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
     canvas.addEventListener('mousemove', mouseMove);
     canvas.addEventListener('mouseup', mouseUp);
     canvas.addEventListener('mouseleave', mouseUp);
-    console.log('[VideoDrawingCanvas] Event listeners attached');
     
     // Match canvas size to video display size
     const resizeCanvas = () => {
@@ -535,7 +516,6 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
     // Account for zoom and pan
     const x = (touch.clientX - rect.left - panX) / zoom;
     const y = (touch.clientY - rect.top - panY) / zoom;
-    console.log('[VideoDrawingCanvas] getTouchPos:', { clientX: touch.clientX, clientY: touch.clientY, rectLeft: rect.left, rectTop: rect.top, x, y, panX, panY, zoom });
     setDebugTouchPos({ x: Math.round(x), y: Math.round(y) });
     return { x, y };
   };
@@ -592,7 +572,6 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
     setSelectedElementId(null);
     
     if (selectedTool === "text") {
-      console.log('[VideoDrawingCanvas] Text tool clicked, setting position:', pos);
       setTextPosition(pos);
       return;
     }
@@ -613,7 +592,6 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement> | TouchEvent) => {
     e.preventDefault();
-    console.log('[VideoDrawingCanvas] handleTouchStart called, touches:', e.touches.length, 'showCanvas:', showCanvas);
     
     // Handle pinch-to-zoom (two fingers)
     if (e.touches.length === 2) {
@@ -662,7 +640,6 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
     }
     
     if (selectedTool === "text") {
-      console.log('[VideoDrawingCanvas] Text tool clicked, setting position:', pos);
       setTextPosition(pos);
       return;
     }
@@ -727,7 +704,6 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
 
   const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement> | TouchEvent) => {
     e.preventDefault();
-    console.log('[VideoDrawingCanvas] handleTouchMove called, isDrawing:', isDrawing, 'currentElement:', !!currentElement);
     const pos = getTouchPos(e);
     
     // Handle dragging an existing shape
@@ -1077,10 +1053,8 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
   };
 
   const toggleCanvas = useCallback(() => {
-    console.log('[VideoDrawingCanvas] toggleCanvas called');
     setShowCanvas(prev => {
       const newShowCanvas = !prev;
-      console.log('[VideoDrawingCanvas] Calling onDrawingModeChange with:', newShowCanvas);
       onDrawingModeChange?.(newShowCanvas);
       
       if (newShowCanvas) {

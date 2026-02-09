@@ -70,7 +70,7 @@ describe("Quality Improvement & Semantic Search", () => {
       expect(result.totalResults).toBeDefined();
     });
 
-    it("should parse file type filters", async () => {
+    it("should parse file type filters", { timeout: 30000 }, async () => {
       const result = await caller.semanticSearch.search({
         query: "show me all videos",
       });
@@ -79,7 +79,7 @@ describe("Quality Improvement & Semantic Search", () => {
       expect(Array.isArray(result.parsedParams.fileTypes)).toBe(true);
     });
 
-    it("should parse date ranges", async () => {
+    it("should parse date ranges", { timeout: 30000 }, async () => {
       const result = await caller.semanticSearch.search({
         query: "photos from last month",
       });

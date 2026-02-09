@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { appRouter } from './routers';
 import { Context } from './_core/context';
+import { notifyOwner } from './_core/notification';
 
-// Mock the notification module
+// Mock the notification module - the router uses dynamic import so we need to mock the module
 vi.mock('./_core/notification', () => ({
   notifyOwner: vi.fn().mockResolvedValue(true),
 }));
@@ -12,6 +13,11 @@ describe('Feedback Router', () => {
   let mockContext: Context;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+    
+    // Re-mock notifyOwner to return true for each test
+    vi.mocked(notifyOwner).mockResolvedValue(true);
+
     // Create a mock context with a test user
     mockContext = {
       user: {

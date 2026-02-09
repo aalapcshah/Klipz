@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { appRouter } from "../routers";
 import type { Context } from "../_core/context";
 import { getDb } from "../db";
@@ -22,7 +22,13 @@ describe("Notifications Router", () => {
 
   const caller = appRouter.createCaller(mockContext);
 
-  // Note: Tests run sequentially and build on each other's state
+  // Clean up all notifications and preferences for the test user before each test
+  beforeEach(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+    await db.delete(notifications).where(eq(notifications.userId, mockUser.id));
+    await db.delete(notificationPreferences).where(eq(notificationPreferences.userId, mockUser.id));
+  });
 
   it("should get notification preferences with defaults", async () => {
     const prefs = await caller.notifications.getPreferences();
@@ -86,12 +92,32 @@ describe("Notifications Router", () => {
   });
 
   it("should get unread count correctly", async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    await db.insert(notifications).values({
+      userId: mockUser.id,
+      type: "approval_approved",
+      title: "Test Notification",
+      content: "This is a test notification",
+    });
+
     const result = await caller.notifications.getUnreadCount();
 
     expect(result.count).toBe(1);
   });
 
   it("should mark notification as read", async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    await db.insert(notifications).values({
+      userId: mockUser.id,
+      type: "approval_approved",
+      title: "Test Notification",
+      content: "This is a test notification",
+    });
+
     const notifs = await caller.notifications.getNotifications();
     const notifId = notifs[0].id;
 
@@ -106,7 +132,17 @@ describe("Notifications Router", () => {
     const db = await getDb();
     if (!db) throw new Error("Database not available");
 
-    // Create another unread notification
+    // Create a read notification
+    await db.insert(notifications).values({
+      userId: mockUser.id,
+      type: "approval_approved",
+      title: "Read Notification",
+      content: "This is already read",
+      read: true,
+      readAt: new Date(),
+    });
+
+    // Create an unread notification
     await db.insert(notifications).values({
       userId: mockUser.id,
       type: "comment_reply",
@@ -121,6 +157,22 @@ describe("Notifications Router", () => {
   });
 
   it("should mark all notifications as read", async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    await db.insert(notifications).values({
+      userId: mockUser.id,
+      type: "approval_approved",
+      title: "Notif 1",
+      content: "Content 1",
+    });
+    await db.insert(notifications).values({
+      userId: mockUser.id,
+      type: "comment_reply",
+      title: "Notif 2",
+      content: "Content 2",
+    });
+
     await caller.notifications.markAllAsRead();
 
     const unreadCount = await caller.notifications.getUnreadCount();
@@ -128,13 +180,30 @@ describe("Notifications Router", () => {
   });
 
   it("should delete a notification", async () => {
-    const notifs = await caller.notifications.getNotifications();
-    const notifId = notifs[0].id;
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
 
+    await db.insert(notifications).values({
+      userId: mockUser.id,
+      type: "approval_approved",
+      title: "To Delete",
+      content: "Will be deleted",
+    });
+    await db.insert(notifications).values({
+      userId: mockUser.id,
+      type: "comment_reply",
+      title: "To Keep",
+      content: "Will remain",
+    });
+
+    const notifs = await caller.notifications.getNotifications();
+    expect(notifs.length).toBe(2);
+
+    const notifId = notifs[0].id;
     await caller.notifications.deleteNotification({ notificationId: notifId });
 
     const remaining = await caller.notifications.getNotifications();
-    expect(remaining.length).toBe(notifs.length - 1);
+    expect(remaining.length).toBe(1);
   });
 
   it("should respect notification limit", async () => {

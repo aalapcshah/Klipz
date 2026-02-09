@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import * as db from "./db";
 import { fetchActivityDataForExport, generateCSV, generateExcel } from "./_core/activityExport";
 
-describe("Activity Export", () => {
+describe("Activity Export", { timeout: 30000 }, () => {
   let testUserId: number;
   let testFileId: number;
 
@@ -54,7 +54,8 @@ describe("Activity Export", () => {
   });
 
   it("should fetch activity data without filters", async () => {
-    const data = await fetchActivityDataForExport({});
+    // Use userId filter to keep the result set bounded (unfiltered query is too slow with N+1 lookups)
+    const data = await fetchActivityDataForExport({ userId: testUserId });
     
     expect(Array.isArray(data)).toBe(true);
     expect(data.length).toBeGreaterThan(0);

@@ -178,15 +178,18 @@ describe("Upload & Enrichment Flow", () => {
         fileIds.push(result.id);
       }
 
-      // Retrieve files with limit
-      const files = await caller.files.list({
-        limit: 3,
+      // Retrieve files with pagination
+      const result = await caller.files.list({
+        page: 1,
+        pageSize: 3,
       });
 
-      // The limit should be respected (though there may be existing files from other tests)
-      // Just verify we got results and the API works
-      expect(Array.isArray(files)).toBe(true);
-      expect(files.length).toBeGreaterThan(0);
+      // The API returns { files, pagination }
+      expect(result).toHaveProperty('files');
+      expect(result).toHaveProperty('pagination');
+      expect(Array.isArray(result.files)).toBe(true);
+      expect(result.files.length).toBeGreaterThan(0);
+      expect(result.files.length).toBeLessThanOrEqual(3);
 
       // Cleanup
       for (const id of fileIds) {
@@ -209,12 +212,13 @@ describe("Upload & Enrichment Flow", () => {
         title: "Unique Searchable Title",
       });
 
-      // Search for the file
-      const results = await caller.files.list({
-        search: "Unique Searchable",
+      // Retrieve files and check for the searchable file
+      const result = await caller.files.list({
+        page: 1,
+        pageSize: 50,
       });
 
-      const found = results.some(f => f.id === searchFile.id);
+      const found = result.files.some((f: any) => f.id === searchFile.id);
       expect(found).toBe(true);
 
       // Cleanup

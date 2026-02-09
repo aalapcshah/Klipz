@@ -131,20 +131,16 @@ export const analyticsRouter = router({
         : eq(voiceAnnotations.userId, userId);
 
       // Get most annotated timestamps (grouped by 5-second intervals)
-      const timestamps = await db
-        .select({
-          timestamp: sql<number>`FLOOR(${voiceAnnotations.videoTimestamp} / 5) * 5`,
-          count: count(),
-        })
-        .from(voiceAnnotations)
-        .where(whereClause)
-        .groupBy(sql`FLOOR(${voiceAnnotations.videoTimestamp} / 5) * 5`)
-        .orderBy(desc(count()))
-        .limit(input.limit);
+      const whereCondition = input.fileId
+        ? sql`${voiceAnnotations.userId} = ${userId} AND ${voiceAnnotations.fileId} = ${input.fileId}`
+        : sql`${voiceAnnotations.userId} = ${userId}`;
+      const timestampsRaw: any[] = await db.execute(
+        sql`SELECT FLOOR(${voiceAnnotations.videoTimestamp} / 5) * 5 AS ts_bucket, COUNT(*) AS ts_count FROM ${voiceAnnotations} WHERE ${whereCondition} GROUP BY ts_bucket ORDER BY ts_count DESC LIMIT ${input.limit}`
+      ).then((rows: any) => (rows.rows || rows));
 
-      return timestamps.map((t: any) => ({
-        timestamp: Number(t.timestamp),
-        count: Number(t.count),
+      return timestampsRaw.map((t: any) => ({
+        timestamp: Number(t.ts_bucket),
+        count: Number(t.ts_count),
       }));
     }),
 
@@ -161,37 +157,21 @@ export const analyticsRouter = router({
       startDate.setDate(startDate.getDate() - input.days);
 
       // Get annotations by day
-      const voiceByDay = await db
-        .select({
-          date: sql<string>`DATE(${voiceAnnotations.createdAt})`,
-          count: count(),
-        })
-        .from(voiceAnnotations)
-        .where(and(
-          eq(voiceAnnotations.userId, userId),
-          gte(voiceAnnotations.createdAt, startDate)
-        ))
-        .groupBy(sql`DATE(${voiceAnnotations.createdAt})`);
+      const voiceByDay: { date: string; count: number }[] = await db.execute(
+        sql`SELECT DATE(${voiceAnnotations.createdAt}) AS annotation_date, COUNT(*) AS annotation_count FROM ${voiceAnnotations} WHERE ${voiceAnnotations.userId} = ${userId} AND ${voiceAnnotations.createdAt} >= ${startDate} GROUP BY annotation_date ORDER BY annotation_date`
+      ).then((rows: any) => (rows.rows || rows).map((r: any) => ({ date: String(r.annotation_date), count: Number(r.annotation_count) })));
 
-      const visualByDay = await db
-        .select({
-          date: sql<string>`DATE(${visualAnnotations.createdAt})`,
-          count: count(),
-        })
-        .from(visualAnnotations)
-        .where(and(
-          eq(visualAnnotations.userId, userId),
-          gte(visualAnnotations.createdAt, startDate)
-        ))
-        .groupBy(sql`DATE(${visualAnnotations.createdAt})`);
+      const visualByDay: { date: string; count: number }[] = await db.execute(
+        sql`SELECT DATE(${visualAnnotations.createdAt}) AS annotation_date, COUNT(*) AS annotation_count FROM ${visualAnnotations} WHERE ${visualAnnotations.userId} = ${userId} AND ${visualAnnotations.createdAt} >= ${startDate} GROUP BY annotation_date ORDER BY annotation_date`
+      ).then((rows: any) => (rows.rows || rows).map((r: any) => ({ date: String(r.annotation_date), count: Number(r.annotation_count) })));
 
       // Merge results
-      const allDates = Array.from(new Set([...voiceByDay.map((v: any) => v.date), ...visualByDay.map((v: any) => v.date)]));
+      const allDates = Array.from(new Set([...voiceByDay.map(v => v.date), ...visualByDay.map(v => v.date)]));
       
       return allDates.map(date => ({
         date,
-        voiceAnnotations: Number(voiceByDay.find((v: any) => v.date === date)?.count || 0),
-        visualAnnotations: Number(visualByDay.find((v: any) => v.date === date)?.count || 0),
+        voiceAnnotations: Number(voiceByDay.find(v => v.date === date)?.count || 0),
+        visualAnnotations: Number(visualByDay.find(v => v.date === date)?.count || 0),
       })).sort((a, b) => a.date.localeCompare(b.date));
     }),
 });

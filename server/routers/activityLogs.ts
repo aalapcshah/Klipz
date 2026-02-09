@@ -67,51 +67,38 @@ export const activityLogsRouter = router({
     const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     // Get daily activity (last 30 days) grouped by type
-    const dailyActivityRaw = await db
-      .select({
-        date: sql<string>`DATE(${fileActivityLogs.createdAt})`,
-        activityType: fileActivityLogs.activityType,
-        count: sql<number>`COUNT(*)`,
-      })
-      .from(fileActivityLogs)
-      .where(
-        and(
-          eq(fileActivityLogs.userId, input?.userId || ctx.user!.id),
-          gte(fileActivityLogs.createdAt, thirtyDaysAgo)
-        )
-      )
-      .groupBy(sql`DATE(${fileActivityLogs.createdAt})`, fileActivityLogs.activityType)
-      .orderBy(sql`DATE(${fileActivityLogs.createdAt})`);
+    const targetUserId = input?.userId || ctx.user!.id;
+    const dailyActivityRaw: any[] = await db.execute(
+      sql`SELECT DATE(${fileActivityLogs.createdAt}) AS activity_date, ${fileActivityLogs.activityType} AS activity_type, COUNT(*) AS activity_count FROM ${fileActivityLogs} WHERE ${fileActivityLogs.userId} = ${targetUserId} AND ${fileActivityLogs.createdAt} >= ${thirtyDaysAgo} GROUP BY activity_date, activity_type ORDER BY activity_date`
+    ).then((rows: any) => (rows.rows || rows));
 
     // Transform to format expected by chart
     const dailyActivity: any[] = [];
     const dateMap = new Map<string, any>();
     
     dailyActivityRaw.forEach((row: any) => {
-      if (!dateMap.has(row.date)) {
-        dateMap.set(row.date, { date: row.date, uploads: 0, views: 0, edits: 0 });
+      const dateStr = String(row.activity_date);
+      if (!dateMap.has(dateStr)) {
+        dateMap.set(dateStr, { date: dateStr, uploads: 0, views: 0, edits: 0 });
       }
-      const entry = dateMap.get(row.date)!;
-      if (row.activityType === 'upload') entry.uploads = row.count;
-      else if (row.activityType === 'view') entry.views = row.count;
-      else if (row.activityType === 'edit') entry.edits = row.count;
+      const entry = dateMap.get(dateStr)!;
+      const actType = String(row.activity_type);
+      const cnt = Number(row.activity_count);
+      if (actType === 'upload') entry.uploads = cnt;
+      else if (actType === 'view') entry.views = cnt;
+      else if (actType === 'edit') entry.edits = cnt;
     });
     
     dateMap.forEach(value => dailyActivity.push(value));
 
     // Get peak hours (24-hour array)
-    const peakHoursRaw = await db
-      .select({
-        hour: sql<number>`HOUR(${fileActivityLogs.createdAt})`,
-        count: sql<number>`COUNT(*)`,
-      })
-      .from(fileActivityLogs)
-      .where(eq(fileActivityLogs.userId, input?.userId || ctx.user!.id))
-      .groupBy(sql`HOUR(${fileActivityLogs.createdAt})`);
+    const peakHoursRaw: any[] = await db.execute(
+      sql`SELECT HOUR(${fileActivityLogs.createdAt}) AS activity_hour, COUNT(*) AS activity_count FROM ${fileActivityLogs} WHERE ${fileActivityLogs.userId} = ${targetUserId} GROUP BY activity_hour ORDER BY activity_hour`
+    ).then((rows: any) => (rows.rows || rows));
     
     const hourlyActivity = Array(24).fill(0);
     peakHoursRaw.forEach((row: any) => {
-      hourlyActivity[row.hour] = row.count;
+      hourlyActivity[Number(row.activity_hour)] = Number(row.activity_count);
     });
 
     // Get activity types

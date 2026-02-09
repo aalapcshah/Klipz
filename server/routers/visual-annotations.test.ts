@@ -49,6 +49,11 @@ describe("visualAnnotationsRouter", () => {
 
     it("should throw error if database is not available", async () => {
       vi.mocked(getDb).mockResolvedValue(null);
+      // storagePut is called before getDb in the router, so we need to mock it
+      vi.mocked(storagePut).mockResolvedValue({
+        url: "https://s3.example.com/annotation.png",
+        key: "visual-annotations/1/10/123456.png",
+      });
 
       const caller = visualAnnotationsRouter.createCaller(mockCtx as any);
       await expect(
@@ -144,6 +149,9 @@ describe("visualAnnotationsRouter", () => {
               limit: vi.fn().mockResolvedValue([mockAnnotation]),
             }),
           }),
+        }),
+        insert: vi.fn().mockReturnValue({
+          values: vi.fn().mockResolvedValue([{ insertId: 1 }]),
         }),
         delete: vi.fn().mockReturnValue({
           where: vi.fn().mockResolvedValue(undefined),

@@ -128,18 +128,18 @@ describe("Cohort Analysis", () => {
         endDate: new Date("2026-01-31"),
       },
       {
-        name: "February 2026",
-        startDate: new Date("2026-02-01"),
-        endDate: new Date("2026-02-28"),
+        name: "December 2030",
+        startDate: new Date("2030-12-01"),
+        endDate: new Date("2030-12-31"),
       },
     ]);
 
     expect(Array.isArray(results)).toBe(true);
     expect(results.length).toBe(2);
     expect(results[0].cohortName).toBe("January 2026");
-    expect(results[1].cohortName).toBe("February 2026");
+    expect(results[1].cohortName).toBe("December 2030");
     
-    // January should have users, February should have 0
+    // January 2026 should have users, December 2030 should have 0
     expect(results[0].totalUsers).toBeGreaterThanOrEqual(2);
     expect(results[1].totalUsers).toBe(0);
   });

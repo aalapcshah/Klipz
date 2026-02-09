@@ -92,8 +92,9 @@ describe('Bulk Tag Removal & Recently Viewed Files', () => {
         tagIds: testTagIds,
       });
 
+      // User 999 doesn't own these files, so nothing should be untagged or removed
       expect(result.filesUntagged).toBe(0);
-      expect(result.tagsRemoved).toBe(2);
+      expect(result.tagsRemoved).toBe(0);
     });
   });
 
@@ -135,9 +136,9 @@ describe('Bulk Tag Removal & Recently Viewed Files', () => {
     it('should return recently viewed files in correct order', async () => {
       const caller = createCaller(testUserId);
 
-      // View files in order
+      // View files in order with sufficient delay for timestamp ordering
       await caller.recentlyViewed.trackView({ fileId: testFileIds[0] });
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 1100)); // > 1 second for MySQL timestamp precision
       await caller.recentlyViewed.trackView({ fileId: testFileIds[1] });
 
       const recentlyViewed = await caller.recentlyViewed.list({ limit: 10 });
@@ -152,7 +153,7 @@ describe('Bulk Tag Removal & Recently Viewed Files', () => {
       expect(file0Index).toBeGreaterThanOrEqual(0);
       expect(file1Index).toBeGreaterThanOrEqual(0);
       
-      // file1 (viewed second) should appear before file0 (viewed first)
+      // file1 (viewed second) should appear before file0 (viewed first) in descending order
       expect(file1Index).toBeLessThan(file0Index);
     });
 
