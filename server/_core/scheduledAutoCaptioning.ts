@@ -150,12 +150,21 @@ Focus on: what is shown on screen (text, diagrams, images, UI elements), actions
       },
     });
 
-    const content = response.choices[0]?.message?.content;
+    if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
+      throw new Error("LLM returned an empty or invalid response. The video may be too large or in an unsupported format.");
+    }
+
+    const content = response.choices[0].message.content;
     const contentStr =
       typeof content === "string" ? content : JSON.stringify(content);
-    if (!contentStr) throw new Error("No response from LLM");
+    if (!contentStr) throw new Error("No content in LLM response");
 
-    const result = JSON.parse(contentStr);
+    let result: any;
+    try {
+      result = JSON.parse(contentStr);
+    } catch (parseError) {
+      throw new Error(`Failed to parse LLM caption response as JSON`);
+    }
     const captions = result.captions || [];
 
     await db.updateVisualCaption(captionId, {

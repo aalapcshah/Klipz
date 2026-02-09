@@ -8,6 +8,147 @@ import { videoTranscripts, fileSuggestions, files } from "../../drizzle/schema";
 import { eq, and, sql } from "drizzle-orm";
 
 /**
+ * LLM-based transcription fallback for large video files that exceed Whisper's 16MB limit.
+ * Uses the LLM vision API to analyze the video and extract speech content.
+ */
+async function transcribeWithLLM(
+  file: { id: number; url: string; mimeType?: string | null },
+  transcriptId: number
+) {
+  try {
+    console.log(`[Transcription] Using LLM fallback for file ${file.id}`);
+
+    const response = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert audio/video transcription assistant. You will be given a video file. Listen carefully to all spoken audio and transcribe it accurately with timestamps.
+
+For each segment of speech, provide:
+1. The start time in seconds
+2. The end time in seconds
+3. The exact text spoken
+
+Be precise with the transcription. Include all spoken words, filler words, and any audible speech. If there is no speech, return an empty segments array.
+Detect the language automatically.`,
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "file_url" as const,
+              file_url: {
+                url: file.url,
+                mime_type: (file.mimeType || "video/mp4") as "video/mp4",
+              },
+            },
+            {
+              type: "text" as const,
+              text: "Transcribe all spoken audio in this video with timestamps. Return the result as JSON.",
+            },
+          ],
+        },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "video_transcription",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              fullText: {
+                type: "string",
+                description: "Complete transcription of all spoken audio",
+              },
+              language: {
+                type: "string",
+                description: "Detected language code (e.g., en, es, fr)",
+              },
+              segments: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    text: { type: "string" },
+                    start: { type: "number" },
+                    end: { type: "number" },
+                  },
+                  required: ["text", "start", "end"],
+                  additionalProperties: false,
+                },
+              },
+            },
+            required: ["fullText", "language", "segments"],
+            additionalProperties: false,
+          },
+        },
+      },
+    });
+
+    if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
+      throw new Error("LLM returned an empty or invalid response for transcription");
+    }
+
+    const content = response.choices[0].message.content;
+    const contentStr = typeof content === "string" ? content : JSON.stringify(content);
+    if (!contentStr) {
+      throw new Error("No content in LLM transcription response");
+    }
+
+    let result: any;
+    try {
+      result = JSON.parse(contentStr);
+    } catch {
+      throw new Error("Failed to parse LLM transcription response as JSON");
+    }
+
+    const segments = result.segments || [];
+    const fullText = result.fullText || segments.map((s: any) => s.text).join(" ");
+    const language = result.language || "en";
+
+    // Build word timestamps from segments
+    const wordTimestamps = segments.flatMap((segment: any) => {
+      const words = (segment.text || "").trim().split(/\s+/).filter(Boolean);
+      if (words.length === 0) return [];
+      const duration = segment.end - segment.start;
+      const timePerWord = duration / words.length;
+      return words.map((word: string, index: number) => ({
+        word,
+        start: segment.start + index * timePerWord,
+        end: segment.start + (index + 1) * timePerWord,
+      }));
+    });
+
+    await db.updateVideoTranscript(transcriptId, {
+      fullText,
+      wordTimestamps,
+      segments,
+      language,
+      confidence: 85, // LLM transcription is slightly less precise than Whisper
+      status: "completed",
+    });
+
+    return {
+      transcriptId,
+      status: "completed",
+      transcript: {
+        id: transcriptId,
+        fullText,
+        segments,
+        language,
+      },
+    };
+  } catch (error: any) {
+    await db.updateVideoTranscriptStatus(transcriptId, "failed");
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: `Transcription failed (LLM fallback): ${error.message}`,
+    });
+  }
+}
+
+/**
  * Video Transcription and File Suggestion Router
  * Handles video-to-text transcription and intelligent file matching
  */
@@ -71,7 +212,7 @@ export const videoTranscriptionRouter = router({
       await db.updateVideoTranscriptStatus(transcriptId, "processing");
 
       try {
-        // Transcribe the video audio
+        // Try Whisper first
         const result = await transcribeAudio({
           audioUrl: file.url,
           language: "en",
@@ -79,6 +220,11 @@ export const videoTranscriptionRouter = router({
 
         // Check for transcription errors
         if ("error" in result) {
+          // If file is too large for Whisper, fall back to LLM transcription
+          if (result.code === "FILE_TOO_LARGE") {
+            console.log(`[Transcription] File ${input.fileId} too large for Whisper (${result.details}), falling back to LLM transcription`);
+            return await transcribeWithLLM(file, transcriptId);
+          }
           await db.updateVideoTranscriptStatus(transcriptId, "failed");
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
@@ -88,8 +234,6 @@ export const videoTranscriptionRouter = router({
 
         // Extract word-level timestamps and segments
         const wordTimestamps = result.segments.flatMap((segment) => {
-          // Whisper doesn't provide word-level timestamps directly
-          // We'll split by words and estimate timestamps
           const words = segment.text.trim().split(/\s+/);
           const duration = segment.end - segment.start;
           const timePerWord = duration / words.length;
@@ -113,7 +257,7 @@ export const videoTranscriptionRouter = router({
           wordTimestamps,
           segments,
           language: result.language,
-          confidence: 95, // Whisper is generally high confidence
+          confidence: 95,
           status: "completed",
         });
 

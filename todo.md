@@ -5739,3 +5739,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add 30-day expiry to cookie consent banner so it re-prompts after 30 days
 - [x] Add "Don't show again" permanent dismiss option to PWA install banner
 - [x] Clear the 2 stale resumable upload sessions from the database (already cleaned up by cron/expiry)
+
+## Bug Fixes - Transcription & Captioning Failures
+- [x] Fix transcription failure for large videos - added LLM fallback when Whisper 16MB limit exceeded
+- [x] Fix visual captioning bug - added null checks for response.choices[0] in generateCaptions, autoCaptionVideo, scheduledAutoCaptioning

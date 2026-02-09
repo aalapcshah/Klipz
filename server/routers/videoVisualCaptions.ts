@@ -163,15 +163,28 @@ Generate captions for the entire duration of the video. If the video is short, p
           },
         });
 
-        const content = response.choices[0]?.message?.content;
+        if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
+          throw new Error("LLM returned an empty or invalid response. The video may be too large or in an unsupported format for visual analysis.");
+        }
+
+        const content = response.choices[0].message.content;
         const contentStr = typeof content === "string" ? content : JSON.stringify(content);
 
         if (!contentStr) {
-          throw new Error("No response from LLM");
+          throw new Error("No content in LLM response. The video may be too large or in an unsupported format.");
         }
 
-        const result = JSON.parse(contentStr);
+        let result: any;
+        try {
+          result = JSON.parse(contentStr);
+        } catch (parseError) {
+          throw new Error(`Failed to parse LLM response as JSON: ${contentStr.substring(0, 200)}`);
+        }
+
         const captions = result.captions || [];
+        if (captions.length === 0) {
+          console.warn(`[VisualCaptions] LLM returned 0 captions for file ${input.fileId}`);
+        }
 
         // Update the visual caption record
         await db.updateVisualCaption(captionId, {
@@ -743,11 +756,20 @@ Focus on: what is shown on screen (text, diagrams, images, UI elements), actions
             },
           });
 
-          const content = response.choices[0]?.message?.content;
-          const contentStr = typeof content === "string" ? content : JSON.stringify(content);
-          if (!contentStr) throw new Error("No response from LLM");
+          if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
+            throw new Error("LLM returned an empty or invalid response. The video may be too large or in an unsupported format.");
+          }
 
-          const result = JSON.parse(contentStr);
+          const content = response.choices[0].message.content;
+          const contentStr = typeof content === "string" ? content : JSON.stringify(content);
+          if (!contentStr) throw new Error("No content in LLM response");
+
+          let result: any;
+          try {
+            result = JSON.parse(contentStr);
+          } catch {
+            throw new Error("Failed to parse LLM caption response as JSON");
+          }
           const captions = result.captions || [];
 
           await db.updateVisualCaption(captionId, {
