@@ -5618,3 +5618,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix cohortAnalysis test (1 test): Used future date range to avoid matching current month's real data
 - [x] Fix qualityAndSearch test (1 test): Added 30s timeout for LLM-dependent semantic search tests
 - [x] Full test suite: 60 test files, 643 tests passing, 0 failures
+
+## Mobile Camera UI Optimization
+- [x] Move camera quality selector and switch button from Camera Settings into the camera preview area
+- [x] Reduce vertical space consumption on mobile video recording page

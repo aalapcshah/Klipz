@@ -1222,7 +1222,76 @@ export function VideoRecorderWithTranscription() {
               )}
             </div>
 
-            <div className="recording-controls flex items-center justify-center gap-3 flex-wrap">
+            {/* Quick camera controls - inline below preview */}
+            {!recordedBlob && !isRecording && (
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <Button
+                  variant={facingMode === 'environment' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={flipCamera}
+                  disabled={isRecording}
+                  className="gap-1.5 h-8"
+                >
+                  <SwitchCamera className="h-3.5 w-3.5" />
+                  {facingMode === 'user' ? 'Back' : 'Front'}
+                </Button>
+
+                <Select value={resolution} onValueChange={(val) => {
+                  setResolution(val);
+                  if (isPreviewing && !isRecording) {
+                    restartCameraWithSettings();
+                  }
+                }}>
+                  <SelectTrigger className="w-[85px] h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {RESOLUTION_OPTIONS.map(opt => (
+                      <SelectItem key={opt.label} value={opt.label}>
+                        <div className="flex items-center gap-1.5">
+                          <Monitor className="h-3 w-3" />
+                          {opt.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={timerLimit} onValueChange={setTimerLimit}>
+                  <SelectTrigger className="w-[100px] h-8">
+                    <div className="flex items-center gap-1.5">
+                      <Timer className="h-3 w-3" />
+                      <SelectValue />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIMER_LIMIT_OPTIONS.map(opt => (
+                      <SelectItem key={opt.seconds.toString()} value={opt.seconds.toString()}>
+                        <div className="flex items-center gap-1.5">
+                          <Timer className="h-3 w-3" />
+                          {opt.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <Switch
+                    id="mirror-toggle-inline"
+                    checked={mirrorFrontCamera}
+                    onCheckedChange={setMirrorFrontCamera}
+                    disabled={facingMode !== 'user'}
+                  />
+                  <Label htmlFor="mirror-toggle-inline" className="text-xs cursor-pointer flex items-center gap-1">
+                    <FlipHorizontal className="h-3 w-3" />
+                    Mirror
+                  </Label>
+                </div>
+              </div>
+            )}
+
+            <div className="recording-controls flex items-center justify-center gap-3 flex-wrap mt-3">
               {!isPreviewing && !recordedBlob && (
                 <Button onClick={startCamera} size="lg" className="min-h-[48px] px-6">
                   <Video className="h-5 w-5 mr-2" />
@@ -1326,94 +1395,23 @@ export function VideoRecorderWithTranscription() {
               )}
             </div>
 
-            {/* Camera Settings - Below controls */}
+            {/* Advanced Camera Settings - Below controls */}
             {!recordedBlob && (
-              <div className="mt-4 pt-3 border-t">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Camera className="h-4 w-4 text-primary" />
-                    <h3 className="font-semibold text-sm">Camera Settings</h3>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowCameraSettings(!showCameraSettings)}
-                    className="h-8"
-                  >
-                    {showCameraSettings ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </Button>
-                </div>
+              <div className="mt-3 pt-3 border-t">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCameraSettings(!showCameraSettings)}
+                  className="h-7 w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <Settings className="h-3 w-3" />
+                  {showCameraSettings ? 'Hide Device Settings' : 'Device Settings'}
+                  {showCameraSettings ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </Button>
 
-                {/* Quick camera controls - always visible */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    variant={facingMode === 'environment' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={flipCamera}
-                    disabled={isRecording}
-                    className="gap-1.5"
-                  >
-                    <SwitchCamera className="h-4 w-4" />
-                    {facingMode === 'user' ? 'Switch to Back' : 'Switch to Front'}
-                  </Button>
-
-                  <Select value={resolution} onValueChange={(val) => {
-                    setResolution(val);
-                    if (isPreviewing && !isRecording) {
-                      restartCameraWithSettings();
-                    }
-                  }}>
-                    <SelectTrigger className="w-[100px] h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {RESOLUTION_OPTIONS.map(opt => (
-                        <SelectItem key={opt.label} value={opt.label}>
-                          <div className="flex items-center gap-1.5">
-                            <Monitor className="h-3 w-3" />
-                            {opt.label}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={timerLimit} onValueChange={setTimerLimit}>
-                    <SelectTrigger className="w-[110px] h-8">
-                      <div className="flex items-center gap-1.5">
-                        <Timer className="h-3 w-3" />
-                        <SelectValue />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TIMER_LIMIT_OPTIONS.map(opt => (
-                        <SelectItem key={opt.seconds.toString()} value={opt.seconds.toString()}>
-                          <div className="flex items-center gap-1.5">
-                            <Timer className="h-3 w-3" />
-                            {opt.label}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <div className="flex items-center gap-1.5 ml-auto">
-                    <Switch
-                      id="mirror-toggle"
-                      checked={mirrorFrontCamera}
-                      onCheckedChange={setMirrorFrontCamera}
-                      disabled={facingMode !== 'user'}
-                    />
-                    <Label htmlFor="mirror-toggle" className="text-xs cursor-pointer flex items-center gap-1">
-                      <FlipHorizontal className="h-3 w-3" />
-                      Mirror
-                    </Label>
-                  </div>
-                </div>
-
-                {/* Expanded camera settings */}
+                {/* Expanded device settings */}
                 {showCameraSettings && (
-                  <div className="mt-4 pt-3 border-t space-y-3">
+                  <div className="mt-3 space-y-3">
                     {/* Video device selector */}
                     {videoDevices.length > 0 && (
                       <div className="space-y-1.5">
