@@ -10,6 +10,7 @@ import { FontSizeProvider } from "./contexts/FontSizeContext";
 import { UploadManagerProvider } from "./contexts/UploadManagerContext";
 import { StorageQuotaProvider } from "./contexts/StorageQuotaContext";
 import { GlobalDropZone } from "./components/GlobalDropZone";
+import { FileUploadProcessor } from "./components/FileUploadProcessor";
 import "./index.css";
 
 const queryClient = new QueryClient({
@@ -138,6 +139,7 @@ createRoot(document.getElementById("root")!).render(
       <FontSizeProvider>
         <StorageQuotaProvider>
           <UploadManagerProvider>
+            <FileUploadProcessor />
             <GlobalDropZone>
               <App />
             </GlobalDropZone>

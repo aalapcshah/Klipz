@@ -41,8 +41,7 @@ export default function FilesView() {
     return isMobile ? false : (saved ? JSON.parse(saved) : false);
   });
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>(() => {
-    const saved = localStorage.getItem('advancedFilters');
-    return saved ? JSON.parse(saved) : {
+    const defaultFilters: AdvancedFilters = {
       dateFrom: '',
       dateTo: '',
       fileSizeMin: 0,
@@ -50,6 +49,25 @@ export default function FilesView() {
       enrichmentStatus: [],
       qualityScore: [],
     };
+    try {
+      const saved = localStorage.getItem('advancedFilters');
+      if (!saved) return defaultFilters;
+      const parsed = JSON.parse(saved);
+      // Validate the parsed object has the expected shape
+      if (typeof parsed !== 'object' || parsed === null) return defaultFilters;
+      // Merge with defaults to handle missing fields from older versions
+      return {
+        dateFrom: typeof parsed.dateFrom === 'string' ? parsed.dateFrom : '',
+        dateTo: typeof parsed.dateTo === 'string' ? parsed.dateTo : '',
+        fileSizeMin: typeof parsed.fileSizeMin === 'number' ? parsed.fileSizeMin : 0,
+        fileSizeMax: typeof parsed.fileSizeMax === 'number' && parsed.fileSizeMax > 0 ? parsed.fileSizeMax : 100,
+        enrichmentStatus: Array.isArray(parsed.enrichmentStatus) ? parsed.enrichmentStatus : [],
+        qualityScore: Array.isArray(parsed.qualityScore) ? parsed.qualityScore : [],
+      };
+    } catch {
+      localStorage.removeItem('advancedFilters');
+      return defaultFilters;
+    }
   });
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
     const saved = localStorage.getItem('filesViewMode');
@@ -666,27 +684,25 @@ export default function FilesView() {
                   {filteredCount !== null && filteredCount < filesData.pagination.totalCount ? (
                     <span className="flex items-center gap-2">
                       Showing {filteredCount} of {filesData.pagination.totalCount} files (filtered)
-                      {filteredCount === 0 && (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 text-xs text-primary"
-                          onClick={() => {
-                            setAdvancedFilters({
-                              dateFrom: '',
-                              dateTo: '',
-                              fileSizeMin: 0,
-                              fileSizeMax: 100,
-                              enrichmentStatus: [],
-                              qualityScore: [],
-                            });
-                            localStorage.removeItem('advancedFilters');
-                            toast.success('Filters cleared');
-                          }}
-                        >
-                          Clear all filters
-                        </Button>
-                      )}
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-xs text-primary"
+                        onClick={() => {
+                          setAdvancedFilters({
+                            dateFrom: '',
+                            dateTo: '',
+                            fileSizeMin: 0,
+                            fileSizeMax: 100,
+                            enrichmentStatus: [],
+                            qualityScore: [],
+                          });
+                          localStorage.removeItem('advancedFilters');
+                          toast.success('Filters cleared');
+                        }}
+                      >
+                        Clear all filters
+                      </Button>
                     </span>
                   ) : (
                     <>Showing {Math.min((filesData.pagination.page - 1) * filesData.pagination.pageSize + 1, filesData.pagination.totalCount)} - {Math.min(filesData.pagination.page * filesData.pagination.pageSize, filesData.pagination.totalCount)} of {filesData.pagination.totalCount} files</>

@@ -339,9 +339,6 @@ export default function FileGridEnhanced({
     // "not_enriched" -> "pending" or "processing"
     // "enriched" -> "completed"
     // "failed" -> "failed"
-    console.log('[Filter Debug] advancedFilters:', advancedFilters);
-    console.log('[Filter Debug] enrichmentStatus filter:', advancedFilters.enrichmentStatus);
-    console.log('[Filter Debug] files before enrichment filter:', files.length);
     if (advancedFilters.enrichmentStatus.length > 0) {
       files = files.filter((file: any) => {
         const status = file.enrichmentStatus;

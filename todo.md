@@ -5658,3 +5658,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Ensure transcoding runs asynchronously (non-blocking via dynamic import + .then())
 - [x] Add transcoding status indicator in VideoDetail UI (auto-polling every 5s, blue badge)
 - [x] Write tests for auto-transcoding logic (4 tests in videoTranscode.test.ts)
+
+## Bug Fixes - Files Listing & Upload (Feb 8)
+- [x] Fix "Showing 0 of 140 files (filtered)" - added robust localStorage filter validation and always-visible Clear button
+- [x] Fix file upload via drag-and-drop - created FileUploadProcessor to register 'file' type processor with UploadManager
