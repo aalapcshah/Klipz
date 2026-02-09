@@ -5662,3 +5662,10 @@ Note: The application already has extensive annotation features including voice 
 ## Bug Fixes - Files Listing & Upload (Feb 8)
 - [x] Fix "Showing 0 of 140 files (filtered)" - added robust localStorage filter validation and always-visible Clear button
 - [x] Fix file upload via drag-and-drop - created FileUploadProcessor to register 'file' type processor with UploadManager
+
+## Video Card Layout Rearrangement (Feb 8)
+- [x] Remove "Compress" button from video card actions row
+- [x] Move blue compress icon to next to the share icon
+- [x] Move "Share Files" into the area where Compress was
+- [x] Move "Transcribed" and "Captioned" status badges to the bottom
+- [x] Move "480p" quality badge to the right of the file name

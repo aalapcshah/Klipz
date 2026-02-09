@@ -222,68 +222,6 @@ export function VideoCardDetails({ videoId, fileId, hasTranscript, videoRef }: V
 
   return (
     <div className="space-y-1.5 pt-1.5 border-t border-border/50">
-      {/* Status badges row */}
-      <div className="flex items-center gap-1 flex-wrap">
-        {transcriptStatus === "completed" && (
-          <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-green-500/10 text-green-600 border-green-500/30 gap-0.5">
-            <CheckCircle2 className="h-2.5 w-2.5" />
-            Transcribed
-          </Badge>
-        )}
-        {transcriptStatus === "processing" && (
-          <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-yellow-500/10 text-yellow-600 border-yellow-500/30 gap-0.5">
-            <Loader2 className="h-2.5 w-2.5 animate-spin" />
-            Transcribing
-          </Badge>
-        )}
-        {captionStatus === "completed" && (
-          <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-blue-500/10 text-blue-600 border-blue-500/30 gap-0.5">
-            <CheckCircle2 className="h-2.5 w-2.5" />
-            Captioned
-          </Badge>
-        )}
-        {captionStatus === "processing" && (
-          <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-yellow-500/10 text-yellow-600 border-yellow-500/30 gap-0.5">
-            <Loader2 className="h-2.5 w-2.5 animate-spin" />
-            Captioning
-          </Badge>
-        )}
-        {transcriptStatus === "failed" && (
-          <button
-            onClick={handleRetryTranscript}
-            disabled={retryTranscriptMutation.isPending}
-            className="inline-flex items-center gap-0.5 cursor-pointer"
-            title="Click to retry transcription"
-          >
-            <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-red-500/10 text-red-600 border-red-500/30 gap-0.5 hover:bg-red-500/20 transition-colors">
-              {retryTranscriptMutation.isPending ? (
-                <Loader2 className="h-2.5 w-2.5 animate-spin" />
-              ) : (
-                <RotateCcw className="h-2.5 w-2.5" />
-              )}
-              Retry Transcript
-            </Badge>
-          </button>
-        )}
-        {captionStatus === "failed" && (
-          <button
-            onClick={handleRetryCaptions}
-            disabled={retryCaptionMutation.isPending}
-            className="inline-flex items-center gap-0.5 cursor-pointer"
-            title="Click to retry captioning"
-          >
-            <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-red-500/10 text-red-600 border-red-500/30 gap-0.5 hover:bg-red-500/20 transition-colors">
-              {retryCaptionMutation.isPending ? (
-                <Loader2 className="h-2.5 w-2.5 animate-spin" />
-              ) : (
-                <RotateCcw className="h-2.5 w-2.5" />
-              )}
-              Retry Captions
-            </Badge>
-          </button>
-        )}
-      </div>
-
       {/* Section toggle buttons + Find Matches */}
       <div className="flex items-center gap-1 flex-wrap">
         <Button
@@ -585,6 +523,67 @@ export function VideoCardDetails({ videoId, fileId, hasTranscript, videoRef }: V
           )}
         </div>
       )}
+      {/* Status badges row - at the bottom */}
+      <div className="flex items-center gap-1 flex-wrap">
+        {transcriptStatus === "completed" && (
+          <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-green-500/10 text-green-600 border-green-500/30 gap-0.5">
+            <CheckCircle2 className="h-2.5 w-2.5" />
+            Transcribed
+          </Badge>
+        )}
+        {transcriptStatus === "processing" && (
+          <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-yellow-500/10 text-yellow-600 border-yellow-500/30 gap-0.5">
+            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+            Transcribing
+          </Badge>
+        )}
+        {captionStatus === "completed" && (
+          <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-blue-500/10 text-blue-600 border-blue-500/30 gap-0.5">
+            <CheckCircle2 className="h-2.5 w-2.5" />
+            Captioned
+          </Badge>
+        )}
+        {captionStatus === "processing" && (
+          <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-yellow-500/10 text-yellow-600 border-yellow-500/30 gap-0.5">
+            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+            Captioning
+          </Badge>
+        )}
+        {transcriptStatus === "failed" && (
+          <button
+            onClick={handleRetryTranscript}
+            disabled={retryTranscriptMutation.isPending}
+            className="inline-flex items-center gap-0.5 cursor-pointer"
+            title="Click to retry transcription"
+          >
+            <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-red-500/10 text-red-600 border-red-500/30 gap-0.5 hover:bg-red-500/20 transition-colors">
+              {retryTranscriptMutation.isPending ? (
+                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+              ) : (
+                <RotateCcw className="h-2.5 w-2.5" />
+              )}
+              Retry Transcript
+            </Badge>
+          </button>
+        )}
+        {captionStatus === "failed" && (
+          <button
+            onClick={handleRetryCaptions}
+            disabled={retryCaptionMutation.isPending}
+            className="inline-flex items-center gap-0.5 cursor-pointer"
+            title="Click to retry captioning"
+          >
+            <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-red-500/10 text-red-600 border-red-500/30 gap-0.5 hover:bg-red-500/20 transition-colors">
+              {retryCaptionMutation.isPending ? (
+                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+              ) : (
+                <RotateCcw className="h-2.5 w-2.5" />
+              )}
+              Retry Captions
+            </Badge>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

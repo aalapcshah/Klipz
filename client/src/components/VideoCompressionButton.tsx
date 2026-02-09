@@ -237,12 +237,11 @@ export function VideoCompressionButton({
         <Button
           variant="ghost"
           size="sm"
-          className="h-6 px-1.5 text-[10px] text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+          className="h-6 px-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
           onClick={() => setDialogOpen(true)}
           title="Compress video (server-side with FFmpeg)"
         >
-          <Shrink className="h-2.5 w-2.5 mr-0.5" />
-          Compress
+          <Shrink className="h-2.5 w-2.5" />
         </Button>
       ) : (
         <Button

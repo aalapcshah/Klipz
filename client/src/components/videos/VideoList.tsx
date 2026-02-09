@@ -803,15 +803,22 @@ export function VideoList() {
 
             {/* Video Info */}
             <div className="space-y-2">
-              {/* Title with draft badge */}
+              {/* Title with resolution badge and draft badge */}
               <div className="flex items-center justify-between gap-2">
-                <h3 
-                  className="text-sm font-medium truncate flex-1 cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => setLocation(`/videos/${video.id}`)}
-                  title="Open video detail view"
-                >
-                  {video.title || video.filename}
-                </h3>
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <h3 
+                    className="text-sm font-medium truncate cursor-pointer hover:text-primary transition-colors"
+                    onClick={() => setLocation(`/videos/${video.id}`)}
+                    title="Open video detail view"
+                  >
+                    {video.title || video.filename}
+                  </h3>
+                  {getResolutionLabel(video.width, video.height) && (
+                    <Badge variant="outline" className="text-xs shrink-0 text-blue-600 border-blue-300">
+                      {getResolutionLabel(video.width, video.height)}
+                    </Badge>
+                  )}
+                </div>
                 {video.exportStatus && (
                   <Badge
                     variant={
@@ -828,13 +835,8 @@ export function VideoList() {
                 )}
               </div>
               
-              {/* Resolution, annotations, tags, and action buttons on same line */}
+              {/* Annotations, tags, share, and action buttons on same line */}
               <div className="flex items-center gap-1 flex-nowrap">
-                {getResolutionLabel(video.width, video.height) && (
-                  <Badge variant="outline" className="text-xs shrink-0 text-blue-600 border-blue-300">
-                    {getResolutionLabel(video.width, video.height)}
-                  </Badge>
-                )}
                 {(video.voiceAnnotationCount > 0 || video.visualAnnotationCount > 0) && (
                   <>
                     {video.voiceAnnotationCount > 0 && (
@@ -852,9 +854,18 @@ export function VideoList() {
                   </>
                 )}
                 <VideoTagManager videoId={video.id} onTagsChange={refetch} />
-                <VideoCompressionButton fileId={video.fileId} />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-1.5 text-[10px]"
+                  onClick={() => setShareVideo({ id: video.id, title: video.title || video.filename })}
+                  title="Share video"
+                >
+                  <Share2 className="h-2.5 w-2.5 mr-0.5" />
+                  Share Files
+                </Button>
                 
-                {/* Action buttons inline - removed Play button, added download/delete */}
+                {/* Action buttons inline */}
                 <div className="flex items-center gap-1 ml-auto shrink-0">
                   <Button
                     variant="ghost"
@@ -938,6 +949,7 @@ export function VideoList() {
                       <Cloud className="h-2.5 w-2.5" />
                     </Button>
                   )}
+                  <VideoCompressionButton fileId={video.fileId} />
                   <Button
                     variant="ghost"
                     size="sm"
