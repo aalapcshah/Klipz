@@ -5690,3 +5690,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Check server-side finalization step - rewrote to process chunks in batches of 10 with 3x retry and exponential backoff
 - [x] Added 'finalizing' status to DB schema and UI - shows spinner with "Assembling and uploading to storage..."
 - [x] Test with large file upload end-to-end - 7 vitest tests passing
+
+## Bug Fix: Uploads Not Working - Component Lifecycle Issue (Feb 8)
+- [x] Root cause: useResumableUpload hook creates React Query mutations tied to component lifecycle; when FileUploadDialog unmounts, mutations become stale and upload loop dies
+- [x] Fix: Replaced React Query mutateAsync() calls with direct fetch() calls to tRPC endpoint for chunk uploads and finalization
+- [x] Added trpcCall helper function that uses superjson serialization and bypasses React component lifecycle
+- [x] Used refs (optionsRef, setSessionsRef) to ensure upload loop always calls latest state setters
+- [x] Kept React Query mutations only for non-upload-loop operations (create session, pause, cancel)
+- [x] Tests: 9 vitest tests passing for direct fetch architecture

@@ -1,0 +1,36 @@
+{
+  "query": "SELECT id, sessionToken, filename, ROUND(fileSize/1024/1024, 1) as sizeMB, status, totalChunks, uploadedChunks, ROUND(uploadedBytes/1024/1024, 1) as uploadedMB, createdAt, lastActivityAt, expiresAt FROM resumable_upload_sessions ORDER BY id DESC LIMIT 10",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, sessionToken, filename, ROUND(fileSize/1024/1024, 1) as sizeMB, status, totalChunks, uploadedChunks, ROUND(uploadedBytes/1024/1024, 1) as uploadedMB, createdAt, lastActivityAt, expiresAt FROM resumable_upload_sessions ORDER BY id DESC LIMIT 10",
+  "rows": [
+    {
+      "id": "60006",
+      "sessionToken": "0IYXY9KjJ1gSjs2POb9QHxCcDyXMdhB1",
+      "filename": "Video 10 - No More Research.mp4",
+      "sizeMB": "461.4",
+      "status": "active",
+      "totalChunks": "93",
+      "uploadedChunks": "0",
+      "uploadedMB": "0.0",
+      "createdAt": "2026-02-09 07:44:34",
+      "lastActivityAt": "2026-02-09 07:44:34",
+      "expiresAt": "2026-02-10 07:44:34"
+    },
+    {
+      "id": "60005",
+      "sessionToken": "d8QP_XHY58Gmm6R9vurbpc5rEYjRHpCK",
+      "filename": "Video 10 - No More Research_V2.mp4",
+      "sizeMB": "259.3",
+      "status": "active",
+      "totalChunks": "52",
+      "uploadedChunks": "4",
+      "uploadedMB": "20.0",
+      "createdAt": "2026-02-09 07:44:07",
+      "lastActivityAt": "2026-02-09 07:44:36",
+      "expiresAt": "2026-02-10 07:44:36"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tsessionToken\tfilename\tsizeMB\tstatus\ttotalChunks\tuploadedChunks\tuploadedMB\tcreatedAt\tlastActivityAt\texpiresAt\n60006\t0IYXY9KjJ1gSjs2POb9QHxCcDyXMdhB1\tVideo 10 - No More Research.mp4\t461.4\tactive\t93\t0\t0.0\t2026-02-09 07:44:34\t2026-02-09 07:44:34\t2026-02-10 07:44:34\n60005\td8QP_XHY58Gmm6R9vurbpc5rEYjRHpCK\tVideo 10 - No More Research_V2.mp4\t259.3\tactive\t52\t4\t20.0\t2026-02-09 07:44:07\t2026-02-09 07:44:36\t2026-02-10 07:44:36\n",
+  "stderr": "",
+  "execution_time_ms": 362
+}

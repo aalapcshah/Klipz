@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import superjson from "superjson";
 
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks (matches server)
 const STORAGE_KEY = "metaclips-resumable-uploads";
@@ -43,6 +44,38 @@ interface UseResumableUploadOptions {
   autoResume?: boolean;
   /** Delay in ms to add between chunk uploads for throttling (0 = no throttle) */
   chunkDelayMs?: number;
+}
+
+/**
+ * Direct tRPC call via fetch - bypasses React Query lifecycle entirely.
+ * This ensures upload loops survive component unmounts.
+ */
+async function trpcCall<T>(procedure: string, input: any): Promise<T> {
+  const serialized = superjson.serialize(input);
+  const response = await fetch(`/api/trpc/${procedure}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(serialized),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "Unknown error");
+    throw new Error(`tRPC call ${procedure} failed (${response.status}): ${errorText}`);
+  }
+
+  const json = await response.json();
+  if (json.error) {
+    const errorMessage = json.error?.message || json.error?.json?.message || JSON.stringify(json.error);
+    throw new Error(`tRPC error in ${procedure}: ${errorMessage}`);
+  }
+
+  // Deserialize superjson response
+  const result = json.result?.data;
+  if (result?.json !== undefined) {
+    return superjson.deserialize({ json: result.json, meta: result.meta }) as T;
+  }
+  return result as T;
 }
 
 /**
@@ -121,16 +154,19 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   const activeUploadsRef = useRef<Set<string>>(new Set());
   const autoResumedRef = useRef(false);
   const chunkDelayRef = useRef(options.chunkDelayMs ?? 0);
+  // Keep refs to callbacks so the upload loop always calls the latest version
+  const optionsRef = useRef(options);
+  useEffect(() => { optionsRef.current = options; }, [options]);
+  const setSessionsRef = useRef(setSessions);
+  useEffect(() => { setSessionsRef.current = setSessions; }, [setSessions]);
 
   // Keep chunkDelay ref in sync with options
   useEffect(() => {
     chunkDelayRef.current = options.chunkDelayMs ?? 0;
   }, [options.chunkDelayMs]);
 
-  // tRPC mutations
+  // tRPC mutations - only used for non-upload-loop operations (create session, pause, cancel, thumbnail)
   const createSessionMutation = trpc.resumableUpload.createSession.useMutation();
-  const uploadChunkMutation = trpc.resumableUpload.uploadChunk.useMutation();
-  const finalizeUploadMutation = trpc.resumableUpload.finalizeUpload.useMutation();
   const pauseSessionMutation = trpc.resumableUpload.pauseSession.useMutation();
   const cancelSessionMutation = trpc.resumableUpload.cancelSession.useMutation();
   const saveThumbnailMutation = trpc.resumableUpload.saveThumbnail.useMutation();
@@ -140,7 +176,6 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     undefined,
     { enabled: true }
   );
-  const getSessionStatusQuery = trpc.resumableUpload.getSessionStatus.useQuery;
 
   // Load sessions from server on mount
   useEffect(() => {
@@ -185,7 +220,6 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
             action: {
               label: "View",
               onClick: () => {
-                // Scroll to upload section or open upload dialog
                 document.getElementById("resumable-uploads-banner")?.scrollIntoView({ behavior: "smooth" });
               },
             },
@@ -263,12 +297,13 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
       if (file.type.startsWith('video/')) {
         generateVideoThumbnail(file).then((thumbnailBase64: string | null) => {
           if (thumbnailBase64) {
-            saveThumbnailMutation.mutateAsync({
+            // Use direct fetch for thumbnail too (fire and forget)
+            trpcCall<{ thumbnailUrl: string | null }>('resumableUpload.saveThumbnail', {
               sessionToken: result.sessionToken,
               thumbnailBase64,
-            }).then((res: { thumbnailUrl: string | null }) => {
-              if (res.thumbnailUrl) {
-                setSessions(prev => prev.map(s =>
+            }).then((res) => {
+              if (res?.thumbnailUrl) {
+                setSessionsRef.current(prev => prev.map(s =>
                   s.sessionToken === result.sessionToken
                     ? { ...s, thumbnailUrl: res.thumbnailUrl }
                     : s
@@ -289,7 +324,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     }
   }, [createSessionMutation]);
 
-  // Upload chunks for a session
+  // Upload chunks for a session - uses direct fetch calls, survives component unmounts
   const uploadChunks = useCallback(async (session: ResumableUploadSession, file: File) => {
     const abortController = new AbortController();
     abortControllersRef.current.set(session.sessionToken, abortController);
@@ -314,7 +349,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
           await new Promise(resolve => setTimeout(resolve, chunkDelayRef.current));
         }
 
-        // Upload chunk with retries (includes file read retry)
+        // Upload chunk with retries
         let retries = 0;
         const maxRetries = 3;
         
@@ -325,11 +360,18 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
             // Read chunk inside retry loop so file read failures are also retried
             const chunkData = await readChunkAsBase64(file, start, end);
             
-            const result = await uploadChunkMutation.mutateAsync({
+            // Use direct fetch instead of React Query mutation
+            const result = await trpcCall<{
+              uploadedChunks: number;
+              totalChunks: number;
+              uploadedBytes: number;
+            }>('resumableUpload.uploadChunk', {
               sessionToken: session.sessionToken,
               chunkIndex: i,
               chunkData,
             });
+
+            console.log(`[ResumableUpload] Chunk ${i + 1}/${session.totalChunks} uploaded for ${session.filename}`);
 
             // Update session state
             const now = Date.now();
@@ -344,7 +386,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
               lastBytesForSpeed = result.uploadedBytes;
             }
 
-            setSessions(prev => prev.map(s => 
+            setSessionsRef.current(prev => prev.map(s => 
               s.sessionToken === session.sessionToken
                 ? {
                     ...s,
@@ -357,7 +399,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
                 : s
             ));
 
-            options.onProgress?.({
+            optionsRef.current.onProgress?.({
               ...session,
               uploadedChunks: result.uploadedChunks,
               uploadedBytes: result.uploadedBytes,
@@ -369,48 +411,62 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
             break; // Success, exit retry loop
           } catch (error: any) {
             retries++;
+            console.warn(`[ResumableUpload] Chunk ${i} attempt ${retries} failed: ${error?.message}`);
             if (retries >= maxRetries) {
               throw new Error(`Failed to upload chunk ${i} after ${maxRetries} retries: ${error?.message || 'Unknown error'}`);
             }
-            console.warn(`[ResumableUpload] Chunk ${i} attempt ${retries} failed: ${error?.message}, retrying...`);
-            // Exponential backoff (longer for memory recovery on mobile)
+            // Exponential backoff
             await new Promise(resolve => setTimeout(resolve, 1500 * Math.pow(2, retries)));
           }
         }
       }
 
       // All chunks uploaded, finalize
-      const finalResult = await finalizeUploadMutation.mutateAsync({
+      console.log(`[ResumableUpload] All chunks uploaded for ${session.filename}, starting finalization...`);
+
+      setSessionsRef.current(prev => prev.map(s => 
+        s.sessionToken === session.sessionToken
+          ? { ...s, status: "finalizing" as const, progress: 100 }
+          : s
+      ));
+
+      const finalResult = await trpcCall<{
+        fileId: number;
+        videoId?: number;
+        url: string;
+      }>('resumableUpload.finalizeUpload', {
         sessionToken: session.sessionToken,
       });
 
-      setSessions(prev => prev.map(s => 
+      console.log(`[ResumableUpload] Finalization complete for ${session.filename}:`, finalResult);
+
+      setSessionsRef.current(prev => prev.map(s => 
         s.sessionToken === session.sessionToken
           ? { ...s, status: "completed" as const, progress: 100 }
           : s
       ));
 
-      options.onComplete?.(session, finalResult);
+      optionsRef.current.onComplete?.(session, finalResult);
       toast.success(`${session.filename} uploaded successfully!`);
 
     } catch (error) {
       if (!abortController.signal.aborted) {
         console.error("[ResumableUpload] Upload failed:", error);
         
-        setSessions(prev => prev.map(s => 
+        setSessionsRef.current(prev => prev.map(s => 
           s.sessionToken === session.sessionToken
             ? { ...s, status: "error" as const, error: error instanceof Error ? error.message : "Upload failed" }
             : s
         ));
 
-        options.onError?.(session, error instanceof Error ? error : new Error("Upload failed"));
-        toast.error(`Failed to upload ${session.filename}`);
+        optionsRef.current.onError?.(session, error instanceof Error ? error : new Error("Upload failed"));
+        toast.error(`Failed to upload ${session.filename}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     } finally {
       activeUploadsRef.current.delete(session.sessionToken);
       abortControllersRef.current.delete(session.sessionToken);
     }
-  }, [uploadChunkMutation, finalizeUploadMutation, readChunkAsBase64, options]);
+  }, [readChunkAsBase64]);
 
   // Auto-resume: when sessions load and have file references in memory, auto-resume them
   useEffect(() => {
