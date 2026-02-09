@@ -387,9 +387,11 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
               Transcription in progress...
             </div>
           ) : transcript && transcript.status === "failed" ? (
-            <div className="flex items-center gap-2 text-xs text-destructive py-2">
-              <AlertCircle className="h-3 w-3" />
-              Transcription failed. Click the Transcript button above to retry.
+            <div className="space-y-1 py-2">
+              <div className="flex items-start gap-2 text-xs text-destructive">
+                <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                <span>{(transcript as any).errorMessage || "Transcription failed. Click the Transcript button above to retry."}</span>
+              </div>
             </div>
           ) : (
             <div className="text-xs text-muted-foreground py-2">
@@ -443,9 +445,11 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
               Captioning in progress...
             </div>
           ) : captions && captions.status === "failed" ? (
-            <div className="flex items-center gap-2 text-xs text-destructive py-2">
-              <AlertCircle className="h-3 w-3" />
-              Captioning failed{captions.errorMessage ? `: ${captions.errorMessage}` : ""}. Click the Captions button above to retry.
+            <div className="space-y-1 py-2">
+              <div className="flex items-start gap-2 text-xs text-destructive">
+                <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                <span>{captions.errorMessage || "Visual captioning failed. Click the Captions button above to retry."}</span>
+              </div>
             </div>
           ) : (
             <div className="text-xs text-muted-foreground py-2">

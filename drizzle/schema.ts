@@ -187,6 +187,9 @@ export const videoTranscripts = mysqlTable("video_transcripts", {
   // Processing status
   status: mysqlEnum("status", ["pending", "processing", "completed", "failed"]).default("pending").notNull(),
   
+  // Error tracking
+  errorMessage: text("errorMessage"),
+  
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

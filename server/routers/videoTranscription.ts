@@ -6,6 +6,7 @@ import { invokeLLM } from "../_core/llm";
 import * as db from "../db";
 import { videoTranscripts, fileSuggestions, files } from "../../drizzle/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { getTranscriptionErrorMessage } from "../lib/errorMessages";
 
 /**
  * LLM-based transcription fallback for large video files that exceed Whisper's 16MB limit.
@@ -140,10 +141,11 @@ Detect the language automatically.`,
       },
     };
   } catch (error: any) {
-    await db.updateVideoTranscriptStatus(transcriptId, "failed");
+    const userMessage = getTranscriptionErrorMessage(error.message);
+    await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
-      message: `Transcription failed (LLM fallback): ${error.message}`,
+      message: userMessage,
     });
   }
 }
@@ -225,10 +227,11 @@ export const videoTranscriptionRouter = router({
             console.log(`[Transcription] File ${input.fileId} too large for Whisper (${result.details}), falling back to LLM transcription`);
             return await transcribeWithLLM(file, transcriptId);
           }
-          await db.updateVideoTranscriptStatus(transcriptId, "failed");
+          const userMessage = getTranscriptionErrorMessage(result.error, result.code);
+          await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
-            message: `Transcription failed: ${result.error}`,
+            message: userMessage,
           });
         }
 
@@ -272,10 +275,11 @@ export const videoTranscriptionRouter = router({
           },
         };
       } catch (error: any) {
-        await db.updateVideoTranscriptStatus(transcriptId, "failed");
+        const userMessage = getTranscriptionErrorMessage(error.message);
+        await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: `Transcription failed: ${error.message}`,
+          message: userMessage,
         });
       }
     }),

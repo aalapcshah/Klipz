@@ -2570,14 +2570,15 @@ export async function updateVideoTranscript(
 
 export async function updateVideoTranscriptStatus(
   transcriptId: number,
-  status: "pending" | "processing" | "completed" | "failed"
+  status: "pending" | "processing" | "completed" | "failed",
+  errorMessage?: string | null
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
   await db
     .update(videoTranscripts)
-    .set({ status })
+    .set({ status, errorMessage: errorMessage ?? (status === "processing" ? null : undefined) })
     .where(eq(videoTranscripts.id, transcriptId));
 }
 

@@ -1,0 +1,1 @@
+ALTER TABLE `video_transcripts` ADD `errorMessage` text;

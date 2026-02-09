@@ -5759,3 +5759,14 @@ Note: The application already has extensive annotation features including voice 
 ## UI/Bug Fix - Retry Buttons and Retry Functionality
 - [x] Remove redundant "Retry Transcript" and "Retry Captions" buttons from VideoCardDetails
 - [x] Fix retry transcription/captioning not working for previously uploaded files
+
+## Fix Stuck Upload & Improve Error Messages
+- [x] Fix file upload stuck at "Queued" status (0 B uploaded) for large files (~112 MB)
+- [x] Rewrite FileUploadProcessor to use direct fetch instead of React Query mutations
+- [x] Extract trpcCall helper to shared utility (client/src/lib/trpcCall.ts)
+- [x] Improve error messages for transcription/captioning failures to surface specific reasons
+- [x] Add errorMessage field to videoTranscripts table
+- [x] Create shared error message helpers (server/lib/errorMessages.ts)
+- [x] Store user-friendly error messages in database for both transcript and caption failures
+- [x] Display stored error messages in VideoCardDetails expanded sections
+- [x] Write unit tests for error message helpers (17 tests passing)

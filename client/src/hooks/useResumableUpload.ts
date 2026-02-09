@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import superjson from "superjson";
+import { trpcCall } from "@/lib/trpcCall";
 
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks (matches server)
 const STORAGE_KEY = "metaclips-resumable-uploads";
@@ -46,37 +46,7 @@ interface UseResumableUploadOptions {
   chunkDelayMs?: number;
 }
 
-/**
- * Direct tRPC call via fetch - bypasses React Query lifecycle entirely.
- * This ensures upload loops survive component unmounts.
- */
-async function trpcCall<T>(procedure: string, input: any): Promise<T> {
-  const serialized = superjson.serialize(input);
-  const response = await fetch(`/api/trpc/${procedure}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(serialized),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => "Unknown error");
-    throw new Error(`tRPC call ${procedure} failed (${response.status}): ${errorText}`);
-  }
-
-  const json = await response.json();
-  if (json.error) {
-    const errorMessage = json.error?.message || json.error?.json?.message || JSON.stringify(json.error);
-    throw new Error(`tRPC error in ${procedure}: ${errorMessage}`);
-  }
-
-  // Deserialize superjson response
-  const result = json.result?.data;
-  if (result?.json !== undefined) {
-    return superjson.deserialize({ json: result.json, meta: result.meta }) as T;
-  }
-  return result as T;
-}
+// trpcCall is now imported from @/lib/trpcCall
 
 /**
  * Generate a thumbnail from a video file using a hidden <video> + <canvas>

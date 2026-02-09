@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../_core/llm";
 import * as db from "../db";
 import { getAutoCaptioningStatus, processScheduledAutoCaptioning } from "../_core/scheduledAutoCaptioning";
+import { getCaptioningErrorMessage } from "../lib/errorMessages";
 
 /**
  * Video Visual Captions Router
@@ -202,13 +203,14 @@ Generate captions for the entire duration of the video. If the video is short, p
           captions,
         };
       } catch (error: any) {
+        const userMessage = getCaptioningErrorMessage(error.message);
         await db.updateVisualCaption(captionId, {
           status: "failed",
-          errorMessage: error.message,
+          errorMessage: userMessage,
         });
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: `Visual captioning failed: ${error.message}`,
+          message: userMessage,
         });
       }
     }),
