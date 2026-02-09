@@ -1,5 +1,5 @@
 import { trpc } from "@/lib/trpc";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +18,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+export interface VideoCardDetailsHandle {
+  handleFindMatches: () => void;
+  isFindingMatches: boolean;
+  canFindMatches: boolean;
+}
+
 interface VideoCardDetailsProps {
   videoId: number;
   fileId: number | null;
@@ -31,7 +37,7 @@ function formatTimestamp(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export function VideoCardDetails({ videoId, fileId, hasTranscript, videoRef }: VideoCardDetailsProps) {
+export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDetailsProps>(function VideoCardDetails({ videoId, fileId, hasTranscript, videoRef }, ref) {
   const [expandedSection, setExpandedSection] = useState<"transcript" | "captions" | "matches" | null>(null);
 
   const utils = trpc.useUtils();
@@ -92,6 +98,16 @@ export function VideoCardDetails({ videoId, fileId, hasTranscript, videoRef }: V
   });
 
   const isFindingMatches = generateVisualMatchesMutation.isPending || generateTranscriptMatchesMutation.isPending;
+
+  // Determine if Find Matches can be triggered
+  const canFindMatches = !!fileId && !isFindingMatches && !!(transcript?.status || captions?.status);
+
+  // Expose handleFindMatches via ref for parent components
+  useImperativeHandle(ref, () => ({
+    handleFindMatches,
+    isFindingMatches,
+    canFindMatches,
+  }), [isFindingMatches, canFindMatches]);
 
   // Retry mutations for failed transcriptions/captions
   const retryTranscriptMutation = trpc.videoTranscription.transcribeVideo.useMutation({
@@ -267,22 +283,7 @@ export function VideoCardDetails({ videoId, fileId, hasTranscript, videoRef }: V
           )}
         </Button>
 
-        {/* Find Matches button */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-6 px-2 text-[10px] gap-1 ml-auto text-orange-600 border-orange-300 hover:bg-orange-50 hover:text-orange-700"
-          onClick={handleFindMatches}
-          disabled={isFindingMatches || (!transcript?.status && !captions?.status)}
-          title="Run AI file matching against your uploaded files"
-        >
-          {isFindingMatches ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <Search className="h-3 w-3" />
-          )}
-          Find Matches
-        </Button>
+
       </div>
 
       {/* Expanded content */}
@@ -586,4 +587,4 @@ export function VideoCardDetails({ videoId, fileId, hasTranscript, videoRef }: V
       </div>
     </div>
   );
-}
+});

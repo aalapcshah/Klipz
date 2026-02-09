@@ -1,0 +1,32 @@
+{
+  "query": "SELECT id, userId, filename, fileSize, status, totalChunks, uploadedChunks, createdAt, completedAt FROM resumable_upload_sessions ORDER BY id DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, userId, filename, fileSize, status, totalChunks, uploadedChunks, createdAt, completedAt FROM resumable_upload_sessions ORDER BY id DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "60009",
+      "userId": "1",
+      "filename": "Video 10 - No More Research_V2.mp4",
+      "fileSize": "271898467",
+      "status": "active",
+      "totalChunks": "52",
+      "uploadedChunks": "17",
+      "createdAt": "2026-02-09 08:30:42",
+      "completedAt": "NULL"
+    },
+    {
+      "id": "60008",
+      "userId": "1",
+      "filename": "Video 10 - No More Research.mp4",
+      "fileSize": "483822037",
+      "status": "active",
+      "totalChunks": "93",
+      "uploadedChunks": "26",
+      "createdAt": "2026-02-09 08:28:32",
+      "completedAt": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tuserId\tfilename\tfileSize\tstatus\ttotalChunks\tuploadedChunks\tcreatedAt\tcompletedAt\n60009\t1\tVideo 10 - No More Research_V2.mp4\t271898467\tactive\t52\t17\t2026-02-09 08:30:42\tNULL\n60008\t1\tVideo 10 - No More Research.mp4\t483822037\tactive\t93\t26\t2026-02-09 08:28:32\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 372
+}

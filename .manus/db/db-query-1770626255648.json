@@ -1,0 +1,38 @@
+{
+  "query": "SELECT id, userId, sessionToken, filename, fileSize, status, totalChunks, uploadedChunks, uploadedBytes, createdAt, completedAt, expiresAt FROM resumable_upload_sessions ORDER BY id DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, userId, sessionToken, filename, fileSize, status, totalChunks, uploadedChunks, uploadedBytes, createdAt, completedAt, expiresAt FROM resumable_upload_sessions ORDER BY id DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "60009",
+      "userId": "1",
+      "sessionToken": "B9XPppfH0o-1MJMieOf51En0uGkUe8Id",
+      "filename": "Video 10 - No More Research_V2.mp4",
+      "fileSize": "271898467",
+      "status": "active",
+      "totalChunks": "52",
+      "uploadedChunks": "17",
+      "uploadedBytes": "89128960",
+      "createdAt": "2026-02-09 08:30:42",
+      "completedAt": "NULL",
+      "expiresAt": "2026-02-10 08:33:23"
+    },
+    {
+      "id": "60008",
+      "userId": "1",
+      "sessionToken": "z5n2q8xNA-V7k2UJVUPz_hA3SjSZOqWq",
+      "filename": "Video 10 - No More Research.mp4",
+      "fileSize": "483822037",
+      "status": "active",
+      "totalChunks": "93",
+      "uploadedChunks": "26",
+      "uploadedBytes": "136314880",
+      "createdAt": "2026-02-09 08:28:32",
+      "completedAt": "NULL",
+      "expiresAt": "2026-02-10 08:33:21"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tuserId\tsessionToken\tfilename\tfileSize\tstatus\ttotalChunks\tuploadedChunks\tuploadedBytes\tcreatedAt\tcompletedAt\texpiresAt\n60009\t1\tB9XPppfH0o-1MJMieOf51En0uGkUe8Id\tVideo 10 - No More Research_V2.mp4\t271898467\tactive\t52\t17\t89128960\t2026-02-09 08:30:42\tNULL\t2026-02-10 08:33:23\n60008\t1\tz5n2q8xNA-V7k2UJVUPz_hA3SjSZOqWq\tVideo 10 - No More Research.mp4\t483822037\tactive\t93\t26\t136314880\t2026-02-09 08:28:32\tNULL\t2026-02-10 08:33:21\n",
+  "stderr": "",
+  "execution_time_ms": 348
+}

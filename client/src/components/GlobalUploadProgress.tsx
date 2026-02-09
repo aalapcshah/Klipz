@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useUploadManager, formatSpeed, formatEta } from "@/contexts/UploadManagerContext";
+import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -30,9 +31,11 @@ import {
   RefreshCw,
   Clock,
   Calendar,
-  FileIcon
+  FileIcon,
+  FolderOpen
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLocation } from "wouter";
 
 export function GlobalUploadProgress() {
   const {
@@ -56,19 +59,33 @@ export function GlobalUploadProgress() {
     retryingCount,
   } = useUploadManager();
 
+  // Fetch resumable upload sessions from server
+  const { data: resumableSessions } = trpc.resumableUpload.listActiveSessions.useQuery(
+    undefined,
+    { refetchInterval: 5000 } // Poll every 5 seconds
+  );
+
+  const [, navigate] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [scheduleUploadId, setScheduleUploadId] = useState<string | null>(null);
   const [scheduleTime, setScheduleTime] = useState("");
 
-  // Don't show if no uploads
-  if (uploads.length === 0) {
+  // Filter resumable sessions to only active/paused ones
+  const activeResumableSessions = (resumableSessions || []).filter(
+    (s: any) => s.status === "active" || s.status === "paused" || s.status === "finalizing"
+  );
+
+  const resumableCount = activeResumableSessions.length;
+
+  // Don't show if no uploads of either kind
+  if (uploads.length === 0 && resumableCount === 0) {
     return null;
   }
 
-  const hasActiveUploads = activeUploads.length > 0;
-  const totalUploads = uploads.length;
+  const hasActiveUploads = activeUploads.length > 0 || resumableCount > 0;
+  const totalUploads = uploads.length + resumableCount;
   const finishedUploads = uploads.filter(u => u.status === 'completed' || u.status === 'error' || u.status === 'cancelled').length;
 
   const formatFileSize = (bytes: number): string => {
@@ -137,6 +154,29 @@ export function GlobalUploadProgress() {
     }
   };
 
+  // Compute overall progress including resumable sessions
+  const resumableActiveCount = activeResumableSessions.filter((s: any) => s.status === "active").length;
+  const resumablePausedCount = activeResumableSessions.filter((s: any) => s.status === "paused").length;
+  const allActiveCount = uploadingCount + resumableActiveCount;
+  const allPausedCount = pausedCount + resumablePausedCount;
+
+  // Combined progress
+  let combinedProgress = totalProgress;
+  if (resumableCount > 0 && uploads.length === 0) {
+    // Only resumable sessions - calculate their average progress
+    const totalResumableProgress = activeResumableSessions.reduce((acc: number, s: any) => {
+      return acc + (s.totalChunks > 0 ? (s.uploadedChunks / s.totalChunks) * 100 : 0);
+    }, 0);
+    combinedProgress = totalResumableProgress / resumableCount;
+  } else if (resumableCount > 0 && uploads.length > 0) {
+    // Mix of both - weighted average
+    const totalItems = uploads.length + resumableCount;
+    const resumableAvg = activeResumableSessions.reduce((acc: number, s: any) => {
+      return acc + (s.totalChunks > 0 ? (s.uploadedChunks / s.totalChunks) * 100 : 0);
+    }, 0) / resumableCount;
+    combinedProgress = (totalProgress * uploads.length + resumableAvg * resumableCount) / totalItems;
+  }
+
   return (
     <>
       <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -149,23 +189,25 @@ export function GlobalUploadProgress() {
               hasActiveUploads && "text-primary"
             )}
           >
-            {isUploading ? (
+            {isUploading || resumableActiveCount > 0 ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : retryingCount > 0 ? (
               <RefreshCw className="h-4 w-4 animate-spin text-orange-500" />
-            ) : pausedCount > 0 ? (
+            ) : allPausedCount > 0 ? (
               <Pause className="h-4 w-4 text-yellow-500" />
             ) : scheduledCount > 0 ? (
               <Calendar className="h-4 w-4 text-blue-500" />
             ) : completedCount > 0 ? (
               <CheckCircle2 className="h-4 w-4 text-green-500" />
+            ) : resumableCount > 0 ? (
+              <RefreshCw className="h-4 w-4 text-amber-500" />
             ) : (
               <Upload className="h-4 w-4" />
             )}
             
             {hasActiveUploads && (
               <span className="text-sm font-medium">
-                {Math.round(totalProgress)}%
+                {Math.round(combinedProgress)}%
               </span>
             )}
             
@@ -180,7 +222,7 @@ export function GlobalUploadProgress() {
               <div className="absolute -bottom-1 left-0 right-0 h-0.5 bg-muted overflow-hidden rounded-full">
                 <div 
                   className="h-full bg-primary transition-all duration-300"
-                  style={{ width: `${totalProgress}%` }}
+                  style={{ width: `${combinedProgress}%` }}
                 />
               </div>
             )}
@@ -194,9 +236,9 @@ export function GlobalUploadProgress() {
               <span className="font-semibold">Uploads</span>
               {hasActiveUploads && (
                 <span className="text-xs text-muted-foreground">
-                  ({uploadingCount > 0 && `${uploadingCount} uploading`}
-                  {pendingCount > 0 && `${uploadingCount > 0 ? ', ' : ''}${pendingCount} pending`}
-                  {pausedCount > 0 && `, ${pausedCount} paused`}
+                  ({allActiveCount > 0 && `${allActiveCount} uploading`}
+                  {pendingCount > 0 && `${allActiveCount > 0 ? ', ' : ''}${pendingCount} pending`}
+                  {allPausedCount > 0 && `, ${allPausedCount} paused`}
                   {retryingCount > 0 && `, ${retryingCount} retrying`}
                   {scheduledCount > 0 && `, ${scheduledCount} scheduled`})
                 </span>
@@ -230,12 +272,96 @@ export function GlobalUploadProgress() {
           
           {isExpanded && (
             <div className="max-h-80 overflow-y-auto">
-              {uploads.length === 0 ? (
+              {uploads.length === 0 && resumableCount === 0 ? (
                 <div className="p-4 text-center text-muted-foreground">
                   No uploads
                 </div>
               ) : (
                 <div className="divide-y">
+                  {/* Resumable upload sessions (large files) */}
+                  {activeResumableSessions.map((session: any) => {
+                    const progress = session.totalChunks > 0 
+                      ? (session.uploadedChunks / session.totalChunks) * 100 
+                      : 0;
+                    return (
+                      <div key={session.sessionToken} className="p-3">
+                        <div className="flex items-start gap-3">
+                          {session.thumbnailUrl ? (
+                            <div className="w-8 h-8 rounded overflow-hidden bg-muted flex-shrink-0 mt-0.5">
+                              <img 
+                                src={session.thumbnailUrl} 
+                                alt={session.filename}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ) : session.uploadType === 'video' ? (
+                            <Video className="h-8 w-8 text-muted-foreground flex-shrink-0 mt-0.5" />
+                          ) : (
+                            <FileIcon className="h-8 w-8 text-muted-foreground flex-shrink-0 mt-0.5" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{session.filename}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatFileSize(Number(session.fileSize))}
+                                  <span className="ml-1 text-amber-500">(resumable)</span>
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {session.status === "active" ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                ) : session.status === "finalizing" ? (
+                                  <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
+                                ) : (
+                                  <Pause className="h-4 w-4 text-yellow-500" />
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Progress bar */}
+                            <div className="mt-2">
+                              <Progress 
+                                value={progress} 
+                                className={cn(
+                                  "h-1.5", 
+                                  session.status === 'paused' && "[&>div]:bg-yellow-500",
+                                  session.status === 'finalizing' && "[&>div]:bg-blue-500"
+                                )} 
+                              />
+                              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                                <span>
+                                  {session.status === 'finalizing' 
+                                    ? 'Assembling file...' 
+                                    : `${session.uploadedChunks}/${session.totalChunks} chunks (${Math.round(progress)}%)`
+                                  }
+                                </span>
+                                <span>
+                                  {formatFileSize(Number(session.uploadedBytes))} / {formatFileSize(Number(session.fileSize))}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Hint to go to Files page for management */}
+                            {session.status === "paused" && (
+                              <button
+                                className="mt-1 text-xs text-amber-500 hover:text-amber-600 flex items-center gap-1 cursor-pointer"
+                                onClick={() => {
+                                  navigate("/");
+                                  setIsOpen(false);
+                                }}
+                              >
+                                <FolderOpen className="h-3 w-3" />
+                                Go to Files to resume this upload
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Regular uploads */}
                   {uploads.map((upload) => (
                     <div key={upload.id} className="p-3">
                       <div className="flex items-start gap-3">
@@ -420,11 +546,11 @@ export function GlobalUploadProgress() {
           {/* Summary footer when collapsed */}
           {!isExpanded && hasActiveUploads && (
             <div className="p-3 border-t">
-              <Progress value={totalProgress} className="h-2" />
+              <Progress value={combinedProgress} className="h-2" />
               <p className="text-xs text-muted-foreground mt-2 text-center">
-                {uploadingCount > 0 && `${uploadingCount} uploading`}
-                {pendingCount > 0 && `${uploadingCount > 0 ? ', ' : ''}${pendingCount} pending`}
-                {pausedCount > 0 && `, ${pausedCount} paused`}
+                {allActiveCount > 0 && `${allActiveCount} uploading`}
+                {pendingCount > 0 && `${allActiveCount > 0 ? ', ' : ''}${pendingCount} pending`}
+                {allPausedCount > 0 && `, ${allPausedCount} paused`}
                 {retryingCount > 0 && `, ${retryingCount} retrying`}
                 {scheduledCount > 0 && `, ${scheduledCount} scheduled`}
               </p>

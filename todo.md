@@ -5705,3 +5705,20 @@ Note: The application already has extensive annotation features including voice 
 - [x] Clean up the 2 stuck sessions directly from the database
 - [x] Add "Clear All" button to force-delete all stale sessions at once
 - [x] Test cancel and clear all functionality - 6 vitest tests passing
+
+## Video Card UI: Remove Share Files, Move Find Matches (Feb 9)
+- [ ] Delete "Share Files" button from video card actions row (redundant with share icon)
+- [ ] Move "Find Matches" button from bottom section to the actions row where Share Files was
+
+## Bug: Missing Large Video Uploads and Upload Status (Feb 9)
+- [ ] Investigate why 200MB and 400MB video uploads are not visible
+- [ ] Investigate why upload status window is not showing
+
+## UI Fixes - Upload Visibility & Find Matches Button
+- [x] Integrate resumable upload sessions into GlobalUploadProgress header indicator
+- [x] Show resumable upload count and progress in header popover
+- [x] Add toast notification for resumable uploads available
+- [x] Remove "Share Files" text button from video card actions row (redundant with share icon)
+- [x] Move "Find Matches" button from VideoCardDetails to video card actions row
+- [x] Expose handleFindMatches via forwardRef/useImperativeHandle from VideoCardDetails
+- [x] Fix infinite render loop caused by callback state change pattern

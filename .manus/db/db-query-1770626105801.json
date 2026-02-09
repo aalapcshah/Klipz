@@ -1,0 +1,76 @@
+{
+  "query": "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'resumable_upload_sessions' ORDER BY ORDINAL_POSITION;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'resumable_upload_sessions' ORDER BY ORDINAL_POSITION;",
+  "rows": [
+    {
+      "COLUMN_NAME": "id"
+    },
+    {
+      "COLUMN_NAME": "userId"
+    },
+    {
+      "COLUMN_NAME": "sessionToken"
+    },
+    {
+      "COLUMN_NAME": "filename"
+    },
+    {
+      "COLUMN_NAME": "fileSize"
+    },
+    {
+      "COLUMN_NAME": "mimeType"
+    },
+    {
+      "COLUMN_NAME": "uploadType"
+    },
+    {
+      "COLUMN_NAME": "uploadedBytes"
+    },
+    {
+      "COLUMN_NAME": "chunkSize"
+    },
+    {
+      "COLUMN_NAME": "totalChunks"
+    },
+    {
+      "COLUMN_NAME": "uploadedChunks"
+    },
+    {
+      "COLUMN_NAME": "chunkStoragePrefix"
+    },
+    {
+      "COLUMN_NAME": "finalFileKey"
+    },
+    {
+      "COLUMN_NAME": "finalFileUrl"
+    },
+    {
+      "COLUMN_NAME": "metadata"
+    },
+    {
+      "COLUMN_NAME": "status"
+    },
+    {
+      "COLUMN_NAME": "errorMessage"
+    },
+    {
+      "COLUMN_NAME": "expiresAt"
+    },
+    {
+      "COLUMN_NAME": "lastActivityAt"
+    },
+    {
+      "COLUMN_NAME": "createdAt"
+    },
+    {
+      "COLUMN_NAME": "completedAt"
+    },
+    {
+      "COLUMN_NAME": "thumbnailUrl"
+    }
+  ],
+  "messages": [],
+  "stdout": "COLUMN_NAME\nid\nuserId\nsessionToken\nfilename\nfileSize\nmimeType\nuploadType\nuploadedBytes\nchunkSize\ntotalChunks\nuploadedChunks\nchunkStoragePrefix\nfinalFileKey\nfinalFileUrl\nmetadata\nstatus\nerrorMessage\nexpiresAt\nlastActivityAt\ncreatedAt\ncompletedAt\nthumbnailUrl\n",
+  "stderr": "",
+  "execution_time_ms": 362
+}

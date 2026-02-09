@@ -36,7 +36,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { getResolutionLabel, formatDuration } from "@/lib/videoUtils";
 import { useLocation, useSearch } from "wouter";
 import { AnnotationEditor } from "./AnnotationEditor";
@@ -45,7 +45,7 @@ import { VideoPlayerWithAnnotations } from "../VideoPlayerWithAnnotations";
 import { VideoTagManager } from "./VideoTagManager";
 import { ShareDialog } from "../ShareDialog";
 import { VideoCompressionButton } from "../VideoCompressionButton";
-import { VideoCardDetails } from "./VideoCardDetails";
+import { VideoCardDetails, type VideoCardDetailsHandle } from "./VideoCardDetails";
 import {
   Dialog,
   DialogContent,
@@ -91,6 +91,18 @@ export function VideoList() {
   const [playingVideoIds, setPlayingVideoIds] = useState<Set<number>>(new Set());
   const [shareVideo, setShareVideo] = useState<{ id: number; title: string } | null>(null);
   
+  // Refs for VideoCardDetails to access Find Matches
+  const videoCardDetailsRefs = useRef<Map<number, VideoCardDetailsHandle>>(new Map());
+  const [findMatchesPending, setFindMatchesPending] = useState<Set<number>>(new Set());
+  
+  const setVideoCardRef = useCallback((videoId: number) => (el: VideoCardDetailsHandle | null) => {
+    if (el) {
+      videoCardDetailsRefs.current.set(videoId, el);
+    } else {
+      videoCardDetailsRefs.current.delete(videoId);
+    }
+  }, []);
+
   const searchParams = useSearch();
   const [, setLocation] = useLocation();
   
@@ -854,15 +866,37 @@ export function VideoList() {
                   </>
                 )}
                 <VideoTagManager videoId={video.id} onTagsChange={refetch} />
+                {/* Find Matches button */}
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="h-6 px-1.5 text-[10px]"
-                  onClick={() => setShareVideo({ id: video.id, title: video.title || video.filename })}
-                  title="Share video"
+                  className="h-6 px-1.5 text-[10px] text-orange-600 border-orange-300 hover:bg-orange-50 hover:text-orange-700 gap-0.5"
+                  onClick={async () => {
+                    const ref = videoCardDetailsRefs.current.get(video.id);
+                    if (ref) {
+                      setFindMatchesPending(prev => new Set(prev).add(video.id));
+                      try {
+                        await ref.handleFindMatches();
+                      } finally {
+                        setFindMatchesPending(prev => {
+                          const next = new Set(prev);
+                          next.delete(video.id);
+                          return next;
+                        });
+                      }
+                    } else {
+                      toast.error("Video details not loaded yet. Please wait.");
+                    }
+                  }}
+                  disabled={findMatchesPending.has(video.id) || !video.fileId}
+                  title="Run AI file matching against your uploaded files"
                 >
-                  <Share2 className="h-2.5 w-2.5 mr-0.5" />
-                  Share Files
+                  {findMatchesPending.has(video.id) ? (
+                    <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                  ) : (
+                    <Search className="h-2.5 w-2.5" />
+                  )}
+                  Find Matches
                 </Button>
                 
                 {/* Action buttons inline */}
@@ -994,6 +1028,7 @@ export function VideoList() {
 
               {/* Transcript, Captions, and Matched Files */}
               <VideoCardDetails
+                ref={setVideoCardRef(video.id)}
                 videoId={video.id}
                 fileId={video.fileId}
                 hasTranscript={!!video.transcript}
