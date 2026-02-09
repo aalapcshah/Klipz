@@ -168,7 +168,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   // tRPC mutations - only used for non-upload-loop operations (create session, pause, cancel, thumbnail)
   const createSessionMutation = trpc.resumableUpload.createSession.useMutation();
   const pauseSessionMutation = trpc.resumableUpload.pauseSession.useMutation();
-  const cancelSessionMutation = trpc.resumableUpload.cancelSession.useMutation();
+  // cancelSession now uses direct trpcCall() instead of React Query mutation
   const saveThumbnailMutation = trpc.resumableUpload.saveThumbnail.useMutation();
   
   // tRPC queries
@@ -554,22 +554,51 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     toast.info("Upload resumed");
   }, [sessions, uploadChunks]);
 
-  // Cancel an upload
+  // Cancel an upload - uses direct fetch to ensure it works regardless of component lifecycle
   const cancelUpload = useCallback(async (sessionToken: string) => {
     const controller = abortControllersRef.current.get(sessionToken);
     if (controller) {
       controller.abort();
     }
 
+    // Immediately remove from local state
+    setSessions(prev => prev.filter(s => s.sessionToken !== sessionToken));
+
     try {
-      await cancelSessionMutation.mutateAsync({ sessionToken });
-      
-      setSessions(prev => prev.filter(s => s.sessionToken !== sessionToken));
+      // Use direct fetch to ensure the cancel reaches the server
+      await trpcCall<{ success: boolean }>('resumableUpload.cancelSession', { sessionToken });
+      console.log(`[ResumableUpload] Session ${sessionToken} cancelled on server`);
+      // Invalidate the query cache so refetch doesn't bring it back
+      refetchSessions();
       toast.info("Upload cancelled");
     } catch (error) {
-      console.error("[ResumableUpload] Failed to cancel:", error);
+      console.error("[ResumableUpload] Failed to cancel on server:", error);
+      // Still show cancelled locally even if server call fails
+      toast.info("Upload cancelled locally");
     }
-  }, [cancelSessionMutation]);
+  }, [refetchSessions]);
+
+  // Clear all sessions (force delete from server)
+  const clearAllSessions = useCallback(async () => {
+    const allTokens = sessions.map(s => s.sessionToken);
+    
+    // Immediately clear local state
+    setSessions([]);
+    
+    // Cancel each on the server
+    for (const token of allTokens) {
+      const controller = abortControllersRef.current.get(token);
+      if (controller) controller.abort();
+      try {
+        await trpcCall<{ success: boolean }>('resumableUpload.cancelSession', { sessionToken: token });
+      } catch (e) {
+        console.warn(`[ResumableUpload] Failed to cancel session ${token}:`, e);
+      }
+    }
+    
+    refetchSessions();
+    toast.info("All uploads cleared");
+  }, [sessions, refetchSessions]);
 
   // Pause all active uploads
   const pauseAll = useCallback(async () => {
@@ -649,6 +678,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     pauseUpload,
     resumeUpload,
     cancelUpload,
+    clearAllSessions,
     pauseAll,
     resumeAll,
     retryAllFailed,

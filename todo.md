@@ -5698,3 +5698,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Used refs (optionsRef, setSessionsRef) to ensure upload loop always calls latest state setters
 - [x] Kept React Query mutations only for non-upload-loop operations (create session, pause, cancel)
 - [x] Tests: 9 vitest tests passing for direct fetch architecture
+
+## Bug Fix: Stale Upload Sessions Persist After Cancel (Feb 9)
+- [x] Investigate why cancel mutation fails - React Query mutation was silently failing, query cache brought sessions back on refetch
+- [x] Fix cancel to use direct trpcCall() + refetchSessions() so sessions are properly deleted from DB and cache
+- [x] Clean up the 2 stuck sessions directly from the database
+- [x] Add "Clear All" button to force-delete all stale sessions at once
+- [x] Test cancel and clear all functionality - 6 vitest tests passing

@@ -1,0 +1,34 @@
+{
+  "query": "SELECT * FROM resumable_upload_sessions LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT * FROM resumable_upload_sessions LIMIT 10;",
+  "rows": [
+    {
+      "id": "60007",
+      "userId": "1",
+      "sessionToken": "TekAI-Shm9XolbY7uVF9-0bJLLLHf6fr",
+      "filename": "Video 10 - No More Research_V2.mp4",
+      "fileSize": "271898467",
+      "mimeType": "video/mp4",
+      "uploadType": "file",
+      "uploadedBytes": "52428800",
+      "chunkSize": "5242880",
+      "totalChunks": "52",
+      "uploadedChunks": "10",
+      "chunkStoragePrefix": "user-1/chunks/TekAI-Shm9XolbY7uVF9-0bJLLLHf6fr",
+      "finalFileKey": "NULL",
+      "finalFileUrl": "NULL",
+      "metadata": "{\"description\": \"\", \"title\": \"Video 10 - No More Research_V2\"}",
+      "status": "active",
+      "errorMessage": "NULL",
+      "expiresAt": "2026-02-10 08:14:03",
+      "lastActivityAt": "2026-02-09 08:14:03",
+      "createdAt": "2026-02-09 08:11:42",
+      "completedAt": "NULL",
+      "thumbnailUrl": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/upload-thumbnails/1/TekAI-Shm9XolbY7uVF9-0bJLLLHf6fr-thumb.jpg"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tuserId\tsessionToken\tfilename\tfileSize\tmimeType\tuploadType\tuploadedBytes\tchunkSize\ttotalChunks\tuploadedChunks\tchunkStoragePrefix\tfinalFileKey\tfinalFileUrl\tmetadata\tstatus\terrorMessage\texpiresAt\tlastActivityAt\tcreatedAt\tcompletedAt\tthumbnailUrl\n60007\t1\tTekAI-Shm9XolbY7uVF9-0bJLLLHf6fr\tVideo 10 - No More Research_V2.mp4\t271898467\tvideo/mp4\tfile\t52428800\t5242880\t52\t10\tuser-1/chunks/TekAI-Shm9XolbY7uVF9-0bJLLLHf6fr\tNULL\tNULL\t{\"description\": \"\", \"title\": \"Video 10 - No More Research_V2\"}\tactive\tNULL\t2026-02-10 08:14:03\t2026-02-09 08:14:03\t2026-02-09 08:11:42\tNULL\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/upload-thumbnails/1/TekAI-Shm9XolbY7uVF9-0bJLLLHf6fr-thumb.jpg\n",
+  "stderr": "",
+  "execution_time_ms": 357
+}

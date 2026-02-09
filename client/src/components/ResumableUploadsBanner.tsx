@@ -86,6 +86,7 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
     pauseUpload,
     resumeUpload,
     cancelUpload,
+    clearAllSessions,
     pauseAll,
     resumeAll,
     retryAllFailed,
@@ -265,6 +266,18 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                   Retry All Failed ({errorCount})
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearAllSessions();
+                }}
+                className="text-muted-foreground border-muted-foreground/50 hover:bg-muted ml-auto"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Clear All
+              </Button>
             </div>
             {resumableSessions.map((session) => (
               <div

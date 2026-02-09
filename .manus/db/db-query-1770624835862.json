@@ -1,0 +1,186 @@
+{
+  "query": "DESCRIBE resumable_upload_sessions;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute DESCRIBE resumable_upload_sessions;",
+  "rows": [
+    {
+      "Field": "id",
+      "Type": "int(11)",
+      "Null": "NO",
+      "Key": "PRI",
+      "Default": "NULL",
+      "Extra": "auto_increment"
+    },
+    {
+      "Field": "userId",
+      "Type": "int(11)",
+      "Null": "NO",
+      "Key": "MUL",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "sessionToken",
+      "Type": "varchar(64)",
+      "Null": "NO",
+      "Key": "UNI",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "filename",
+      "Type": "varchar(255)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "fileSize",
+      "Type": "bigint(20)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "mimeType",
+      "Type": "varchar(100)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "uploadType",
+      "Type": "enum('video','file')",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "uploadedBytes",
+      "Type": "bigint(20)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "0",
+      "Extra": ""
+    },
+    {
+      "Field": "chunkSize",
+      "Type": "int(11)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "5242880",
+      "Extra": ""
+    },
+    {
+      "Field": "totalChunks",
+      "Type": "int(11)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "uploadedChunks",
+      "Type": "int(11)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "0",
+      "Extra": ""
+    },
+    {
+      "Field": "chunkStoragePrefix",
+      "Type": "varchar(512)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "finalFileKey",
+      "Type": "varchar(512)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "finalFileUrl",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "metadata",
+      "Type": "json",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "status",
+      "Type": "enum('active','paused','finalizing','completed','failed','expired')",
+      "Null": "NO",
+      "Key": "MUL",
+      "Default": "active",
+      "Extra": ""
+    },
+    {
+      "Field": "errorMessage",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "expiresAt",
+      "Type": "timestamp",
+      "Null": "NO",
+      "Key": "MUL",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "lastActivityAt",
+      "Type": "timestamp",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": ""
+    },
+    {
+      "Field": "createdAt",
+      "Type": "timestamp",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": ""
+    },
+    {
+      "Field": "completedAt",
+      "Type": "timestamp",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "thumbnailUrl",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    }
+  ],
+  "messages": [],
+  "stdout": "Field\tType\tNull\tKey\tDefault\tExtra\nid\tint(11)\tNO\tPRI\tNULL\tauto_increment\nuserId\tint(11)\tNO\tMUL\tNULL\t\nsessionToken\tvarchar(64)\tNO\tUNI\tNULL\t\nfilename\tvarchar(255)\tNO\t\tNULL\t\nfileSize\tbigint(20)\tNO\t\tNULL\t\nmimeType\tvarchar(100)\tNO\t\tNULL\t\nuploadType\tenum('video','file')\tNO\t\tNULL\t\nuploadedBytes\tbigint(20)\tNO\t\t0\t\nchunkSize\tint(11)\tNO\t\t5242880\t\ntotalChunks\tint(11)\tNO\t\tNULL\t\nuploadedChunks\tint(11)\tNO\t\t0\t\nchunkStoragePrefix\tvarchar(512)\tNO\t\tNULL\t\nfinalFileKey\tvarchar(512)\tYES\t\tNULL\t\nfinalFileUrl\ttext\tYES\t\tNULL\t\nmetadata\tjson\tYES\t\tNULL\t\nstatus\tenum('active','paused','finalizing','completed','failed','expired')\tNO\tMUL\tactive\t\nerrorMessage\ttext\tYES\t\tNULL\t\nexpiresAt\ttimestamp\tNO\tMUL\tNULL\t\nlastActivityAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t\ncreatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t\ncompletedAt\ttimestamp\tYES\t\tNULL\t\nthumbnailUrl\ttext\tYES\t\tNULL\t\n",
+  "stderr": "",
+  "execution_time_ms": 342
+}
