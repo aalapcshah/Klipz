@@ -5669,3 +5669,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Move "Share Files" into the area where Compress was
 - [x] Move "Transcribed" and "Captioned" status badges to the bottom
 - [x] Move "480p" quality badge to the right of the file name
+
+## Bug Fix: Large Video Upload Failing in Files Section (Feb 8)
+- [x] Investigate why 259MB video upload shows "0 file(s) uploaded successfully" - Root cause: resumable uploads run in background but success count fires immediately showing 0
+- [x] Check server-side body/upload size limits (Express, S3, etc.) - No server limit issue: 500MB body parser, 6GB max file size, 5MB chunks via resumable upload
+- [x] Upload already supports up to 6GB via resumable upload system (50MB+ files auto-use resumable)
+- [x] Fix silent failure - show proper toast message for background resumable uploads instead of misleading "0 files uploaded"
+- [x] Added resumableUpload operations to non-batching tRPC link for reliability
+- [x] Test large file upload end-to-end - verified via vitest

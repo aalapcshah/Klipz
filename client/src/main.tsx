@@ -65,6 +65,12 @@ const UPLOAD_OPERATIONS = new Set([
   'largeFileUpload.initLargeUpload',
   'largeFileUpload.finalizeLargeUpload',
   'largeFileUpload.cancelLargeUpload',
+  'resumableUpload.createSession',
+  'resumableUpload.uploadChunk',
+  'resumableUpload.finalizeUpload',
+  'resumableUpload.pauseSession',
+  'resumableUpload.cancelSession',
+  'resumableUpload.saveThumbnail',
 ]);
 
 const trpcClient = trpc.createClient({

@@ -1128,12 +1128,25 @@ export function FileUploadDialog({
         }
       }
 
-      // Count successful and failed uploads
+      // Count successful, failed, and resumable uploads
       const successCount = files.filter(f => f.uploadStatus === 'completed').length;
       const failedCount = files.filter(f => f.uploadStatus === 'error').length;
+      const resumableCount = files.filter(f => f.file.size > RESUMABLE_UPLOAD_THRESHOLD && f.uploadStatus !== 'error').length;
       
       if (!uploadCancelled) {
-        if (failedCount === 0) {
+        if (resumableCount > 0) {
+          // Large files are uploading in the background via resumable upload
+          // Don't close dialog or show misleading success count
+          const regularSuccess = successCount;
+          if (regularSuccess > 0) {
+            toast.success(`${regularSuccess} small file(s) uploaded successfully!`);
+          }
+          toast.info(`${resumableCount} large file(s) uploading in the background. You can close this dialog - uploads will continue.`, { duration: 5000 });
+          // Close dialog and let resumable uploads continue in background
+          setFiles([]);
+          onOpenChange(false);
+          onUploadComplete?.();
+        } else if (failedCount === 0) {
           toast.success(`${successCount} file(s) uploaded successfully!`);
           setFiles([]);
           onOpenChange(false);
