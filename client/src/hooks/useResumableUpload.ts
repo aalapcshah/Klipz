@@ -3,7 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { trpcCall } from "@/lib/trpcCall";
 
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks (matches server)
+const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks (kept small to avoid proxy body size limits on deployed sites)
 const STORAGE_KEY = "metaclips-resumable-uploads";
 
 export interface ResumableUploadSession {
@@ -123,7 +123,6 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const activeUploadsRef = useRef<Set<string>>(new Set());
   const autoResumedRef = useRef(false);
-  const resumableToastShownRef = useRef(false);
   const chunkDelayRef = useRef(options.chunkDelayMs ?? 0);
   // Keep refs to callbacks so the upload loop always calls the latest version
   const optionsRef = useRef(options);
@@ -183,21 +182,8 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
       });
       setIsLoading(false);
       
-      // Show toast if there are resumable sessions (only once per page load)
-      if (!resumableToastShownRef.current && mappedSessions.length > 0) {
-        const pausedCount = mappedSessions.filter(s => s.status === 'paused' || s.status === 'active').length;
-        if (pausedCount > 0) {
-          resumableToastShownRef.current = true;
-          toast.info(`${pausedCount} upload(s) can be resumed`, {
-            action: {
-              label: "View",
-              onClick: () => {
-                document.getElementById("resumable-uploads-banner")?.scrollIntoView({ behavior: "smooth" });
-              },
-            },
-          });
-        }
-      }
+      // Note: No toast notification here - the ResumableUploadsBanner component
+      // already shows resumable sessions prominently at the top of the page
     }
   }, [serverSessions]);
 
@@ -321,9 +307,9 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
           await new Promise(resolve => setTimeout(resolve, chunkDelayRef.current));
         }
 
-        // Upload chunk with retries
+        // Upload chunk with retries (5 retries with exponential backoff, 2min timeout per chunk)
         let retries = 0;
-        const maxRetries = 3;
+        const maxRetries = 5;
         
         while (retries < maxRetries) {
           try {
@@ -332,7 +318,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
             // Read chunk inside retry loop so file read failures are also retried
             const chunkData = await readChunkAsBase64(file, start, end);
             
-            // Use direct fetch instead of React Query mutation
+            // Use direct fetch with timeout and abort signal
             const result = await trpcCall<{
               uploadedChunks: number;
               totalChunks: number;
@@ -341,6 +327,9 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
               sessionToken: session.sessionToken,
               chunkIndex: i,
               chunkData,
+            }, 'mutation', {
+              timeoutMs: 120_000, // 2 minute timeout per chunk
+              signal: abortController.signal,
             });
 
             console.log(`[ResumableUpload] Chunk ${i + 1}/${session.totalChunks} uploaded for ${session.filename}`);
@@ -382,13 +371,21 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
 
             break; // Success, exit retry loop
           } catch (error: any) {
+            // If user cancelled, don't retry
+            if (abortController.signal.aborted) return;
+            
             retries++;
-            console.warn(`[ResumableUpload] Chunk ${i} attempt ${retries} failed: ${error?.message}`);
+            const isTimeout = error?.message?.includes('timed out');
+            const retryLabel = isTimeout ? 'timeout' : error?.message;
+            console.warn(`[ResumableUpload] Chunk ${i} attempt ${retries} failed (${retryLabel})`);
+            
             if (retries >= maxRetries) {
               throw new Error(`Failed to upload chunk ${i} after ${maxRetries} retries: ${error?.message || 'Unknown error'}`);
             }
-            // Exponential backoff
-            await new Promise(resolve => setTimeout(resolve, 1500 * Math.pow(2, retries)));
+            // Exponential backoff: 2s, 4s, 8s, 16s, 32s
+            const backoffMs = 2000 * Math.pow(2, retries - 1);
+            console.log(`[ResumableUpload] Retrying chunk ${i} in ${backoffMs / 1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
           }
         }
       }
@@ -408,6 +405,9 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
         url: string;
       }>('resumableUpload.finalizeUpload', {
         sessionToken: session.sessionToken,
+      }, 'mutation', {
+        timeoutMs: 600_000, // 10 minute timeout for finalization (assembling large files)
+        signal: abortController.signal,
       });
 
       console.log(`[ResumableUpload] Finalization complete for ${session.filename}:`, finalResult);

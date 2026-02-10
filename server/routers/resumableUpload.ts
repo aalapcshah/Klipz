@@ -9,7 +9,7 @@ import { resumableUploadSessions, resumableUploadChunks } from "../../drizzle/sc
 import { eq, and, lt, sql } from "drizzle-orm";
 
 // Constants
-const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+const DEFAULT_CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks (kept small to avoid proxy body size limits on deployed sites)
 const SESSION_EXPIRY_HOURS = 24; // Sessions expire after 24 hours of inactivity
 
 /**

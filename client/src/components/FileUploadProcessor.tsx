@@ -73,7 +73,7 @@ export function FileUploadProcessor() {
       // Check if cancelled
       if (abortController?.signal.aborted) return;
 
-      const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks (matches server)
+      const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks (kept small to avoid proxy body size limits on deployed sites)
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
       console.log(`[FileUpload] Starting upload for ${file.name} (${file.size} bytes, ${totalChunks} chunks)`);

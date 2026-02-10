@@ -31,8 +31,8 @@ describe("Resumable Upload - Direct Fetch Architecture", () => {
     const superjson = await import("superjson");
     const originalData = {
       uploadedChunks: 10,
-      totalChunks: 52,
-      uploadedBytes: 52428800,
+      totalChunks: 259,
+      uploadedBytes: 10485760,
     };
     
     const serialized = superjson.default.serialize(originalData);
@@ -45,16 +45,16 @@ describe("Resumable Upload - Direct Fetch Architecture", () => {
   });
 
   it("should handle chunk size calculation correctly", () => {
-    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+    const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB (matches production: kept small to avoid proxy body size limits)
     const fileSize = 259 * 1024 * 1024; // 259MB
     const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
     
-    expect(totalChunks).toBe(52); // 259MB / 5MB = 51.8, ceil = 52
-    expect(CHUNK_SIZE).toBe(5242880);
+    expect(totalChunks).toBe(259); // 259MB / 1MB = 259
+    expect(CHUNK_SIZE).toBe(1048576);
   });
 
   it("should calculate last chunk size correctly", () => {
-    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+    const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB
     const fileSize = 259 * 1024 * 1024; // 259MB
     const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
     const lastChunkIndex = totalChunks - 1;
@@ -63,17 +63,17 @@ describe("Resumable Upload - Direct Fetch Architecture", () => {
     const end = Math.min(start + CHUNK_SIZE, fileSize);
     const lastChunkSize = end - start;
     
-    // Last chunk should be smaller than CHUNK_SIZE
+    // Last chunk should be smaller than or equal to CHUNK_SIZE
     expect(lastChunkSize).toBeLessThanOrEqual(CHUNK_SIZE);
     expect(lastChunkSize).toBeGreaterThan(0);
   });
 
   it("should handle large file (461MB) chunk calculation", () => {
-    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+    const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB
     const fileSize = 461 * 1024 * 1024; // 461MB
     const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
     
-    expect(totalChunks).toBe(93); // 461MB / 5MB = 92.2, ceil = 93
+    expect(totalChunks).toBe(461); // 461MB / 1MB = 461
   });
 
   it("should correctly format tRPC POST body", async () => {
@@ -95,13 +95,25 @@ describe("Resumable Upload - Direct Fetch Architecture", () => {
   });
 
   it("should handle retry backoff calculation", () => {
-    // Exponential backoff: 1500 * 2^retries
-    const backoff1 = 1500 * Math.pow(2, 1); // 3000ms
-    const backoff2 = 1500 * Math.pow(2, 2); // 6000ms
-    const backoff3 = 1500 * Math.pow(2, 3); // 12000ms
+    // Exponential backoff: 2000 * 2^(retries-1)
+    const backoff1 = 2000 * Math.pow(2, 0); // 2000ms
+    const backoff2 = 2000 * Math.pow(2, 1); // 4000ms
+    const backoff3 = 2000 * Math.pow(2, 2); // 8000ms
     
-    expect(backoff1).toBe(3000);
-    expect(backoff2).toBe(6000);
-    expect(backoff3).toBe(12000);
+    expect(backoff1).toBe(2000);
+    expect(backoff2).toBe(4000);
+    expect(backoff3).toBe(8000);
+  });
+
+  it("should ensure 1MB chunk base64 payload stays under proxy limits", () => {
+    const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB raw
+    // Base64 encoding expands data by ~33%
+    const base64Size = Math.ceil(CHUNK_SIZE * 4 / 3);
+    // JSON wrapper adds some overhead (~200 bytes for session token, chunk index, etc.)
+    const jsonPayloadSize = base64Size + 200;
+    
+    // Must stay well under typical proxy body size limits (usually 1-10MB)
+    expect(jsonPayloadSize).toBeLessThan(2 * 1024 * 1024); // Under 2MB total payload
+    expect(base64Size).toBeLessThan(1.5 * 1024 * 1024); // Base64 under 1.5MB
   });
 });

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 
 // Test the throttle preset calculations (pure logic, no React needed)
 describe("Upload Throttle Settings", () => {
-  const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+  const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB (matches production: kept small to avoid proxy body size limits)
 
   // Calculate delay needed to achieve target speed
   function calculateChunkDelay(targetBytesPerSecond: number, chunkSize: number): number {
@@ -19,29 +19,29 @@ describe("Upload Throttle Settings", () => {
   it("should calculate correct delay for 2MB/s throttle", () => {
     const targetSpeed = 2 * 1024 * 1024; // 2MB/s
     const delay = calculateChunkDelay(targetSpeed, CHUNK_SIZE);
-    // 5MB chunk at 2MB/s = 2.5 seconds = 2500ms
-    expect(delay).toBe(2500);
+    // 1MB chunk at 2MB/s = 0.5 seconds = 500ms
+    expect(delay).toBe(500);
   });
 
   it("should calculate correct delay for 1MB/s throttle", () => {
     const targetSpeed = 1 * 1024 * 1024; // 1MB/s
     const delay = calculateChunkDelay(targetSpeed, CHUNK_SIZE);
-    // 5MB chunk at 1MB/s = 5 seconds = 5000ms
-    expect(delay).toBe(5000);
+    // 1MB chunk at 1MB/s = 1 second = 1000ms
+    expect(delay).toBe(1000);
   });
 
   it("should calculate correct delay for 500KB/s throttle", () => {
     const targetSpeed = 500 * 1024; // 500KB/s
     const delay = calculateChunkDelay(targetSpeed, CHUNK_SIZE);
-    // 5MB chunk at 500KB/s = 10.24 seconds ≈ 10240ms
-    expect(delay).toBe(10240);
+    // 1MB chunk at 500KB/s = 2.048 seconds ≈ 2048ms
+    expect(delay).toBe(2048);
   });
 
   it("should calculate correct delay for 250KB/s throttle", () => {
     const targetSpeed = 250 * 1024; // 250KB/s
     const delay = calculateChunkDelay(targetSpeed, CHUNK_SIZE);
-    // 5MB chunk at 250KB/s = 20.48 seconds ≈ 20480ms
-    expect(delay).toBe(20480);
+    // 1MB chunk at 250KB/s = 4.096 seconds ≈ 4096ms
+    expect(delay).toBe(4096);
   });
 
   it("should never return negative delay", () => {

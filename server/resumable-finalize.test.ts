@@ -5,21 +5,22 @@ import { describe, it, expect } from 'vitest';
  * - Large files (>50MB) now process chunks in batches with retries
  * - Added 'finalizing' status to track assembly progress
  * - Client shows "Assembling and uploading to storage..." during finalization
+ * - Chunk size reduced to 1MB to avoid proxy body size limits on deployed sites
  */
 
 describe('Resumable Upload Finalization', () => {
   // Test batch size calculation
   it('should calculate correct number of batches for large files', () => {
     const BATCH_SIZE = 10;
-    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+    const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB (matches production)
     
-    // 259MB file = 52 chunks
+    // 259MB file = 259 chunks at 1MB each
     const fileSize = 259 * 1024 * 1024;
     const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
-    expect(totalChunks).toBe(52);
+    expect(totalChunks).toBe(259);
     
     const totalBatches = Math.ceil(totalChunks / BATCH_SIZE);
-    expect(totalBatches).toBe(6); // 5 batches of 10 + 1 batch of 2
+    expect(totalBatches).toBe(26); // 25 batches of 10 + 1 batch of 9
   });
 
   // Test that small files use simple approach
@@ -124,5 +125,25 @@ describe('Resumable Upload Finalization', () => {
     
     expect(resumableSessions.length).toBe(4);
     expect(resumableSessions.map(s => s.status)).toEqual(["active", "paused", "finalizing", "error"]);
+  });
+
+  // Test that 1MB chunks produce manageable batch sizes for large files
+  it('should handle very large files with 1MB chunks efficiently', () => {
+    const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB
+    const BATCH_SIZE = 10;
+    
+    // 656MB file (user test case)
+    const fileSize656 = 656 * 1024 * 1024;
+    const chunks656 = Math.ceil(fileSize656 / CHUNK_SIZE);
+    expect(chunks656).toBe(656);
+    const batches656 = Math.ceil(chunks656 / BATCH_SIZE);
+    expect(batches656).toBe(66);
+    
+    // 2.34GB file (user test case)
+    const fileSize2340 = Math.round(2.34 * 1024 * 1024 * 1024);
+    const chunks2340 = Math.ceil(fileSize2340 / CHUNK_SIZE);
+    expect(chunks2340).toBe(2397); // ~2.34GB / 1MB
+    const batches2340 = Math.ceil(chunks2340 / BATCH_SIZE);
+    expect(batches2340).toBe(240);
   });
 });

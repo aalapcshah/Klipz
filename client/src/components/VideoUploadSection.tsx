@@ -46,7 +46,7 @@ const ACCEPTED_VIDEO_FORMATS = [
 ];
 
 const MAX_FILE_SIZE = 6 * 1024 * 1024 * 1024; // 6GB - supports large video files
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks - smaller chunks are more reliable through reverse proxies
+const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks - kept small to avoid proxy body size limits on deployed sites
 const LARGE_FILE_THRESHOLD = 100 * 1024 * 1024; // 100MB - use large file upload (disk-based) for files above this
 
 // Format time duration for ETA display

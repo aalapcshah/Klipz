@@ -414,7 +414,7 @@ export function GlobalUploadProgress() {
                                   size="icon"
                                   className="h-6 w-6"
                                   onClick={() => retryUpload(upload.id)}
-                                  title={upload.sessionId && upload.pausedAtChunk ? `Resume from ${Math.round((upload.pausedAtChunk / Math.ceil(upload.fileSize / (5 * 1024 * 1024))) * 100)}%` : "Retry upload"}
+                                  title={upload.sessionId && upload.pausedAtChunk ? `Resume from ${Math.round((upload.pausedAtChunk / Math.ceil(upload.fileSize / (1 * 1024 * 1024))) * 100)}%` : "Retry upload"}
                                 >
                                   <RefreshCw className="h-3 w-3" />
                                 </Button>
@@ -531,7 +531,7 @@ export function GlobalUploadProgress() {
                               )}
                               {upload.sessionId && upload.pausedAtChunk !== undefined && upload.pausedAtChunk > 0 && (
                                 <p className="text-xs text-muted-foreground mt-0.5">
-                                  {Math.round((upload.pausedAtChunk / Math.ceil(upload.fileSize / (5 * 1024 * 1024))) * 100)}% uploaded • Click retry to resume
+                                  {Math.round((upload.pausedAtChunk / Math.ceil(upload.fileSize / (1 * 1024 * 1024))) * 100)}% uploaded • Click retry to resume
                                 </p>
                               )}
                             </div>

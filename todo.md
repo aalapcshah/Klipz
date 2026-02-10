@@ -5801,3 +5801,19 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix "1 upload(s) can be resumed" notification appearing multiple times and stacking up
 - [x] Root cause: toast fired on every serverSessions refetch in useResumableUpload useEffect
 - [x] Fix: Added resumableToastShownRef to only show toast once per page load
+
+## Remove Resume Toast & Fix Stuck Resumable Upload
+- [x] Remove the automatic "upload(s) can be resumed" toast entirely - banner is sufficient
+- [x] Investigate why 2.34GB resumable upload gets stuck at 6-7 chunks
+
+## Fix Resumable Upload Stuck at 0 Chunks
+- [x] Investigate why resumable upload never starts uploading first chunk (0/132 chunks, 0 B)
+- [x] Root cause: 5MB chunks encoded as base64 (~6.7MB JSON payload) exceed reverse proxy body size limits
+
+## Fix Resumable Upload Chunk Size
+- [x] Reduce chunk size from 5MB to 1MB to avoid proxy body size limits (~1.33MB JSON payload)
+- [x] Update both client (useResumableUpload.ts) and server (resumableUpload.ts) default chunk size constants
+- [x] Update test files (upload-settings, resumable-upload-direct-fetch, resumable-finalize) to match 1MB chunk size
+- [x] Added test for base64 payload size staying under proxy limits
+- [x] Added test for large file chunk calculations (656MB, 2.34GB user test cases)
+- [x] All 700 tests passing

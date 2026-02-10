@@ -63,7 +63,7 @@ export const uploadChunkRouter = router({
       if (!database) throw new Error("Database not available");
       
       const sessionId = `${ctx.user.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      const totalChunks = Math.ceil(input.totalSize / (5 * 1024 * 1024)); // 5MB chunks
+      const totalChunks = Math.ceil(input.totalSize / (1 * 1024 * 1024)); // 1MB chunks (kept small to avoid proxy body size limits)
       
       // Store session in database
       await database.insert(uploadSessions).values({
