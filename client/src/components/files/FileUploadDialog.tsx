@@ -1146,7 +1146,7 @@ export function FileUploadDialog({
           setFiles([]);
           onOpenChange(false);
           onUploadComplete?.();
-        } else if (failedCount === 0) {
+        } else if (failedCount === 0 && successCount > 0) {
           toast.success(`${successCount} file(s) uploaded successfully!`);
           setFiles([]);
           onOpenChange(false);
@@ -1155,8 +1155,12 @@ export function FileUploadDialog({
           toast.warning(`${successCount} file(s) uploaded, ${failedCount} failed. You can retry failed uploads.`);
           // Keep dialog open so user can see failed files and retry
           onUploadComplete?.();
-        } else {
+        } else if (failedCount > 0) {
           toast.error(`All ${failedCount} file(s) failed to upload.`);
+        } else {
+          toast.info('No files were uploaded.');
+          setFiles([]);
+          onOpenChange(false);
         }
       }
     } catch (error) {
@@ -1176,62 +1180,16 @@ export function FileUploadDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!w-[100vw] !max-w-none !rounded-none !left-0 !translate-x-0 max-h-[90vh] overflow-y-auto" style={{ width: '100vw', maxWidth: '100vw', left: 0, transform: 'translateX(0) translateY(-50%)' }}>
-        <DialogHeader>
+      <DialogContent className="!w-[100vw] !max-w-none !rounded-none !left-0 !translate-x-0 max-h-[90vh] flex flex-col" style={{ width: '100vw', maxWidth: '100vw', left: 0, transform: 'translateX(0) translateY(-50%)' }}>
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Upload & Tag Files</DialogTitle>
           <DialogDescription>
             Upload media files and add metadata using voice or text
           </DialogDescription>
         </DialogHeader>
 
-        {/* Top Action Buttons - visible when files are uploaded */}
-        {files.length > 0 && (
-          <div className="flex justify-between gap-2 sticky top-0 bg-background z-10 py-2 border-b border-border -mx-6 px-6">
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => uploading ? handleCancelUpload() : onOpenChange(false)}
-              >
-                {uploading ? "Cancel Upload" : "Cancel"}
-              </Button>
-              {/* Retry All Failed Button */}
-              {files.some(f => f.uploadStatus === 'error') && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    const failedFiles = files.filter(f => f.uploadStatus === 'error');
-                    setFiles(prev => prev.map(pf => 
-                      pf.uploadStatus === 'error' ? { ...pf, uploadStatus: 'pending' as const } : pf
-                    ));
-                    toast.info(`${failedFiles.length} failed file(s) queued for retry`);
-                  }}
-                  className="text-red-500 border-red-500 hover:bg-red-500/10"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Retry All Failed ({files.filter(f => f.uploadStatus === 'error').length})
-                </Button>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => handleUpload(false)}
-                disabled={uploading || files.length === 0}
-              >
-                {uploading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Save Files
-              </Button>
-              <Button
-                onClick={() => handleUpload(true)}
-                disabled={uploading || files.length === 0}
-                className="bg-accent hover:bg-accent/90"
-              >
-                {uploading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                <Sparkles className="h-4 w-4 mr-2" />
-                Enrich with AI
-              </Button>
-            </div>
-          </div>
-        )}
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto -mx-6 px-6">
 
         {/* Drag & Drop Zone */}
         <div
@@ -1969,31 +1927,58 @@ export function FileUploadDialog({
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="flex justify-between gap-2 mt-6">
-          <Button 
-            variant="outline" 
-            onClick={() => uploading ? handleCancelUpload() : onOpenChange(false)}
-          >
-            {uploading ? "Cancel Upload" : "Cancel"}
-          </Button>
-          <div className="flex gap-2">
-            <Button
-              onClick={() => handleUpload(false)}
-              disabled={uploading || files.length === 0}
-            >
-              {uploading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Save Files
-            </Button>
-            <Button
-              onClick={() => handleUpload(true)}
-              disabled={uploading || files.length === 0}
-              className="bg-accent hover:bg-accent/90"
-            >
-              {uploading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              <Sparkles className="h-4 w-4 mr-2" />
-              Enrich with AI
-            </Button>
+        </div>{/* End scrollable content area */}
+
+        {/* Fixed Footer - Always visible action buttons */}
+        <div className="flex-shrink-0 border-t border-border pt-3 -mx-6 px-6 pb-1">
+          <div className="flex justify-between items-center gap-2">
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => uploading ? handleCancelUpload() : onOpenChange(false)}
+              >
+                {uploading ? "Cancel Upload" : "Cancel"}
+              </Button>
+              {/* Retry All Failed Button */}
+              {files.some(f => f.uploadStatus === 'error') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const failedFiles = files.filter(f => f.uploadStatus === 'error');
+                    setFiles(prev => prev.map(pf => 
+                      pf.uploadStatus === 'error' ? { ...pf, uploadStatus: 'pending' as const } : pf
+                    ));
+                    toast.info(`${failedFiles.length} failed file(s) queued for retry`);
+                  }}
+                  className="text-red-500 border-red-500 hover:bg-red-500/10"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                  Retry ({files.filter(f => f.uploadStatus === 'error').length})
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => handleUpload(false)}
+                disabled={uploading || files.length === 0}
+              >
+                {uploading && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}
+                Save Files
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => handleUpload(true)}
+                disabled={uploading || files.length === 0}
+                className="bg-accent hover:bg-accent/90"
+              >
+                {uploading && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}
+                <Sparkles className="h-3.5 w-3.5 mr-1" />
+                Enrich with AI
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

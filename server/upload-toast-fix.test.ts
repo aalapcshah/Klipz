@@ -125,7 +125,7 @@ describe("Resumable upload operations in non-batching link", () => {
     // Should NOT show "0 file(s) uploaded successfully" when only resumable uploads exist
     // The resumableCount check should come before the regular success check
     const resumableCheckIndex = content.indexOf("if (resumableCount > 0)");
-    const regularCheckIndex = content.indexOf("if (failedCount === 0)");
+    const regularCheckIndex = content.indexOf("if (failedCount === 0 && successCount > 0)");
     expect(resumableCheckIndex).toBeLessThan(regularCheckIndex);
   });
 });

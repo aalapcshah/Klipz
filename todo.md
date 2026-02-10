@@ -5791,3 +5791,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix: uploadsRef synced synchronously via setUploads wrapper, processQueue reads from ref
 - [x] Added processQueue re-trigger after upload completes to process next in queue
 - [x] All 698 tests passing
+
+## Fix Upload Issues (Feb 9 - Round 2)
+- [x] Make Save Files and Enrich AI buttons visible immediately - restructured dialog with fixed footer
+- [x] Fix "0 file(s) uploaded successfully!" toast - now shows "No files were uploaded" when 0 success/0 fail
+- [x] Updated upload-toast-fix test to match new code structure
