@@ -1358,140 +1358,162 @@ export default function FileGridEnhanced({
                 </div>
               )}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-wrap">
                   <span className="text-sm font-medium">
                     {selectedFilesSet.size} selected
                   </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setMetadataDialogOpen(true)}
-                  disabled={batchUpdateMutation.isPending}
-                >
-                  {batchUpdateMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Edit3 className="h-4 w-4 mr-2" />
-                  )}
-                  Edit Metadata
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setCompareMode(true);
-                    setSelectedFiles(new Set());
-                  }}
-                >
-                  <GitCompare className="h-4 w-4 mr-2" />
-                  Compare Files
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleBatchExport}
-                  disabled={exportMutation.isPending}
-                  aria-label={`Export ${selectedFilesSet.size} selected files to ZIP`}
-                >
-                  {exportMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4 mr-2" />
-                  )}
-                  Export ZIP
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExportJSON}
-                  aria-label={`Export metadata for ${selectedFilesSet.size} selected files`}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Export JSON
-                </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setTagDialogOpen(true)}
-                disabled={linkTagMutation.isPending}
-                aria-label={`Add tags to ${selectedFilesSet.size} selected files`}
-              >
-                  {linkTagMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Tag className="h-4 w-4 mr-2" />
-                  )}
-                  Add Tag
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCollectionDialogOpen(true)}
-                  disabled={bulkAddToCollectionMutation.isPending}
-                >
-                  {bulkAddToCollectionMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <FolderPlus className="h-4 w-4 mr-2" />
-                  )}
-                  Add to Collection
-                </Button>
-                <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBatchEnrich}
-                disabled={enrichMutation.isPending}
-                aria-label={`Enrich ${selectedFilesSet.size} selected files with AI`}
-              >
-                  {enrichMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4 mr-2" />
-                  )}
-                  Enrich
-                </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handleBulkQualityImprovement}
-                  disabled={enrichMutation.isPending}
-                  className="bg-green-600 hover:bg-green-700"
-                  aria-label={`Automatically improve quality of ${selectedFilesSet.size} selected files`}
-                >
-                  {enrichMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4 mr-2" />
-                  )}
-                  Improve Quality
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDeleteDialogOpen(true)}
-                  disabled={deleteMutation.isPending}
-                  aria-label={`Delete ${selectedFilesSet.size} selected files`}
-                >
-                  {deleteMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4 mr-2" />
-                  )}
-                  Delete
-                </Button>
+
+                  {/* 1. Clear Selected */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedFiles(new Set());
+                      setIsSelectionMode(false);
+                    }}
+                    aria-label="Clear file selection"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    {isSelectionMode ? "Exit Selection" : "Clear Selected"}
+                  </Button>
+
+                  {/* 2. Add Tag */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setTagDialogOpen(true)}
+                    disabled={linkTagMutation.isPending}
+                    aria-label={`Add tags to ${selectedFilesSet.size} selected files`}
+                  >
+                    {linkTagMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Tag className="h-4 w-4 mr-2" />
+                    )}
+                    Add Tag
+                  </Button>
+
+                  {/* 3. Edit Metadata */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMetadataDialogOpen(true)}
+                    disabled={batchUpdateMutation.isPending}
+                  >
+                    {batchUpdateMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Edit3 className="h-4 w-4 mr-2" />
+                    )}
+                    Edit Metadata
+                  </Button>
+
+                  {/* 4. Enrich */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBatchEnrich}
+                    disabled={enrichMutation.isPending}
+                    aria-label={`Enrich ${selectedFilesSet.size} selected files with AI`}
+                  >
+                    {enrichMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 mr-2" />
+                    )}
+                    Enrich
+                  </Button>
+
+                  {/* 5. Improve Quality */}
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleBulkQualityImprovement}
+                    disabled={enrichMutation.isPending}
+                    className="bg-green-600 hover:bg-green-700"
+                    aria-label={`Automatically improve quality of ${selectedFilesSet.size} selected files`}
+                  >
+                    {enrichMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 mr-2" />
+                    )}
+                    Improve Quality
+                  </Button>
+
+                  {/* 6. Compare Files */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCompareMode(true);
+                      setSelectedFiles(new Set());
+                    }}
+                  >
+                    <GitCompare className="h-4 w-4 mr-2" />
+                    Compare Files
+                  </Button>
+
+                  {/* 7. Export ZIP */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBatchExport}
+                    disabled={exportMutation.isPending}
+                    aria-label={`Export ${selectedFilesSet.size} selected files to ZIP`}
+                  >
+                    {exportMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4 mr-2" />
+                    )}
+                    Export ZIP
+                  </Button>
+
+                  {/* 8. Export JSON */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportJSON}
+                    aria-label={`Export metadata for ${selectedFilesSet.size} selected files`}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Export JSON
+                  </Button>
+
+                  {/* 9. Add to Collection */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCollectionDialogOpen(true)}
+                    disabled={bulkAddToCollectionMutation.isPending}
+                  >
+                    {bulkAddToCollectionMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <FolderPlus className="h-4 w-4 mr-2" />
+                    )}
+                    Add to Collection
+                  </Button>
+
+                  {/* 10. Delete (red) */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDeleteDialogOpen(true)}
+                    disabled={deleteMutation.isPending}
+                    className="text-red-500 border-red-500/50 hover:bg-red-500/10 hover:text-red-500"
+                    aria-label={`Delete ${selectedFilesSet.size} selected files`}
+                  >
+                    {deleteMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4 mr-2" />
+                    )}
+                    Delete
+                  </Button>
+                </div>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => {
-                  setSelectedFiles(new Set());
-                  setIsSelectionMode(false);
-                }}
-                aria-label="Clear file selection"
-              >
-                {isSelectionMode ? "Exit Selection" : "Clear Selection"}
-              </Button>
-            </div>
             </div>
           </Card>
         )}

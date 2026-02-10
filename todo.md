@@ -5817,3 +5817,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Added test for base64 payload size staying under proxy limits
 - [x] Added test for large file chunk calculations (656MB, 2.34GB user test cases)
 - [x] All 700 tests passing
+
+## Fix Batch Action Toolbar Layout
+- [x] Reorder top batch toolbar: Clear Selected, Add Tag, Edit Metadata, Enrich, Improve Quality, Compare Files, Export ZIP, Export JSON, Add to Collection, Delete
+- [x] Make the Delete button red in the top batch action toolbar
