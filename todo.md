@@ -5907,8 +5907,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] All uploads now use 1MB chunks with 5 retries and exponential backoff
 
 ## Cleanup: Remove Old Upload Routers (DONE)
-- [x] Remove server/routers/uploadChunk.ts (in-memory chunk storage - no longer used)
-- [x] Remove server/routers/largeFileUpload.ts (disk-based chunk storage - no longer used)
+- [x] Remove server/routers/uploadChunk.ts (in-memory chunk storage - deleted)
+- [x] Remove server/routers/largeFileUpload.ts (disk-based chunk storage - deleted)
 - [x] Remove references to old routers from server/routers.ts
 - [x] Remove old upload mutations from client/src/main.tsx UPLOAD_OPERATIONS set
 - [x] Migrated PendingUploads.tsx from old uploadChunk to resumable upload via trpcCall
