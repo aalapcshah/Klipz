@@ -5796,3 +5796,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Make Save Files and Enrich AI buttons visible immediately - restructured dialog with fixed footer
 - [x] Fix "0 file(s) uploaded successfully!" toast - now shows "No files were uploaded" when 0 success/0 fail
 - [x] Updated upload-toast-fix test to match new code structure
+
+## Fix Repeated Resume Toast (Re-applied after sandbox reset)
+- [x] Fix "1 upload(s) can be resumed" notification appearing multiple times and stacking up
+- [x] Root cause: toast fired on every serverSessions refetch in useResumableUpload useEffect
+- [x] Fix: Added resumableToastShownRef to only show toast once per page load

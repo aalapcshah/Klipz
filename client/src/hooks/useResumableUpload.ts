@@ -123,6 +123,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const activeUploadsRef = useRef<Set<string>>(new Set());
   const autoResumedRef = useRef(false);
+  const resumableToastShownRef = useRef(false);
   const chunkDelayRef = useRef(options.chunkDelayMs ?? 0);
   // Keep refs to callbacks so the upload loop always calls the latest version
   const optionsRef = useRef(options);
@@ -182,10 +183,11 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
       });
       setIsLoading(false);
       
-      // Show toast if there are resumable sessions
-      if (mappedSessions.length > 0) {
+      // Show toast if there are resumable sessions (only once per page load)
+      if (!resumableToastShownRef.current && mappedSessions.length > 0) {
         const pausedCount = mappedSessions.filter(s => s.status === 'paused' || s.status === 'active').length;
         if (pausedCount > 0) {
+          resumableToastShownRef.current = true;
           toast.info(`${pausedCount} upload(s) can be resumed`, {
             action: {
               label: "View",
