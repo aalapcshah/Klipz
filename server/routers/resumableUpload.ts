@@ -11,6 +11,178 @@ import { eq, and, lt, sql } from "drizzle-orm";
 // Constants
 const DEFAULT_CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks (kept small to avoid proxy body size limits on deployed sites)
 const SESSION_EXPIRY_HOURS = 24; // Sessions expire after 24 hours of inactivity
+const SMALL_FILE_THRESHOLD = 50 * 1024 * 1024; // 50MB - files below this are assembled synchronously
+const ASSEMBLY_BATCH_SIZE = 10; // Process 10 chunks at a time during assembly
+
+/**
+ * Background assembly queue - processes large file assembly outside the request cycle
+ * This prevents 503 timeouts on the deployed server
+ */
+const assemblyQueue = new Map<string, { promise: Promise<void>; cancel: () => void }>();
+
+async function assembleFileInBackground(
+  sessionId: number,
+  sessionToken: string,
+  userId: number,
+  session: {
+    filename: string;
+    fileSize: number | bigint;
+    mimeType: string;
+    uploadType: string;
+    metadata: any;
+  }
+) {
+  const drizzle = await getDb();
+  if (!drizzle) throw new Error("Database not available");
+
+  let cancelled = false;
+  const cancelFn = () => { cancelled = true; };
+
+  const assemblyPromise = (async () => {
+    try {
+      // Get all chunks ordered
+      const chunks = await drizzle
+        .select()
+        .from(resumableUploadChunks)
+        .where(eq(resumableUploadChunks.sessionId, sessionId))
+        .orderBy(resumableUploadChunks.chunkIndex);
+
+      const totalSize = Number(session.fileSize);
+      const totalChunks = chunks.length;
+
+      // Generate final file key
+      const timestamp = Date.now();
+      const randomSuffix = Math.random().toString(36).substring(2, 8);
+      const folder = session.uploadType === 'video' ? 'videos' : 'files';
+      const finalFileKey = `user-${userId}/${folder}/${timestamp}-${randomSuffix}-${session.filename}`;
+
+      console.log(`[ResumableUpload] Background assembly started for ${sessionToken}: ${totalChunks} chunks, ${(totalSize / 1024 / 1024).toFixed(1)}MB`);
+
+      // Download and assemble chunks in batches to limit memory
+      // We still need to concat for storagePut, but we process in controlled batches
+      const allBuffers: Buffer[] = [];
+      let processedBytes = 0;
+
+      for (let batchStart = 0; batchStart < totalChunks; batchStart += ASSEMBLY_BATCH_SIZE) {
+        if (cancelled) {
+          console.log(`[ResumableUpload] Assembly cancelled for ${sessionToken}`);
+          return;
+        }
+
+        const batchEnd = Math.min(batchStart + ASSEMBLY_BATCH_SIZE, totalChunks);
+        const batchChunks = chunks.slice(batchStart, batchEnd);
+
+        // Download batch in parallel with retries
+        const batchPromises = batchChunks.map(async (chunk) => {
+          let retries = 0;
+          const maxRetries = 3;
+          while (retries < maxRetries) {
+            try {
+              const { url } = await storageGet(chunk.storageKey);
+              const response = await fetch(url);
+              if (!response.ok) throw new Error(`HTTP ${response.status}`);
+              const arrayBuffer = await response.arrayBuffer();
+              return Buffer.from(arrayBuffer);
+            } catch (error) {
+              retries++;
+              if (retries >= maxRetries) {
+                console.error(`[ResumableUpload] Failed to fetch chunk ${chunk.chunkIndex} after ${maxRetries} retries:`, error);
+                throw new Error(`Failed to assemble chunk ${chunk.chunkIndex}`);
+              }
+              console.warn(`[ResumableUpload] Chunk ${chunk.chunkIndex} fetch retry ${retries}`);
+              await new Promise(r => setTimeout(r, 1000 * retries));
+            }
+          }
+          throw new Error('Unreachable');
+        });
+
+        const batchBuffers = await Promise.all(batchPromises);
+        allBuffers.push(...batchBuffers);
+        processedBytes += batchBuffers.reduce((sum, b) => sum + b.length, 0);
+
+        // Update progress in DB
+        const progressPercent = Math.round((processedBytes / totalSize) * 100);
+        console.log(`[ResumableUpload] Assembly progress ${sessionToken}: ${progressPercent}% (${(processedBytes / 1024 / 1024).toFixed(1)}MB / ${(totalSize / 1024 / 1024).toFixed(1)}MB)`);
+      }
+
+      if (cancelled) return;
+
+      // Concat all buffers and upload
+      console.log(`[ResumableUpload] Concatenating ${allBuffers.length} buffers for ${sessionToken}...`);
+      const completeFile = Buffer.concat(allBuffers);
+      // Free individual buffers
+      allBuffers.length = 0;
+
+      console.log(`[ResumableUpload] Uploading final file for ${sessionToken} (${(completeFile.length / 1024 / 1024).toFixed(1)}MB)...`);
+      const result = await storagePut(finalFileKey, completeFile, session.mimeType);
+      const finalUrl = result.url;
+
+      console.log(`[ResumableUpload] File uploaded to S3: ${finalFileKey}`);
+
+      // Create file record in database
+      const metadata = session.metadata as { title?: string; description?: string; collectionId?: number; tags?: string[] } || {};
+      const fileId = await db.createFile({
+        userId,
+        fileKey: finalFileKey,
+        url: finalUrl,
+        filename: session.filename,
+        mimeType: session.mimeType,
+        fileSize: totalSize,
+        title: metadata.title,
+        description: metadata.description,
+      });
+
+      // Create video record if this is a video
+      let videoId: number | undefined;
+      if (session.uploadType === 'video' && session.mimeType.startsWith('video/')) {
+        videoId = await db.createVideo({
+          userId,
+          fileId,
+          fileKey: finalFileKey,
+          url: finalUrl,
+          filename: session.filename,
+          title: metadata.title || session.filename,
+          description: metadata.description,
+          duration: 0,
+          exportStatus: 'draft',
+        });
+      }
+
+      // Update session as completed
+      await drizzle
+        .update(resumableUploadSessions)
+        .set({
+          status: 'completed',
+          finalFileKey,
+          finalFileUrl: finalUrl,
+          completedAt: new Date(),
+        })
+        .where(eq(resumableUploadSessions.id, sessionId));
+
+      console.log(`[ResumableUpload] Background assembly complete for ${sessionToken}: file ID ${fileId}, video ID: ${videoId || 'N/A'}`);
+
+    } catch (error) {
+      console.error(`[ResumableUpload] Background assembly failed for ${sessionToken}:`, error);
+
+      // Mark session as failed so client can retry
+      const drizzle2 = await getDb();
+      if (drizzle2) {
+        await drizzle2
+          .update(resumableUploadSessions)
+          .set({
+            status: 'active', // Reset to active so client can retry finalize
+            lastActivityAt: new Date(),
+          })
+          .where(eq(resumableUploadSessions.id, sessionId));
+      }
+    } finally {
+      assemblyQueue.delete(sessionToken);
+    }
+  })();
+
+  assemblyQueue.set(sessionToken, { promise: assemblyPromise, cancel: cancelFn });
+  return assemblyPromise;
+}
 
 /**
  * Resumable Upload Router
@@ -278,6 +450,9 @@ export const resumableUploadRouter = router({
 
   /**
    * Finalize upload - assemble chunks and create file record
+   * For small files (<50MB): assembles synchronously and returns the result
+   * For large files (>=50MB): starts background assembly and returns immediately
+   *   Client should poll getFinalizeStatus to check completion
    */
   finalizeUpload: protectedProcedure
     .input(z.object({ sessionToken: z.string() }))
@@ -302,6 +477,25 @@ export const resumableUploadRouter = router({
           message: "Upload session not found",
         });
       }
+
+      // If already finalizing, return status (idempotent)
+      if (session.status === 'finalizing') {
+        return {
+          success: true,
+          async: true,
+          message: "Assembly is already in progress. Poll getFinalizeStatus for updates.",
+        };
+      }
+
+      // If already completed, return the result
+      if (session.status === 'completed') {
+        return {
+          success: true,
+          async: false,
+          fileKey: session.finalFileKey,
+          url: session.finalFileUrl,
+        };
+      }
       
       // Verify all chunks are uploaded
       const chunks = await drizzle
@@ -318,163 +512,165 @@ export const resumableUploadRouter = router({
         });
       }
       
-      console.log(`[ResumableUpload] Finalizing session ${input.sessionToken}: assembling ${chunks.length} chunks`);
+      console.log(`[ResumableUpload] Finalizing session ${input.sessionToken}: ${chunks.length} chunks, ${(Number(session.fileSize) / 1024 / 1024).toFixed(1)}MB`);
       
-      // Update session status to 'finalizing' so client knows we're working
+      // Update session status to 'finalizing'
       await drizzle
         .update(resumableUploadSessions)
         .set({ status: 'finalizing', lastActivityAt: new Date() })
         .where(eq(resumableUploadSessions.id, session.id));
-      
-      // Strategy: For large files, download chunks in batches and stream-upload
-      // to avoid holding the entire file in memory at once.
-      // For files under 50MB, use the simple concat approach.
+
       const totalSize = Number(session.fileSize);
-      const BATCH_SIZE = 10; // Process 10 chunks at a time (~50MB)
-      
-      // Generate final file key
-      const timestamp = Date.now();
-      const randomSuffix = Math.random().toString(36).substring(2, 8);
-      const folder = session.uploadType === 'video' ? 'videos' : 'files';
-      const finalFileKey = `user-${ctx.user.id}/${folder}/${timestamp}-${randomSuffix}-${session.filename}`;
-      
-      let finalUrl: string;
-      
-      if (totalSize <= 50 * 1024 * 1024) {
-        // Small file: simple concat approach
-        const chunkBuffers: Buffer[] = [];
-        for (const chunk of chunks) {
-          try {
+
+      // For small files, assemble synchronously (fast enough to not timeout)
+      if (totalSize <= SMALL_FILE_THRESHOLD) {
+        try {
+          const chunkBuffers: Buffer[] = [];
+          for (const chunk of chunks) {
             const { url } = await storageGet(chunk.storageKey);
             const response = await fetch(url);
             if (!response.ok) throw new Error(`Failed to fetch chunk ${chunk.chunkIndex}`);
             const arrayBuffer = await response.arrayBuffer();
             chunkBuffers.push(Buffer.from(arrayBuffer));
-          } catch (error) {
-            console.error(`[ResumableUpload] Failed to fetch chunk ${chunk.chunkIndex}:`, error);
-            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Failed to assemble chunk ${chunk.chunkIndex}` });
           }
-        }
-        const completeFile = Buffer.concat(chunkBuffers);
-        const result = await storagePut(finalFileKey, completeFile, session.mimeType);
-        finalUrl = result.url;
-      } else {
-        // Large file: process in batches to limit memory usage
-        // Download all chunks in batches, concat, and upload the final file
-        // We still need to concat for storagePut, but we do it in a streaming fashion
-        console.log(`[ResumableUpload] Large file (${(totalSize / 1024 / 1024).toFixed(1)}MB), processing ${chunks.length} chunks in batches of ${BATCH_SIZE}`);
-        
-        const allBuffers: Buffer[] = [];
-        let processedBytes = 0;
-        
-        for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
-          const batchEnd = Math.min(batchStart + BATCH_SIZE, chunks.length);
-          const batchChunks = chunks.slice(batchStart, batchEnd);
-          
-          // Download batch in parallel (up to BATCH_SIZE concurrent)
-          const batchPromises = batchChunks.map(async (chunk) => {
-            let retries = 0;
-            const maxRetries = 3;
-            while (retries < maxRetries) {
-              try {
-                const { url } = await storageGet(chunk.storageKey);
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const arrayBuffer = await response.arrayBuffer();
-                return Buffer.from(arrayBuffer);
-              } catch (error) {
-                retries++;
-                if (retries >= maxRetries) {
-                  console.error(`[ResumableUpload] Failed to fetch chunk ${chunk.chunkIndex} after ${maxRetries} retries:`, error);
-                  throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Failed to assemble chunk ${chunk.chunkIndex}` });
-                }
-                console.warn(`[ResumableUpload] Chunk ${chunk.chunkIndex} fetch retry ${retries}`);
-                await new Promise(r => setTimeout(r, 1000 * retries));
-              }
-            }
-            throw new Error('Unreachable');
+          const completeFile = Buffer.concat(chunkBuffers);
+
+          const timestamp = Date.now();
+          const randomSuffix = Math.random().toString(36).substring(2, 8);
+          const folder = session.uploadType === 'video' ? 'videos' : 'files';
+          const finalFileKey = `user-${ctx.user.id}/${folder}/${timestamp}-${randomSuffix}-${session.filename}`;
+
+          const result = await storagePut(finalFileKey, completeFile, session.mimeType);
+          const finalUrl = result.url;
+
+          // Create file record
+          const metadata = session.metadata as { title?: string; description?: string; collectionId?: number; tags?: string[] } || {};
+          const fileId = await db.createFile({
+            userId: ctx.user.id,
+            fileKey: finalFileKey,
+            url: finalUrl,
+            filename: session.filename,
+            mimeType: session.mimeType,
+            fileSize: totalSize,
+            title: metadata.title,
+            description: metadata.description,
           });
-          
-          const batchBuffers = await Promise.all(batchPromises);
-          allBuffers.push(...batchBuffers);
-          processedBytes += batchBuffers.reduce((sum, b) => sum + b.length, 0);
-          console.log(`[ResumableUpload] Downloaded batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: ${(processedBytes / 1024 / 1024).toFixed(1)}MB / ${(totalSize / 1024 / 1024).toFixed(1)}MB`);
-        }
-        
-        // Concat all buffers and upload
-        console.log(`[ResumableUpload] Concatenating ${allBuffers.length} buffers...`);
-        const completeFile = Buffer.concat(allBuffers);
-        console.log(`[ResumableUpload] Uploading final file (${(completeFile.length / 1024 / 1024).toFixed(1)}MB)...`);
-        
-        const result = await storagePut(finalFileKey, completeFile, session.mimeType);
-        finalUrl = result.url;
-        
-        // Free memory
-        allBuffers.length = 0;
-      }
-      
-      console.log(`[ResumableUpload] File uploaded to S3: ${finalFileKey}`);
-      
-      // Create file record in database
-      const metadata = session.metadata as { title?: string; description?: string; collectionId?: number; tags?: string[] } || {};
-      const fileId = await db.createFile({
-        userId: ctx.user.id,
-        fileKey: finalFileKey,
-        url: finalUrl,
-        filename: session.filename,
-        mimeType: session.mimeType,
-        fileSize: totalSize,
-        title: metadata.title,
-        description: metadata.description,
-      });
-      
-      // Create video record if this is a video
-      let videoId: number | undefined;
-      if (session.uploadType === 'video' && session.mimeType.startsWith('video/')) {
-        videoId = await db.createVideo({
-          userId: ctx.user.id,
-          fileId,
-          fileKey: finalFileKey,
-          url: finalUrl,
-          filename: session.filename,
-          title: metadata.title || session.filename,
-          description: metadata.description,
-          duration: 0,
-          exportStatus: 'draft',
-        });
-      }
-      
-      // Update session as completed
-      await drizzle
-        .update(resumableUploadSessions)
-        .set({
-          status: 'completed',
-          finalFileKey,
-          finalFileUrl: finalUrl,
-          completedAt: new Date(),
-        })
-        .where(eq(resumableUploadSessions.id, session.id));
-      
-      // Clean up chunk storage keys in background (non-blocking)
-      Promise.all(
-        chunks.map(chunk => {
-          try {
-            // We don't have storageDelete imported but chunks will expire via S3 lifecycle
-            return Promise.resolve();
-          } catch (e) {
-            return Promise.resolve();
+
+          let videoId: number | undefined;
+          if (session.uploadType === 'video' && session.mimeType.startsWith('video/')) {
+            videoId = await db.createVideo({
+              userId: ctx.user.id,
+              fileId,
+              fileKey: finalFileKey,
+              url: finalUrl,
+              filename: session.filename,
+              title: metadata.title || session.filename,
+              description: metadata.description,
+              duration: 0,
+              exportStatus: 'draft',
+            });
           }
-        })
-      ).catch(() => {});
-      
-      console.log(`[ResumableUpload] Upload complete: file ID ${fileId}, video ID: ${videoId || 'N/A'}`);
-      
+
+          await drizzle
+            .update(resumableUploadSessions)
+            .set({
+              status: 'completed',
+              finalFileKey,
+              finalFileUrl: finalUrl,
+              completedAt: new Date(),
+            })
+            .where(eq(resumableUploadSessions.id, session.id));
+
+          console.log(`[ResumableUpload] Sync finalize complete: file ID ${fileId}, video ID: ${videoId || 'N/A'}`);
+
+          return {
+            success: true,
+            async: false,
+            fileId,
+            videoId,
+            url: finalUrl,
+            fileKey: finalFileKey,
+          };
+        } catch (error) {
+          console.error(`[ResumableUpload] Sync finalize failed:`, error);
+          // Reset to active so client can retry
+          await drizzle
+            .update(resumableUploadSessions)
+            .set({ status: 'active', lastActivityAt: new Date() })
+            .where(eq(resumableUploadSessions.id, session.id));
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Assembly failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          });
+        }
+      }
+
+      // For large files, start background assembly and return immediately
+      // This prevents the 503 timeout on deployed servers
+      assembleFileInBackground(session.id, session.sessionToken, ctx.user.id, {
+        filename: session.filename,
+        fileSize: session.fileSize,
+        mimeType: session.mimeType,
+        uploadType: session.uploadType,
+        metadata: session.metadata,
+      });
+
       return {
         success: true,
-        fileId,
-        videoId,
-        url: finalUrl,
-        fileKey: finalFileKey,
+        async: true,
+        message: "File assembly started in background. Poll getFinalizeStatus for updates.",
+      };
+    }),
+
+  /**
+   * Check the status of a background finalization
+   * Client polls this after finalizeUpload returns async: true
+   */
+  getFinalizeStatus: protectedProcedure
+    .input(z.object({ sessionToken: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const drizzle = await getDb();
+      if (!drizzle) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const [session] = await drizzle
+        .select()
+        .from(resumableUploadSessions)
+        .where(
+          and(
+            eq(resumableUploadSessions.sessionToken, input.sessionToken),
+            eq(resumableUploadSessions.userId, ctx.user.id)
+          )
+        );
+
+      if (!session) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Upload session not found" });
+      }
+
+      if (session.status === 'completed') {
+        return {
+          status: 'completed' as const,
+          fileKey: session.finalFileKey,
+          url: session.finalFileUrl,
+        };
+      }
+
+      if (session.status === 'finalizing') {
+        return {
+          status: 'finalizing' as const,
+          message: "File assembly in progress...",
+        };
+      }
+
+      // If status is 'active', the assembly failed and was reset
+      if (session.status === 'active') {
+        return {
+          status: 'failed' as const,
+          message: "Assembly failed. You can retry finalization.",
+        };
+      }
+
+      return {
+        status: session.status as string,
       };
     }),
 
@@ -509,6 +705,13 @@ export const resumableUploadRouter = router({
       const drizzle = await getDb();
       if (!drizzle) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       
+      // Cancel any in-progress assembly
+      const assembly = assemblyQueue.get(input.sessionToken);
+      if (assembly) {
+        assembly.cancel();
+        assemblyQueue.delete(input.sessionToken);
+      }
+
       // Find session
       const [session] = await drizzle
         .select()
@@ -567,14 +770,16 @@ export const resumableUploadRouter = router({
       .where(
         and(
           eq(resumableUploadSessions.userId, ctx.user.id),
-          sql`${resumableUploadSessions.status} IN ('active', 'paused')`
+          sql`${resumableUploadSessions.status} IN ('active', 'paused', 'finalizing')`
         )
       )
       .orderBy(resumableUploadSessions.lastActivityAt);
     
-    // Filter out expired sessions
+    // Filter out expired sessions (but keep finalizing ones)
     const now = new Date();
-    const activeSessions = sessions.filter(s => new Date(s.expiresAt) > now);
+    const activeSessions = sessions.filter(s => 
+      s.status === 'finalizing' || new Date(s.expiresAt) > now
+    );
     
     return activeSessions;
   }),

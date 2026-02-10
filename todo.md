@@ -5838,3 +5838,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Combine Export ZIP and Export JSON into a single "Export" dropdown menu
 - [x] Make Enrich button purple to match site AI styling
 - [x] All items now on same flex-wrap line (Add to Collection and Delete included)
+
+## Bug Fix - Resumable Upload Finalize 503 and Chunk Race Condition
+- [x] Fix finalizeUpload returning 503 Service Unavailable for large files
+  - Files <=50MB: sync finalize (fast, no timeout risk)
+  - Files >50MB: async background assembly with client polling via getFinalizeStatus
+- [x] Fix race condition: finalize is now idempotent (returns async:true if already finalizing)
+- [x] Client polls getFinalizeStatus every 5s for up to 30 minutes for large file assembly
+- [x] Assembly processes chunks in batches of 10 (~10MB memory) to prevent OOM
+- [x] All 717 tests passing (68 test files)

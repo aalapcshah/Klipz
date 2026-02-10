@@ -282,6 +282,55 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     }
   }, [createSessionMutation]);
 
+  // Poll for background finalization completion (for large files)
+  const pollFinalizeStatus = async (
+    sessionToken: string,
+    signal: AbortSignal
+  ): Promise<{ fileId: number; videoId?: number; url: string }> => {
+    const POLL_INTERVAL = 5000; // 5 seconds
+    const MAX_POLL_TIME = 30 * 60 * 1000; // 30 minutes max
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < MAX_POLL_TIME) {
+      if (signal.aborted) throw new Error('Upload was cancelled');
+
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+
+      if (signal.aborted) throw new Error('Upload was cancelled');
+
+      const status = await trpcCall<{
+        status: 'completed' | 'finalizing' | 'failed' | string;
+        fileKey?: string;
+        url?: string;
+        message?: string;
+      }>('resumableUpload.getFinalizeStatus', {
+        sessionToken,
+      }, 'query', {
+        timeoutMs: 30_000,
+        signal,
+      });
+
+      if (status.status === 'completed') {
+        // Fetch the full session to get fileId/videoId
+        // The server doesn't return these from getFinalizeStatus, so we use the URL
+        // and rely on the onComplete callback to refresh the file list
+        return {
+          fileId: 0, // Will be resolved by the file list refresh
+          url: status.url || '',
+        };
+      }
+
+      if (status.status === 'failed') {
+        throw new Error(status.message || 'File assembly failed on server');
+      }
+
+      // Still finalizing, continue polling
+      console.log(`[ResumableUpload] Still assembling ${sessionToken}...`);
+    }
+
+    throw new Error('File assembly timed out after 30 minutes');
+  };
+
   // Upload chunks for a session - uses direct fetch calls, survives component unmounts
   const uploadChunks = useCallback(async (session: ResumableUploadSession, file: File) => {
     const abortController = new AbortController();
@@ -399,18 +448,39 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
           : s
       ));
 
-      const finalResult = await trpcCall<{
-        fileId: number;
+      const finalizeResult = await trpcCall<{
+        success: boolean;
+        async?: boolean;
+        fileId?: number;
         videoId?: number;
-        url: string;
+        url?: string;
+        fileKey?: string;
+        message?: string;
       }>('resumableUpload.finalizeUpload', {
         sessionToken: session.sessionToken,
       }, 'mutation', {
-        timeoutMs: 600_000, // 10 minute timeout for finalization (assembling large files)
+        timeoutMs: 300_000, // 5 minute timeout for sync finalization
         signal: abortController.signal,
       });
 
-      console.log(`[ResumableUpload] Finalization complete for ${session.filename}:`, finalResult);
+      let completedResult: { fileId: number; videoId?: number; url: string };
+
+      if (finalizeResult.async) {
+        // Large file: server is assembling in background, poll for completion
+        console.log(`[ResumableUpload] Background assembly started for ${session.filename}, polling for completion...`);
+        toast.info(`${session.filename}: Assembling file on server... This may take a few minutes for large files.`);
+
+        completedResult = await pollFinalizeStatus(session.sessionToken, abortController.signal);
+      } else {
+        // Small file: completed synchronously
+        completedResult = {
+          fileId: finalizeResult.fileId!,
+          videoId: finalizeResult.videoId,
+          url: finalizeResult.url!,
+        };
+      }
+
+      console.log(`[ResumableUpload] Finalization complete for ${session.filename}:`, completedResult);
 
       setSessionsRef.current(prev => prev.map(s => 
         s.sessionToken === session.sessionToken
@@ -418,7 +488,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
           : s
       ));
 
-      optionsRef.current.onComplete?.(session, finalResult);
+      optionsRef.current.onComplete?.(session, completedResult);
       toast.success(`${session.filename} uploaded successfully!`);
 
     } catch (error) {
