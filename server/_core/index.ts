@@ -52,6 +52,9 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "500mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+  // Standalone admin auth routes (password-based, OAuth-independent)
+  const adminAuthRouter = (await import("../routes/adminAuth")).default;
+  app.use(adminAuthRouter);
   // Stream file endpoint for serving chunked uploads without re-assembly
   const streamFileRouter = (await import("../routes/streamFile")).default;
   app.use(streamFileRouter);

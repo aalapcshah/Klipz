@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -1317,12 +1318,53 @@ function SharesTab() {
 // ============================================================================
 // Main Admin Control Panel
 // ============================================================================
-export function AdminControlPanel() {
+/**
+ * Custom hook to check admin access via both OAuth and standalone admin session.
+ */
+function useAdminAccess() {
   const { user, loading: authLoading } = useAuth();
+  const [standaloneChecked, setStandaloneChecked] = useState(false);
+  const [isStandaloneAdmin, setIsStandaloneAdmin] = useState(false);
+
+  useEffect(() => {
+    // If OAuth user is already admin, no need to check standalone
+    if (user?.role === "admin") {
+      setStandaloneChecked(true);
+      return;
+    }
+
+    // Only check standalone after OAuth loading is done
+    if (authLoading) return;
+
+    // Check standalone admin session
+    fetch("/api/admin/verify", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => {
+        setIsStandaloneAdmin(data.authenticated === true);
+        setStandaloneChecked(true);
+      })
+      .catch(() => {
+        setStandaloneChecked(true);
+      });
+  }, [user, authLoading]);
+
+  const loading = authLoading || !standaloneChecked;
+  const isOAuthAdmin = user?.role === "admin";
+  const isAdmin = isOAuthAdmin || isStandaloneAdmin;
+  const adminName = isOAuthAdmin
+    ? user?.name || user?.email || "Admin"
+    : "Admin (Standalone)";
+
+  return { isAdmin, adminName, loading, isStandaloneAdmin };
+}
+
+export function AdminControlPanel() {
+  const { isAdmin, adminName, loading: adminLoading, isStandaloneAdmin } = useAdminAccess();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [, navigate] = useLocation();
 
   // Auth check
-  if (authLoading) {
+  if (adminLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-muted-foreground">Loading...</div>
@@ -1330,7 +1372,7 @@ export function AdminControlPanel() {
     );
   }
 
-  if (!user || user.role !== "admin") {
+  if (!isAdmin) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -1339,9 +1381,14 @@ export function AdminControlPanel() {
           <p className="text-muted-foreground">
             This page is restricted to administrators only.
           </p>
-          <Button variant="outline" onClick={() => window.location.href = "/"}>
-            Go Home
-          </Button>
+          <div className="flex gap-2 justify-center">
+            <Button variant="outline" onClick={() => navigate("/")}>
+              Go Home
+            </Button>
+            <Button variant="default" onClick={() => navigate("/admin/login")}>
+              Admin Login
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -1378,9 +1425,22 @@ export function AdminControlPanel() {
             <div className="ml-auto flex items-center gap-2">
               <Badge variant="outline" className="text-emerald-400">
                 <Crown className="h-3 w-3 mr-1" />
-                {user.name || user.email}
+                {adminName}
               </Badge>
-              <Button variant="outline" size="sm" onClick={() => window.location.href = "/"}>
+              {isStandaloneAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-400 border-red-400/30 hover:bg-red-400/10"
+                  onClick={async () => {
+                    await fetch("/api/admin/logout", { method: "POST", credentials: "include" });
+                    navigate("/admin/login");
+                  }}
+                >
+                  Logout
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => navigate("/")}>
                 Back to App
               </Button>
             </div>

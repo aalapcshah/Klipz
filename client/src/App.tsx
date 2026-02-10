@@ -29,6 +29,8 @@ import AdminReports from "./pages/AdminReports";
 import AdminShareAnalytics from "./pages/AdminShareAnalytics";
 import AdminSystemOverview from "./pages/AdminSystemOverview";
 import AdminControlPanel from "./pages/AdminControlPanel";
+import AdminLogin from "./pages/AdminLogin";
+import LoginError from "./pages/LoginError";
 import ShareView from "./pages/ShareView";
 import VideoDetail from "./pages/VideoDetail";
 import Share from "./pages/Share";
@@ -76,6 +78,8 @@ function Router() {
       <Route path="/admin/shares" component={AdminShareAnalytics} />
       <Route path="/admin/system" component={AdminSystemOverview} />
       <Route path="/admin/control" component={AdminControlPanel} />
+      <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/login/error" component={LoginError} />
       <Route path="/my-shares" component={MyShares} />
       <Route path="/share/:token" component={ShareView} />
       <Route path="/share" component={Share} />

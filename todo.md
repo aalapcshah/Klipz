@@ -5885,3 +5885,14 @@ Note: The application already has extensive annotation features including voice 
 - [x] Full sessions table with progress bars, upload type, last activity, and delete actions
 - [x] Enhanced listUploadSessions endpoint with statusCounts, progressPercent, uploadedBytes
 - [x] All 736 tests passing (70 test files)
+## Standalone Admin Login (OAuth-independent)
+- [x] Create ADMIN_PASSWORD environment variable
+- [x] Create server-side admin auth endpoints (login, verify, logout) with JWT-based session
+- [x] Build /admin/login page with password input
+- [x] Update admin panel to accept both OAuth admin role AND standalone admin password sessions
+- [x] Ensure admin panel works when self-hosted without Manus OAuth
+## OAuth Login Error Handling
+- [x] Fix OAuth login error - show friendly error page instead of raw "Failed to get user info from Google" text
+- [x] Add retry button and alternative login options on OAuth error page
+- [x] Add admin login link to OAuth error page for self-hosted access
+- [x] Write admin auth tests (23 tests passing)

@@ -47,7 +47,23 @@ export function registerOAuthRoutes(app: Express) {
       res.redirect(302, "/");
     } catch (error) {
       console.error("[OAuth] Callback failed", error);
-      res.status(500).json({ error: "OAuth callback failed" });
+      
+      // Determine error type for user-friendly error page
+      const errorStr = String(error);
+      let errorType = "oauth_failed";
+      let errorMessage = "The authentication process could not be completed.";
+      
+      if (errorStr.includes("google") || errorStr.includes("Google")) {
+        errorType = "google_api";
+        errorMessage = "Google's authentication service is temporarily unavailable.";
+      } else if (errorStr.includes("token") || errorStr.includes("exchange")) {
+        errorType = "token_exchange";
+        errorMessage = "Could not verify your identity with the login provider.";
+      }
+      
+      // Redirect to friendly error page instead of showing raw JSON
+      const params = new URLSearchParams({ type: errorType, message: errorMessage });
+      res.redirect(302, `/login/error?${params.toString()}`);
     }
   });
 }
