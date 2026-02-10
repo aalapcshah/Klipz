@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Upload, Mic, X, Loader2, Sparkles, AlertCircle, FileText, Edit3, RefreshCw, GripVertical, Link, Globe } from "lucide-react";
+import { Upload, Mic, X, Loader2, Sparkles, AlertCircle, FileText, Edit3, RefreshCw, GripVertical, Link, Globe, FolderOpen } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -246,6 +246,7 @@ export function FileUploadDialog({
   const [urlValidating, setUrlValidating] = useState(false);
   const [urlUploading, setUrlUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   
@@ -520,6 +521,31 @@ export function FileUploadDialog({
     if (e.target.files) {
       const selectedFiles = Array.from(e.target.files);
       addFiles(selectedFiles);
+    }
+  }, []);
+
+  const handleFolderSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const allFiles = Array.from(e.target.files);
+      // Filter to supported file types
+      const supportedFiles = allFiles.filter(file => {
+        const type = file.type.toLowerCase();
+        const ext = file.name.toLowerCase();
+        return type.startsWith('image/') || type.startsWith('video/') || 
+               type === 'application/pdf' || 
+               ext.endsWith('.doc') || ext.endsWith('.docx') ||
+               ext.endsWith('.pdf');
+      });
+      const skippedCount = allFiles.length - supportedFiles.length;
+      if (skippedCount > 0) {
+        toast.info(`Skipped ${skippedCount} unsupported file(s) from folder`);
+      }
+      if (supportedFiles.length > 0) {
+        addFiles(supportedFiles);
+        toast.success(`Added ${supportedFiles.length} file(s) from folder`);
+      } else {
+        toast.warning('No supported files found in the selected folder');
+      }
     }
   }, []);
 
@@ -1196,8 +1222,7 @@ export function FileUploadDialog({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
             isDragging
               ? "border-primary bg-primary/10"
               : "border-border hover:border-primary/50"
@@ -1207,10 +1232,27 @@ export function FileUploadDialog({
           <p className="text-lg font-medium mb-2">
             Drag & Drop Files Here
           </p>
-          <p className="text-sm text-muted-foreground">
-            or click to browse your computer
+          <p className="text-sm text-muted-foreground mb-4">
+            or choose an option below
           </p>
-          <p className="text-xs text-muted-foreground mt-2">
+          <div className="flex gap-2 justify-center mb-3">
+            <Button
+              size="sm"
+              onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Choose Files
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => { e.stopPropagation(); folderInputRef.current?.click(); }}
+            >
+              <FolderOpen className="w-4 h-4 mr-2" />
+              Choose Folder
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
             Supported: Images, Videos, PDFs, Documents
           </p>
           <input
@@ -1220,6 +1262,16 @@ export function FileUploadDialog({
             accept="image/*,video/*,application/pdf,.doc,.docx"
             onChange={handleFileSelect}
             className="hidden"
+          />
+          <input
+            ref={folderInputRef}
+            type="file"
+            // @ts-ignore - webkitdirectory is not in the type definitions
+            webkitdirectory=""
+            directory=""
+            multiple
+            className="hidden"
+            onChange={handleFolderSelect}
           />
         </div>
 

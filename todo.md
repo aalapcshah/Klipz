@@ -5821,3 +5821,20 @@ Note: The application already has extensive annotation features including voice 
 ## Fix Batch Action Toolbar Layout
 - [x] Reorder top batch toolbar: Clear Selected, Add Tag, Edit Metadata, Enrich, Improve Quality, Compare Files, Export ZIP, Export JSON, Add to Collection, Delete
 - [x] Make the Delete button red in the top batch action toolbar
+
+## Folder Upload Support
+- [x] Add "Browse Folder" button to file upload dialog alongside existing file browse
+- [x] Support uploading entire folders with all contained files (filters to supported types, shows skip count)
+
+## Bug Fix - File List Not Refreshing After Upload
+- [x] Fix file list not auto-refreshing after single file upload - shows 0 files until manual page refresh
+- [x] Ensure files.list query is invalidated when upload completes (added utils.files.list.invalidate() to UploadManagerContext)
+
+## Bug Fix - Pagination Empty State
+- [x] Fix "Page 1 of 0" display when file list is empty - hide pagination when no files exist
+- [x] Fix "Showing 1 - 0 of 0 files" text to show "Showing 0 - 0 of 0 files" when empty
+
+## Batch Toolbar Refinements
+- [x] Combine Export ZIP and Export JSON into a single "Export" dropdown menu
+- [x] Make Enrich button purple to match site AI styling
+- [x] All items now on same flex-wrap line (Add to Collection and Delete included)

@@ -138,6 +138,9 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
 
   // Upload history mutation
   const recordHistoryMutation = trpc.uploadHistory.record.useMutation();
+  
+  // tRPC utils for cache invalidation
+  const utils = trpc.useUtils();
 
   const generateId = () => `upload-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -703,6 +706,9 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
             window.focus();
           });
         }
+        
+        // Invalidate file list cache so the new file appears immediately
+        utils.files.list.invalidate();
         
         // Record to upload history
         const durationSeconds = Math.round((Date.now() - item.createdAt) / 1000);

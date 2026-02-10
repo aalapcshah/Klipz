@@ -629,7 +629,7 @@ export default function FilesView() {
           )}
           
           {/* Pagination Controls */}
-          {!searchResults && filesData?.pagination && (
+          {!searchResults && filesData?.pagination && filesData.pagination.totalCount > 0 && (
             <div className="flex items-center justify-between mt-6 pt-4 border-t">
               <div className="flex items-center gap-4">
                 <span className="text-sm text-muted-foreground">
@@ -657,7 +657,7 @@ export default function FilesView() {
                       </Button>
                     </span>
                   ) : (
-                    <>Showing {Math.min((filesData.pagination.page - 1) * filesData.pagination.pageSize + 1, filesData.pagination.totalCount)} - {Math.min(filesData.pagination.page * filesData.pagination.pageSize, filesData.pagination.totalCount)} of {filesData.pagination.totalCount} files</>
+                    <>Showing {(filesData.pagination.page - 1) * filesData.pagination.pageSize + 1} - {Math.min(filesData.pagination.page * filesData.pagination.pageSize, filesData.pagination.totalCount)} of {filesData.pagination.totalCount} files</>
                   )}
                 </span>
                 <div className="flex items-center gap-2">

@@ -62,6 +62,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface FileGridEnhancedProps {
   onFileClick?: (fileId: number) => void;
@@ -1408,12 +1414,13 @@ export default function FileGridEnhanced({
                     Edit Metadata
                   </Button>
 
-                  {/* 4. Enrich */}
+                  {/* 4. Enrich (purple) */}
                   <Button
-                    variant="outline"
+                    variant="default"
                     size="sm"
                     onClick={handleBatchEnrich}
                     disabled={enrichMutation.isPending}
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
                     aria-label={`Enrich ${selectedFilesSet.size} selected files with AI`}
                   >
                     {enrichMutation.isPending ? (
@@ -1454,32 +1461,35 @@ export default function FileGridEnhanced({
                     Compare Files
                   </Button>
 
-                  {/* 7. Export ZIP */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleBatchExport}
-                    disabled={exportMutation.isPending}
-                    aria-label={`Export ${selectedFilesSet.size} selected files to ZIP`}
-                  >
-                    {exportMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4 mr-2" />
-                    )}
-                    Export ZIP
-                  </Button>
-
-                  {/* 8. Export JSON */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExportJSON}
-                    aria-label={`Export metadata for ${selectedFilesSet.size} selected files`}
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Export JSON
-                  </Button>
+                  {/* 7. Export (dropdown) */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={exportMutation.isPending}
+                        aria-label={`Export ${selectedFilesSet.size} selected files`}
+                      >
+                        {exportMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Download className="h-4 w-4 mr-2" />
+                        )}
+                        Export
+                        <ChevronDown className="h-3 w-3 ml-1" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={handleBatchExport}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Export as ZIP
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleExportJSON}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Export as JSON
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
                   {/* 9. Add to Collection */}
                   <Button
