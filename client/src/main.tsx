@@ -57,14 +57,6 @@ queryClient.getMutationCache().subscribe(event => {
 // multiple 10MB+ base64 chunks from being combined into a single HTTP request
 // that exceeds reverse proxy / server body limits.
 const UPLOAD_OPERATIONS = new Set([
-  'uploadChunk.uploadChunk',
-  'uploadChunk.initUpload',
-  'uploadChunk.finalizeUpload',
-  'uploadChunk.cancelUpload',
-  'largeFileUpload.uploadLargeChunk',
-  'largeFileUpload.initLargeUpload',
-  'largeFileUpload.finalizeLargeUpload',
-  'largeFileUpload.cancelLargeUpload',
   'resumableUpload.createSession',
   'resumableUpload.uploadChunk',
   'resumableUpload.finalizeUpload',

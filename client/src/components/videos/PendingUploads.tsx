@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
+import { trpcCall } from "@/lib/trpcCall";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -26,7 +27,7 @@ import {
   type PendingRecording,
 } from "@/lib/offlineRecordingCache";
 
-const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunks
+const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks (matches resumable upload system)
 
 export function PendingUploads() {
   const [pendingCount, setPendingCount] = useState(0);
@@ -35,11 +36,6 @@ export function PendingUploads() {
   const [online, setOnline] = useState(isOnline());
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [autoRetrying, setAutoRetrying] = useState(false);
-
-  // Chunked upload mutations
-  const initUploadMutation = trpc.uploadChunk.initUpload.useMutation();
-  const uploadChunkMutation = trpc.uploadChunk.uploadChunk.useMutation();
-  const finalizeUploadMutation = trpc.uploadChunk.finalizeUpload.useMutation();
 
   const utils = trpc.useUtils();
 
@@ -111,40 +107,90 @@ export function PendingUploads() {
       await updateRecordingStatus(recording.id, { status: "uploading" });
       await refreshPending();
 
-      // Init chunked upload
-      const { sessionId } = await initUploadMutation.mutateAsync({
+      // Create resumable upload session
+      const totalChunks = Math.ceil(recording.blob.size / CHUNK_SIZE);
+      const session = await trpcCall<{
+        sessionId: number;
+        uploadedChunks: number[];
+      }>('resumableUpload.createSession', {
         filename: recording.filename,
-        mimeType: recording.blob.type || "video/webm",
-        totalSize: recording.blob.size,
+        fileSize: recording.blob.size,
+        mimeType: recording.blob.type || 'video/webm',
+        uploadType: 'video',
+        chunkSize: CHUNK_SIZE,
       });
 
-      // Upload chunks
-      const totalChunks = Math.ceil(recording.blob.size / CHUNK_SIZE);
+      const uploadedSet = new Set(session.uploadedChunks || []);
+
+      // Upload chunks via resumable upload system
       for (let i = 0; i < totalChunks; i++) {
+        if (uploadedSet.has(i)) continue; // Skip already uploaded chunks
+
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, recording.blob.size);
         const chunk = recording.blob.slice(start, end);
-
         const arrayBuffer = await chunk.arrayBuffer();
         const base64 = btoa(
           new Uint8Array(arrayBuffer).reduce(
             (data, byte) => data + String.fromCharCode(byte),
-            ""
+            ''
           )
         );
 
-        await uploadChunkMutation.mutateAsync({
-          sessionId,
-          chunkIndex: i,
-          chunkData: base64,
-          totalChunks,
-        });
+        let retries = 0;
+        const maxRetries = 5;
+        while (retries < maxRetries) {
+          try {
+            await trpcCall<{ success: boolean }>('resumableUpload.uploadChunk', {
+              sessionId: session.sessionId,
+              chunkIndex: i,
+              chunkData: base64,
+            });
+            break;
+          } catch (error: any) {
+            retries++;
+            if (retries >= maxRetries) throw error;
+            await new Promise(r => setTimeout(r, 1000 * Math.pow(2, retries)));
+          }
+        }
       }
 
       // Finalize upload
-      const result = await finalizeUploadMutation.mutateAsync({
-        sessionId,
+      const result = await trpcCall<{
+        fileId?: number;
+        url?: string;
+        status?: string;
+      }>('resumableUpload.finalizeUpload', {
+        sessionId: session.sessionId,
       });
+
+      // Poll for async finalization if needed
+      if (result.status === 'processing') {
+        let pollAttempts = 0;
+        const maxPollAttempts = 120;
+        while (pollAttempts < maxPollAttempts) {
+          await new Promise(r => setTimeout(r, 2000));
+          const status = await trpcCall<{
+            status: string;
+            fileId?: number;
+            url?: string;
+            error?: string;
+          }>('resumableUpload.getFinalizeStatus', {
+            sessionId: session.sessionId,
+          }, 'query');
+
+          if (status.status === 'completed') {
+            Object.assign(result, status);
+            break;
+          } else if (status.status === 'failed') {
+            throw new Error(status.error || 'Finalization failed');
+          }
+          pollAttempts++;
+        }
+        if (pollAttempts >= maxPollAttempts) {
+          throw new Error('Finalization timed out');
+        }
+      }
 
       if (result.url) {
         await removeRecordingFromCache(recording.id);

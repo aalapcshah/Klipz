@@ -34,8 +34,9 @@ import { videoTranscriptionRouter } from "./routers/videoTranscription";
 import { videoChaptersRouter } from "./routers/videoChapters";
 import { videoVisualCaptionsRouter } from "./routers/videoVisualCaptions";
 import { s3UploadRouter } from "./routers/s3Upload";
-import { uploadChunkRouter } from "./routers/uploadChunk";
-import { largeFileUploadRouter } from "./routers/largeFileUpload";
+// Old upload routers removed - all uploads now use resumableUploadRouter
+// import { uploadChunkRouter } from "./routers/uploadChunk";
+// import { largeFileUploadRouter } from "./routers/largeFileUpload";
 import { uploadHistoryRouter } from "./routers/uploadHistory";
 import { duplicateCheckRouter } from "./routers/duplicateCheck";
 import { storageStatsRouter } from "./routers/storageStats";
@@ -408,8 +409,7 @@ export const appRouter = router({
   videoChapters: videoChaptersRouter,
   videoVisualCaptions: videoVisualCaptionsRouter,
   s3Upload: s3UploadRouter,
-  uploadChunk: uploadChunkRouter,
-  largeFileUpload: largeFileUploadRouter,
+  // uploadChunk and largeFileUpload removed - all uploads use resumableUpload
   uploadHistory: uploadHistoryRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),

@@ -5905,3 +5905,24 @@ Note: The application already has extensive annotation features including voice 
 - [x] Added async finalization polling for large files (>50MB uses chunk-streaming, no re-assembly)
 - [x] Updated upload-fix tests to reflect new architecture (76 tests passing)
 - [x] All uploads now use 1MB chunks with 5 retries and exponential backoff
+
+## Cleanup: Remove Old Upload Routers (DONE)
+- [x] Remove server/routers/uploadChunk.ts (in-memory chunk storage - no longer used)
+- [x] Remove server/routers/largeFileUpload.ts (disk-based chunk storage - no longer used)
+- [x] Remove references to old routers from server/routers.ts
+- [x] Remove old upload mutations from client/src/main.tsx UPLOAD_OPERATIONS set
+- [x] Migrated PendingUploads.tsx from old uploadChunk to resumable upload via trpcCall
+- [x] Migrated VideoRecorderWithTranscription.tsx from old uploadChunk to resumable upload via trpcCall
+- [x] Verify no other components depend on old upload routers (12 cleanup tests passing)
+
+## Upload Progress Persistence (Resume on Refresh) (DONE)
+- [x] Wire resumable upload session recovery into UploadManagerContext
+- [x] On app load, query server for incomplete upload sessions belonging to current user
+- [x] Show resumable uploads banner/notification with resume button
+- [x] Implement resume flow that picks up from the last uploaded chunk
+- [x] Added localStorage persistence helpers (saveSessionsToStorage, loadSessionsFromStorage, clearSessionsFromStorage)
+- [x] Sessions load from localStorage immediately on page load for instant UI display
+- [x] Server data replaces cached data once loaded (authoritative source)
+- [x] Progress synced to localStorage every 10 chunks during upload
+- [x] File re-selection dialog in ResumableUploadsBanner for resume after browser refresh
+- [x] All 47 tests passing across upload-cleanup, upload-fix, and admin-auth test files

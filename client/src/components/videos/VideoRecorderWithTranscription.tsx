@@ -101,10 +101,7 @@ export function VideoRecorderWithTranscription() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Chunked upload mutations for large recordings
-  const initUploadMutation = trpc.uploadChunk.initUpload.useMutation();
-  const uploadChunkMutation = trpc.uploadChunk.uploadChunk.useMutation();
-  const finalizeUploadMutation = trpc.uploadChunk.finalizeUpload.useMutation();
+  // Upload uses resumable upload system via trpcCall (no React mutation hooks needed)
 
   // Trimming state
   const [isTrimming, setIsTrimming] = useState(false);
@@ -781,36 +778,44 @@ export function VideoRecorderWithTranscription() {
     try {
       const ext = getRecordingFileExtension();
       const filename = `recording-${Date.now()}.${ext}`;
-      const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+      const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks (matches resumable upload system)
 
-      // Use chunked upload for recordings over 5MB
       let url: string;
       let fileKey: string;
 
       if (blobToUpload.size > CHUNK_SIZE) {
-        // Chunked upload
-        const initResult = await initUploadMutation.mutateAsync({
-          filename,
-          totalSize: blobToUpload.size,
-          mimeType: blobToUpload.type || getRecordingBlobType(),
-        });
-        const sessionId = initResult.sessionId;
+        // Use resumable upload system for chunked uploads
+        const { trpcCall } = await import('@/lib/trpcCall');
         const totalChunks = Math.ceil(blobToUpload.size / CHUNK_SIZE);
 
+        const session = await trpcCall<{
+          sessionId: number;
+          uploadedChunks: number[];
+        }>('resumableUpload.createSession', {
+          filename,
+          fileSize: blobToUpload.size,
+          mimeType: blobToUpload.type || getRecordingBlobType(),
+          uploadType: 'video',
+          chunkSize: CHUNK_SIZE,
+        });
+
+        const uploadedSet = new Set(session.uploadedChunks || []);
+
         for (let i = 0; i < totalChunks; i++) {
+          if (uploadedSet.has(i)) continue;
+
           const start = i * CHUNK_SIZE;
           const end = Math.min(start + CHUNK_SIZE, blobToUpload.size);
 
           let retries = 0;
-          const maxRetries = 3;
+          const maxRetries = 5;
           while (retries < maxRetries) {
             try {
               const chunkData = await readChunkAsBase64(blobToUpload, start, end);
-              await uploadChunkMutation.mutateAsync({
-                sessionId,
+              await trpcCall<{ success: boolean }>('resumableUpload.uploadChunk', {
+                sessionId: session.sessionId,
                 chunkIndex: i,
                 chunkData,
-                totalChunks,
               });
               break;
             } catch (error: any) {
@@ -818,16 +823,53 @@ export function VideoRecorderWithTranscription() {
               if (retries >= maxRetries) {
                 throw new Error(`Failed to upload chunk ${i} after ${maxRetries} retries`);
               }
-              await new Promise(resolve => setTimeout(resolve, 1500 * Math.pow(2, retries)));
+              await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
             }
           }
 
           setUploadProgress(Math.round(((i + 1) / totalChunks) * 90));
         }
 
-        const result = await finalizeUploadMutation.mutateAsync({ sessionId });
-        url = result.url;
-        fileKey = result.fileKey;
+        const result = await trpcCall<{
+          fileId?: number;
+          url?: string;
+          fileKey?: string;
+          status?: string;
+        }>('resumableUpload.finalizeUpload', {
+          sessionId: session.sessionId,
+        });
+
+        // Poll for async finalization if needed
+        if (result.status === 'processing') {
+          let pollAttempts = 0;
+          const maxPollAttempts = 120;
+          while (pollAttempts < maxPollAttempts) {
+            await new Promise(r => setTimeout(r, 2000));
+            const status = await trpcCall<{
+              status: string;
+              fileId?: number;
+              url?: string;
+              fileKey?: string;
+              error?: string;
+            }>('resumableUpload.getFinalizeStatus', {
+              sessionId: session.sessionId,
+            }, 'query');
+
+            if (status.status === 'completed') {
+              Object.assign(result, status);
+              break;
+            } else if (status.status === 'failed') {
+              throw new Error(status.error || 'Finalization failed');
+            }
+            pollAttempts++;
+          }
+          if (pollAttempts >= maxPollAttempts) {
+            throw new Error('Finalization timed out');
+          }
+        }
+
+        url = result.url || '';
+        fileKey = result.fileKey || '';
       } else {
         // Small file: use simple base64 upload via storage helper
         const { uploadFileToStorage } = await import("@/lib/storage");

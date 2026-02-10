@@ -48,6 +48,62 @@ interface UseResumableUploadOptions {
 
 // trpcCall is now imported from @/lib/trpcCall
 
+// --- localStorage helpers for instant session display on page load ---
+interface StoredSessionInfo {
+  sessionToken: string;
+  filename: string;
+  fileSize: number;
+  mimeType: string;
+  uploadType: "video" | "file";
+  progress: number;
+  uploadedChunks: number;
+  totalChunks: number;
+  thumbnailUrl?: string | null;
+}
+
+function saveSessionsToStorage(sessions: ResumableUploadSession[]) {
+  try {
+    const toStore: StoredSessionInfo[] = sessions
+      .filter(s => s.status === 'active' || s.status === 'paused' || s.status === 'finalizing')
+      .map(s => ({
+        sessionToken: s.sessionToken,
+        filename: s.filename,
+        fileSize: s.fileSize,
+        mimeType: s.mimeType,
+        uploadType: s.uploadType,
+        progress: s.progress,
+        uploadedChunks: s.uploadedChunks,
+        totalChunks: s.totalChunks,
+        thumbnailUrl: s.thumbnailUrl,
+      }));
+    if (toStore.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  } catch {
+    // localStorage not available
+  }
+}
+
+function loadSessionsFromStorage(): StoredSessionInfo[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // localStorage not available
+  }
+  return [];
+}
+
+function clearSessionsFromStorage() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // localStorage not available
+  }
+}
+
 /**
  * Generate a thumbnail from a video file using a hidden <video> + <canvas>
  * Returns a base64-encoded JPEG data URL, or null on failure
@@ -147,7 +203,23 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     { enabled: true }
   );
 
-  // Load sessions from server on mount
+  // Load cached sessions from localStorage immediately for instant UI display
+  useEffect(() => {
+    const cached = loadSessionsFromStorage();
+    if (cached.length > 0) {
+      const cachedSessions: ResumableUploadSession[] = cached.map(c => ({
+        ...c,
+        status: 'paused' as const,
+        uploadedBytes: c.uploadedChunks * CHUNK_SIZE,
+        speed: 0,
+        eta: 0,
+        expiresAt: '',
+      }));
+      setSessions(cachedSessions);
+    }
+  }, []);
+
+  // Load sessions from server on mount (replaces cached data with authoritative server data)
   useEffect(() => {
     if (serverSessions) {
       const mappedSessions: ResumableUploadSession[] = serverSessions.map((s: any) => ({
@@ -182,8 +254,8 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
       });
       setIsLoading(false);
       
-      // Note: No toast notification here - the ResumableUploadsBanner component
-      // already shows resumable sessions prominently at the top of the page
+      // Sync localStorage with server truth
+      saveSessionsToStorage(mappedSessions);
     }
   }, [serverSessions]);
 
@@ -249,7 +321,11 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
         file,
       };
 
-      setSessions(prev => [...prev, newSession]);
+      setSessions(prev => {
+        const updated = [...prev, newSession];
+        saveSessionsToStorage(updated);
+        return updated;
+      });
 
       // Generate and save thumbnail in background (non-blocking)
       if (file.type.startsWith('video/')) {
@@ -396,18 +472,25 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
               lastBytesForSpeed = result.uploadedBytes;
             }
 
-            setSessionsRef.current(prev => prev.map(s => 
-              s.sessionToken === session.sessionToken
-                ? {
-                    ...s,
-                    uploadedChunks: result.uploadedChunks,
-                    uploadedBytes: result.uploadedBytes,
-                    progress: (result.uploadedChunks / result.totalChunks) * 100,
-                    speed,
-                    eta,
-                  }
-                : s
-            ));
+            setSessionsRef.current(prev => {
+              const updated = prev.map(s => 
+                s.sessionToken === session.sessionToken
+                  ? {
+                      ...s,
+                      uploadedChunks: result.uploadedChunks,
+                      uploadedBytes: result.uploadedBytes,
+                      progress: (result.uploadedChunks / result.totalChunks) * 100,
+                      speed,
+                      eta,
+                    }
+                  : s
+              );
+              // Sync to localStorage every 10 chunks for persistence
+              if (result.uploadedChunks % 10 === 0) {
+                saveSessionsToStorage(updated);
+              }
+              return updated;
+            });
 
             optionsRef.current.onProgress?.({
               ...session,
@@ -482,11 +565,15 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
 
       console.log(`[ResumableUpload] Finalization complete for ${session.filename}:`, completedResult);
 
-      setSessionsRef.current(prev => prev.map(s => 
-        s.sessionToken === session.sessionToken
-          ? { ...s, status: "completed" as const, progress: 100 }
-          : s
-      ));
+      setSessionsRef.current(prev => {
+        const updated = prev.map(s => 
+          s.sessionToken === session.sessionToken
+            ? { ...s, status: "completed" as const, progress: 100 }
+            : s
+        );
+        saveSessionsToStorage(updated);
+        return updated;
+      });
 
       optionsRef.current.onComplete?.(session, completedResult);
       toast.success(`${session.filename} uploaded successfully!`);
@@ -495,11 +582,15 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
       if (!abortController.signal.aborted) {
         console.error("[ResumableUpload] Upload failed:", error);
         
-        setSessionsRef.current(prev => prev.map(s => 
-          s.sessionToken === session.sessionToken
-            ? { ...s, status: "error" as const, error: error instanceof Error ? error.message : "Upload failed" }
-            : s
-        ));
+        setSessionsRef.current(prev => {
+          const updated = prev.map(s => 
+            s.sessionToken === session.sessionToken
+              ? { ...s, status: "error" as const, error: error instanceof Error ? error.message : "Upload failed" }
+              : s
+          );
+          saveSessionsToStorage(updated);
+          return updated;
+        });
 
         optionsRef.current.onError?.(session, error instanceof Error ? error : new Error("Upload failed"));
         toast.error(`Failed to upload ${session.filename}: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -604,7 +695,11 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     }
 
     // Immediately remove from local state
-    setSessions(prev => prev.filter(s => s.sessionToken !== sessionToken));
+    setSessions(prev => {
+      const updated = prev.filter(s => s.sessionToken !== sessionToken);
+      saveSessionsToStorage(updated);
+      return updated;
+    });
 
     try {
       // Use direct fetch to ensure the cancel reaches the server
@@ -626,6 +721,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     
     // Immediately clear local state
     setSessions([]);
+    clearSessionsFromStorage();
     
     // Cancel each on the server
     for (const token of allTokens) {
