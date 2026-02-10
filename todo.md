@@ -5874,3 +5874,14 @@ Note: The application already has extensive annotation features including voice 
 - [x] Small files (<=50MB) still use direct S3 assembly (sync finalize)
 - [x] Created streaming endpoint at /api/files/stream/:sessionToken
 - [x] All 736 tests passing (70 test files)
+
+## Admin Panel - Real-time Upload Monitoring
+- [x] Add admin endpoint for detailed upload session data with chunk counts and progress
+- [x] Add live upload monitoring section to admin panel with auto-refresh
+- [x] Show active/finalizing/completed sessions with progress bars and chunk details
+- [x] Status summary tiles (6-column: Total, Active, Finalizing, Completed, Failed, Expired)
+- [x] Live uploads section with pulsing indicator, progress bars, duration, last activity
+- [x] Auto-refresh toggle (5s interval) for real-time monitoring
+- [x] Full sessions table with progress bars, upload type, last activity, and delete actions
+- [x] Enhanced listUploadSessions endpoint with statusCounts, progressPercent, uploadedBytes
+- [x] All 736 tests passing (70 test files)

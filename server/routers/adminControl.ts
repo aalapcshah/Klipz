@@ -444,7 +444,7 @@ export const adminControlRouter = router({
     }),
 
   /**
-   * Get resumable upload sessions overview
+   * Get resumable upload sessions overview with real-time progress
    */
   listUploadSessions: adminProcedure
     .input(
@@ -473,6 +473,7 @@ export const adminControlRouter = router({
       const sessions = await db
         .select({
           id: resumableUploadSessions.id,
+          sessionToken: resumableUploadSessions.sessionToken,
           userId: resumableUploadSessions.userId,
           filename: resumableUploadSessions.filename,
           fileSize: resumableUploadSessions.fileSize,
@@ -480,15 +481,44 @@ export const adminControlRouter = router({
           totalChunks: resumableUploadSessions.totalChunks,
           uploadedChunks: resumableUploadSessions.uploadedChunks,
           status: resumableUploadSessions.status,
+          uploadType: resumableUploadSessions.uploadType,
+          lastActivityAt: resumableUploadSessions.lastActivityAt,
           createdAt: resumableUploadSessions.createdAt,
           expiresAt: resumableUploadSessions.expiresAt,
+          finalFileUrl: resumableUploadSessions.finalFileUrl,
         })
         .from(resumableUploadSessions)
         .where(whereClause)
         .orderBy(desc(resumableUploadSessions.createdAt))
         .limit(input.limit);
 
-      return sessions;
+      // Get status counts for summary
+      const statusCounts = await db
+        .select({
+          status: resumableUploadSessions.status,
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(resumableUploadSessions)
+        .groupBy(resumableUploadSessions.status);
+
+      const counts: Record<string, number> = {};
+      for (const row of statusCounts) {
+        counts[row.status] = row.count;
+      }
+
+      return {
+        sessions: sessions.map(s => ({
+          ...s,
+          progressPercent: s.totalChunks > 0
+            ? Math.round((s.uploadedChunks / s.totalChunks) * 100)
+            : 0,
+          uploadedBytes: s.totalChunks > 0
+            ? Math.round((s.uploadedChunks / s.totalChunks) * s.fileSize)
+            : 0,
+        })),
+        statusCounts: counts,
+        total: Object.values(counts).reduce((a, b) => a + b, 0),
+      };
     }),
 
   /**

@@ -937,13 +937,16 @@ function EnrichmentTab() {
 }
 
 // ============================================================================
-// Uploads Tab
+// Uploads Tab - Real-time Upload Monitoring
 // ============================================================================
 function UploadsTab() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const { data, isLoading, refetch } = trpc.adminControl.listUploadSessions.useQuery({
-    status: statusFilter as any,
-  });
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  const { data, isLoading, refetch } = trpc.adminControl.listUploadSessions.useQuery(
+    { status: statusFilter as any },
+    { refetchInterval: autoRefresh ? 5000 : false }
+  );
 
   const cleanupMutation = trpc.adminControl.cleanupUploadSessions.useMutation({
     onSuccess: (result) => {
@@ -953,8 +956,146 @@ function UploadsTab() {
     onError: (e) => toast.error(e.message),
   });
 
+  const sessions = data?.sessions || [];
+  const statusCounts = data?.statusCounts || {};
+  const activeSessions = sessions.filter(s => s.status === "active" || s.status === "finalizing");
+
+  function formatTimeAgo(date: Date | string | null): string {
+    if (!date) return "—";
+    const diff = Date.now() - new Date(date).getTime();
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(mins / 60);
+    const days = Math.floor(hours / 24);
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    if (mins > 0) return `${mins}m ago`;
+    return "just now";
+  }
+
+  function formatDuration(start: Date | string | null): string {
+    if (!start) return "—";
+    const diff = Date.now() - new Date(start).getTime();
+    const secs = Math.floor(diff / 1000);
+    const mins = Math.floor(secs / 60);
+    const hours = Math.floor(mins / 60);
+    if (hours > 0) return `${hours}h ${mins % 60}m`;
+    if (mins > 0) return `${mins}m ${secs % 60}s`;
+    return `${secs}s`;
+  }
+
+  const statusColor = (status: string) => {
+    switch (status) {
+      case "active": return "text-blue-400 bg-blue-500/20";
+      case "finalizing": return "text-yellow-400 bg-yellow-500/20";
+      case "completed": return "text-green-400 bg-green-500/20";
+      case "failed": return "text-red-400 bg-red-500/20";
+      case "paused": return "text-orange-400 bg-orange-500/20";
+      case "expired": return "text-gray-400 bg-gray-500/20";
+      default: return "text-muted-foreground";
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {/* Status Summary Tiles - 3 per row */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+        <div className="bg-card border border-border rounded-lg p-2 text-center">
+          <div className="text-xs text-muted-foreground">Total</div>
+          <div className="text-lg font-bold">{data?.total || 0}</div>
+        </div>
+        <div className="bg-card border border-blue-500/30 rounded-lg p-2 text-center">
+          <div className="text-xs text-blue-400">Active</div>
+          <div className="text-lg font-bold text-blue-400">{statusCounts.active || 0}</div>
+        </div>
+        <div className="bg-card border border-yellow-500/30 rounded-lg p-2 text-center">
+          <div className="text-xs text-yellow-400">Finalizing</div>
+          <div className="text-lg font-bold text-yellow-400">{statusCounts.finalizing || 0}</div>
+        </div>
+        <div className="bg-card border border-green-500/30 rounded-lg p-2 text-center">
+          <div className="text-xs text-green-400">Completed</div>
+          <div className="text-lg font-bold text-green-400">{statusCounts.completed || 0}</div>
+        </div>
+        <div className="bg-card border border-red-500/30 rounded-lg p-2 text-center">
+          <div className="text-xs text-red-400">Failed</div>
+          <div className="text-lg font-bold text-red-400">{statusCounts.failed || 0}</div>
+        </div>
+        <div className="bg-card border border-gray-500/30 rounded-lg p-2 text-center">
+          <div className="text-xs text-gray-400">Expired</div>
+          <div className="text-lg font-bold text-gray-400">{statusCounts.expired || 0}</div>
+        </div>
+      </div>
+
+      {/* Active Uploads - Live Progress */}
+      {activeSessions.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wide flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+            </span>
+            Live Uploads ({activeSessions.length})
+          </h3>
+          <div className="space-y-2">
+            {activeSessions.map((session) => (
+              <div key={session.id} className="bg-card border border-border rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm font-medium truncate max-w-[300px]" title={session.filename}>
+                      {session.filename}
+                    </span>
+                    <Badge variant="outline" className={`text-xs shrink-0 ${statusColor(session.status)}`}>
+                      {session.status}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {session.mimeType}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+                    <span>User #{session.userId}</span>
+                    <span>Duration: {formatDuration(session.createdAt)}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-xs px-2 text-red-400"
+                      onClick={() => {
+                        if (confirm("Delete this upload session?")) {
+                          cleanupMutation.mutate({ sessionIds: [session.id] });
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+                {/* Progress Bar */}
+                <div className="w-full bg-muted rounded-full h-2 mb-1">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-500 ${
+                      session.status === "finalizing" ? "bg-yellow-500" : "bg-blue-500"
+                    }`}
+                    style={{ width: `${session.progressPercent}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>
+                    {session.uploadedChunks}/{session.totalChunks} chunks
+                    {" · "}
+                    {formatBytes(session.uploadedBytes)} / {formatBytes(session.fileSize)}
+                  </span>
+                  <span className="font-medium">
+                    {session.progressPercent}%
+                    {session.lastActivityAt && (
+                      <> · Last activity: {formatTimeAgo(session.lastActivityAt)}</>
+                    )}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Controls */}
       <div className="flex gap-2 items-center flex-wrap">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[160px]">
@@ -970,6 +1111,15 @@ function UploadsTab() {
             <SelectItem value="expired">Expired</SelectItem>
           </SelectContent>
         </Select>
+        <Button
+          variant={autoRefresh ? "default" : "outline"}
+          size="sm"
+          onClick={() => setAutoRefresh(!autoRefresh)}
+          className={autoRefresh ? "bg-blue-600 hover:bg-blue-700" : ""}
+        >
+          <RefreshCw className={`h-4 w-4 mr-1 ${autoRefresh ? "animate-spin" : ""}`} />
+          {autoRefresh ? "Auto-refresh ON (5s)" : "Auto-refresh OFF"}
+        </Button>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
           <RefreshCw className="h-4 w-4" />
         </Button>
@@ -988,15 +1138,18 @@ function UploadsTab() {
         </Button>
       </div>
 
+      {/* All Sessions Table */}
       <div className="border border-border rounded-lg overflow-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr>
               <th className="text-left p-2 font-medium">File</th>
               <th className="text-center p-2 font-medium">Status</th>
-              <th className="text-right p-2 font-medium">Progress</th>
+              <th className="text-left p-2 font-medium">Progress</th>
               <th className="text-right p-2 font-medium">Size</th>
-              <th className="text-right p-2 font-medium">User ID</th>
+              <th className="text-right p-2 font-medium">Type</th>
+              <th className="text-right p-2 font-medium">User</th>
+              <th className="text-right p-2 font-medium">Last Activity</th>
               <th className="text-right p-2 font-medium">Created</th>
               <th className="text-center p-2 font-medium">Actions</th>
             </tr>
@@ -1004,37 +1157,56 @@ function UploadsTab() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={7} className="p-4 text-center text-muted-foreground">Loading...</td>
+                <td colSpan={9} className="p-4 text-center text-muted-foreground">Loading...</td>
               </tr>
-            ) : (data || []).length === 0 ? (
+            ) : sessions.length === 0 ? (
               <tr>
-                <td colSpan={7} className="p-4 text-center text-muted-foreground">No upload sessions</td>
+                <td colSpan={9} className="p-4 text-center text-muted-foreground">No upload sessions</td>
               </tr>
             ) : (
-              (data || []).map((session) => (
-                <tr key={session.id} className="border-t border-border">
-                  <td className="p-2 max-w-[200px] truncate" title={session.filename}>
-                    {session.filename}
+              sessions.map((session) => (
+                <tr key={session.id} className="border-t border-border hover:bg-muted/30">
+                  <td className="p-2 max-w-[200px]">
+                    <div className="truncate text-xs font-medium" title={session.filename}>
+                      {session.filename}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground truncate">{session.mimeType}</div>
                   </td>
                   <td className="p-2 text-center">
                     <Badge
                       variant="outline"
-                      className={`text-xs ${
-                        session.status === "completed" ? "text-green-400" :
-                        session.status === "failed" ? "text-red-400" :
-                        session.status === "finalizing" ? "text-yellow-400" :
-                        session.status === "active" ? "text-blue-400" :
-                        "text-muted-foreground"
-                      }`}
+                      className={`text-xs ${statusColor(session.status)}`}
                     >
                       {session.status}
                     </Badge>
                   </td>
-                  <td className="p-2 text-right text-xs">
-                    {session.uploadedChunks}/{session.totalChunks}
+                  <td className="p-2 min-w-[140px]">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-muted rounded-full h-1.5">
+                        <div
+                          className={`h-1.5 rounded-full ${
+                            session.status === "completed" ? "bg-green-500" :
+                            session.status === "finalizing" ? "bg-yellow-500" :
+                            session.status === "failed" ? "bg-red-500" :
+                            "bg-blue-500"
+                          }`}
+                          style={{ width: `${session.progressPercent}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {session.progressPercent}%
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                      {session.uploadedChunks}/{session.totalChunks} chunks
+                    </div>
                   </td>
                   <td className="p-2 text-right text-xs">{formatBytes(session.fileSize)}</td>
-                  <td className="p-2 text-right text-xs">{session.userId}</td>
+                  <td className="p-2 text-right text-xs text-muted-foreground">{session.uploadType || "file"}</td>
+                  <td className="p-2 text-right text-xs">#{session.userId}</td>
+                  <td className="p-2 text-right text-xs text-muted-foreground">
+                    {formatTimeAgo(session.lastActivityAt)}
+                  </td>
                   <td className="p-2 text-right text-xs text-muted-foreground">
                     {formatDate(session.createdAt)}
                   </td>
