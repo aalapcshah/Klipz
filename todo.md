@@ -5933,3 +5933,9 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fixed FileUploadProcessor to auto-detect video MIME types and set uploadType="video"
 - [x] Fixed server finalization to check mimeType instead of uploadType for video record creation
 - [x] Backfilled 20 orphaned video file records with missing video records
+
+## Bug: Recently Recorded section shows deleted videos (FIXED)
+- [x] Diagnosed: RecentlyRecorded queries videos table correctly, but delete handlers don't invalidate recentlyRecorded cache
+- [x] Added trpcUtils.videos.recentlyRecorded.invalidate() to VideoList batch delete handler
+- [x] Added trpcUtils.videos.recentlyRecorded.invalidate() to VideoList single delete handler
+- [x] Added utils.videos.recentlyRecorded.invalidate() to VideoDetail delete handler

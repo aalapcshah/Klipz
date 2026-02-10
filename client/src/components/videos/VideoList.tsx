@@ -276,6 +276,7 @@ export function VideoList() {
       setSelectedVideoIds([]);
       setShowDeleteConfirm(false);
       refetch();
+      trpcUtils.videos.recentlyRecorded.invalidate();
     } catch (error) {
       toast.error("Failed to delete videos");
     }
@@ -381,6 +382,7 @@ export function VideoList() {
       await deleteMutation.mutateAsync({ id: videoId });
       toast.success("Video deleted");
       refetch();
+      trpcUtils.videos.recentlyRecorded.invalidate();
     } catch (error) {
       toast.error("Failed to delete video");
     }

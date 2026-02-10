@@ -133,6 +133,7 @@ export default function VideoDetail() {
   const deleteMutation = trpc.videos.delete.useMutation({
     onSuccess: () => {
       toast.success("Video deleted");
+      utils.videos.recentlyRecorded.invalidate();
       navigate("/videos");
     },
     onError: (err) => toast.error(err.message),
