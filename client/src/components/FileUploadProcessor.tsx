@@ -185,13 +185,17 @@ export function FileUploadProcessor() {
           } else {
             // Session exists but can't resume - start fresh
             console.log(`[FileUpload] Session ${existingSessionId} status is ${sessionStatus.status}. Starting fresh.`);
+            // Detect upload type based on MIME type - videos should be created as video records
+            const detectedMimeType = file.type || "application/octet-stream";
+            const detectedUploadType = detectedMimeType.startsWith('video/') ? 'video' as const : 'file' as const;
+
             const createResult = await trpcCall<{ sessionToken: string; totalChunks: number }>(
               'resumableUpload.createSession',
               {
                 filename: file.name,
                 fileSize: file.size,
-                mimeType: file.type || "application/octet-stream",
-                uploadType: "file" as const,
+                mimeType: detectedMimeType,
+                uploadType: detectedUploadType,
                 chunkSize: CHUNK_SIZE,
               }
             );
@@ -201,13 +205,16 @@ export function FileUploadProcessor() {
         } catch (err) {
           // Failed to check session - start fresh
           console.warn(`[FileUpload] Failed to check session status, starting fresh:`, err);
+          const detectedMimeType = file.type || "application/octet-stream";
+          const detectedUploadType = detectedMimeType.startsWith('video/') ? 'video' as const : 'file' as const;
+
           const createResult = await trpcCall<{ sessionToken: string; totalChunks: number }>(
             'resumableUpload.createSession',
             {
               filename: file.name,
               fileSize: file.size,
-              mimeType: file.type || "application/octet-stream",
-              uploadType: "file" as const,
+              mimeType: detectedMimeType,
+              uploadType: detectedUploadType,
               chunkSize: CHUNK_SIZE,
             }
           );
@@ -216,13 +223,17 @@ export function FileUploadProcessor() {
         }
       } else {
         // No existing session - create new one via resumable upload
+        // Detect upload type based on MIME type - videos should be created as video records
+        const detectedMimeType = file.type || "application/octet-stream";
+        const detectedUploadType = detectedMimeType.startsWith('video/') ? 'video' as const : 'file' as const;
+
         const createResult = await trpcCall<{ sessionToken: string; totalChunks: number }>(
           'resumableUpload.createSession',
           {
             filename: file.name,
             fileSize: file.size,
-            mimeType: file.type || "application/octet-stream",
-            uploadType: "file" as const,
+            mimeType: detectedMimeType,
+            uploadType: detectedUploadType,
             chunkSize: CHUNK_SIZE,
           }
         );

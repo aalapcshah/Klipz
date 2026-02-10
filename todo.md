@@ -5926,3 +5926,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Progress synced to localStorage every 10 chunks during upload
 - [x] File re-selection dialog in ResumableUploadsBanner for resume after browser refresh
 - [x] All 47 tests passing across upload-cleanup, upload-fix, and admin-auth test files
+
+## Bug: Uploaded files don't appear in Files list (FIXED)
+- [x] Diagnosed: FileUploadProcessor set uploadType="file" for videos, server only created video records for uploadType="video"
+- [x] Diagnosed: Files page filters out video/* MIME types, so video files were invisible in both sections
+- [x] Fixed FileUploadProcessor to auto-detect video MIME types and set uploadType="video"
+- [x] Fixed server finalization to check mimeType instead of uploadType for video record creation
+- [x] Backfilled 20 orphaned video file records with missing video records
