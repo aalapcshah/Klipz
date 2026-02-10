@@ -52,6 +52,9 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "500mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+  // Stream file endpoint for serving chunked uploads without re-assembly
+  const streamFileRouter = (await import("../routes/streamFile")).default;
+  app.use(streamFileRouter);
   // tRPC API with rate limiting
   app.use(
     "/api/trpc",

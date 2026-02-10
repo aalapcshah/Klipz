@@ -5862,3 +5862,15 @@ Note: The application already has extensive annotation features including voice 
 - [x] Admin bypasses all payment gates (premiumFeatures.ts already checks admin role)
 - [x] Admin route protected with role check (redirects non-admins)
 - [x] All 728 tests passing (69 test files)
+
+## Bug Fix - Async Finalize Still Stuck for 250MB File
+- [x] Diagnosed: storagePut can't handle 250MB+ uploads (storage proxy body size limit or timeout)
+- [x] Replaced background assembly with chunk-streaming approach:
+  - Large files (>50MB) are served via /api/files/stream/:sessionToken
+  - Streaming endpoint reads chunks from S3 in order — never holds entire file in memory
+  - Supports Range requests for video seeking (HTTP 206 Partial Content)
+  - Finalize is now instant for large files — just verify chunks and create DB record
+  - No re-assembly, no re-upload, no memory issues
+- [x] Small files (<=50MB) still use direct S3 assembly (sync finalize)
+- [x] Created streaming endpoint at /api/files/stream/:sessionToken
+- [x] All 736 tests passing (70 test files)
