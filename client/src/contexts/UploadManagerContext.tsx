@@ -116,13 +116,25 @@ interface UploadManagerContextType {
 const UploadManagerContext = createContext<UploadManagerContextType | null>(null);
 
 export function UploadManagerProvider({ children }: { children: ReactNode }) {
-  const [uploads, setUploads] = useState<UploadItem[]>([]);
+  const [uploads, _setUploads] = useState<UploadItem[]>([]);
+  const uploadsRef = useRef<UploadItem[]>([]);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const processorsRef = useRef<Map<UploadType, UploadProcessor>>(new Map());
   const processingRef = useRef<Set<string>>(new Set());
   const pausedRef = useRef<Set<string>>(new Set());
   const retryTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const scheduleTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  // Wrapper for setUploads that keeps uploadsRef in sync synchronously
+  // This ensures processQueue always reads the latest state even when called
+  // from setTimeout or other async contexts before React re-renders
+  const setUploads: typeof _setUploads = useCallback((action) => {
+    _setUploads(prev => {
+      const next = typeof action === 'function' ? action(prev) : action;
+      uploadsRef.current = next;
+      return next;
+    });
+  }, []);
 
   // Upload history mutation
   const recordHistoryMutation = trpc.uploadHistory.record.useMutation();
@@ -243,13 +255,15 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Process queue - start uploads for pending items up to max concurrent
+  // Uses uploadsRef to always read the latest state (avoids stale closure)
   const processQueue = useCallback(() => {
-    const currentlyUploading = uploads.filter(u => u.status === 'uploading').length;
+    const currentUploads = uploadsRef.current;
+    const currentlyUploading = currentUploads.filter(u => u.status === 'uploading').length;
     const availableSlots = MAX_CONCURRENT_UPLOADS - currentlyUploading;
     
     if (availableSlots <= 0) return;
 
-    const pendingUploads = uploads
+    const pendingUploads = currentUploads
       .filter(u => u.status === 'pending' && !processingRef.current.has(u.id))
       .slice(0, availableSlots);
 
@@ -267,12 +281,16 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         processor(upload.id, upload.file, upload.pausedAtChunk, upload.sessionId)
           .finally(() => {
             processingRef.current.delete(upload.id);
+            // After an upload finishes, trigger queue again to start next pending
+            setTimeout(processQueue, 0);
           });
+      } else {
+        console.warn(`[UploadManager] No processor registered for type: ${upload.uploadType}`);
       }
     }
-  }, [uploads]);
+  }, []); // No dependencies - reads from refs
 
-  // Process queue when uploads change or processors are registered
+  // Process queue when uploads change
   useEffect(() => {
     processQueue();
   }, [uploads, processQueue]);
@@ -747,6 +765,7 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
 
   const registerProcessor = useCallback((type: UploadType, processor: UploadProcessor) => {
     processorsRef.current.set(type, processor);
+    console.log(`[UploadManager] Processor registered for type: ${type}`);
     // Trigger queue processing when a processor is registered
     setTimeout(processQueue, 0);
   }, [processQueue]);

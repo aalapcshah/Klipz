@@ -5784,3 +5784,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Show progress correctly when resuming (start from where it left off)
 - [x] Show resume info in error state ("X% uploaded • Click retry to resume")
 - [x] All 698 tests passing
+
+## Fix Upload Still Stuck at Queued (Feb 9)
+- [x] Deep investigate processQueue race condition - uploads still stuck at Queued with 0 B on production
+- [x] Root cause: stale closure in processQueue reading old uploads state
+- [x] Fix: uploadsRef synced synchronously via setUploads wrapper, processQueue reads from ref
+- [x] Added processQueue re-trigger after upload completes to process next in queue
+- [x] All 698 tests passing
