@@ -5847,3 +5847,18 @@ Note: The application already has extensive annotation features including voice 
 - [x] Client polls getFinalizeStatus every 5s for up to 30 minutes for large file assembly
 - [x] Assembly processes chunks in batches of 10 (~10MB memory) to prevent OOM
 - [x] All 717 tests passing (68 test files)
+
+## Admin Panel - Full Control Dashboard
+- [x] Create admin control panel at /admin/control (uses existing OAuth admin role)
+- [x] Build admin-only tRPC procedures (adminControl router) for full data access
+- [x] Create single-page admin dashboard with tabbed sections:
+  - [x] Overview: system stats (total users, files, storage, enrichments)
+  - [x] Users: view all users, change roles, override subscriptions (free/trial/pro), deactivate accounts
+  - [x] Files: view all files across all users, delete files, storage breakdown by user
+  - [x] Uploads: view all resumable upload sessions, filter by status, cleanup stuck sessions
+  - [x] Enrichments: view enrichment job queue, filter by status, retry failed jobs
+  - [x] Collections: view all collections across users
+  - [x] Tags: view all tags with usage counts
+- [x] Admin bypasses all payment gates (premiumFeatures.ts already checks admin role)
+- [x] Admin route protected with role check (redirects non-admins)
+- [x] All 728 tests passing (69 test files)

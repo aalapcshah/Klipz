@@ -28,6 +28,7 @@ import { AdminAlertHistory } from "./pages/AdminAlertHistory";
 import AdminReports from "./pages/AdminReports";
 import AdminShareAnalytics from "./pages/AdminShareAnalytics";
 import AdminSystemOverview from "./pages/AdminSystemOverview";
+import AdminControlPanel from "./pages/AdminControlPanel";
 import ShareView from "./pages/ShareView";
 import VideoDetail from "./pages/VideoDetail";
 import Share from "./pages/Share";
@@ -74,6 +75,7 @@ function Router() {
       <Route path="/admin/reports" component={AdminReports} />
       <Route path="/admin/shares" component={AdminShareAnalytics} />
       <Route path="/admin/system" component={AdminSystemOverview} />
+      <Route path="/admin/control" component={AdminControlPanel} />
       <Route path="/my-shares" component={MyShares} />
       <Route path="/share/:token" component={ShareView} />
       <Route path="/share" component={Share} />

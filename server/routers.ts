@@ -49,6 +49,7 @@ import { uploadFromUrlRouter } from "./routers/uploadFromUrl";
 import { socialMediaExtractRouter } from "./routers/socialMediaExtract";
 import { enrichmentJobsRouter } from "./routers/enrichmentJobs";
 import { videoCompressionRouter } from "./routers/videoCompression";
+import { adminControlRouter } from "./routers/adminControl";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { sendUploadEmail, sendEditEmail, sendDeleteEmail, sendEnrichEmail } from "./_core/activityEmailNotifications";
 import { TRPCError } from "@trpc/server";
@@ -64,6 +65,7 @@ import { voiceAnnotations, visualAnnotations, files } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 
 export const appRouter = router({
+  adminControl: adminControlRouter,
   uploadFromUrl: uploadFromUrlRouter,
   socialMediaExtract: socialMediaExtractRouter,
   enrichmentJobs: enrichmentJobsRouter,
