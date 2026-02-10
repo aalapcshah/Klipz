@@ -5896,3 +5896,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add retry button and alternative login options on OAuth error page
 - [x] Add admin login link to OAuth error page for self-hosted access
 - [x] Write admin auth tests (23 tests passing)
+## Bug: Upload Finalization Failure (FIXED)
+- [x] Investigated root cause: uploadChunk router stores chunks in server memory, causes OOM on finalization
+- [x] Investigated root cause: largeFileUpload router reads entire combined file into memory via readFileSync
+- [x] Migrated VideoUploadSection to use resumable upload system (chunks stored in S3, not server memory)
+- [x] Migrated FileUploadProcessor to use resumable upload system (chunks stored in S3, not server memory)
+- [x] Removed dependency on old uploadChunk and largeFileUpload routers for uploads
+- [x] Added async finalization polling for large files (>50MB uses chunk-streaming, no re-assembly)
+- [x] Updated upload-fix tests to reflect new architecture (76 tests passing)
+- [x] All uploads now use 1MB chunks with 5 retries and exponential backoff

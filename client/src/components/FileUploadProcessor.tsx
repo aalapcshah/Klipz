@@ -7,25 +7,15 @@ import { trpcCall } from "@/lib/trpcCall";
  * This handles file uploads via the GlobalDropZone drag-and-drop flow.
  * Must be rendered inside UploadManagerProvider.
  *
- * Uses direct fetch() calls (via trpcCall) instead of React Query mutations
- * so the upload loop is independent of React component lifecycle. This prevents
- * uploads from getting stuck at "Queued" when the component re-renders.
+ * Uses the resumable upload system which stores chunks in S3 (not server memory).
+ * This prevents OOM errors and timeouts during finalization for large files.
+ * For files >50MB, uses chunk-streaming (no re-assembly needed).
  *
- * Supports resume: when retrying a failed upload, it checks if the previous
- * session is still valid and skips already-uploaded chunks.
+ * Uses direct fetch() calls (via trpcCall) instead of React Query mutations
+ * so the upload loop is independent of React component lifecycle.
  */
 
-interface SessionStatus {
-  exists: boolean;
-  status?: string;
-  receivedChunks?: number[];
-  totalChunks?: number;
-  totalSize?: number;
-  filename?: string;
-  hasChunksInMemory?: boolean;
-  memoryChunks?: number;
-  canResume?: boolean;
-}
+const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks (kept small to avoid proxy body size limits)
 
 export function FileUploadProcessor() {
   const {
@@ -59,6 +49,75 @@ export function FileUploadProcessor() {
     };
   }, [getAbortController, updateUploadProgress, updateUploadStatus, updateUploadSessionId, updatePausedChunk]);
 
+  // Read chunk as base64
+  const readChunkAsBase64 = useCallback((file: File, start: number, end: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      try {
+        const reader = new FileReader();
+        const blob = file.slice(start, end);
+        reader.onload = () => {
+          try {
+            const result = reader.result as string;
+            const commaIndex = result.indexOf(",");
+            const base64 = commaIndex >= 0 ? result.substring(commaIndex + 1) : result;
+            resolve(base64);
+          } catch (e) {
+            reject(new Error("Failed to encode chunk data"));
+          }
+        };
+        reader.onerror = () => reject(new Error("Failed to read chunk from file"));
+        reader.onabort = () => reject(new Error("Chunk read was aborted"));
+        reader.readAsDataURL(blob);
+      } catch (e) {
+        reject(new Error("Failed to initialize chunk reader"));
+      }
+    });
+  }, []);
+
+  // Poll for background finalization completion (for large files)
+  const pollFinalizeStatus = useCallback(async (
+    sessionToken: string,
+    signal: AbortSignal
+  ): Promise<{ fileId: number; videoId?: number; url: string }> => {
+    const POLL_INTERVAL = 5000; // 5 seconds
+    const MAX_POLL_TIME = 30 * 60 * 1000; // 30 minutes max
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < MAX_POLL_TIME) {
+      if (signal.aborted) throw new Error('Upload was cancelled');
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+      if (signal.aborted) throw new Error('Upload was cancelled');
+
+      const status = await trpcCall<{
+        status: 'completed' | 'finalizing' | 'failed' | string;
+        fileKey?: string;
+        url?: string;
+        message?: string;
+      }>('resumableUpload.getFinalizeStatus', {
+        sessionToken,
+      }, 'query', {
+        timeoutMs: 30_000,
+        signal,
+      });
+
+      if (status.status === 'completed') {
+        return {
+          fileId: 0, // Will be resolved by the file list refresh
+          url: status.url || '',
+        };
+      }
+
+      if (status.status === 'failed') {
+        throw new Error(status.message || 'File assembly failed on server');
+      }
+
+      // Still finalizing, continue polling
+      console.log(`[FileUpload] Still assembling ${sessionToken}...`);
+    }
+
+    throw new Error('File assembly timed out after 30 minutes');
+  }, []);
+
   // Stable processFileUpload function that never changes reference
   const processFileUpload = useCallback(async (
     uploadId: string,
@@ -73,100 +132,115 @@ export function FileUploadProcessor() {
       // Check if cancelled
       if (abortController?.signal.aborted) return;
 
-      const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks (kept small to avoid proxy body size limits on deployed sites)
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
-      console.log(`[FileUpload] Starting upload for ${file.name} (${file.size} bytes, ${totalChunks} chunks)`);
+      console.log(`[FileUpload] Starting upload for ${file.name} (${file.size} bytes, ${totalChunks} chunks) using resumable upload`);
 
-      let sessionId: string;
-      let alreadyReceivedChunks: number[] = [];
+      let sessionToken: string;
+      let startChunk = 0;
 
       // Try to resume from existing session
       if (existingSessionId) {
-        console.log(`[FileUpload] Checking existing session ${existingSessionId} for resume...`);
+        console.log(`[FileUpload] Checking existing resumable session ${existingSessionId} for resume...`);
         try {
-          // Query session status to see if we can resume
-          const sessionStatus = await trpcCall<SessionStatus>(
-            'uploadChunk.getSessionStatus',
-            { sessionId: existingSessionId },
+          const sessionStatus = await trpcCall<{
+            sessionToken: string;
+            status: string;
+            totalChunks: number;
+            uploadedChunks: number;
+            uploadedBytes: number;
+            chunks: Array<{ index: number; status: string }>;
+          }>(
+            'resumableUpload.getSessionStatus',
+            { sessionToken: existingSessionId },
             'query'
           );
 
-          if (sessionStatus.exists && sessionStatus.canResume) {
-            // Session is still active and chunks are in memory - we can resume!
-            sessionId = existingSessionId;
-            alreadyReceivedChunks = sessionStatus.receivedChunks || [];
-            console.log(`[FileUpload] Resuming session ${sessionId}: ${alreadyReceivedChunks.length}/${totalChunks} chunks already uploaded`);
-            
+          if (sessionStatus.status === 'active' || sessionStatus.status === 'paused') {
+            sessionToken = sessionStatus.sessionToken;
+            // Find the first chunk that hasn't been uploaded
+            const uploadedSet = new Set(
+              sessionStatus.chunks
+                .filter((c: any) => c.status === 'uploaded' || c.status === 'verified')
+                .map((c: any) => c.index)
+            );
+            startChunk = 0;
+            for (let i = 0; i < totalChunks; i++) {
+              if (!uploadedSet.has(i)) {
+                startChunk = i;
+                break;
+              }
+              if (i === totalChunks - 1) {
+                startChunk = totalChunks; // All chunks uploaded
+              }
+            }
+            console.log(`[FileUpload] Resuming session ${sessionToken}: starting from chunk ${startChunk}/${totalChunks}`);
+
             // Update progress to reflect already-uploaded chunks
-            if (alreadyReceivedChunks.length > 0) {
-              const maxChunk = Math.max(...alreadyReceivedChunks);
-              const progress = ((maxChunk + 1) / totalChunks) * 100;
-              const uploadedBytes = Math.min((maxChunk + 1) * CHUNK_SIZE, file.size);
+            if (startChunk > 0) {
+              const progress = (startChunk / totalChunks) * 100;
+              const uploadedBytes = Math.min(startChunk * CHUNK_SIZE, file.size);
               updateProgress(uploadId, progress, uploadedBytes);
             }
           } else {
-            // Session exists but can't resume (chunks lost from memory, expired, etc.)
-            console.log(`[FileUpload] Session ${existingSessionId} cannot be resumed (status: ${sessionStatus.status}, chunksInMemory: ${sessionStatus.hasChunksInMemory}). Starting fresh.`);
-            const initResult = await trpcCall<{ sessionId: string }>('uploadChunk.initUpload', {
-              filename: file.name,
-              mimeType: file.type || "application/octet-stream",
-              totalSize: file.size,
-            });
-            sessionId = initResult.sessionId;
-            updateSessionId(uploadId, sessionId);
+            // Session exists but can't resume - start fresh
+            console.log(`[FileUpload] Session ${existingSessionId} status is ${sessionStatus.status}. Starting fresh.`);
+            const createResult = await trpcCall<{ sessionToken: string; totalChunks: number }>(
+              'resumableUpload.createSession',
+              {
+                filename: file.name,
+                fileSize: file.size,
+                mimeType: file.type || "application/octet-stream",
+                uploadType: "file" as const,
+                chunkSize: CHUNK_SIZE,
+              }
+            );
+            sessionToken = createResult.sessionToken;
+            updateSessionId(uploadId, sessionToken);
           }
         } catch (err) {
           // Failed to check session - start fresh
           console.warn(`[FileUpload] Failed to check session status, starting fresh:`, err);
-          const initResult = await trpcCall<{ sessionId: string }>('uploadChunk.initUpload', {
-            filename: file.name,
-            mimeType: file.type || "application/octet-stream",
-            totalSize: file.size,
-          });
-          sessionId = initResult.sessionId;
-          updateSessionId(uploadId, sessionId);
+          const createResult = await trpcCall<{ sessionToken: string; totalChunks: number }>(
+            'resumableUpload.createSession',
+            {
+              filename: file.name,
+              fileSize: file.size,
+              mimeType: file.type || "application/octet-stream",
+              uploadType: "file" as const,
+              chunkSize: CHUNK_SIZE,
+            }
+          );
+          sessionToken = createResult.sessionToken;
+          updateSessionId(uploadId, sessionToken);
         }
       } else {
-        // No existing session - initialize new one
-        const initResult = await trpcCall<{ sessionId: string }>('uploadChunk.initUpload', {
-          filename: file.name,
-          mimeType: file.type || "application/octet-stream",
-          totalSize: file.size,
-        });
-        sessionId = initResult.sessionId;
-        console.log(`[FileUpload] New session initialized: ${sessionId}`);
-        updateSessionId(uploadId, sessionId);
+        // No existing session - create new one via resumable upload
+        const createResult = await trpcCall<{ sessionToken: string; totalChunks: number }>(
+          'resumableUpload.createSession',
+          {
+            filename: file.name,
+            fileSize: file.size,
+            mimeType: file.type || "application/octet-stream",
+            uploadType: "file" as const,
+            chunkSize: CHUNK_SIZE,
+          }
+        );
+        sessionToken = createResult.sessionToken;
+        console.log(`[FileUpload] New resumable session created: ${sessionToken}`);
+        updateSessionId(uploadId, sessionToken);
       }
 
-      // Upload chunks using direct fetch calls
-      for (let i = 0; i < totalChunks; i++) {
+      // Upload chunks using resumable upload API (chunks go to S3, not server memory)
+      for (let i = startChunk; i < totalChunks; i++) {
         // Check if cancelled
         if (abortController?.signal.aborted) {
           console.log(`[FileUpload] Upload cancelled at chunk ${i}`);
           return;
         }
 
-        // Skip chunks that were already received (for resume)
-        if (alreadyReceivedChunks.includes(i)) {
-          const progress = ((i + 1) / totalChunks) * 100;
-          const uploadedBytes = Math.min((i + 1) * CHUNK_SIZE, file.size);
-          updateProgress(uploadId, progress, uploadedBytes);
-          continue;
-        }
-
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, file.size);
-        const chunk = file.slice(start, end);
-
-        // Convert chunk to base64
-        const arrayBuffer = await chunk.arrayBuffer();
-        const base64 = btoa(
-          new Uint8Array(arrayBuffer).reduce(
-            (data, byte) => data + String.fromCharCode(byte),
-            ""
-          )
-        );
 
         // Upload chunk with retry (per-chunk retry with exponential backoff)
         let retries = 0;
@@ -179,21 +253,31 @@ export function FileUploadProcessor() {
               return;
             }
 
-            await trpcCall<{ success: boolean; receivedChunks: number; totalChunks: number }>('uploadChunk.uploadChunk', {
-              sessionId,
+            const chunkData = await readChunkAsBase64(file, start, end);
+
+            await trpcCall<{
+              success: boolean;
+              uploadedChunks: number;
+              totalChunks: number;
+              uploadedBytes: number;
+            }>('resumableUpload.uploadChunk', {
+              sessionToken,
               chunkIndex: i,
-              chunkData: base64,
-              totalChunks,
+              chunkData,
+            }, 'mutation', {
+              timeoutMs: 120_000, // 2 minute timeout per chunk
+              signal: abortController?.signal,
             });
             break; // Success
           } catch (error: any) {
+            if (abortController?.signal.aborted) return;
             retries++;
             if (retries >= maxChunkRetries) {
               // Save the current chunk position so we can resume later
               updateChunk(uploadId, i);
               throw new Error(`Failed to upload chunk ${i + 1}/${totalChunks} after ${maxChunkRetries} retries: ${error.message}`);
             }
-            const backoffDelay = 1500 * Math.pow(2, retries - 1);
+            const backoffDelay = 2000 * Math.pow(2, retries - 1);
             console.warn(`[FileUpload] Chunk ${i + 1}/${totalChunks} attempt ${retries} failed, retrying in ${backoffDelay / 1000}s...`);
             await new Promise(resolve => setTimeout(resolve, backoffDelay));
           }
@@ -206,16 +290,47 @@ export function FileUploadProcessor() {
         updateChunk(uploadId, i + 1);
       }
 
-      console.log(`[FileUpload] All chunks uploaded, finalizing...`);
+      console.log(`[FileUpload] All chunks uploaded, finalizing via resumable upload...`);
 
-      // Finalize upload via direct fetch
-      const result = await trpcCall<{ success: boolean; fileId: number; videoId?: number; url: string; fileKey: string }>('uploadChunk.finalizeUpload', { sessionId });
+      // Finalize upload via resumable upload API
+      const finalizeResult = await trpcCall<{
+        success: boolean;
+        async?: boolean;
+        fileId?: number;
+        videoId?: number;
+        url?: string;
+        fileKey?: string;
+        message?: string;
+      }>('resumableUpload.finalizeUpload', {
+        sessionToken,
+      }, 'mutation', {
+        timeoutMs: 300_000, // 5 minute timeout for sync finalization
+        signal: abortController?.signal,
+      });
 
-      console.log(`[FileUpload] Upload complete! File ID: ${result.fileId}`);
+      let completedResult: { fileId: number; videoId?: number; url: string };
+
+      if (finalizeResult.async) {
+        // Large file: server is assembling in background, poll for completion
+        console.log(`[FileUpload] Background assembly started, polling for completion...`);
+        completedResult = await pollFinalizeStatus(
+          sessionToken,
+          abortController?.signal || new AbortController().signal
+        );
+      } else {
+        // Small file or chunk-streaming: completed synchronously
+        completedResult = {
+          fileId: finalizeResult.fileId!,
+          videoId: finalizeResult.videoId,
+          url: finalizeResult.url!,
+        };
+      }
+
+      console.log(`[FileUpload] Upload complete! File ID: ${completedResult.fileId}`);
 
       updateStatus(uploadId, 'completed', {
-        fileId: result.fileId,
-        url: result.url,
+        fileId: completedResult.fileId,
+        url: completedResult.url,
       });
 
     } catch (error: any) {
@@ -225,11 +340,11 @@ export function FileUploadProcessor() {
       console.error("[FileUpload] Upload error:", error);
       updateStatus(uploadId, 'error', undefined, error.message || "Upload failed");
     }
-  }, []); // No dependencies - uses refs for all callbacks
+  }, [readChunkAsBase64, pollFinalizeStatus]); // Minimal dependencies - uses refs for all callbacks
 
   // Register file processor on mount - stable reference, only registers once
   useEffect(() => {
-    console.log('[FileUploadProcessor] Registering file upload processor');
+    console.log('[FileUploadProcessor] Registering file upload processor (resumable)');
     registerProcessor('file', processFileUpload);
     return () => {
       console.log('[FileUploadProcessor] Unregistering file upload processor');

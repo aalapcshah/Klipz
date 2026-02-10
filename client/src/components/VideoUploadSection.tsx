@@ -21,6 +21,7 @@ import { Upload, X, CheckCircle2, AlertCircle, Loader2, Video, Clock, Pause, Pla
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { DuplicateWarningDialog, DuplicateFile, DuplicateAction } from "@/components/DuplicateWarningDialog";
 import { trpc } from "@/lib/trpc";
+import { trpcCall } from "@/lib/trpcCall";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
 import { useUploadManager, UploadItem, formatSpeed, formatEta } from "@/contexts/UploadManagerContext";
@@ -47,7 +48,7 @@ const ACCEPTED_VIDEO_FORMATS = [
 
 const MAX_FILE_SIZE = 6 * 1024 * 1024 * 1024; // 6GB - supports large video files
 const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks - kept small to avoid proxy body size limits on deployed sites
-const LARGE_FILE_THRESHOLD = 100 * 1024 * 1024; // 100MB - use large file upload (disk-based) for files above this
+// LARGE_FILE_THRESHOLD removed - all uploads now use the resumable upload system regardless of size
 
 // Format time duration for ETA display
 function formatTimeDuration(ms: number): string {
@@ -127,14 +128,8 @@ export function VideoUploadSection() {
     retryingCount,
   } = useUploadManager();
 
-  const initUploadMutation = trpc.uploadChunk.initUpload.useMutation();
-  const uploadChunkMutation = trpc.uploadChunk.uploadChunk.useMutation();
-  const finalizeUploadMutation = trpc.uploadChunk.finalizeUpload.useMutation();
-  
-  // Large file upload mutations (for files > 500MB)
-  const initLargeUploadMutation = trpc.largeFileUpload.initLargeUpload.useMutation();
-  const uploadLargeChunkMutation = trpc.largeFileUpload.uploadLargeChunk.useMutation();
-  const finalizeLargeUploadMutation = trpc.largeFileUpload.finalizeLargeUpload.useMutation();
+  // Note: Video uploads now use the resumable upload system via trpcCall
+  // (chunks stored in S3, not server memory — prevents OOM on finalization)
   const checkDuplicatesMutation = trpc.duplicateCheck.checkBatch.useMutation();
   const updateVideoMutation = trpc.videos.update.useMutation();
   const uploadThumbnailMutation = trpc.files.uploadThumbnail.useMutation();
@@ -219,7 +214,43 @@ export function VideoUploadSection() {
     });
   };
 
+  // Poll for background finalization completion (for large files)
+  const pollFinalizeStatus = useCallback(async (
+    sessionToken: string,
+    signal: AbortSignal
+  ): Promise<{ fileId: number; videoId?: number; url: string }> => {
+    const POLL_INTERVAL = 5000;
+    const MAX_POLL_TIME = 30 * 60 * 1000;
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < MAX_POLL_TIME) {
+      if (signal.aborted) throw new Error('Upload was cancelled');
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+      if (signal.aborted) throw new Error('Upload was cancelled');
+
+      const status = await trpcCall<{
+        status: 'completed' | 'finalizing' | 'failed' | string;
+        fileKey?: string;
+        url?: string;
+        message?: string;
+      }>('resumableUpload.getFinalizeStatus', { sessionToken }, 'query', {
+        timeoutMs: 30_000,
+        signal,
+      });
+
+      if (status.status === 'completed') {
+        return { fileId: 0, url: status.url || '' };
+      }
+      if (status.status === 'failed') {
+        throw new Error(status.message || 'File assembly failed on server');
+      }
+      console.log(`[Upload] Still assembling ${sessionToken}...`);
+    }
+    throw new Error('File assembly timed out after 30 minutes');
+  }, []);
+
   // Video upload processor - registered with UploadManager
+  // Now uses resumable upload system (chunks stored in S3, not server memory)
   const processVideoUpload = useCallback(async (uploadId: string, file: File, resumeFromChunk?: number, _existingSessionId?: string) => {
     const abortController = getAbortController(uploadId);
     
@@ -234,45 +265,93 @@ export function VideoUploadSection() {
       const quality = (upload?.metadata?.quality as VideoQuality) || 'high';
       
       // Always upload original file - server-side compression available after upload
-      let fileToUpload = file;
-      
-      const isLargeFile = fileToUpload.size > LARGE_FILE_THRESHOLD;
+      const fileToUpload = file;
+      const totalChunks = Math.ceil(fileToUpload.size / CHUNK_SIZE);
 
-      // Initialize upload session (or reuse existing)
-      let sessionId = upload?.sessionId;
+      console.log(`[Upload] Starting resumable upload for ${fileToUpload.name} (${(fileToUpload.size / (1024 * 1024)).toFixed(1)} MB, ${totalChunks} chunks)`);
+
+      // Initialize or resume upload session via resumable upload API
+      let sessionToken = upload?.sessionId || '';
       let startChunk = resumeFromChunk || 0;
-      let totalChunks: number;
       
-      if (!sessionId) {
-        if (isLargeFile) {
-          // Use large file upload for files > 500MB
-          console.log(`[Upload] Using large file upload for ${fileToUpload.name} (${(fileToUpload.size / (1024 * 1024 * 1024)).toFixed(2)} GB)`);
-          const initResult = await initLargeUploadMutation.mutateAsync({
-            filename: file.name, // Keep original filename
-            totalSize: fileToUpload.size,
+      if (!sessionToken) {
+        // Create new resumable upload session
+        const createResult = await trpcCall<{ sessionToken: string; totalChunks: number }>(
+          'resumableUpload.createSession',
+          {
+            filename: file.name,
+            fileSize: fileToUpload.size,
             mimeType: fileToUpload.type,
-          });
-          sessionId = initResult.sessionId;
-          totalChunks = initResult.totalChunks;
-        } else {
-          const initResult = await initUploadMutation.mutateAsync({
-            filename: file.name, // Keep original filename
-            totalSize: fileToUpload.size,
-            mimeType: fileToUpload.type,
-          });
-          sessionId = initResult.sessionId;
-          totalChunks = Math.ceil(fileToUpload.size / CHUNK_SIZE);
-        }
-        updateUploadSessionId(uploadId, sessionId);
+            uploadType: 'video' as const,
+            chunkSize: CHUNK_SIZE,
+            metadata: { quality },
+          }
+        );
+        sessionToken = createResult.sessionToken;
+        updateUploadSessionId(uploadId, sessionToken);
+        console.log(`[Upload] New resumable session created: ${sessionToken}`);
       } else {
-        // When resuming, use the correct chunk size based on file size
-        const chunkSizeForCalc = isLargeFile ? (10 * 1024 * 1024) : CHUNK_SIZE;
-        totalChunks = Math.ceil(fileToUpload.size / chunkSizeForCalc);
+        // Try to resume existing session
+        try {
+          const sessionStatus = await trpcCall<{
+            status: string;
+            totalChunks: number;
+            uploadedChunks: number;
+            chunks: Array<{ index: number; status: string }>;
+          }>('resumableUpload.getSessionStatus', { sessionToken }, 'query');
+
+          if (sessionStatus.status === 'active' || sessionStatus.status === 'paused') {
+            const uploadedSet = new Set(
+              sessionStatus.chunks
+                .filter((c: any) => c.status === 'uploaded' || c.status === 'verified')
+                .map((c: any) => c.index)
+            );
+            // Find first non-uploaded chunk
+            for (let i = 0; i < totalChunks; i++) {
+              if (!uploadedSet.has(i)) {
+                startChunk = i;
+                break;
+              }
+              if (i === totalChunks - 1) startChunk = totalChunks;
+            }
+            console.log(`[Upload] Resuming session ${sessionToken}: starting from chunk ${startChunk}/${totalChunks}`);
+          } else {
+            // Session can't be resumed, create new one
+            const createResult = await trpcCall<{ sessionToken: string; totalChunks: number }>(
+              'resumableUpload.createSession',
+              {
+                filename: file.name,
+                fileSize: fileToUpload.size,
+                mimeType: fileToUpload.type,
+                uploadType: 'video' as const,
+                chunkSize: CHUNK_SIZE,
+                metadata: { quality },
+              }
+            );
+            sessionToken = createResult.sessionToken;
+            startChunk = 0;
+            updateUploadSessionId(uploadId, sessionToken);
+          }
+        } catch (err) {
+          console.warn(`[Upload] Failed to check session, starting fresh:`, err);
+          const createResult = await trpcCall<{ sessionToken: string; totalChunks: number }>(
+            'resumableUpload.createSession',
+            {
+              filename: file.name,
+              fileSize: fileToUpload.size,
+              mimeType: fileToUpload.type,
+              uploadType: 'video' as const,
+              chunkSize: CHUNK_SIZE,
+              metadata: { quality },
+            }
+          );
+          sessionToken = createResult.sessionToken;
+          startChunk = 0;
+          updateUploadSessionId(uploadId, sessionToken);
+        }
       }
       
-      // Upload chunks
-      const progressOffset = 0;
-      const activeChunkSize = isLargeFile ? (10 * 1024 * 1024) : CHUNK_SIZE;
+      // Upload chunks via resumable upload API (chunks go to S3, not server memory)
       for (let i = startChunk; i < totalChunks; i++) {
         // Check if paused or cancelled
         if (abortController?.signal.aborted) {
@@ -285,54 +364,90 @@ export function VideoUploadSection() {
           await new Promise(resolve => setTimeout(resolve, chunkDelayRef.current));
         }
 
-        const start = i * activeChunkSize;
-        const end = Math.min(start + activeChunkSize, fileToUpload.size);
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, fileToUpload.size);
 
         let retries = 0;
-        const maxRetries = 3;
+        const maxRetries = 5;
         
         while (retries < maxRetries) {
           try {
+            if (abortController?.signal.aborted) {
+              updatePausedChunk(uploadId, i);
+              return;
+            }
+
             // Read chunk inside retry loop so file read failures are also retried
             const chunkData = await readChunk(fileToUpload, start, end);
             
-            if (isLargeFile) {
-              await uploadLargeChunkMutation.mutateAsync({
-                sessionId,
-                chunkIndex: i,
-                chunkData,
-              });
-            } else {
-              await uploadChunkMutation.mutateAsync({
-                sessionId,
-                chunkIndex: i,
-                chunkData,
-                totalChunks,
-              });
-            }
+            await trpcCall<{
+              success: boolean;
+              uploadedChunks: number;
+              totalChunks: number;
+              uploadedBytes: number;
+            }>('resumableUpload.uploadChunk', {
+              sessionToken,
+              chunkIndex: i,
+              chunkData,
+            }, 'mutation', {
+              timeoutMs: 120_000, // 2 minute timeout per chunk
+              signal: abortController?.signal,
+            });
             break;
           } catch (error: any) {
+            if (abortController?.signal.aborted) return;
             retries++;
             if (retries >= maxRetries) {
               throw new Error(`Failed to upload chunk ${i} after ${maxRetries} retries: ${error.message}`);
             }
             console.warn(`[Upload] Chunk ${i} attempt ${retries} failed: ${error.message}, retrying...`);
-            // Wait before retry with exponential backoff (longer on mobile for memory recovery)
-            await new Promise(resolve => setTimeout(resolve, 1500 * Math.pow(2, retries)));
+            // Exponential backoff: 2s, 4s, 8s, 16s, 32s
+            await new Promise(resolve => setTimeout(resolve, 2000 * Math.pow(2, retries - 1)));
           }
         }
 
-        // Update progress (account for compression phase if applicable)
-        const uploadProgress = ((i + 1) / totalChunks) * (100 - progressOffset);
-        const progress = progressOffset + uploadProgress;
-        const uploadedBytes = Math.min((i + 1) * activeChunkSize, fileToUpload.size);
+        // Update progress
+        const progress = ((i + 1) / totalChunks) * 100;
+        const uploadedBytes = Math.min((i + 1) * CHUNK_SIZE, fileToUpload.size);
         updateUploadProgress(uploadId, progress, uploadedBytes);
       }
 
-      // Finalize upload
-      const result = isLargeFile 
-        ? await finalizeLargeUploadMutation.mutateAsync({ sessionId })
-        : await finalizeUploadMutation.mutateAsync({ sessionId });
+      // Finalize upload via resumable upload API
+      console.log(`[Upload] All chunks uploaded, finalizing via resumable upload...`);
+      const finalizeResult = await trpcCall<{
+        success: boolean;
+        async?: boolean;
+        fileId?: number;
+        videoId?: number;
+        url?: string;
+        fileKey?: string;
+        message?: string;
+      }>('resumableUpload.finalizeUpload', {
+        sessionToken,
+      }, 'mutation', {
+        timeoutMs: 300_000, // 5 minute timeout for sync finalization
+        signal: abortController?.signal,
+      });
+
+      let result: { fileId?: number; videoId?: number; url?: string; fileKey?: string };
+
+      if (finalizeResult.async) {
+        // Large file: server is assembling in background, poll for completion
+        console.log(`[Upload] Background assembly started, polling for completion...`);
+        toast.info(`${file.name}: Assembling file on server... This may take a few minutes for large files.`);
+        const pollResult = await pollFinalizeStatus(
+          sessionToken,
+          abortController?.signal || new AbortController().signal
+        );
+        result = { fileId: pollResult.fileId, videoId: pollResult.videoId, url: pollResult.url };
+      } else {
+        result = {
+          fileId: finalizeResult.fileId,
+          videoId: finalizeResult.videoId,
+          url: finalizeResult.url,
+          fileKey: finalizeResult.fileKey,
+        };
+      }
 
       // Extract duration, resolution and generate thumbnail in background
       try {
@@ -375,8 +490,8 @@ export function VideoUploadSection() {
       }
 
       updateUploadStatus(uploadId, 'completed', {
-        fileId: result.fileId,
-        url: result.url,
+        fileId: result.fileId || 0,
+        url: result.url || '',
       });
 
       // Auto-generate visual captions in the background
@@ -487,12 +602,7 @@ export function VideoUploadSection() {
   }, [
     getAbortController,
     uploads,
-    initUploadMutation,
-    uploadChunkMutation,
-    finalizeUploadMutation,
-    initLargeUploadMutation,
-    uploadLargeChunkMutation,
-    finalizeLargeUploadMutation,
+    pollFinalizeStatus,
     uploadThumbnailMutation,
     updateVideoMutation,
     updateUploadSessionId,
