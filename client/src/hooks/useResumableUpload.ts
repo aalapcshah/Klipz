@@ -178,6 +178,8 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   const [isLoading, setIsLoading] = useState(true);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const activeUploadsRef = useRef<Set<string>>(new Set());
+  // Track session tokens that have been cleared/cancelled to prevent server sync from bringing them back
+  const clearedTokensRef = useRef<Set<string>>(new Set());
   const autoResumedRef = useRef(false);
   const chunkDelayRef = useRef(options.chunkDelayMs ?? 0);
   // Keep refs to callbacks so the upload loop always calls the latest version
@@ -222,7 +224,12 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   // Load sessions from server on mount (replaces cached data with authoritative server data)
   useEffect(() => {
     if (serverSessions) {
-      const mappedSessions: ResumableUploadSession[] = serverSessions.map((s: any) => ({
+      // Filter out sessions that have been cleared/cancelled locally
+      const filteredServerSessions = serverSessions.filter(
+        (s: any) => !clearedTokensRef.current.has(s.sessionToken)
+      );
+      
+      const mappedSessions: ResumableUploadSession[] = filteredServerSessions.map((s: any) => ({
         sessionToken: s.sessionToken,
         filename: s.filename,
         fileSize: Number(s.fileSize),
@@ -256,6 +263,15 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
       
       // Sync localStorage with server truth
       saveSessionsToStorage(mappedSessions);
+      
+      // Clean up clearedTokensRef: remove tokens that the server no longer returns
+      // (meaning the server has actually processed the cancellation)
+      const serverTokens = new Set(serverSessions.map((s: any) => s.sessionToken));
+      Array.from(clearedTokensRef.current).forEach(token => {
+        if (!serverTokens.has(token)) {
+          clearedTokensRef.current.delete(token);
+        }
+      });
     }
   }, [serverSessions]);
 
@@ -694,6 +710,9 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
       controller.abort();
     }
 
+    // Add to cleared tokens to prevent server sync from bringing it back
+    clearedTokensRef.current.add(sessionToken);
+
     // Immediately remove from local state
     setSessions(prev => {
       const updated = prev.filter(s => s.sessionToken !== sessionToken);
@@ -719,12 +738,17 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   const clearAllSessions = useCallback(async () => {
     const allTokens = sessions.map(s => s.sessionToken);
     
+    // Add all tokens to cleared set to prevent server sync from bringing them back
+    for (const token of allTokens) {
+      clearedTokensRef.current.add(token);
+    }
+    
     // Immediately clear local state
     setSessions([]);
     clearSessionsFromStorage();
     
-    // Cancel each on the server
-    for (const token of allTokens) {
+    // Cancel each on the server (in parallel for speed)
+    const cancelPromises = allTokens.map(async (token) => {
       const controller = abortControllersRef.current.get(token);
       if (controller) controller.abort();
       try {
@@ -732,7 +756,10 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
       } catch (e) {
         console.warn(`[ResumableUpload] Failed to cancel session ${token}:`, e);
       }
-    }
+    });
+    
+    // Wait for all cancellations to complete before refetching
+    await Promise.allSettled(cancelPromises);
     
     refetchSessions();
     toast.info("All uploads cleared");

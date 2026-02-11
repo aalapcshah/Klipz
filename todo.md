@@ -6015,3 +6015,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Root cause: CSRF protection blocking trpcCall direct fetch (missing x-csrf-token header)
 - [x] Fix: Added CSRF token to trpcCall utility (client/src/lib/trpcCall.ts)
 - [x] All 789 tests passing after fix
+
+## Bug: Clear All Resumable Uploads Doesn't Persist (FIXED)
+- [x] Clear All only removes sessions from UI temporarily, they reappear on next poll
+- [x] Root cause: server sync useEffect overwrites cleared state; GlobalUploadProgress polls every 5s
+- [x] Fix: Added clearedTokensRef to filter out cleared sessions from server sync
+- [x] Fix: Cancel all sessions in parallel and await completion before refetch
+- [x] Fix: Individual cancelUpload also adds to clearedTokensRef
+- [x] All 789 tests passing
