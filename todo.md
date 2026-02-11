@@ -5971,3 +5971,19 @@ Note: The application already has extensive annotation features including voice 
 - [x] Move Device Settings up next to the Mirror toggle capsule
 - [x] Cleaned up unused showAdvancedFeatures state and toggleAdvancedFeatures function
 - [x] Removed 'E' keyboard shortcut (no longer needed since features panel is always visible)
+
+## Security: Rate Limiting on Admin Login Endpoint
+- [x] Implement in-memory rate limiter for /api/admin/login (IP-based)
+- [x] Limit to 5 attempts per 15-minute window per IP
+- [x] Return 429 Too Many Requests with retry-after header when limit exceeded
+- [x] Write tests for rate limiting behavior (6 tests passing)
+- [x] Add countdown timer UI on admin login page when rate limited
+- [x] Add test-only reset endpoint for rate limits (non-production only)
+
+## UX: Upload Progress Bar in Files Section
+- [x] Add inline progress indicator when files are uploading via the Files page
+- [x] Show per-file progress with filename, percentage, and progress bar
+- [x] Show overall upload status summary (e.g. "Uploading 2/5 files")
+- [x] Handle upload completion with success/error feedback
+- [x] Support pause/resume/cancel/retry actions per file
+- [x] Show speed and ETA for active uploads

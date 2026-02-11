@@ -8,6 +8,68 @@ const router = Router();
 const ADMIN_COOKIE_NAME = "admin_session";
 const ADMIN_TOKEN_EXPIRY = "7d"; // 7 days
 
+// Rate limiting for login endpoint
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const RATE_LIMIT_MAX_ATTEMPTS = 5;
+
+interface RateLimitEntry {
+  attempts: number;
+  firstAttempt: number;
+}
+
+const loginAttempts = new Map<string, RateLimitEntry>();
+
+// Clean up expired entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  const entries = Array.from(loginAttempts.entries());
+  for (const [ip, entry] of entries) {
+    if (now - entry.firstAttempt > RATE_LIMIT_WINDOW_MS) {
+      loginAttempts.delete(ip);
+    }
+  }
+}, 5 * 60 * 1000).unref();
+
+function getClientIp(req: import("express").Request): string {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string") return forwarded.split(",")[0].trim();
+  if (Array.isArray(forwarded)) return forwarded[0].trim();
+  return req.socket.remoteAddress || "unknown";
+}
+
+function checkRateLimit(ip: string): { allowed: boolean; retryAfterSeconds?: number } {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+
+  if (!entry) {
+    loginAttempts.set(ip, { attempts: 1, firstAttempt: now });
+    return { allowed: true };
+  }
+
+  // Window expired, reset
+  if (now - entry.firstAttempt > RATE_LIMIT_WINDOW_MS) {
+    loginAttempts.set(ip, { attempts: 1, firstAttempt: now });
+    return { allowed: true };
+  }
+
+  if (entry.attempts >= RATE_LIMIT_MAX_ATTEMPTS) {
+    const retryAfterSeconds = Math.ceil(
+      (RATE_LIMIT_WINDOW_MS - (now - entry.firstAttempt)) / 1000
+    );
+    return { allowed: false, retryAfterSeconds };
+  }
+
+  entry.attempts++;
+  return { allowed: true };
+}
+
+/** Exported for testing */
+export function _resetRateLimits() {
+  loginAttempts.clear();
+}
+
+export { RATE_LIMIT_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS };
+
 /**
  * Standalone admin authentication routes.
  * Uses ADMIN_PASSWORD env var for password-based login,
@@ -20,6 +82,17 @@ function getSecretKey(): Uint8Array {
 
 // POST /api/admin/login - Authenticate with admin password
 router.post("/api/admin/login", async (req, res) => {
+  // Rate limiting check
+  const clientIp = getClientIp(req);
+  const rateCheck = checkRateLimit(clientIp);
+  if (!rateCheck.allowed) {
+    res.set("Retry-After", String(rateCheck.retryAfterSeconds));
+    return res.status(429).json({
+      error: "Too many login attempts. Please try again later.",
+      retryAfterSeconds: rateCheck.retryAfterSeconds,
+    });
+  }
+
   const { password } = req.body;
 
   if (!ENV.adminPassword) {
@@ -110,6 +183,14 @@ function timingSafeEqual(a: string, b: string): boolean {
     result |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
   return result === 0;
+}
+
+// Test-only endpoint to reset rate limits (only available in non-production)
+if (!ENV.isProduction) {
+  router.post("/api/admin/_reset-rate-limits", (_req, res) => {
+    loginAttempts.clear();
+    return res.json({ success: true });
+  });
 }
 
 export default router;

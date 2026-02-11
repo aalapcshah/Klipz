@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { SignJWT, jwtVerify } from "jose";
 
 /**
@@ -137,6 +137,11 @@ describe("Admin Auth - verifyAdminSession", () => {
 });
 
 describe("Admin Auth - Login Endpoint Validation", () => {
+  // Reset rate limits before each test to avoid interference
+  beforeEach(async () => {
+    await fetch("http://localhost:3000/api/admin/_reset-rate-limits", { method: "POST" });
+  });
+
   it("should reject empty password", async () => {
     const response = await fetch("http://localhost:3000/api/admin/login", {
       method: "POST",
@@ -203,6 +208,11 @@ describe("Admin Auth - Logout Endpoint", () => {
 });
 
 describe("Admin Auth - Full Login Flow", () => {
+  // Reset rate limits before each test to avoid interference
+  beforeEach(async () => {
+    await fetch("http://localhost:3000/api/admin/_reset-rate-limits", { method: "POST" });
+  });
+
   it("should accept correct password and set cookie", async () => {
     const adminPassword = process.env.ADMIN_PASSWORD;
     if (!adminPassword) {
