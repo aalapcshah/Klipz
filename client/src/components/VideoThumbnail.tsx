@@ -45,7 +45,10 @@ export function VideoThumbnail({
     videoRef.current = video;
     canvasRef.current = canvas;
 
-    video.crossOrigin = "anonymous";
+    // Only set crossOrigin for external URLs; same-origin streaming URLs don't need it
+    if (src.startsWith('http')) {
+      video.crossOrigin = "anonymous";
+    }
     video.muted = true;
     video.preload = "metadata";
 

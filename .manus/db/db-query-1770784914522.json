@@ -1,0 +1,65 @@
+{
+  "query": "SELECT id, sessionToken, status, filename, fileSize, mimeType, uploadType, finalFileUrl, finalFileKey FROM resumable_upload_sessions WHERE status = 'completed' ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, sessionToken, status, filename, fileSize, mimeType, uploadType, finalFileUrl, finalFileKey FROM resumable_upload_sessions WHERE status = 'completed' ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "180007",
+      "sessionToken": "n0AWhhlyVmTGPzgQf-Dyaq9OGYCL7N14",
+      "status": "completed",
+      "filename": "PXL_20260122_021311107.mp4",
+      "fileSize": "89507457",
+      "mimeType": "video/mp4",
+      "uploadType": "file",
+      "finalFileUrl": "/api/files/stream/n0AWhhlyVmTGPzgQf-Dyaq9OGYCL7N14",
+      "finalFileKey": "chunked/n0AWhhlyVmTGPzgQf-Dyaq9OGYCL7N14/PXL_20260122_021311107.mp4"
+    },
+    {
+      "id": "180003",
+      "sessionToken": "tFQa0huI_Xd731vgS8Ba9rZZHvlMcuZh",
+      "status": "completed",
+      "filename": "Video 10 - No More Research.mp4",
+      "fileSize": "483822037",
+      "mimeType": "video/mp4",
+      "uploadType": "file",
+      "finalFileUrl": "/api/files/stream/tFQa0huI_Xd731vgS8Ba9rZZHvlMcuZh",
+      "finalFileKey": "chunked/tFQa0huI_Xd731vgS8Ba9rZZHvlMcuZh/Video 10 - No More Research.mp4"
+    },
+    {
+      "id": "180002",
+      "sessionToken": "5QXNks_DLXvJYSm0ZnY4vEZpI7wRW7mc",
+      "status": "completed",
+      "filename": "Video 10 - No More Research_V2.mp4",
+      "fileSize": "271898467",
+      "mimeType": "video/mp4",
+      "uploadType": "file",
+      "finalFileUrl": "/api/files/stream/5QXNks_DLXvJYSm0ZnY4vEZpI7wRW7mc",
+      "finalFileKey": "chunked/5QXNks_DLXvJYSm0ZnY4vEZpI7wRW7mc/Video 10 - No More Research_V2.mp4"
+    },
+    {
+      "id": "180001",
+      "sessionToken": "HGNjdovFuRuv0JDxvI8JylcySu66zhjN",
+      "status": "completed",
+      "filename": "Video 10 - No More Research_V2.mp4",
+      "fileSize": "271898467",
+      "mimeType": "video/mp4",
+      "uploadType": "file",
+      "finalFileUrl": "/api/files/stream/HGNjdovFuRuv0JDxvI8JylcySu66zhjN",
+      "finalFileKey": "chunked/HGNjdovFuRuv0JDxvI8JylcySu66zhjN/Video 10 - No More Research_V2.mp4"
+    },
+    {
+      "id": "150005",
+      "sessionToken": "UwBpokf8_dLVb4wiz10xx-f2UUfV87Ks",
+      "status": "completed",
+      "filename": "Video 10 - No More Research_V2.mp4",
+      "fileSize": "271898467",
+      "mimeType": "video/mp4",
+      "uploadType": "file",
+      "finalFileUrl": "/api/files/stream/UwBpokf8_dLVb4wiz10xx-f2UUfV87Ks",
+      "finalFileKey": "chunked/UwBpokf8_dLVb4wiz10xx-f2UUfV87Ks/Video 10 - No More Research_V2.mp4"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tsessionToken\tstatus\tfilename\tfileSize\tmimeType\tuploadType\tfinalFileUrl\tfinalFileKey\n180007\tn0AWhhlyVmTGPzgQf-Dyaq9OGYCL7N14\tcompleted\tPXL_20260122_021311107.mp4\t89507457\tvideo/mp4\tfile\t/api/files/stream/n0AWhhlyVmTGPzgQf-Dyaq9OGYCL7N14\tchunked/n0AWhhlyVmTGPzgQf-Dyaq9OGYCL7N14/PXL_20260122_021311107.mp4\n180003\ttFQa0huI_Xd731vgS8Ba9rZZHvlMcuZh\tcompleted\tVideo 10 - No More Research.mp4\t483822037\tvideo/mp4\tfile\t/api/files/stream/tFQa0huI_Xd731vgS8Ba9rZZHvlMcuZh\tchunked/tFQa0huI_Xd731vgS8Ba9rZZHvlMcuZh/Video 10 - No More Research.mp4\n180002\t5QXNks_DLXvJYSm0ZnY4vEZpI7wRW7mc\tcompleted\tVideo 10 - No More Research_V2.mp4\t271898467\tvideo/mp4\tfile\t/api/files/stream/5QXNks_DLXvJYSm0ZnY4vEZpI7wRW7mc\tchunked/5QXNks_DLXvJYSm0ZnY4vEZpI7wRW7mc/Video 10 - No More Research_V2.mp4\n180001\tHGNjdovFuRuv0JDxvI8JylcySu66zhjN\tcompleted\tVideo 10 - No More Research_V2.mp4\t271898467\tvideo/mp4\tfile\t/api/files/stream/HGNjdovFuRuv0JDxvI8JylcySu66zhjN\tchunked/HGNjdovFuRuv0JDxvI8JylcySu66zhjN/Video 10 - No More Research_V2.mp4\n150005\tUwBpokf8_dLVb4wiz10xx-f2UUfV87Ks\tcompleted\tVideo 10 - No More Research_V2.mp4\t271898467\tvideo/mp4\tfile\t/api/files/stream/UwBpokf8_dLVb4wiz10xx-f2UUfV87Ks\tchunked/UwBpokf8_dLVb4wiz10xx-f2UUfV87Ks/Video 10 - No More Research_V2.mp4\n",
+  "stderr": "",
+  "execution_time_ms": 91
+}

@@ -6023,3 +6023,14 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix: Cancel all sessions in parallel and await completion before refetch
 - [x] Fix: Individual cancelUpload also adds to clearedTokensRef
 - [x] All 789 tests passing
+
+## Bug: Video uploaded via Files appears in Videos section too (FIXED)
+- [x] Root cause: finalization checked mimeType only, not uploadType
+- [x] Fix: Both sync and large-file finalization now check `uploadType === 'video'` before creating video record
+- [x] Files uploaded via Files section will no longer create video records
+
+## Bug: Uploaded video cannot play - shows 0:00 with no thumbnail (FIXED)
+- [x] Root cause: crossOrigin="anonymous" on <video> element forces CORS mode for same-origin streaming URLs
+- [x] Fix: Conditionally set crossOrigin only for external URLs (http/https), not for relative /api/files/stream/ URLs
+- [x] Fixed in VideoPlayerWithAnnotations.tsx (main player + sticky player) and VideoThumbnail.tsx
+- [x] Streaming endpoint verified working: returns 200 with correct Content-Type and supports Range requests

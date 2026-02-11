@@ -57,9 +57,9 @@ async function finalizeLargeFileWithStreaming(
     description: metadata.description,
   });
 
-  // Create video record if this is a video (check MIME type regardless of uploadType)
+  // Create video record only if uploaded via the Videos section (uploadType === 'video')
   let videoId: number | undefined;
-  if (session.mimeType.startsWith('video/')) {
+  if (session.uploadType === 'video' && session.mimeType.startsWith('video/')) {
     videoId = await db.createVideo({
       userId,
       fileId,
@@ -462,7 +462,7 @@ export const resumableUploadRouter = router({
           });
 
           let videoId: number | undefined;
-          if (session.mimeType.startsWith('video/')) {
+          if (session.uploadType === 'video' && session.mimeType.startsWith('video/')) {
             videoId = await db.createVideo({
               userId: ctx.user.id,
               fileId,

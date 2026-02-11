@@ -734,7 +734,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
           <div className="relative">
             <video
               src={videoUrl}
-              crossOrigin="anonymous"
+              {...(videoUrl.startsWith('http') ? { crossOrigin: 'anonymous' } : {})}
               className="w-full h-32 object-contain"
               onClick={togglePlay}
               ref={(el) => {
@@ -779,7 +779,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
           <video
             ref={videoRef}
             src={videoUrl}
-            crossOrigin="anonymous"
+            {...(videoUrl.startsWith('http') ? { crossOrigin: 'anonymous' } : {})}
             className="w-full max-h-[360px] object-contain"
             onClick={isDrawingMode ? undefined : togglePlay}
             style={{ pointerEvents: isDrawingMode ? 'none' : 'auto' }}
