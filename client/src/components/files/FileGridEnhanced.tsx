@@ -1356,18 +1356,18 @@ export default function FileGridEnhanced({
 
         {/* Batch Actions Toolbar */}
         {selectedFilesSet.size > 0 && (
-          <Card className="p-4">
-            <div className="flex flex-col gap-2">
+          <Card className="p-2 md:p-4">
+            <div className="flex flex-col gap-1 md:gap-2">
               {/* Mobile swipe hint */}
               {isSelectionMode && (
-                <div className="md:hidden text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded flex items-center gap-1">
+                <div className="md:hidden text-[10px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded flex items-center gap-1">
                   <span>💡</span>
-                  <span>Swipe horizontally across files to quickly select or deselect multiple items</span>
+                  <span>Swipe across files to quickly select multiple items</span>
                 </div>
               )}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 flex-wrap">
-                  <span className="text-sm font-medium">
+                <div className="flex items-center gap-1.5 md:gap-4 flex-wrap">
+                  <span className="text-xs md:text-sm font-medium shrink-0">
                     {selectedFilesSet.size} selected
                   </span>
 
@@ -1380,9 +1380,11 @@ export default function FileGridEnhanced({
                       setIsSelectionMode(false);
                     }}
                     aria-label="Clear file selection"
+                    className="h-6 px-1.5 text-[10px] md:h-8 md:px-3 md:text-sm gap-1"
                   >
-                    <X className="h-4 w-4 mr-2" />
-                    {isSelectionMode ? "Exit Selection" : "Clear Selected"}
+                    <X className="h-3 w-3 md:h-4 md:w-4" />
+                    <span className="hidden sm:inline">{isSelectionMode ? "Exit Selection" : "Clear Selected"}</span>
+                    <span className="sm:hidden">Clear</span>
                   </Button>
 
                   {/* 2. Add Tag */}
@@ -1392,13 +1394,14 @@ export default function FileGridEnhanced({
                     onClick={() => setTagDialogOpen(true)}
                     disabled={linkTagMutation.isPending}
                     aria-label={`Add tags to ${selectedFilesSet.size} selected files`}
+                    className="h-6 px-1.5 text-[10px] md:h-8 md:px-3 md:text-sm gap-1"
                   >
                     {linkTagMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
                     ) : (
-                      <Tag className="h-4 w-4 mr-2" />
+                      <Tag className="h-3 w-3 md:h-4 md:w-4" />
                     )}
-                    Add Tag
+                    Tag
                   </Button>
 
                   {/* 3. Edit Metadata */}
@@ -1407,13 +1410,15 @@ export default function FileGridEnhanced({
                     size="sm"
                     onClick={() => setMetadataDialogOpen(true)}
                     disabled={batchUpdateMutation.isPending}
+                    className="h-6 px-1.5 text-[10px] md:h-8 md:px-3 md:text-sm gap-1"
                   >
                     {batchUpdateMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
                     ) : (
-                      <Edit3 className="h-4 w-4 mr-2" />
+                      <Edit3 className="h-3 w-3 md:h-4 md:w-4" />
                     )}
-                    Edit Metadata
+                    <span className="hidden sm:inline">Edit Metadata</span>
+                    <span className="sm:hidden">Edit</span>
                   </Button>
 
                   {/* 4. Enrich (purple) */}
@@ -1422,13 +1427,13 @@ export default function FileGridEnhanced({
                     size="sm"
                     onClick={handleBatchEnrich}
                     disabled={enrichMutation.isPending}
-                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                    className="h-6 px-1.5 text-[10px] md:h-8 md:px-3 md:text-sm gap-1 bg-purple-600 hover:bg-purple-700 text-white"
                     aria-label={`Enrich ${selectedFilesSet.size} selected files with AI`}
                   >
                     {enrichMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
                     ) : (
-                      <Sparkles className="h-4 w-4 mr-2" />
+                      <Sparkles className="h-3 w-3 md:h-4 md:w-4" />
                     )}
                     Enrich
                   </Button>
@@ -1439,15 +1444,16 @@ export default function FileGridEnhanced({
                     size="sm"
                     onClick={handleBulkQualityImprovement}
                     disabled={enrichMutation.isPending}
-                    className="bg-green-600 hover:bg-green-700"
+                    className="h-6 px-1.5 text-[10px] md:h-8 md:px-3 md:text-sm gap-1 bg-green-600 hover:bg-green-700"
                     aria-label={`Automatically improve quality of ${selectedFilesSet.size} selected files`}
                   >
                     {enrichMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
                     ) : (
-                      <Sparkles className="h-4 w-4 mr-2" />
+                      <Sparkles className="h-3 w-3 md:h-4 md:w-4" />
                     )}
-                    Improve Quality
+                    <span className="hidden sm:inline">Improve Quality</span>
+                    <span className="sm:hidden">Quality</span>
                   </Button>
 
                   {/* 6. Compare Files */}
@@ -1458,9 +1464,11 @@ export default function FileGridEnhanced({
                       setCompareMode(true);
                       setSelectedFiles(new Set());
                     }}
+                    className="h-6 px-1.5 text-[10px] md:h-8 md:px-3 md:text-sm gap-1"
                   >
-                    <GitCompare className="h-4 w-4 mr-2" />
-                    Compare Files
+                    <GitCompare className="h-3 w-3 md:h-4 md:w-4" />
+                    <span className="hidden sm:inline">Compare Files</span>
+                    <span className="sm:hidden">Compare</span>
                   </Button>
 
                   {/* 7. Export (dropdown) */}
@@ -1471,14 +1479,15 @@ export default function FileGridEnhanced({
                         size="sm"
                         disabled={exportMutation.isPending}
                         aria-label={`Export ${selectedFilesSet.size} selected files`}
+                        className="h-6 px-1.5 text-[10px] md:h-8 md:px-3 md:text-sm gap-1"
                       >
                         {exportMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
                         ) : (
-                          <Download className="h-4 w-4 mr-2" />
+                          <Download className="h-3 w-3 md:h-4 md:w-4" />
                         )}
                         Export
-                        <ChevronDown className="h-3 w-3 ml-1" />
+                        <ChevronDown className="h-2.5 w-2.5 md:h-3 md:w-3" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
@@ -1499,13 +1508,15 @@ export default function FileGridEnhanced({
                     size="sm"
                     onClick={() => setCollectionDialogOpen(true)}
                     disabled={bulkAddToCollectionMutation.isPending}
+                    className="h-6 px-1.5 text-[10px] md:h-8 md:px-3 md:text-sm gap-1"
                   >
                     {bulkAddToCollectionMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
                     ) : (
-                      <FolderPlus className="h-4 w-4 mr-2" />
+                      <FolderPlus className="h-3 w-3 md:h-4 md:w-4" />
                     )}
-                    Add to Collection
+                    <span className="hidden sm:inline">Add to Collection</span>
+                    <span className="sm:hidden">Collection</span>
                   </Button>
 
                   {/* 10. Delete (red) */}
@@ -1514,13 +1525,13 @@ export default function FileGridEnhanced({
                     size="sm"
                     onClick={() => setDeleteDialogOpen(true)}
                     disabled={deleteMutation.isPending}
-                    className="text-red-500 border-red-500/50 hover:bg-red-500/10 hover:text-red-500"
+                    className="h-6 px-1.5 text-[10px] md:h-8 md:px-3 md:text-sm gap-1 text-red-500 border-red-500/50 hover:bg-red-500/10 hover:text-red-500"
                     aria-label={`Delete ${selectedFilesSet.size} selected files`}
                   >
                     {deleteMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
                     ) : (
-                      <Trash2 className="h-4 w-4 mr-2" />
+                      <Trash2 className="h-3 w-3 md:h-4 md:w-4" />
                     )}
                     Delete
                   </Button>
@@ -1830,7 +1841,7 @@ export default function FileGridEnhanced({
                   <Card
                     className={`group p-2 md:p-3 hover:border-primary/50 transition-colors cursor-grab active:cursor-grabbing relative ${
                       draggedFileId === file.id ? "opacity-50" : ""
-                    } ${isSelectionMode && selectedFilesSet.has(file.id) ? "ring-2 ring-primary bg-primary/10" : ""} ${
+                    } ${isSelectionMode && selectedFilesSet.has(file.id) ? "ring-1 md:ring-2 ring-primary bg-primary/5 md:bg-primary/10" : ""} ${
                       isSelectionMode && isSwipeSelectingRef.current ? "transition-all duration-100" : ""
                     } ${isDraggingForReorder ? "cursor-grabbing" : ""}`}
                     style={{
@@ -1893,18 +1904,18 @@ export default function FileGridEnhanced({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute top-1 right-1 h-7 w-7 md:h-6 md:w-6 md:opacity-0 md:group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground transition-opacity z-10"
+                    className="absolute top-0.5 right-0.5 h-5 w-5 md:h-6 md:w-6 md:opacity-0 md:group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground transition-opacity z-10 p-0"
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedFiles(new Set([file.id]));
                       setDeleteDialogOpen(true);
                     }}
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3 w-3 md:h-4 md:w-4" />
                   </Button>
                   <div className="flex items-start gap-1 md:gap-3">
                     {/* Checkbox - always visible, smaller on mobile */}
-                    <div className="flex-shrink-0 flex items-center justify-center w-5 h-5 md:w-6 md:h-6">
+                    <div className="flex-shrink-0 flex items-center justify-center w-4 h-4 md:w-6 md:h-6 mt-0.5">
                       {compareMode ? (
                         <Checkbox
                           checked={compareFiles.includes(file.id)}
@@ -1920,7 +1931,7 @@ export default function FileGridEnhanced({
                             e.stopPropagation();
                             toggleFile(file.id, e.shiftKey);
                           }}
-                          className="w-4 h-4"
+                          className="w-3.5 h-3.5 md:w-4 md:h-4"
                         />
                       )}
                     </div>
@@ -2038,7 +2049,7 @@ export default function FileGridEnhanced({
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-muted-foreground">
+                      <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-muted-foreground pr-5 md:pr-0">
                         <span className="shrink-0">{formatFileSize(file.fileSize)}</span>
                         <div className="flex items-center gap-2 flex-wrap">
                           {/* Annotate button for video files */}

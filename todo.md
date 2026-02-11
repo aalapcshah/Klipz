@@ -6136,3 +6136,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] FIX: Updated UploadManagerContext processor type to include metadata parameter
 - [x] FIX: Updated VideoUploadSection processor signature for compatibility
 - [x] All 21 upload-related tests passing
+
+## Mobile UI: Compact Batch Action Buttons & Selection Fixes
+- [x] Make batch action buttons (Edit Metadata, Enrich, Improve Quality, Compare Files, Export, Add to Collection, Delete) smaller on mobile
+- [x] Reduce button padding and font size so they fit on fewer lines
+- [x] Fix oversized checkboxes overlapping file text in list view
+- [x] Fix X button overlapping the quality percentage badge on right side
+- [x] Reduced selected card ring from ring-2 to ring-1 on mobile
+- [x] Shortened button labels on mobile (Edit Metadata → Edit, Compare Files → Compare, etc.)
