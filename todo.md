@@ -5945,3 +5945,18 @@ Note: The application already has extensive annotation features including voice 
 - [x] Removed same filter from getFilesCountByUserId and getEnrichmentStatusCounts
 - [x] All files uploaded via Files section now appear in Files regardless of MIME type
 - [x] Videos section continues to work independently via its own videos table
+
+## Feature: Video Thumbnail Previews in Files Grid (DONE)
+- [x] Created VideoThumbnail component that captures a frame at ~1s from video URL
+- [x] Shows play icon overlay on grid view thumbnails
+- [x] Falls back to generic video icon if frame capture fails
+- [x] Updated FileGridEnhanced grid view to use VideoThumbnail for video files
+- [x] Updated FileGridEnhanced list view to use VideoThumbnail for video files
+
+## Feature: Upload Deduplication Warning (DONE)
+- [x] Added deduplication check to GlobalDropZone (drag-and-drop file uploads)
+- [x] Uses existing duplicateCheck.checkBatch API to check filename + size
+- [x] Shows dialog listing duplicate files with checkboxes to select which to upload
+- [x] Options: Skip Duplicates, Upload All, or Upload Selected
+- [x] Falls back to normal upload if duplicate check API fails
+- [x] VideoUploadSection already had deduplication built in

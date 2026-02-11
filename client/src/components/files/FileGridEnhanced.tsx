@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import React from 'react';
 import { FilePreviewLightbox } from "./FilePreviewLightbox";
+import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { FloatingActionBar } from "./FloatingActionBar";
 import { MetadataPopup } from "./MetadataPopup";
 import { trpc } from "@/lib/trpc";
@@ -1598,10 +1599,15 @@ export default function FileGridEnhanced({
                           className="w-full h-48 object-contain bg-muted rounded"
                         />
                       ) : file.mimeType.startsWith("video/") ? (
-                        <video
+                        <VideoThumbnail
                           src={file.url}
-                          className="w-full h-48 object-contain bg-muted rounded"
-                          controls={false}
+                          alt={file.title || file.filename}
+                          className="w-full h-48 bg-muted rounded cursor-pointer"
+                          showPlayIcon={true}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onFileClick?.(file.id);
+                          }}
                         />
                       ) : (
                         <div className="w-full h-48 flex flex-col items-center justify-center bg-muted rounded">
@@ -1940,6 +1946,17 @@ export default function FileGridEnhanced({
                                 e.currentTarget.style.display = 'none';
                               }}
                             />
+                          ) : file.mimeType?.startsWith('video/') ? (
+                            <VideoThumbnail
+                              src={file.url}
+                              alt={file.filename}
+                              className="w-full h-full rounded"
+                              showPlayIcon={false}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onFileClick?.(file.id);
+                              }}
+                            />
                           ) : (() => {
                             // Check for social media thumbnail in extractedMetadata
                             const metadata = file.extractedMetadata ? (typeof file.extractedMetadata === 'string' ? JSON.parse(file.extractedMetadata) : file.extractedMetadata) : null;
@@ -1952,7 +1969,6 @@ export default function FileGridEnhanced({
                                   className="w-full h-full object-cover rounded"
                                   loading="lazy"
                                   onError={(e) => {
-                                    // On error, show file icon instead
                                     e.currentTarget.style.display = 'none';
                                     e.currentTarget.parentElement?.querySelector('.fallback-icon')?.classList.remove('hidden');
                                   }}

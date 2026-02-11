@@ -1,9 +1,20 @@
 import { useState, useEffect, useCallback, ReactNode } from "react";
-import { Upload, Video, FileImage, FolderOpen } from "lucide-react";
+import { Upload, Video, FileImage, FolderOpen, AlertTriangle } from "lucide-react";
 import { useUploadManager } from "@/contexts/UploadManagerContext";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
 import { extractFilesFromDataTransfer, isVideoFile, FolderFile } from "@/lib/folderUpload";
+import { trpcCall } from "@/lib/trpcCall";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const VIDEO_FORMATS = [
   "video/mp4",
@@ -37,6 +48,26 @@ const ALL_SUPPORTED_FORMATS = [...VIDEO_FORMATS, ...IMAGE_FORMATS, ...DOCUMENT_F
 const MAX_VIDEO_SIZE = 4 * 1024 * 1024 * 1024; // 4GB
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB for regular files
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+interface DuplicateInfo {
+  file: File;
+  uploadType: 'video' | 'file';
+  existingFile: {
+    id: number;
+    filename: string;
+    fileSize: number;
+    url: string;
+    createdAt: Date;
+    type: 'video' | 'file';
+  };
+}
+
 interface GlobalDropZoneProps {
   children: ReactNode;
 }
@@ -46,6 +77,12 @@ export function GlobalDropZone({ children }: GlobalDropZoneProps) {
   const [isFolder, setIsFolder] = useState(false);
   const [dragCounter, setDragCounter] = useState(0);
   const { addUploads } = useUploadManager();
+
+  // Deduplication dialog state
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [duplicates, setDuplicates] = useState<DuplicateInfo[]>([]);
+  const [nonDuplicates, setNonDuplicates] = useState<{ file: File; uploadType: 'video' | 'file' }[]>([]);
+  const [selectedDuplicates, setSelectedDuplicates] = useState<Set<string>>(new Set());
 
   const handleDragEnter = useCallback((e: DragEvent) => {
     e.preventDefault();
@@ -86,7 +123,88 @@ export function GlobalDropZone({ children }: GlobalDropZoneProps) {
     e.stopPropagation();
   }, []);
 
-  const processFiles = useCallback((files: File[] | FolderFile[]) => {
+  // Actually queue the files for upload
+  const queueFiles = useCallback((files: { file: File; uploadType: 'video' | 'file' }[]) => {
+    const videoFiles = files.filter(f => f.uploadType === 'video');
+    const regularFiles = files.filter(f => f.uploadType === 'file');
+
+    if (videoFiles.length > 0) {
+      addUploads(videoFiles.map(f => ({
+        file: f.file,
+        uploadType: 'video' as const,
+        metadata: { quality: 'high' },
+      })));
+      toast.success(`${videoFiles.length} video(s) added to upload queue`);
+    }
+
+    if (regularFiles.length > 0) {
+      addUploads(regularFiles.map(f => ({
+        file: f.file,
+        uploadType: 'file' as const,
+      })));
+      toast.success(`${regularFiles.length} file(s) added to upload queue`);
+    }
+
+    triggerHaptic("success");
+  }, [addUploads]);
+
+  // Handle duplicate dialog actions
+  const handleUploadAll = useCallback(() => {
+    // Upload everything: non-duplicates + all duplicates
+    const allFiles = [
+      ...nonDuplicates,
+      ...duplicates.map(d => ({ file: d.file, uploadType: d.uploadType })),
+    ];
+    queueFiles(allFiles);
+    setShowDuplicateDialog(false);
+    setDuplicates([]);
+    setNonDuplicates([]);
+    setSelectedDuplicates(new Set());
+  }, [nonDuplicates, duplicates, queueFiles]);
+
+  const handleSkipDuplicates = useCallback(() => {
+    // Upload only non-duplicates
+    if (nonDuplicates.length > 0) {
+      queueFiles(nonDuplicates);
+    } else {
+      toast.info("All files were duplicates — nothing to upload");
+    }
+    setShowDuplicateDialog(false);
+    setDuplicates([]);
+    setNonDuplicates([]);
+    setSelectedDuplicates(new Set());
+  }, [nonDuplicates, queueFiles]);
+
+  const handleUploadSelected = useCallback(() => {
+    // Upload non-duplicates + selected duplicates
+    const selectedDups = duplicates
+      .filter(d => selectedDuplicates.has(`${d.file.name}:${d.file.size}`))
+      .map(d => ({ file: d.file, uploadType: d.uploadType }));
+    const allFiles = [...nonDuplicates, ...selectedDups];
+    if (allFiles.length > 0) {
+      queueFiles(allFiles);
+    } else {
+      toast.info("No files selected for upload");
+    }
+    setShowDuplicateDialog(false);
+    setDuplicates([]);
+    setNonDuplicates([]);
+    setSelectedDuplicates(new Set());
+  }, [nonDuplicates, duplicates, selectedDuplicates, queueFiles]);
+
+  const toggleDuplicate = useCallback((key: string) => {
+    setSelectedDuplicates(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
+  const processFiles = useCallback(async (files: File[] | FolderFile[]) => {
     const validFiles: { file: File; uploadType: 'video' | 'file' }[] = [];
     const errors: string[] = [];
 
@@ -127,33 +245,81 @@ export function GlobalDropZone({ children }: GlobalDropZoneProps) {
       triggerHaptic("error");
     }
 
-    // Add valid files to upload queue
-    if (validFiles.length > 0) {
-      const videoFiles = validFiles.filter(f => f.uploadType === 'video');
-      const regularFiles = validFiles.filter(f => f.uploadType === 'file');
-
-      if (videoFiles.length > 0) {
-        addUploads(videoFiles.map(f => ({
-          file: f.file,
-          uploadType: 'video' as const,
-          metadata: { quality: 'high' },
-        })));
-        toast.success(`${videoFiles.length} video(s) added to upload queue`);
+    if (validFiles.length === 0) {
+      if (errors.length === 0) {
+        toast.info("No supported files found");
       }
-
-      if (regularFiles.length > 0) {
-        addUploads(regularFiles.map(f => ({
-          file: f.file,
-          uploadType: 'file' as const,
-        })));
-        toast.success(`${regularFiles.length} file(s) added to upload queue`);
-      }
-
-      triggerHaptic("success");
-    } else if (errors.length === 0) {
-      toast.info("No supported files found");
+      return;
     }
-  }, [addUploads]);
+
+    // Check for duplicates before uploading
+    try {
+      const checkResult = await trpcCall<{
+        results: Array<{
+          filename: string;
+          fileSize: number;
+          type: 'video' | 'file';
+          isDuplicate: boolean;
+          existingFile?: {
+            id: number;
+            filename: string;
+            fileSize: number;
+            url: string;
+            createdAt: string;
+            type: 'video' | 'file';
+          };
+        }>;
+        hasDuplicates: boolean;
+        duplicateCount: number;
+      }>('duplicateCheck.checkBatch', {
+        files: validFiles.map(f => ({
+          filename: f.file.name,
+          fileSize: f.file.size,
+          type: f.uploadType,
+        })),
+      }, 'mutation', { timeoutMs: 15000 });
+
+      if (checkResult.hasDuplicates) {
+        // Build duplicate and non-duplicate lists
+        const dupeList: DuplicateInfo[] = [];
+        const nonDupeList: { file: File; uploadType: 'video' | 'file' }[] = [];
+
+        for (const result of checkResult.results) {
+          const matchingFile = validFiles.find(
+            f => f.file.name === result.filename && f.file.size === result.fileSize
+          );
+          if (!matchingFile) continue;
+
+          if (result.isDuplicate && result.existingFile) {
+            dupeList.push({
+              file: matchingFile.file,
+              uploadType: matchingFile.uploadType,
+              existingFile: {
+                ...result.existingFile,
+                createdAt: new Date(result.existingFile.createdAt),
+              },
+            });
+          } else {
+            nonDupeList.push(matchingFile);
+          }
+        }
+
+        // Show the duplicate warning dialog
+        setDuplicates(dupeList);
+        setNonDuplicates(nonDupeList);
+        setSelectedDuplicates(new Set()); // Start with none selected
+        setShowDuplicateDialog(true);
+        triggerHaptic("warning");
+        return;
+      }
+    } catch (err) {
+      // If duplicate check fails, just proceed with upload
+      console.warn("[GlobalDropZone] Duplicate check failed, proceeding with upload:", err);
+    }
+
+    // No duplicates found — queue all files
+    queueFiles(validFiles);
+  }, [queueFiles]);
 
   const handleDrop = useCallback(async (e: DragEvent) => {
     e.preventDefault();
@@ -260,6 +426,86 @@ export function GlobalDropZone({ children }: GlobalDropZoneProps) {
           </div>
         </div>
       )}
+
+      {/* Duplicate files warning dialog */}
+      <Dialog open={showDuplicateDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowDuplicateDialog(false);
+          setDuplicates([]);
+          setNonDuplicates([]);
+          setSelectedDuplicates(new Set());
+        }
+      }}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Duplicate Files Detected
+            </DialogTitle>
+            <DialogDescription>
+              {duplicates.length === 1
+                ? "1 file already exists in your library."
+                : `${duplicates.length} files already exist in your library.`}
+              {nonDuplicates.length > 0 && (
+                <> {nonDuplicates.length} new file{nonDuplicates.length > 1 ? 's' : ''} will be uploaded regardless.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-2">
+            {duplicates.map((dup) => {
+              const key = `${dup.file.name}:${dup.file.size}`;
+              const isSelected = selectedDuplicates.has(key);
+              return (
+                <div
+                  key={key}
+                  className={`flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                    isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/30'
+                  }`}
+                  onClick={() => toggleDuplicate(key)}
+                >
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => toggleDuplicate(key)}
+                    className="mt-0.5"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{dup.file.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatFileSize(dup.file.size)} · Already uploaded on{" "}
+                      {new Date(dup.existingFile.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <span className="text-xs bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-full whitespace-nowrap">
+                    Duplicate
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <div className="flex gap-2 w-full">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={handleSkipDuplicates}
+              >
+                Skip Duplicates
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={selectedDuplicates.size > 0 ? handleUploadSelected : handleUploadAll}
+              >
+                {selectedDuplicates.size > 0
+                  ? `Upload Selected (${selectedDuplicates.size + nonDuplicates.length})`
+                  : `Upload All (${duplicates.length + nonDuplicates.length})`
+                }
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
