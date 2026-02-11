@@ -6084,3 +6084,15 @@ Note: The application already has extensive annotation features including voice 
 - [x] Verified S3 URL returns HTTP 206 Partial Content for Range requests
 - [x] Updated backgroundAssembly.ts with 200MB size limit to prevent OOM on very large files
 - [x] Added assembleAllPendingSessions() for server startup to catch any missed files
+
+## Feature: Automatic Video Thumbnail Generation (DONE)
+- [x] Check if FFmpeg is available on the server (FFmpeg 4.4.2 pre-installed)
+- [x] Create server-side thumbnail extraction from video first frame (server/lib/videoThumbnail.ts)
+- [x] Generate thumbnail during background assembly (when S3 URL becomes available)
+- [x] Generate thumbnail for small video uploads (in files.upload mutation)
+- [x] Upload thumbnail to S3 and store URL in file/video record
+- [x] Frontend already checks file.thumbnailUrl in FileGridEnhanced - no changes needed
+- [x] Added thumbnailUrl to getFilesByCollection query
+- [x] Generated thumbnail for existing video (PXL_20260122_021311107.mp4) - 53KB JPEG
+- [x] Verified thumbnail accessible via CloudFront (HTTP 200, image/jpeg)
+- [x] 6 unit tests passing for video thumbnail module

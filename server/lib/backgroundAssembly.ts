@@ -26,6 +26,7 @@ import { eq, and } from "drizzle-orm";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { generateVideoThumbnail } from "./videoThumbnail";
 
 // Track active assembly jobs to prevent duplicates
 const activeAssemblies = new Set<string>();
@@ -170,6 +171,33 @@ export async function assembleChunksInBackground(
           finalFileUrl: finalUrl,
         })
         .where(eq(resumableUploadSessions.id, sessionId));
+
+      // Generate video thumbnail if this is a video file
+      if (mimeType.startsWith('video/')) {
+        try {
+          const thumbnail = await generateVideoThumbnail(finalUrl, {
+            userId,
+            filename,
+            seekTime: 1,
+            width: 640,
+          });
+          if (thumbnail) {
+            await db.updateFile(fileId, {
+              thumbnailUrl: thumbnail.url,
+              thumbnailKey: thumbnail.key,
+            });
+            if (videoId) {
+              await db.updateVideo(videoId, {
+                thumbnailUrl: thumbnail.url,
+                thumbnailKey: thumbnail.key,
+              });
+            }
+            console.log(`[BackgroundAssembly] ${sessionToken}: Video thumbnail generated and saved`);
+          }
+        } catch (thumbError) {
+          console.warn(`[BackgroundAssembly] ${sessionToken}: Thumbnail generation failed (non-fatal):`, thumbError);
+        }
+      }
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`[BackgroundAssembly] ✅ ${sessionToken}: Assembly complete in ${elapsed}s. File ${fileId} now served from S3 directly.`);

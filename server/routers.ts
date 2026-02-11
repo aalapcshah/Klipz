@@ -707,6 +707,23 @@ export const appRouter = router({
         sendUploadEmail(ctx.user.id, input.filename, fileId).catch(err => 
           console.error('[Files] Failed to send upload email:', err)
         );
+
+        // Generate video thumbnail in the background for video files
+        if (input.mimeType.startsWith('video/') && url.startsWith('http')) {
+          import('./lib/videoThumbnail').then(({ generateVideoThumbnail }) => {
+            generateVideoThumbnail(url, {
+              userId: ctx.user.id,
+              filename: input.filename,
+            }).then(thumbnail => {
+              if (thumbnail) {
+                db.updateFile(fileId, {
+                  thumbnailUrl: thumbnail.url,
+                  thumbnailKey: thumbnail.key,
+                }).catch(err => console.error('[Files] Failed to save video thumbnail:', err));
+              }
+            }).catch(err => console.error('[Files] Video thumbnail generation failed:', err));
+          });
+        }
         
         return { id: fileId };
       }),
