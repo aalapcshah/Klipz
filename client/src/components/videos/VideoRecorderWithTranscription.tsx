@@ -1214,35 +1214,32 @@ export function VideoRecorderWithTranscription() {
                     restartCameraWithSettings();
                   }
                 }}>
-                  <SelectTrigger className="w-[80px] h-8 shrink-0">
-                    <SelectValue />
+                  <SelectTrigger className="w-[110px] h-8 shrink-0">
+                    <div className="flex items-center gap-1 truncate">
+                      <Monitor className="h-3 w-3 shrink-0" />
+                      <SelectValue />
+                    </div>
                   </SelectTrigger>
                   <SelectContent>
                     {RESOLUTION_OPTIONS.map(opt => (
                       <SelectItem key={opt.label} value={opt.label}>
-                        <div className="flex items-center gap-1.5">
-                          <Monitor className="h-3 w-3" />
-                          {opt.label}
-                        </div>
+                        {opt.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
                 <Select value={timerLimit} onValueChange={setTimerLimit}>
-                  <SelectTrigger className="w-[90px] h-8 shrink-0">
-                    <div className="flex items-center gap-1">
-                      <Timer className="h-3 w-3" />
+                  <SelectTrigger className="w-[110px] h-8 shrink-0">
+                    <div className="flex items-center gap-1 truncate">
+                      <Timer className="h-3 w-3 shrink-0" />
                       <SelectValue />
                     </div>
                   </SelectTrigger>
                   <SelectContent>
                     {TIMER_LIMIT_OPTIONS.map(opt => (
                       <SelectItem key={opt.seconds.toString()} value={opt.seconds.toString()}>
-                        <div className="flex items-center gap-1.5">
-                          <Timer className="h-3 w-3" />
-                          {opt.label}
-                        </div>
+                        {opt.label}
                       </SelectItem>
                     ))}
                   </SelectContent>

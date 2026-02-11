@@ -5960,3 +5960,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Options: Skip Duplicates, Upload All, or Upload Selected
 - [x] Falls back to normal upload if duplicate check API fails
 - [x] VideoUploadSection already had deduplication built in
+
+## Bug: Video Recording Controls UI Issues (FIXED)
+- [x] Resolution selector text cut off — widened from 80px to 110px, moved Monitor icon to trigger, removed from items
+- [x] No Limit button shows two clock icons — removed Timer icon from SelectItem content (was duplicating with trigger icon)
