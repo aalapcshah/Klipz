@@ -5987,3 +5987,25 @@ Note: The application already has extensive annotation features including voice 
 - [x] Handle upload completion with success/error feedback
 - [x] Support pause/resume/cancel/retry actions per file
 - [x] Show speed and ETA for active uploads
+
+## Security: CSRF Protection for Sensitive Endpoints (COMPLETED)
+- [x] Add CSRF token generation and validation middleware (double-submit cookie pattern)
+- [x] Protect admin login, admin logout, and all POST/PUT/DELETE /api/ endpoints
+- [x] Exempt Stripe webhook (uses its own signature verification)
+- [x] Include CSRF token in frontend tRPC client and admin login fetch calls
+- [x] Write tests for CSRF protection (7 tests passing)
+
+## UX: Drag-to-Reorder Files Within Collections (COMPLETED)
+- [x] sortOrder column already exists in collection_files table
+- [x] Implement drag-and-drop reorder UI using @dnd-kit in CollectionsManager
+- [x] Create reorderCollectionFiles backend endpoint with optimistic updates
+- [x] Sort files by sortOrder in getFilesByCollection query
+- [x] Write tests for reorder endpoint (3 tests passing)
+
+## UX: Batch Metadata Editing from Files View (COMPLETED)
+- [x] Create BatchMetadataDialog with tabbed UI (Title/Description + Tags)
+- [x] Support batch title and description updates (using existing batchUpdate endpoint)
+- [x] Support batch add/remove tags in same dialog
+- [x] Add "Edit Metadata" button to BulkOperationsToolbar (desktop + mobile dropdown)
+- [x] Show change summary before applying
+- [x] Progress tracking across multi-step operations

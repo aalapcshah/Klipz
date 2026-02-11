@@ -250,6 +250,16 @@ export const appRouter = router({
         await db.removeFileFromCollection(input.collectionId, input.fileId);
         return { success: true };
       }),
+
+    reorderFiles: protectedProcedure
+      .input(z.object({
+        collectionId: z.number(),
+        fileIds: z.array(z.number()),
+      }))
+      .mutation(async ({ input }) => {
+        await db.reorderCollectionFiles(input.collectionId, input.fileIds);
+        return { success: true };
+      }),
   }),
 
   smartCollections: router({

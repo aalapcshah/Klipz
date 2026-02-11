@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
   Video,
   File as FileIcon,
   Share2,
+  GripVertical,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -37,6 +38,23 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ShareDialog } from "@/components/ShareDialog";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const COLORS = [
   "#10b981", // green
@@ -47,6 +65,67 @@ const COLORS = [
   "#06b6d4", // cyan
   "#ec4899", // pink
 ];
+
+function SortableFileCard({
+  file,
+  onRemove,
+  getFileIcon,
+}: {
+  file: any;
+  onRemove: () => void;
+  getFileIcon: (mimeType: string) => React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: file.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : "auto",
+  };
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style as any}
+      className={`p-3 ${isDragging ? "shadow-lg ring-2 ring-primary" : ""}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <button
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
+            aria-label="Drag to reorder"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+          <div className="text-primary mt-0.5">
+            {getFileIcon(file.mimeType)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm truncate">
+              {file.title || file.filename}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {new Date(file.addedAt).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+        <Button variant="ghost" size="sm" onClick={onRemove}>
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+    </Card>
+  );
+}
 
 export function CollectionsManager() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -67,6 +146,15 @@ export function CollectionsManager() {
     { enabled: viewingCollection !== null }
   );
   const utils = trpc.useUtils();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const createMutation = trpc.collections.create.useMutation({
     onSuccess: () => {
@@ -105,6 +193,16 @@ export function CollectionsManager() {
     onSuccess: () => {
       utils.collections.get.invalidate();
       toast.success("File removed from collection");
+    },
+  });
+
+  const reorderMutation = trpc.collections.reorderFiles.useMutation({
+    onSuccess: () => {
+      utils.collections.get.invalidate();
+    },
+    onError: () => {
+      toast.error("Failed to save file order");
+      utils.collections.get.invalidate();
     },
   });
 
@@ -161,6 +259,36 @@ export function CollectionsManager() {
     if (mimeType.includes("pdf") || mimeType.includes("document"))
       return <FileText className="h-4 w-4" />;
     return <FileIcon className="h-4 w-4" />;
+  };
+
+  const fileIds = useMemo(
+    () => collectionDetail?.files?.map((f: any) => f.id) || [],
+    [collectionDetail?.files]
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !collectionDetail?.files || !viewingCollection) return;
+
+    const oldIndex = collectionDetail.files.findIndex((f: any) => f.id === active.id);
+    const newIndex = collectionDetail.files.findIndex((f: any) => f.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reorderedFiles = arrayMove(collectionDetail.files, oldIndex, newIndex);
+    const newFileIds = reorderedFiles.map((f: any) => f.id);
+
+    // Optimistic update
+    utils.collections.get.setData({ id: viewingCollection }, (old: any) => {
+      if (!old) return old;
+      return { ...old, files: reorderedFiles };
+    });
+
+    // Persist to server
+    reorderMutation.mutate({
+      collectionId: viewingCollection,
+      fileIds: newFileIds,
+    });
   };
 
   if (isLoading) {
@@ -270,7 +398,7 @@ export function CollectionsManager() {
         </div>
       )}
 
-      {/* Collection Detail View */}
+      {/* Collection Detail View with Drag-to-Reorder */}
       {viewingCollection && collectionDetail && (
         <Dialog open={true} onOpenChange={() => setViewingCollection(null)}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -292,6 +420,11 @@ export function CollectionsManager() {
                 <h3 className="font-semibold">
                   {collectionDetail.files?.length || 0} files
                 </h3>
+                {collectionDetail.files && collectionDetail.files.length > 1 && (
+                  <p className="text-xs text-muted-foreground">
+                    Drag to reorder
+                  </p>
+                )}
               </div>
 
               {!collectionDetail.files || collectionDetail.files.length === 0 ? (
@@ -299,39 +432,29 @@ export function CollectionsManager() {
                   No files in this collection yet
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {collectionDetail.files.map((file: any) => (
-                    <Card key={file.id} className="p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-start gap-2 flex-1 min-w-0">
-                          <div className="text-primary mt-0.5">
-                            {getFileIcon(file.mimeType)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">
-                              {file.title || file.filename}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(file.addedAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext items={fileIds} strategy={verticalListSortingStrategy}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {collectionDetail.files.map((file: any) => (
+                        <SortableFileCard
+                          key={file.id}
+                          file={file}
+                          getFileIcon={getFileIcon}
+                          onRemove={() =>
                             removeFileMutation.mutate({
                               collectionId: viewingCollection,
                               fileId: file.id,
                             })
                           }
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
               )}
             </div>
           </DialogContent>

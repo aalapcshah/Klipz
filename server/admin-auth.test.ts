@@ -7,6 +7,9 @@ import { SignJWT, jwtVerify } from "jose";
  */
 
 const ADMIN_COOKIE_NAME = "admin_session";
+const CSRF_TOKEN = "test-csrf-token-for-admin-auth-tests";
+const CSRF_COOKIE = `_csrf_token=${CSRF_TOKEN}`;
+const CSRF_HEADER = { "x-csrf-token": CSRF_TOKEN };
 
 function getSecretKey(): Uint8Array {
   const secret = process.env.JWT_SECRET || "test-secret";
@@ -139,13 +142,13 @@ describe("Admin Auth - verifyAdminSession", () => {
 describe("Admin Auth - Login Endpoint Validation", () => {
   // Reset rate limits before each test to avoid interference
   beforeEach(async () => {
-    await fetch("http://localhost:3000/api/admin/_reset-rate-limits", { method: "POST" });
+    await fetch("http://localhost:3000/api/admin/_reset-rate-limits", { method: "POST", headers: { Cookie: CSRF_COOKIE, ...CSRF_HEADER } });
   });
 
   it("should reject empty password", async () => {
     const response = await fetch("http://localhost:3000/api/admin/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Cookie: CSRF_COOKIE, ...CSRF_HEADER },
       body: JSON.stringify({ password: "" }),
     });
     const data = await response.json();
@@ -156,7 +159,7 @@ describe("Admin Auth - Login Endpoint Validation", () => {
   it("should reject missing password field", async () => {
     const response = await fetch("http://localhost:3000/api/admin/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Cookie: CSRF_COOKIE, ...CSRF_HEADER },
       body: JSON.stringify({}),
     });
     const data = await response.json();
@@ -167,7 +170,7 @@ describe("Admin Auth - Login Endpoint Validation", () => {
   it("should reject wrong password", async () => {
     const response = await fetch("http://localhost:3000/api/admin/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Cookie: CSRF_COOKIE, ...CSRF_HEADER },
       body: JSON.stringify({ password: "definitely-wrong-password" }),
     });
     const data = await response.json();
@@ -178,7 +181,7 @@ describe("Admin Auth - Login Endpoint Validation", () => {
   it("should reject non-string password", async () => {
     const response = await fetch("http://localhost:3000/api/admin/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Cookie: CSRF_COOKIE, ...CSRF_HEADER },
       body: JSON.stringify({ password: 12345 }),
     });
     const data = await response.json();
@@ -200,6 +203,7 @@ describe("Admin Auth - Logout Endpoint", () => {
   it("should return success on logout", async () => {
     const response = await fetch("http://localhost:3000/api/admin/logout", {
       method: "POST",
+      headers: { Cookie: CSRF_COOKIE, ...CSRF_HEADER },
     });
     const data = await response.json();
     expect(response.status).toBe(200);
@@ -210,7 +214,7 @@ describe("Admin Auth - Logout Endpoint", () => {
 describe("Admin Auth - Full Login Flow", () => {
   // Reset rate limits before each test to avoid interference
   beforeEach(async () => {
-    await fetch("http://localhost:3000/api/admin/_reset-rate-limits", { method: "POST" });
+    await fetch("http://localhost:3000/api/admin/_reset-rate-limits", { method: "POST", headers: { Cookie: CSRF_COOKIE, ...CSRF_HEADER } });
   });
 
   it("should accept correct password and set cookie", async () => {
@@ -222,7 +226,7 @@ describe("Admin Auth - Full Login Flow", () => {
 
     const response = await fetch("http://localhost:3000/api/admin/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Cookie: CSRF_COOKIE, ...CSRF_HEADER },
       body: JSON.stringify({ password: adminPassword }),
     });
     const data = await response.json();
@@ -243,7 +247,7 @@ describe("Admin Auth - Full Login Flow", () => {
 
     const loginResponse = await fetch("http://localhost:3000/api/admin/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Cookie: CSRF_COOKIE, ...CSRF_HEADER },
       body: JSON.stringify({ password: adminPassword }),
     });
     const setCookie = loginResponse.headers.get("set-cookie");
@@ -271,7 +275,7 @@ describe("Admin Auth - Full Login Flow", () => {
 
     const loginResponse = await fetch("http://localhost:3000/api/admin/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Cookie: CSRF_COOKIE, ...CSRF_HEADER },
       body: JSON.stringify({ password: adminPassword }),
     });
     const setCookie = loginResponse.headers.get("set-cookie");
@@ -280,7 +284,7 @@ describe("Admin Auth - Full Login Flow", () => {
 
     const logoutResponse = await fetch("http://localhost:3000/api/admin/logout", {
       method: "POST",
-      headers: { Cookie: `${ADMIN_COOKIE_NAME}=${cookieValue}` },
+      headers: { Cookie: `${ADMIN_COOKIE_NAME}=${cookieValue}; ${CSRF_COOKIE}`, ...CSRF_HEADER },
     });
     expect(logoutResponse.status).toBe(200);
 

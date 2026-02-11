@@ -11,9 +11,11 @@ import {
   Sparkles,
   Video,
   MoreHorizontal,
+  Pencil,
 } from "lucide-react";
 import { BatchCompressionDialog } from "@/components/BatchCompressionDialog";
 import { BatchEnrichmentProgressDialog } from "@/components/files/BatchEnrichmentProgressDialog";
+import { BatchMetadataDialog } from "@/components/files/BatchMetadataDialog";
 import {
   Dialog,
   DialogContent,
@@ -61,6 +63,7 @@ export function BulkOperationsToolbar({
   const [showCollectionDialog, setShowCollectionDialog] = useState(false);
   const [showCompressionDialog, setShowCompressionDialog] = useState(false);
   const [showEnrichmentDialog, setShowEnrichmentDialog] = useState(false);
+  const [showMetadataDialog, setShowMetadataDialog] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [removeTagIds, setRemoveTagIds] = useState<number[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
@@ -375,6 +378,11 @@ export function BulkOperationsToolbar({
                     <Video className="h-3 w-3 mr-2" />
                     Compress
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setShowMetadataDialog(true)}>
+                    <Pencil className="h-3 w-3 mr-2" />
+                    Edit Metadata
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -469,6 +477,16 @@ export function BulkOperationsToolbar({
             >
               <Video className="w-4 h-4 mr-2" />
               Compress
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowMetadataDialog(true)}
+              disabled={isProcessing}
+            >
+              <Pencil className="w-4 h-4 mr-2" />
+              Edit Metadata
             </Button>
 
             <Button
@@ -768,6 +786,17 @@ export function BulkOperationsToolbar({
           onOpenChange={setShowEnrichmentDialog}
           fileIds={selectedFileIds}
           onComplete={handleEnrichmentComplete}
+        />
+
+        {/* Batch Metadata Dialog */}
+        <BatchMetadataDialog
+          open={showMetadataDialog}
+          onOpenChange={setShowMetadataDialog}
+          selectedFileIds={selectedFileIds}
+          onComplete={() => {
+            onOperationComplete();
+            onClearSelection();
+          }}
         />
       </>
     );

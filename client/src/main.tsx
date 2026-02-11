@@ -11,6 +11,7 @@ import { UploadManagerProvider } from "./contexts/UploadManagerContext";
 import { StorageQuotaProvider } from "./contexts/StorageQuotaContext";
 import { GlobalDropZone } from "./components/GlobalDropZone";
 import { FileUploadProcessor } from "./components/FileUploadProcessor";
+import { csrfFetch } from "./lib/csrf";
 import "./index.css";
 
 const queryClient = new QueryClient({
@@ -76,7 +77,7 @@ const trpcClient = trpc.createClient({
         url: "/api/trpc",
         transformer: superjson,
         fetch(input, init) {
-          return globalThis.fetch(input, {
+          return csrfFetch(input, {
             ...(init ?? {}),
             credentials: "include",
           });
@@ -86,7 +87,7 @@ const trpcClient = trpc.createClient({
         url: "/api/trpc",
         transformer: superjson,
         fetch(input, init) {
-          return globalThis.fetch(input, {
+          return csrfFetch(input, {
             ...(init ?? {}),
             credentials: "include",
           });

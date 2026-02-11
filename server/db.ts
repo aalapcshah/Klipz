@@ -1,4 +1,4 @@
-import { eq, and, or, like, gte, lte, inArray, desc, sql } from "drizzle-orm";
+import { eq, and, or, like, gte, lte, inArray, desc, asc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import * as mysql from "mysql2/promise";
 import {
@@ -1190,11 +1190,12 @@ export async function getFilesByCollection(userId: number, collectionId: number,
       updatedAt: files.updatedAt,
       userId: files.userId,
       addedAt: collectionFiles.addedAt,
+      sortOrder: collectionFiles.sortOrder,
     })
     .from(collectionFiles)
     .innerJoin(files, eq(collectionFiles.fileId, files.id))
     .where(eq(collectionFiles.collectionId, collectionId))
-    .orderBy(desc(collectionFiles.addedAt));
+    .orderBy(asc(collectionFiles.sortOrder), desc(collectionFiles.addedAt));
   
   if (limit !== undefined && offset !== undefined) {
     return await baseQuery.limit(limit).offset(offset);
@@ -1217,6 +1218,27 @@ export async function getFilesCountByCollection(collectionId: number) {
     .where(eq(collectionFiles.collectionId, collectionId));
   
   return result[0]?.count || 0;
+}
+
+export async function reorderCollectionFiles(
+  collectionId: number,
+  fileIds: number[]
+): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Update sortOrder for each file based on its position in the array
+  for (let i = 0; i < fileIds.length; i++) {
+    await db
+      .update(collectionFiles)
+      .set({ sortOrder: i })
+      .where(
+        and(
+          eq(collectionFiles.collectionId, collectionId),
+          eq(collectionFiles.fileId, fileIds[i])
+        )
+      );
+  }
 }
 
 

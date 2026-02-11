@@ -4,6 +4,7 @@ import { Shield, Eye, EyeOff, AlertCircle, Loader2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { getCsrfHeaders } from "@/lib/csrf";
 
 export default function AdminLogin() {
   const [password, setPassword] = useState("");
@@ -41,7 +42,7 @@ export default function AdminLogin() {
     try {
       const res = await fetch("/api/admin/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
         body: JSON.stringify({ password }),
       });
 
