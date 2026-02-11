@@ -357,7 +357,19 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                         <span>ETA: {formatEta(session.eta)}</span>
                       </>
                     )}
-                    {session.status === "paused" && session.lastActivityAt && (
+                    {session.status === "active" && session.error && (
+                      <span className="flex items-center gap-1 text-amber-500">
+                        <RefreshCw className="h-3 w-3 animate-spin" />
+                        {session.error}
+                      </span>
+                    )}
+                    {session.status === "paused" && session.error && (
+                      <span className="flex items-center gap-1 text-amber-500">
+                        <AlertCircle className="h-3 w-3" />
+                        {session.error}
+                      </span>
+                    )}
+                    {session.status === "paused" && !session.error && session.lastActivityAt && (
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         Paused {formatTimeAgo(session.lastActivityAt)}

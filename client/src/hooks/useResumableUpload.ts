@@ -187,6 +187,9 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   useEffect(() => { optionsRef.current = options; }, [options]);
   const setSessionsRef = useRef(setSessions);
   useEffect(() => { setSessionsRef.current = setSessions; }, [setSessions]);
+  // Keep a ref to current sessions for use in timeouts/callbacks
+  const sessionsRef = useRef(sessions);
+  useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
   
   // tRPC utils for direct cache invalidation after upload completion
   const trpcUtils = trpc.useUtils();
@@ -426,14 +429,60 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     throw new Error('File assembly timed out after 30 minutes');
   };
 
+  // Upload queue: only 1 upload runs at a time, others wait
+  const uploadQueueRef = useRef<Array<{ session: ResumableUploadSession; file: File }>>([]);
+  const isProcessingQueueRef = useRef(false);
+
+  const processUploadQueue = useCallback(async () => {
+    if (isProcessingQueueRef.current) return;
+    isProcessingQueueRef.current = true;
+    
+    while (uploadQueueRef.current.length > 0) {
+      const next = uploadQueueRef.current.shift();
+      if (next) {
+        // Check if this session was cancelled while waiting in queue
+        if (clearedTokensRef.current.has(next.session.sessionToken)) continue;
+        await executeUploadChunks(next.session, next.file);
+      }
+    }
+    
+    isProcessingQueueRef.current = false;
+  }, []);
+
   // Upload chunks for a session - uses direct fetch calls, survives component unmounts
   const uploadChunks = useCallback(async (session: ResumableUploadSession, file: File) => {
+    // If another upload is already active, queue this one
+    if (activeUploadsRef.current.size > 0) {
+      console.log(`[ResumableUpload] Queuing upload for ${session.filename} (another upload is active)`);
+      uploadQueueRef.current.push({ session, file });
+      setSessionsRef.current(prev => prev.map(s =>
+        s.sessionToken === session.sessionToken
+          ? { ...s, status: 'paused' as const, error: 'Waiting in queue...' }
+          : s
+      ));
+      processUploadQueue();
+      return;
+    }
+    await executeUploadChunks(session, file);
+    // After this upload finishes, process the next one in the queue
+    processUploadQueue();
+  }, []);
+
+  const executeUploadChunks = useCallback(async (session: ResumableUploadSession, file: File) => {
     const abortController = new AbortController();
     abortControllersRef.current.set(session.sessionToken, abortController);
     activeUploadsRef.current.add(session.sessionToken);
 
+    // Update status to active
+    setSessionsRef.current(prev => prev.map(s =>
+      s.sessionToken === session.sessionToken
+        ? { ...s, status: 'active' as const, error: undefined }
+        : s
+    ));
+
     let lastSpeedUpdate = Date.now();
     let lastBytesForSpeed = session.uploadedBytes;
+    let consecutiveFailures = 0;
 
     try {
       for (let i = session.uploadedChunks; i < session.totalChunks; i++) {
@@ -451,13 +500,23 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
           await new Promise(resolve => setTimeout(resolve, chunkDelayRef.current));
         }
 
-        // Upload chunk with retries (5 retries with exponential backoff, 2min timeout per chunk)
+        // Upload chunk with retries (10 retries with exponential backoff, 2min timeout per chunk)
         let retries = 0;
-        const maxRetries = 5;
+        const maxRetries = 10;
+        let chunkSuccess = false;
         
         while (retries < maxRetries) {
           try {
             if (abortController.signal.aborted) return;
+            
+            // Show retry status in UI
+            if (retries > 0) {
+              setSessionsRef.current(prev => prev.map(s =>
+                s.sessionToken === session.sessionToken
+                  ? { ...s, error: `Retrying chunk ${i + 1} (attempt ${retries + 1}/${maxRetries})...` }
+                  : s
+              ));
+            }
             
             // Read chunk inside retry loop so file read failures are also retried
             const chunkData = await readChunkAsBase64(file, start, end);
@@ -477,6 +536,8 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
             });
 
             console.log(`[ResumableUpload] Chunk ${i + 1}/${session.totalChunks} uploaded for ${session.filename}`);
+            chunkSuccess = true;
+            consecutiveFailures = 0; // Reset on success
 
             // Update session state
             const now = Date.now();
@@ -501,11 +562,12 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
                       progress: (result.uploadedChunks / result.totalChunks) * 100,
                       speed,
                       eta,
+                      error: undefined, // Clear retry message on success
                     }
                   : s
               );
-              // Sync to localStorage every 10 chunks for persistence
-              if (result.uploadedChunks % 10 === 0) {
+              // Sync to localStorage every 5 chunks for persistence
+              if (result.uploadedChunks % 5 === 0) {
                 saveSessionsToStorage(updated);
               }
               return updated;
@@ -526,15 +588,56 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
             if (abortController.signal.aborted) return;
             
             retries++;
+            consecutiveFailures++;
             const isTimeout = error?.message?.includes('timed out');
-            const retryLabel = isTimeout ? 'timeout' : error?.message;
+            const isNetwork = error?.message?.includes('fetch') || error?.message?.includes('network') || error?.name === 'TypeError';
+            const retryLabel = isTimeout ? 'timeout' : isNetwork ? 'network error' : error?.message;
             console.warn(`[ResumableUpload] Chunk ${i} attempt ${retries} failed (${retryLabel})`);
             
             if (retries >= maxRetries) {
-              throw new Error(`Failed to upload chunk ${i} after ${maxRetries} retries: ${error?.message || 'Unknown error'}`);
+              // Instead of throwing an error, auto-pause the upload so user can resume later
+              console.warn(`[ResumableUpload] Auto-pausing ${session.filename} after ${maxRetries} failed retries`);
+              
+              // Abort the controller to stop this upload
+              abortController.abort();
+              
+              // Update session to paused with error info
+              setSessionsRef.current(prev => {
+                const updated = prev.map(s =>
+                  s.sessionToken === session.sessionToken
+                    ? {
+                        ...s,
+                        status: 'paused' as const,
+                        isPaused: true,
+                        speed: 0,
+                        eta: 0,
+                        error: `Auto-paused: ${retryLabel}. Tap resume to continue.`,
+                      }
+                    : s
+                );
+                saveSessionsToStorage(updated);
+                return updated;
+              });
+              
+              toast.warning(`${session.filename}: Upload paused due to connection issues. It will auto-resume shortly.`);
+              
+              // Schedule auto-resume after 30 seconds
+              setTimeout(() => {
+                const currentSessions = sessionsRef.current || [];
+                const currentSession = currentSessions.find((s: ResumableUploadSession) => s.sessionToken === session.sessionToken);
+                if (currentSession && currentSession.status === 'paused' && currentSession.file) {
+                  console.log(`[ResumableUpload] Auto-resuming ${session.filename} after cooldown`);
+                  toast.info(`Auto-resuming ${session.filename}...`);
+                  // Re-queue the upload
+                  uploadQueueRef.current.push({ session: { ...currentSession, status: 'active' }, file: currentSession.file });
+                  processUploadQueue();
+                }
+              }, 30_000);
+              
+              return; // Exit the upload function
             }
-            // Exponential backoff: 2s, 4s, 8s, 16s, 32s
-            const backoffMs = 2000 * Math.pow(2, retries - 1);
+            // Exponential backoff: 2s, 4s, 8s, 16s, 32s, 60s, 60s, 60s, 60s, 60s
+            const backoffMs = Math.min(2000 * Math.pow(2, retries - 1), 60_000);
             console.log(`[ResumableUpload] Retrying chunk ${i} in ${backoffMs / 1000}s...`);
             await new Promise(resolve => setTimeout(resolve, backoffMs));
           }

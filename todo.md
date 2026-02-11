@@ -6096,3 +6096,19 @@ Note: The application already has extensive annotation features including voice 
 - [x] Generated thumbnail for existing video (PXL_20260122_021311107.mp4) - 53KB JPEG
 - [x] Verified thumbnail accessible via CloudFront (HTTP 200, image/jpeg)
 - [x] 6 unit tests passing for video thumbnail module
+
+## Bug: Large File Upload Freezes at Random Chunk (FIXED)
+- [x] Uploads freeze at random chunk count (37/82, 23/345) without showing error
+- [x] Upload loop silently stops — no error message displayed to user
+- [x] Production proxy accepts 1.33MB+ POST bodies (not a body size limit issue)
+- [x] Express body parser set to 500MB limit (not a server limit issue)
+- [x] CSRF token handling looks correct
+- [x] Root cause: concurrent uploads competing for resources + silent error after 5 retries
+- [x] FIX: Upload queue — only 1 upload runs at a time, others wait in queue
+- [x] FIX: Increased retries from 5 to 10 with backoff capped at 60s
+- [x] FIX: Auto-pause on persistent failures instead of hard error (with auto-resume after 30s)
+- [x] FIX: Retry status shown in UI ("Retrying chunk X (attempt Y/10)...")
+- [x] FIX: Queue status shown in UI ("Waiting in queue...")
+- [x] FIX: Auto-pause message shown ("Auto-paused: timeout. Tap resume to continue.")
+- [x] FIX: localStorage sync every 5 chunks instead of 10 for better persistence
+- [x] 12 unit tests passing for upload resilience logic
