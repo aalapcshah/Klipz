@@ -28,6 +28,7 @@ import { useResumableUpload, ResumableUploadSession } from "@/hooks/useResumable
 import { useUploadSettings } from "@/hooks/useUploadSettings";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { extractVideoThumbnail } from "@/lib/videoThumbnail";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -118,10 +119,34 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
           }
         );
       }
+      // Generate and save video thumbnail for video files
+      if (result?.fileId && result?.url && _session.mimeType?.startsWith('video/')) {
+        (async () => {
+          try {
+            const thumbnailDataUrl = await extractVideoThumbnail(result.url);
+            if (thumbnailDataUrl) {
+              saveThumbnailMutation.mutate(
+                { fileId: result.fileId, thumbnailDataUrl },
+                {
+                  onSuccess: () => {
+                    console.log('[Thumbnail] Saved thumbnail for file', result.fileId);
+                  },
+                  onError: (err) => {
+                    console.warn('[Thumbnail] Failed to save thumbnail:', err);
+                  },
+                }
+              );
+            }
+          } catch (err) {
+            console.warn('[Thumbnail] Failed to extract thumbnail:', err);
+          }
+        })();
+      }
     },
   });
 
   const autoCaptionMutation = trpc.videoVisualCaptions.autoCaptionVideo.useMutation();
+  const saveThumbnailMutation = trpc.files.saveThumbnail.useMutation();
 
   // Filter to show only active/paused sessions
   const resumableSessions = sessions.filter(

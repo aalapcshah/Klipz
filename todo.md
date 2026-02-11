@@ -6034,3 +6034,20 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix: Conditionally set crossOrigin only for external URLs (http/https), not for relative /api/files/stream/ URLs
 - [x] Fixed in VideoPlayerWithAnnotations.tsx (main player + sticky player) and VideoThumbnail.tsx
 - [x] Streaming endpoint verified working: returns 200 with correct Content-Type and supports Range requests
+
+## Cleanup: Delete Orphaned Video Record (DONE)
+- [x] Videos table is empty - orphaned record already cleaned up
+- [x] File record in Files section remains intact (id: 1680247)
+
+## Feature: Video Thumbnail Generation (COMPLETED)
+- [x] Added thumbnailUrl and thumbnailKey columns to files table
+- [x] Created saveThumbnail tRPC endpoint (accepts base64, uploads to S3)
+- [x] Client-side thumbnail extraction after upload finalization using canvas
+- [x] Display thumbnails in file grid (with play overlay) and list views
+- [x] Falls back to icon when no thumbnail exists
+
+## Feature: Download Button for Chunk-Streamed Files (COMPLETED)
+- [x] Added ?download=true query parameter to streaming endpoint
+- [x] Sets Content-Disposition: attachment when download=true
+- [x] Updated FileDetailDialog download link to use ?download=true for streaming URLs
+- [x] Works for both streaming URLs and direct S3 URLs

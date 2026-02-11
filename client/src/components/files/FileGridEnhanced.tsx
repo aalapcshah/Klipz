@@ -30,6 +30,7 @@ import {
   ChevronDown,
   ChevronUp,
   Filter,
+  Play,
 } from "lucide-react";
 import {
   Collapsible,
@@ -1599,16 +1600,25 @@ export default function FileGridEnhanced({
                           className="w-full h-48 object-contain bg-muted rounded"
                         />
                       ) : file.mimeType.startsWith("video/") ? (
-                        <VideoThumbnail
-                          src={file.url}
-                          alt={file.title || file.filename}
-                          className="w-full h-48 bg-muted rounded cursor-pointer"
-                          showPlayIcon={true}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onFileClick?.(file.id);
-                          }}
-                        />
+                        file.thumbnailUrl ? (
+                          <div className="relative w-full h-48 bg-muted rounded cursor-pointer" onClick={(e) => { e.stopPropagation(); onFileClick?.(file.id); }}>
+                            <img src={file.thumbnailUrl} alt={file.title || file.filename} className="w-full h-full object-contain rounded" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="bg-black/60 rounded-full p-2"><Play className="h-6 w-6 text-white fill-white" /></div>
+                            </div>
+                          </div>
+                        ) : (
+                          <VideoThumbnail
+                            src={file.url}
+                            alt={file.title || file.filename}
+                            className="w-full h-48 bg-muted rounded cursor-pointer"
+                            showPlayIcon={true}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onFileClick?.(file.id);
+                            }}
+                          />
+                        )
                       ) : (
                         <div className="w-full h-48 flex flex-col items-center justify-center bg-muted rounded">
                           {getFileIcon(file.mimeType)}

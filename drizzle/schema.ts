@@ -101,6 +101,10 @@ export const files = mysqlTable("files", {
   originalFileKey: varchar("originalFileKey", { length: 512 }), // Original S3 key before compression
   originalUrl: text("originalUrl"), // Original S3 URL before compression
   
+  // Video thumbnail
+  thumbnailUrl: text("thumbnailUrl"), // S3 URL for video thumbnail
+  thumbnailKey: varchar("thumbnailKey", { length: 512 }), // S3 key for thumbnail
+  
   // Custom ordering
   sortOrder: int("sortOrder").default(0).notNull(), // For drag-and-drop reordering
   

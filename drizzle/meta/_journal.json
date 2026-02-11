@@ -484,6 +484,13 @@
       "when": 1770667351957,
       "tag": "0068_cooing_whiplash",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "5",
+      "when": 1770785683533,
+      "tag": "0069_hard_puma",
+      "breakpoints": true
     }
   ]
 }

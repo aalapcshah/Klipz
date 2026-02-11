@@ -764,6 +764,42 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    // Save video thumbnail
+    saveThumbnail: protectedProcedure
+      .input(
+        z.object({
+          fileId: z.number(),
+          thumbnailDataUrl: z.string(), // base64 data URL from canvas
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const file = await db.getFileById(input.fileId);
+        if (!file || file.userId !== ctx.user.id) {
+          throw new Error("File not found");
+        }
+        
+        // Extract base64 data from data URL
+        const matches = input.thumbnailDataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (!matches) {
+          throw new Error("Invalid thumbnail data URL");
+        }
+        
+        const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        
+        // Upload thumbnail to S3
+        const thumbnailKey = `thumbnails/${ctx.user.id}/${input.fileId}-${nanoid(8)}.${ext}`;
+        const { url: thumbnailUrl } = await storagePut(thumbnailKey, buffer, `image/${matches[1]}`);
+        
+        // Update file record with thumbnail
+        await db.updateFile(input.fileId, {
+          thumbnailUrl,
+          thumbnailKey,
+        });
+        
+        return { success: true, thumbnailUrl };
+      }),
+
     // Batch update file metadata
     batchUpdate: protectedProcedure
       .input(

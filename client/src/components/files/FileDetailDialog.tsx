@@ -835,7 +835,12 @@ export function FileDetailDialog({
               <div className="flex justify-between pt-4 border-t">
                 <div className="flex gap-2">
                   <Button variant="outline" asChild>
-                    <a href={file.url} download target="_blank" rel="noopener noreferrer">
+                    <a 
+                      href={file.url.startsWith('/api/files/stream/') ? `${file.url}?download=true` : file.url} 
+                      download={file.filename}
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                    >
                       <Download className="h-4 w-4 mr-2" />
                       Download
                     </a>

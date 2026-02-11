@@ -164,8 +164,12 @@ export function FileListView({ files, onFileClick, selectedFileIds, onSelectionC
               />
             </div>
 
-            {/* File icon */}
-            {getFileIcon(file.mimeType, true)}
+            {/* File icon / thumbnail */}
+            {file.thumbnailUrl ? (
+              <img src={file.thumbnailUrl} alt="" className="h-6 w-6 rounded object-cover shrink-0" />
+            ) : (
+              getFileIcon(file.mimeType, true)
+            )}
 
             {/* File info */}
             <div className="flex-1 min-w-0">
@@ -244,7 +248,11 @@ export function FileListView({ files, onFileClick, selectedFileIds, onSelectionC
                 </td>
                 <td className="p-3">
                   <div className="flex items-center gap-3">
-                    {getFileIcon(file.mimeType, false)}
+                    {file.thumbnailUrl ? (
+                      <img src={file.thumbnailUrl} alt="" className="h-8 w-8 rounded object-cover shrink-0" />
+                    ) : (
+                      getFileIcon(file.mimeType, false)
+                    )}
                     <div className="flex flex-col">
                       <span className="font-medium">{file.title || file.filename}</span>
                       {file.title && (

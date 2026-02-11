@@ -126,10 +126,12 @@ router.get("/api/files/stream/:sessionToken", async (req: Request, res: Response
       res.end();
     } else {
       // Full file download - stream all chunks sequentially
+      const isDownload = req.query.download === 'true';
+      const disposition = isDownload ? 'attachment' : 'inline';
       res.writeHead(200, {
         "Content-Type": mimeType,
         "Content-Length": totalSize,
-        "Content-Disposition": `inline; filename="${encodeURIComponent(filename)}"`,
+        "Content-Disposition": `${disposition}; filename="${encodeURIComponent(filename)}"`,
         "Accept-Ranges": "bytes",
         "Cache-Control": "public, max-age=86400",
       });
