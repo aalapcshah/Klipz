@@ -6075,3 +6075,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Added direct tRPC cache invalidation in useResumableUpload hook (safety net)
 - [x] Invalidates files.list, files.enrichmentCounts, and recentlyViewed.list
 - [x] 500ms delay ensures DB commit is visible before query refetch
+
+## Bug: Video Still Not Playing After Background Assembly Fix (FIXED)
+- [x] Root cause: streaming endpoint returns HTTP 500 on production (proxy can't handle 85MB streaming)
+- [x] Background assembly hadn't run for existing file (uploaded before the fix was deployed)
+- [x] Ran targeted assembly script to assemble 86 chunks into single S3 file
+- [x] File now served from direct CloudFront URL with native Range request support
+- [x] Verified S3 URL returns HTTP 206 Partial Content for Range requests
+- [x] Updated backgroundAssembly.ts with 200MB size limit to prevent OOM on very large files
+- [x] Added assembleAllPendingSessions() for server startup to catch any missed files

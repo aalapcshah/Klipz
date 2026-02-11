@@ -1,0 +1,18 @@
+{
+  "query": "SELECT id, filename, url, fileKey, fileSize, mimeType FROM files WHERE mimeType LIKE 'video/%' ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, filename, url, fileKey, fileSize, mimeType FROM files WHERE mimeType LIKE 'video/%' ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "1680315",
+      "filename": "PXL_20260122_021311107.mp4",
+      "url": "/api/files/stream/7EJIOdoT2fbtyxKIj9p9yLp9EKSEulgz",
+      "fileKey": "chunked/7EJIOdoT2fbtyxKIj9p9yLp9EKSEulgz/PXL_20260122_021311107.mp4",
+      "fileSize": "89507457",
+      "mimeType": "video/mp4"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfilename\turl\tfileKey\tfileSize\tmimeType\n1680315\tPXL_20260122_021311107.mp4\t/api/files/stream/7EJIOdoT2fbtyxKIj9p9yLp9EKSEulgz\tchunked/7EJIOdoT2fbtyxKIj9p9yLp9EKSEulgz/PXL_20260122_021311107.mp4\t89507457\tvideo/mp4\n",
+  "stderr": "",
+  "execution_time_ms": 57
+}

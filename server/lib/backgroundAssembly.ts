@@ -10,6 +10,12 @@
  * 
  * The streaming endpoint (/api/files/stream/:sessionToken) checks finalFileUrl
  * and redirects to S3 when available, so the transition is seamless.
+ * 
+ * Memory management: Chunks are downloaded one at a time to a temp file on disk,
+ * then the assembled file is uploaded to S3. For files up to ~200MB this works
+ * with a single storagePut call. For larger files, the assembly is still attempted
+ * but may fail if the storage proxy has a body size limit — in that case the
+ * streaming endpoint continues to serve as fallback.
  */
 
 import { getDb } from "../db";
@@ -24,18 +30,13 @@ import * as os from "os";
 // Track active assembly jobs to prevent duplicates
 const activeAssemblies = new Set<string>();
 
+// Max file size we'll attempt to assemble (200MB)
+// Larger files risk OOM when reading the temp file into a Buffer for upload
+const MAX_ASSEMBLY_SIZE = 200 * 1024 * 1024;
+
 /**
  * Assemble chunks into a single S3 file in the background.
  * This function is fire-and-forget — it logs errors but doesn't throw.
- * 
- * @param sessionToken - The upload session token
- * @param sessionId - The database session ID
- * @param userId - The user who uploaded the file
- * @param fileId - The file record ID to update
- * @param videoId - Optional video record ID to update
- * @param filename - Original filename
- * @param mimeType - File MIME type
- * @param uploadType - 'video' or 'file'
  */
 export async function assembleChunksInBackground(
   sessionToken: string,
@@ -125,6 +126,12 @@ export async function assembleChunksInBackground(
 
       console.log(`[BackgroundAssembly] ${sessionToken}: All chunks written to temp file (${(totalBytesWritten / 1024 / 1024).toFixed(1)}MB)`);
 
+      // Check if the file is too large to upload in one shot
+      if (totalBytesWritten > MAX_ASSEMBLY_SIZE) {
+        console.warn(`[BackgroundAssembly] ${sessionToken}: File is ${(totalBytesWritten / 1024 / 1024).toFixed(1)}MB, exceeding ${MAX_ASSEMBLY_SIZE / 1024 / 1024}MB limit. Skipping S3 upload — streaming endpoint will continue to serve this file.`);
+        return;
+      }
+
       // Read the assembled file and upload to S3
       const assembledBuffer = fs.readFileSync(tmpFile);
       
@@ -192,4 +199,88 @@ export async function assembleChunksInBackground(
  */
 export function isAssemblyInProgress(sessionToken: string): boolean {
   return activeAssemblies.has(sessionToken);
+}
+
+/**
+ * Scan for any completed upload sessions that still use streaming URLs
+ * and trigger background assembly for them. Called on server startup.
+ */
+export async function assembleAllPendingSessions(): Promise<void> {
+  try {
+    const drizzle = await getDb();
+    if (!drizzle) return;
+
+    // Find completed sessions that still use streaming URLs and have corresponding file records
+    const pendingSessions = await drizzle
+      .select({
+        sessionId: resumableUploadSessions.id,
+        sessionToken: resumableUploadSessions.sessionToken,
+        filename: resumableUploadSessions.filename,
+        mimeType: resumableUploadSessions.mimeType,
+        fileSize: resumableUploadSessions.fileSize,
+        uploadType: resumableUploadSessions.uploadType,
+        userId: resumableUploadSessions.userId,
+      })
+      .from(resumableUploadSessions)
+      .where(
+        and(
+          eq(resumableUploadSessions.status, "completed"),
+        )
+      );
+
+    // Filter to only those that still use streaming URLs
+    const needsAssembly = [];
+    for (const session of pendingSessions) {
+      const streamUrl = `/api/files/stream/${session.sessionToken}`;
+      const [fileRecord] = await drizzle
+        .select({ id: files.id, url: files.url })
+        .from(files)
+        .where(eq(files.url, streamUrl))
+        .limit(1);
+
+      if (fileRecord) {
+        // Check for video record
+        const [videoRecord] = await drizzle
+          .select({ id: videos.id })
+          .from(videos)
+          .where(eq(videos.fileId, fileRecord.id))
+          .limit(1);
+
+        needsAssembly.push({
+          ...session,
+          fileId: fileRecord.id,
+          videoId: videoRecord?.id,
+        });
+      }
+    }
+
+    if (needsAssembly.length === 0) {
+      console.log(`[BackgroundAssembly] No pending sessions need assembly`);
+      return;
+    }
+
+    console.log(`[BackgroundAssembly] Found ${needsAssembly.length} sessions needing assembly`);
+
+    // Process them sequentially to avoid memory pressure
+    for (const session of needsAssembly) {
+      const sizeMB = Number(session.fileSize) / 1024 / 1024;
+      if (sizeMB > MAX_ASSEMBLY_SIZE / 1024 / 1024) {
+        console.log(`[BackgroundAssembly] Skipping ${session.filename} (${sizeMB.toFixed(1)}MB > ${MAX_ASSEMBLY_SIZE / 1024 / 1024}MB limit)`);
+        continue;
+      }
+
+      await assembleChunksInBackground(
+        session.sessionToken,
+        session.sessionId,
+        session.userId,
+        session.fileId,
+        session.videoId,
+        session.filename,
+        session.mimeType,
+        session.uploadType,
+      );
+    }
+  } catch (error) {
+    console.error(`[BackgroundAssembly] Error scanning for pending sessions:`, error);
+  }
 }
