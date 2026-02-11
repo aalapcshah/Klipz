@@ -1,4 +1,5 @@
 import superjson from "superjson";
+import { getCsrfToken } from "./csrf";
 
 /**
  * Direct tRPC call via fetch - bypasses React Query lifecycle entirely.
@@ -34,18 +35,24 @@ export async function trpcCall<T>(
       // Queries use GET with input in the URL
       const serialized = superjson.serialize(input);
       const encodedInput = encodeURIComponent(JSON.stringify(serialized));
+      const queryHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      const queryToken = getCsrfToken();
+      if (queryToken) queryHeaders["x-csrf-token"] = queryToken;
       response = await fetch(`/api/trpc/${procedure}?input=${encodedInput}`, {
         method: "GET",
-        headers: { "Content-Type": "application/json" },
+        headers: queryHeaders,
         credentials: "include",
         signal: combinedSignal,
       });
     } else {
       // Mutations use POST with input in the body
       const serialized = superjson.serialize(input);
+      const mutationHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      const mutationToken = getCsrfToken();
+      if (mutationToken) mutationHeaders["x-csrf-token"] = mutationToken;
       response = await fetch(`/api/trpc/${procedure}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: mutationHeaders,
         credentials: "include",
         body: JSON.stringify(serialized),
         signal: combinedSignal,

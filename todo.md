@@ -6009,3 +6009,9 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add "Edit Metadata" button to BulkOperationsToolbar (desktop + mobile dropdown)
 - [x] Show change summary before applying
 - [x] Progress tracking across multi-step operations
+
+## Bug: Video Uploads Stuck at 0 Chunks / 0 B (FIXED)
+- [x] Investigate why resumable video uploads are not progressing
+- [x] Root cause: CSRF protection blocking trpcCall direct fetch (missing x-csrf-token header)
+- [x] Fix: Added CSRF token to trpcCall utility (client/src/lib/trpcCall.ts)
+- [x] All 789 tests passing after fix
