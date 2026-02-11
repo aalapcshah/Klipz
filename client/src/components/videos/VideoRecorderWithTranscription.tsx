@@ -152,18 +152,7 @@ export function VideoRecorderWithTranscription() {
   const timerLimitWarningShown = useRef(false);
 
   // Feature panels state
-  const [showAdvancedFeatures, setShowAdvancedFeatures] = useState(() => {
-    const saved = typeof window !== 'undefined' ? localStorage.getItem('videoAdvancedFeaturesExpanded') : null;
-    return saved !== null ? JSON.parse(saved) : false;
-  });
   const [activeFeatureTab, setActiveFeatureTab] = useState<string>("effects");
-
-  // Toggle advanced features and persist to localStorage
-  const toggleAdvancedFeatures = () => {
-    const newValue = !showAdvancedFeatures;
-    setShowAdvancedFeatures(newValue);
-    localStorage.setItem('videoAdvancedFeaturesExpanded', JSON.stringify(newValue));
-  };
   
   // Active effects state
   const [activeEffects, setActiveEffects] = useState<string[]>([]);
@@ -304,10 +293,7 @@ export function VideoRecorderWithTranscription() {
             toast.success('Camera started (C)');
           }
           break;
-        case 'e':
-          toggleAdvancedFeatures();
-          toast.success(showAdvancedFeatures ? 'Advanced features collapsed (E)' : 'Advanced features expanded (E)');
-          break;
+
         case 'f':
           if (isPreviewing && !isRecording) {
             flipCamera();
@@ -328,7 +314,7 @@ export function VideoRecorderWithTranscription() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isRecording, isPaused, isPreviewing, recordedBlob, showAdvancedFeatures, facingMode, countdown]);
+  }, [isRecording, isPaused, isPreviewing, recordedBlob, facingMode, countdown]);
 
   useEffect(() => {
     // Initialize Web Speech API
@@ -1245,6 +1231,12 @@ export function VideoRecorderWithTranscription() {
                   </SelectContent>
                 </Select>
 
+                {(activeEffects.length > 0 || greenScreenEnabled) && (
+                  <span className="px-1.5 py-0.5 bg-primary text-primary-foreground text-xs rounded shrink-0">
+                    {activeEffects.length + (greenScreenEnabled ? 1 : 0)} active
+                  </span>
+                )}
+
                 <div className="flex items-center gap-1.5 ml-auto shrink-0">
                   <Switch
                     id="mirror-toggle-inline"
@@ -1256,6 +1248,17 @@ export function VideoRecorderWithTranscription() {
                     <FlipHorizontal className="h-3 w-3" />
                     <span className="hidden sm:inline">Mirror</span>
                   </Label>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowCameraSettings(!showCameraSettings)}
+                    className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground shrink-0"
+                  >
+                    <Settings className="h-3 w-3" />
+                    <span className="hidden sm:inline ml-1">{showCameraSettings ? 'Hide' : 'Device'}</span>
+                    {showCameraSettings ? <ChevronUp className="h-3 w-3 ml-0.5" /> : <ChevronDown className="h-3 w-3 ml-0.5" />}
+                  </Button>
                 </div>
               </div>
             )}
@@ -1364,22 +1367,9 @@ export function VideoRecorderWithTranscription() {
               )}
             </div>
 
-            {/* Advanced Camera Settings - Below controls */}
-            {!recordedBlob && (
-              <div className="mt-3 pt-3 border-t">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowCameraSettings(!showCameraSettings)}
-                  className="h-7 w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  <Settings className="h-3 w-3" />
-                  {showCameraSettings ? 'Hide Device Settings' : 'Device Settings'}
-                  {showCameraSettings ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                </Button>
-
-                {/* Expanded device settings */}
-                {showCameraSettings && (
+            {/* Expanded device settings - shown when toggled from control bar */}
+            {!recordedBlob && showCameraSettings && (
+              <div className="mt-2 pt-2 border-t">
                   <div className="mt-3 space-y-3">
                     {/* Video device selector */}
                     {videoDevices.length > 0 && (
@@ -1448,58 +1438,16 @@ export function VideoRecorderWithTranscription() {
                       </div>
                     )}
 
-                    <p className="text-xs text-muted-foreground">
-                      Tip: Press <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">F</kbd> to flip camera, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">C</kbd> to start camera, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">R</kbd> to record, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">P</kbd> to pause/resume
-                    </p>
-                  </div>
-                )}
+                  <p className="text-xs text-muted-foreground">
+                    Tip: Press <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">F</kbd> to flip camera, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">C</kbd> to start camera, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">R</kbd> to record, <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">P</kbd> to pause/resume
+                  </p>
+                </div>
               </div>
             )}
 
-            {/* Advanced Recording Features Toggle - Below Camera Preview */}
+            {/* Advanced Features Panel - always below controls */}
             <div className="mt-3 pt-3 border-t">
-              {isPreviewing && !showAdvancedFeatures && (
-                <div className="mb-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded text-xs text-blue-600 dark:text-blue-400">
-                  <strong>Tip:</strong> Video effects and filters are applied in real-time to your camera feed. Expand to configure.
-                </div>
-              )}
-              <Button
-                variant="outline"
-                className="w-full flex items-center justify-between"
-                onClick={toggleAdvancedFeatures}
-              >
-                <div className="flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  <span className="font-medium text-sm">Advanced Recording Features</span>
-                  <span className="hidden md:inline text-xs text-muted-foreground">(E)</span>
-                  {(activeEffects.length > 0 || greenScreenEnabled) && (
-                    <span className="px-1.5 py-0.5 bg-primary text-primary-foreground text-xs rounded">
-                      {activeEffects.length + (greenScreenEnabled ? 1 : 0)} active
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
-                    <Zap className="h-3 w-3" />
-                    <span>Speed</span>
-                    <Palette className="h-3 w-3 ml-2" />
-                    <span>Effects</span>
-                    <Headphones className="h-3 w-3 ml-2" />
-                    <span>Audio</span>
-                    <Paintbrush className="h-3 w-3 ml-2" />
-                    <span>Green Screen</span>
-                  </div>
-                  {showAdvancedFeatures ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </div>
-              </Button>
-
-              {/* Advanced Features Panel */}
-              {showAdvancedFeatures && (
-                <div className="mt-3">
+                <div>
                   <Tabs value={activeFeatureTab} onValueChange={setActiveFeatureTab} className="w-full">
                     <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto gap-1">
                       <TabsTrigger value="speed" className="text-xs sm:text-sm py-1.5">
@@ -1557,7 +1505,6 @@ export function VideoRecorderWithTranscription() {
                     </TabsContent>
                   </Tabs>
                 </div>
-              )}
             </div>
 
             {recordedBlob && (

@@ -5964,3 +5964,10 @@ Note: The application already has extensive annotation features including voice 
 ## Bug: Video Recording Controls UI Issues (FIXED)
 - [x] Resolution selector text cut off — widened from 80px to 110px, moved Monitor icon to trigger, removed from items
 - [x] No Limit button shows two clock icons — removed Timer icon from SelectItem content (was duplicating with trigger icon)
+
+## UI: Reorganize Video Recording Controls Layout
+- [x] Remove redundant Advanced Recording Features collapsible section (Speed/Effects/Audio/Green Screen already on right side)
+- [x] Keep the active marker badge (e.g. "6 active") and move it to the Front/720p/No limit control bar
+- [x] Move Device Settings up next to the Mirror toggle capsule
+- [x] Cleaned up unused showAdvancedFeatures state and toggleAdvancedFeatures function
+- [x] Removed 'E' keyboard shortcut (no longer needed since features panel is always visible)
