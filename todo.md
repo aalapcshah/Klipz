@@ -5939,3 +5939,9 @@ Note: The application already has extensive annotation features including voice 
 - [x] Added trpcUtils.videos.recentlyRecorded.invalidate() to VideoList batch delete handler
 - [x] Added trpcUtils.videos.recentlyRecorded.invalidate() to VideoList single delete handler
 - [x] Added utils.videos.recentlyRecorded.invalidate() to VideoDetail delete handler
+
+## Bug: Videos uploaded via Files section don't appear in Files list (FIXED)
+- [x] Removed hard-coded `mimeType NOT LIKE 'video/%'` filter from getFilesByUserId
+- [x] Removed same filter from getFilesCountByUserId and getEnrichmentStatusCounts
+- [x] All files uploaded via Files section now appear in Files regardless of MIME type
+- [x] Videos section continues to work independently via its own videos table

@@ -214,10 +214,7 @@ export async function getFilesByUserId(userId: number, limit?: number, offset?: 
     .select()
     .from(files)
     .where(
-      and(
-        eq(files.userId, userId),
-        sql`${files.mimeType} NOT LIKE 'video/%'`
-      )
+      eq(files.userId, userId)
     )
     .orderBy(desc(files.createdAt));
   
@@ -240,10 +237,7 @@ export async function getFilesCountByUserId(userId: number) {
     .select({ count: sql<number>`count(*)` })
     .from(files)
     .where(
-      and(
-        eq(files.userId, userId),
-        sql`${files.mimeType} NOT LIKE 'video/%'`
-      )
+      eq(files.userId, userId)
     );
   
   return result[0]?.count || 0;
@@ -260,10 +254,7 @@ export async function getEnrichmentStatusCounts(userId: number) {
     })
     .from(files)
     .where(
-      and(
-        eq(files.userId, userId),
-        sql`${files.mimeType} NOT LIKE 'video/%'`
-      )
+      eq(files.userId, userId)
     )
     .groupBy(files.enrichmentStatus);
   
