@@ -198,8 +198,8 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
     if (file && resumingSessionToken) {
       const session = sessions.find(s => s.sessionToken === resumingSessionToken);
       if (session) {
-        if (file.name !== session.filename || file.size !== session.fileSize) {
-          toast.error(`File doesn't match. Please select: ${session.filename} (${formatBytes(session.fileSize)})`, {
+        if (file.size !== session.fileSize) {
+          toast.error(`File size doesn't match. Expected ${formatBytes(session.fileSize)} but got ${formatBytes(file.size)}. Please select the correct file.`, {
             duration: 5000,
           });
         } else {

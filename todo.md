@@ -6112,3 +6112,15 @@ Note: The application already has extensive annotation features including voice 
 - [x] FIX: Auto-pause message shown ("Auto-paused: timeout. Tap resume to continue.")
 - [x] FIX: localStorage sync every 5 chunks instead of 10 for better persistence
 - [x] 12 unit tests passing for upload resilience logic
+
+## Bug: Upload Still Freezing + File Re-Selection Fails on Resume (FIXED)
+- [x] Upload still freezes at random chunk (344MB stuck at 23/345, 81MB stuck at 37/82)
+- [x] Root cause: mobile browser suspends JS when app is backgrounded/screen locks
+- [x] When tapping resume, "re-select file" doesn't recognize the same file
+- [x] Root cause: validation checked name + size, mobile file pickers return different filenames
+- [x] FIX: File validation now matches by size only (name mismatch shows warning but allows resume)
+- [x] FIX: Visibility change handler — detects stalled uploads when user returns to app (90s threshold)
+- [x] FIX: Periodic stall detection — checks every 60s for uploads stalled >3 minutes, auto-restarts
+- [x] FIX: Progress tracking with lastProgressRef (timestamp + chunk count) for accurate stall detection
+- [x] FIX: Stalled uploads are aborted, refs cleaned up, and re-queued automatically
+- [x] All 26 tests passing (12 upload resilience + 8 background assembly + 6 video thumbnail)

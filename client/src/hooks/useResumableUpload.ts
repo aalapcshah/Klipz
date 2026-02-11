@@ -763,6 +763,90 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     }
   }, [sessions, isLoading, options.autoResume, uploadChunks]);
 
+  // Track last progress for stall detection: { timestamp, chunks }
+  const lastProgressRef = useRef<Map<string, { time: number; chunks: number }>>(new Map());
+
+  // Update last progress timestamp whenever a session makes progress
+  useEffect(() => {
+    for (const session of sessions) {
+      if (session.status === 'active' && session.uploadedChunks > 0) {
+        const prev = lastProgressRef.current.get(session.sessionToken);
+        if (!prev || session.uploadedChunks > prev.chunks) {
+          lastProgressRef.current.set(session.sessionToken, { time: Date.now(), chunks: session.uploadedChunks });
+        }
+      }
+    }
+  }, [sessions]);
+
+  // Visibility change handler: when user returns to the tab/app, check for stalled uploads
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[ResumableUpload] Page became visible, checking for stalled uploads...');
+        const now = Date.now();
+        const currentSessions = sessionsRef.current;
+        
+        for (const session of currentSessions) {
+          if (session.status === 'active' && session.file) {
+            const lastProgress = lastProgressRef.current.get(session.sessionToken);
+            const stalledFor = lastProgress ? now - lastProgress.time : 0;
+            
+            // If an "active" upload hasn't made progress in 90 seconds, it's stalled
+            if (lastProgress && stalledFor > 90_000) {
+              console.warn(`[ResumableUpload] ${session.filename} stalled for ${Math.round(stalledFor / 1000)}s, restarting...`);
+              
+              // Abort the stalled upload
+              const controller = abortControllersRef.current.get(session.sessionToken);
+              if (controller) controller.abort();
+              activeUploadsRef.current.delete(session.sessionToken);
+              abortControllersRef.current.delete(session.sessionToken);
+              
+              // Re-queue it
+              toast.info(`Resuming ${session.filename} after returning to app...`);
+              uploadChunks({ ...session, status: 'active' }, session.file);
+            }
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [uploadChunks]);
+
+  // Periodic stall detection: every 60 seconds, check if active uploads are making progress
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const currentSessions = sessionsRef.current;
+      
+      for (const session of currentSessions) {
+        if (session.status === 'active' && session.file && activeUploadsRef.current.has(session.sessionToken)) {
+          const lastProgress = lastProgressRef.current.get(session.sessionToken);
+          const stalledFor = lastProgress ? now - lastProgress.time : 0;
+          
+          // If active for more than 3 minutes without progress, restart
+          if (lastProgress && stalledFor > 180_000) {
+            console.warn(`[ResumableUpload] ${session.filename} stalled for ${Math.round(stalledFor / 1000)}s (periodic check), restarting...`);
+            
+            const controller = abortControllersRef.current.get(session.sessionToken);
+            if (controller) controller.abort();
+            activeUploadsRef.current.delete(session.sessionToken);
+            abortControllersRef.current.delete(session.sessionToken);
+            
+            toast.info(`Restarting stalled upload: ${session.filename}`);
+            uploadChunks({ ...session, status: 'active' }, session.file);
+            
+            // Reset the progress timestamp
+            lastProgressRef.current.set(session.sessionToken, { time: now, chunks: session.uploadedChunks });
+          }
+        }
+      }
+    }, 60_000); // Check every 60 seconds
+
+    return () => clearInterval(interval);
+  }, [uploadChunks]);
+
   // Pause an upload
   const pauseUpload = useCallback(async (sessionToken: string) => {
     const controller = abortControllersRef.current.get(sessionToken);
@@ -800,10 +884,15 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
       return;
     }
 
-    // Verify file matches
-    if (uploadFile.name !== session.filename || uploadFile.size !== session.fileSize) {
-      toast.error("File doesn't match the original upload. Please select the correct file.");
+    // Verify file matches - use size as primary check (name can differ on mobile)
+    if (uploadFile.size !== session.fileSize) {
+      toast.error(`File size doesn't match. Expected ${session.fileSize} bytes but got ${uploadFile.size} bytes. Please select the correct file.`);
       return;
+    }
+    // Warn if name differs but allow it (mobile file pickers can return different names)
+    if (uploadFile.name !== session.filename) {
+      console.warn(`[ResumableUpload] File name mismatch: expected "${session.filename}", got "${uploadFile.name}". Allowing because size matches.`);
+      toast.info(`File name differs but size matches — resuming upload.`);
     }
 
     setSessions(prev => prev.map(s => 
