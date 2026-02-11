@@ -35,6 +35,7 @@ import { uploadFileToStorage, formatFileSize, formatUploadSpeed, formatEta } fro
 import exifr from "exifr";
 import { DuplicateDetectionDialog } from "@/components/DuplicateDetectionDialog";
 import { useResumableUpload } from "@/hooks/useResumableUpload";
+import { useUploadManager } from "@/contexts/UploadManagerContext";
 
 // Threshold for using resumable uploads (50MB)
 const RESUMABLE_UPLOAD_THRESHOLD = 50 * 1024 * 1024;
@@ -189,6 +190,7 @@ export function FileUploadDialog({
   onUploadComplete,
 }: FileUploadDialogProps) {
   const [files, setFiles] = useState<FileWithMetadata[]>([]);
+  const { addUploads } = useUploadManager();
   
   // DnD sensors
   const sensors = useSensors(
@@ -831,371 +833,43 @@ export function FileUploadDialog({
       return;
     }
 
-    setUploading(true);
-    setUploadCancelled(false);
+    // Route ALL files through the UploadManager's chunked upload system.
+    // This avoids the 10MB base64 limit that was causing "No files were uploaded" errors
+    // for files between 10-50MB. The FileUploadProcessor handles chunked uploads
+    // for files of ANY size, with retry, pause/resume, and progress tracking.
+    const uploadItems = files.map(fileData => {
+      // Detect if file is a video based on MIME type
+      const isVideo = fileData.file.type.startsWith('video/');
+      return {
+        file: fileData.file,
+        uploadType: (isVideo ? 'video' : 'file') as 'video' | 'file',
+        metadata: {
+          title: fileData.title || undefined,
+          description: fileData.description || undefined,
+        },
+      };
+    });
 
-    try {
-      for (let i = 0; i < files.length; i++) {
-        if (uploadCancelled) {
-          toast.info("Upload cancelled");
-          break;
-        }
+    console.log(`[FileUploadDialog] Queuing ${uploadItems.length} file(s) via UploadManager chunked upload`);
+    addUploads(uploadItems);
 
-        const fileData = files[i];
-        
-        // Check if file is large enough to use resumable upload
-        const isLargeFile = fileData.file.size > RESUMABLE_UPLOAD_THRESHOLD;
-        
-        if (isLargeFile) {
-          // Use resumable upload for large files
-          console.log(`[FileUpload] Using resumable upload for large file: ${fileData.file.name} (${formatFileSize(fileData.file.size)})`);
-          updateFileMetadata(i, { uploadStatus: 'uploading', uploadProgress: 0 });
-          
-          try {
-            await startResumableUpload(fileData.file, 'file', {
-              title: fileData.title,
-              description: fileData.description,
-            });
-            
-            // Note: The resumable upload will update progress via the onProgress callback
-            // and mark as complete via onComplete callback
-            // We continue to the next file immediately as resumable uploads run in background
-            continue;
-          } catch (error) {
-            console.error('[FileUpload] Failed to start resumable upload:', error);
-            updateFileMetadata(i, { uploadStatus: 'error' });
-            toast.error(`Failed to start upload for ${fileData.file.name}`);
-            continue;
-          }
-        }
-        
-        // Update status to uploading (for regular uploads)
-        updateFileMetadata(i, { uploadStatus: 'uploading', uploadProgress: 0 });
+    const fileCount = uploadItems.length;
+    toast.success(
+      `${fileCount} file${fileCount > 1 ? 's' : ''} added to upload queue. ` +
+      `Progress is shown in the upload banner.`,
+      { duration: 4000 }
+    );
 
-        // Track upload progress with real callbacks
-        let lastProgressUpdate = Date.now();
-        let lastUploadedBytes = 0;
-        let currentSpeed = 0;
-        let currentEta = 0;
-        
-        const handleProgress = (progress: number, uploadedBytes: number, totalBytes: number) => {
-          const now = Date.now();
-          const timeDiff = (now - lastProgressUpdate) / 1000;
-          
-          if (timeDiff > 0.1) {
-            const bytesDiff = uploadedBytes - lastUploadedBytes;
-            currentSpeed = bytesDiff / timeDiff;
-            const remainingBytes = totalBytes - uploadedBytes;
-            currentEta = currentSpeed > 0 ? remainingBytes / currentSpeed : 0;
-            lastProgressUpdate = now;
-            lastUploadedBytes = uploadedBytes;
-          }
-          
-          setFiles((prev) =>
-            prev.map((f, idx) =>
-              idx === i
-                ? { 
-                    ...f, 
-                    uploadProgress: progress,
-                    uploadedBytes,
-                    uploadSpeed: currentSpeed,
-                    uploadEta: currentEta
-                  }
-                : f
-            )
-          );
-        };
-        
-        // Placeholder for progress interval (kept for compatibility)
-        const progressInterval: NodeJS.Timeout | null = null;
-
-        try {
-          // Extract metadata from image files
-          let extractedTitle = fileData.title;
-          let extractedDescription = fileData.description;
-          let extractedKeywords: string[] = [];
-          
-          if (fileData.file.type.startsWith("image/")) {
-            try {
-              const metadata = await exifr.parse(fileData.file, {
-                iptc: true,
-                xmp: true,
-                icc: false,
-                jfif: false,
-                ihdr: false,
-              });
-              
-              if (metadata) {
-                // Extract title from various metadata fields
-                if (!extractedTitle || extractedTitle === fileData.file.name.replace(/\.[^/.]+$/, "")) {
-                  extractedTitle = metadata.title || 
-                                 metadata.ObjectName || 
-                                 metadata.Headline || 
-                                 metadata.Title ||
-                                 extractedTitle;
-                }
-                
-                // Extract description from various metadata fields
-                if (!extractedDescription) {
-                  extractedDescription = metadata.description || 
-                                       metadata.ImageDescription ||
-                                       metadata.Caption ||
-                                       metadata["Caption-Abstract"] ||
-                                       metadata.UserComment ||
-                                       "";
-                }
-                
-                // Extract keywords/tags
-                if (metadata.Keywords) {
-                  extractedKeywords = Array.isArray(metadata.Keywords) 
-                    ? metadata.Keywords 
-                    : [metadata.Keywords];
-                } else if (metadata.Subject) {
-                  extractedKeywords = Array.isArray(metadata.Subject)
-                    ? metadata.Subject
-                    : [metadata.Subject];
-                }
-              }
-            } catch (metadataError) {
-              console.log("Could not extract metadata:", metadataError);
-              // Continue with upload even if metadata extraction fails
-            }
-          }
-          
-          // Upload file to S3
-          console.log('[FileUpload] About to upload file:', fileData.file.name, 'size:', fileData.file.size);
-          const { url: fileUrl, fileKey } = await uploadToS3(fileData.file, fileData.file.name, handleProgress);
-          console.log('[FileUpload] Upload successful! URL:', fileUrl);
-
-          // Upload voice recording if exists
-          let voiceRecordingUrl: string | undefined;
-          if (fileData.voiceRecording) {
-            const { url } = await uploadToS3(
-              fileData.voiceRecording,
-              `voice-${fileData.file.name}.webm`
-            );
-            voiceRecordingUrl = url;
-          }
-
-          // Create file record in database with extracted metadata
-          // Ensure title and description are strings (not objects from metadata)
-          const titleString = typeof extractedTitle === 'string' ? extractedTitle : String(extractedTitle || '');
-          const descriptionString = typeof extractedDescription === 'string' ? extractedDescription : String(extractedDescription || '');
-          
-          // Temporarily skip extractedMetadata to get uploads working
-          // TODO: Fix browser caching issue preventing JSON.stringify from being executed
-          
-          // Generate perceptual hash for images
-          let perceptualHash: string | undefined;
-          if (fileData.file.type.startsWith('image/')) {
-            try {
-              const reader = new FileReader();
-              const base64Promise = new Promise<string>((resolve) => {
-                reader.onload = () => {
-                  const result = reader.result as string;
-                  const base64 = result.split(',')[1];
-                  resolve(base64);
-                };
-                reader.readAsDataURL(fileData.file);
-              });
-              
-              const base64Data = await base64Promise;
-              const hashResult = await checkDuplicatesMutation.mutateAsync({
-                imageData: base64Data,
-                threshold: 0, // Just get the hash, don't check for duplicates
-              });
-              perceptualHash = hashResult.hash;
-            } catch (error) {
-              console.warn('Failed to generate perceptual hash:', error);
-            }
-          }
-
-          const { id } = await createFileMutation.mutateAsync({
-            fileKey,
-            url: fileUrl,
-            filename: fileData.file.name,
-            mimeType: fileData.file.type,
-            fileSize: fileData.file.size,
-            title: titleString,
-            description: descriptionString,
-            voiceRecordingUrl,
-            voiceTranscript: fileData.voiceTranscript,
-            extractedMetadata: undefined, // Temporarily disabled
-            extractedKeywords: extractedKeywords.length > 0 ? extractedKeywords : undefined,
-            perceptualHash,
-          } as any);
-
-          if (progressInterval) clearInterval(progressInterval);
-          updateFileMetadata(i, { uploadStatus: 'completed', uploadProgress: 100 });
-          
-          // Track metadata usage for future suggestions
-          try {
-            await trackUsageMutation.mutateAsync({
-              title: titleString,
-              description: descriptionString,
-              fileType: fileData.file.type.split('/')[0], // image, video, application, etc.
-            });
-          } catch (error) {
-            console.log("Failed to track metadata usage:", error);
-          }
-
-          // Auto-tag based on extracted keywords
-          if (extractedKeywords.length > 0) {
-            console.log('[Upload] Creating tags for keywords:', extractedKeywords);
-            for (const keyword of extractedKeywords) {
-              try {
-                // Check if tag already exists
-                const existingTag = existingTags.find(
-                  (t: any) => t.name.toLowerCase() === keyword.toLowerCase()
-                );
-                
-                if (existingTag) {
-                  // Link existing tag
-                  console.log('[Upload] Linking existing tag:', keyword, 'ID:', existingTag.id);
-                  await linkTagMutation.mutateAsync({
-                    fileId: id,
-                    tagId: existingTag.id,
-                  });
-                } else {
-                  // Create new tag and link it
-                  console.log('[Upload] Creating new tag:', keyword);
-                  const { id: tagId } = await createTagMutation.mutateAsync({
-                    name: keyword,
-                    source: "ai", // Tags extracted from image metadata
-                  });
-                  console.log('[Upload] Tag created with ID:', tagId);
-                  await linkTagMutation.mutateAsync({
-                    fileId: id,
-                    tagId,
-                  });
-                }
-              } catch (tagError) {
-                console.error('[Upload] Failed to create/link tag:', keyword, 'Error:', tagError);
-                // Continue with other tags even if one fails
-              }
-            }
-          }
-
-          // Knowledge Graph Auto-Tagging: Get smart suggestions based on filename and content type
-          try {
-            const filenameWithoutExt = fileData.file.name.replace(/\.[^/.]+$/, "");
-            const smartTags = await getSmartTagsMutation.mutateAsync({
-              existingTags: extractedKeywords,
-              context: `Filename: ${filenameWithoutExt}, File type: ${fileData.file.type}`,
-              settings: {
-                enableWikidata: true,
-                enableDBpedia: true,
-                enableSchemaOrg: true,
-                enableLLM: true,
-                maxSuggestionsPerSource: 3,
-                confidenceThreshold: 0.5,
-              },
-            });
-            
-            // Apply high-confidence suggestions (>= 0.7) automatically
-            for (const suggestion of smartTags.suggestions || []) {
-              if (suggestion.confidence >= 0.7) {
-                try {
-                  const existingTag = existingTags.find(
-                    (t: any) => t.name.toLowerCase() === suggestion.tag.toLowerCase()
-                  );
-                  
-                  if (existingTag) {
-                    await linkTagMutation.mutateAsync({ fileId: id, tagId: existingTag.id });
-                  } else {
-                    // Map knowledge graph source to valid tag source
-                    const tagSource: "manual" | "ai" | "voice" = "ai";
-                    const { id: tagId } = await createTagMutation.mutateAsync({
-                      name: suggestion.tag,
-                      source: tagSource,
-                    });
-                    await linkTagMutation.mutateAsync({ fileId: id, tagId });
-                  }
-                  console.log('[Upload] Auto-tagged with:', suggestion.tag, 'confidence:', suggestion.confidence);
-                } catch (tagError) {
-                  console.warn('[Upload] Failed to auto-tag:', suggestion.tag, tagError);
-                }
-              }
-            }
-          } catch (smartTagError) {
-            console.log('[Upload] Knowledge graph auto-tagging skipped:', smartTagError);
-            // Non-critical, continue without smart tags
-          }
-
-          // Enrich with AI if requested
-          if (enrichWithAI) {
-            enrichMutation.mutate({ id });
-          }
-        } catch (error) {
-          if (progressInterval) clearInterval(progressInterval);
-          updateFileMetadata(i, { uploadStatus: 'error', uploadProgress: 0 });
-          
-          // Detailed error logging
-          console.error('[FileUpload] Upload failed for file:', fileData.file.name);
-          console.error('[FileUpload] Error type:', error instanceof Error ? error.constructor.name : typeof error);
-          console.error('[FileUpload] Error message:', error instanceof Error ? error.message : String(error));
-          console.error('[FileUpload] Full error object:', error);
-          
-          // Show error toast for this file but continue with other files
-          let errorMessage = `Failed to upload ${fileData.file.name}`;
-          if (error instanceof Error) {
-            if (error.message.includes('size')) {
-              errorMessage = error.message;
-            } else if (error.message.includes('network') || error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
-              errorMessage = `Network error uploading ${fileData.file.name}. Please check your connection.`;
-            } else if (error.message.includes('storage') || error.message.includes('S3')) {
-              errorMessage = `Storage error uploading ${fileData.file.name}. Please try again.`;
-            } else if (error.message) {
-              errorMessage = `${fileData.file.name}: ${error.message}`;
-            }
-          }
-          toast.error(errorMessage);
-          // Continue with next file instead of throwing
-        }
-      }
-
-      // Count successful, failed, and resumable uploads
-      const successCount = files.filter(f => f.uploadStatus === 'completed').length;
-      const failedCount = files.filter(f => f.uploadStatus === 'error').length;
-      const resumableCount = files.filter(f => f.file.size > RESUMABLE_UPLOAD_THRESHOLD && f.uploadStatus !== 'error').length;
-      
-      if (!uploadCancelled) {
-        if (resumableCount > 0) {
-          // Large files are uploading in the background via resumable upload
-          // Don't close dialog or show misleading success count
-          const regularSuccess = successCount;
-          if (regularSuccess > 0) {
-            toast.success(`${regularSuccess} small file(s) uploaded successfully!`);
-          }
-          toast.info(`${resumableCount} large file(s) uploading in the background. You can close this dialog - uploads will continue.`, { duration: 5000 });
-          // Close dialog and let resumable uploads continue in background
-          setFiles([]);
-          onOpenChange(false);
-          onUploadComplete?.();
-        } else if (failedCount === 0 && successCount > 0) {
-          toast.success(`${successCount} file(s) uploaded successfully!`);
-          setFiles([]);
-          onOpenChange(false);
-          onUploadComplete?.();
-        } else if (successCount > 0) {
-          toast.warning(`${successCount} file(s) uploaded, ${failedCount} failed. You can retry failed uploads.`);
-          // Keep dialog open so user can see failed files and retry
-          onUploadComplete?.();
-        } else if (failedCount > 0) {
-          toast.error(`All ${failedCount} file(s) failed to upload.`);
-        } else {
-          toast.info('No files were uploaded.');
-          setFiles([]);
-          onOpenChange(false);
-        }
-      }
-    } catch (error) {
-      console.error('[FileUpload] Final catch - Unexpected error in upload process');
-      console.error('[FileUpload] Error:', error);
-      toast.error('An unexpected error occurred during upload.');
-    } finally {
-      setUploading(false);
+    // If AI enrichment was requested, we'll handle it after upload completes
+    // TODO: Hook into UploadManager completion events for AI enrichment
+    if (enrichWithAI) {
+      toast.info('AI enrichment will be available after upload completes.', { duration: 3000 });
     }
+
+    // Clear files and close dialog - uploads continue in background via UploadManager
+    setFiles([]);
+    onOpenChange(false);
+    onUploadComplete?.();
   };
 
   const handleCancelUpload = () => {

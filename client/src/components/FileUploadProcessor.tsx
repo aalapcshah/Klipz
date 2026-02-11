@@ -124,6 +124,7 @@ export function FileUploadProcessor() {
     file: File,
     resumeFromChunk?: number,
     existingSessionId?: string,
+    metadata?: { title?: string; description?: string; quality?: string },
   ) => {
     const { getAbortController: getAbort, updateUploadProgress: updateProgress, updateUploadStatus: updateStatus, updateUploadSessionId: updateSessionId, updatePausedChunk: updateChunk } = callbacksRef.current;
     const abortController = getAbort(uploadId);
@@ -197,6 +198,7 @@ export function FileUploadProcessor() {
                 mimeType: detectedMimeType,
                 uploadType: detectedUploadType,
                 chunkSize: CHUNK_SIZE,
+                ...(metadata?.title || metadata?.description ? { metadata: { title: metadata.title, description: metadata.description } } : {}),
               }
             );
             sessionToken = createResult.sessionToken;
@@ -216,6 +218,7 @@ export function FileUploadProcessor() {
               mimeType: detectedMimeType,
               uploadType: detectedUploadType,
               chunkSize: CHUNK_SIZE,
+              ...(metadata?.title || metadata?.description ? { metadata: { title: metadata.title, description: metadata.description } } : {}),
             }
           );
           sessionToken = createResult.sessionToken;
@@ -235,6 +238,7 @@ export function FileUploadProcessor() {
             mimeType: detectedMimeType,
             uploadType: detectedUploadType,
             chunkSize: CHUNK_SIZE,
+            ...(metadata?.title || metadata?.description ? { metadata: { title: metadata.title, description: metadata.description } } : {}),
           }
         );
         sessionToken = createResult.sessionToken;

@@ -251,7 +251,7 @@ export function VideoUploadSection() {
 
   // Video upload processor - registered with UploadManager
   // Now uses resumable upload system (chunks stored in S3, not server memory)
-  const processVideoUpload = useCallback(async (uploadId: string, file: File, resumeFromChunk?: number, _existingSessionId?: string) => {
+  const processVideoUpload = useCallback(async (uploadId: string, file: File, resumeFromChunk?: number, _existingSessionId?: string, _metadata?: { title?: string; description?: string; quality?: string }) => {
     const abortController = getAbortController(uploadId);
     
     try {

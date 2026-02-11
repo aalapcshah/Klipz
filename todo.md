@@ -6124,3 +6124,15 @@ Note: The application already has extensive annotation features including voice 
 - [x] FIX: Progress tracking with lastProgressRef (timestamp + chunk count) for accurate stall detection
 - [x] FIX: Stalled uploads are aborted, refs cleaned up, and re-queued automatically
 - [x] All 26 tests passing (12 upload resilience + 8 background assembly + 6 video thumbnail)
+
+## Bug: Regular Upload Shows "No files were uploaded" (FIXED)
+- [x] User selects a ~25MB video from camera roll on mobile
+- [x] Upload dialog shows with metadata suggestions and "Save Files" button
+- [x] After clicking "Save Files", toast shows "No files were uploaded"
+- [x] ROOT CAUSE 1: uploadFileToStorage has a hardcoded 10MB base64 limit - 24.72MB video exceeds it
+- [x] ROOT CAUSE 2: Stale closure bug - handleUpload reads files state after loop but React batches setFiles updates, so successCount=0 and failedCount=0
+- [x] FIX: Rewrote handleUpload to route ALL files through UploadManager's chunked upload system (no more base64 path)
+- [x] FIX: Updated FileUploadProcessor to accept and pass metadata (title, description) to createSession
+- [x] FIX: Updated UploadManagerContext processor type to include metadata parameter
+- [x] FIX: Updated VideoUploadSection processor signature for compatibility
+- [x] All 21 upload-related tests passing

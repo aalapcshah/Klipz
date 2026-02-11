@@ -79,7 +79,7 @@ interface SerializedUploadItem {
 }
 
 // Upload processor callback type
-type UploadProcessor = (uploadId: string, file: File, resumeFromChunk?: number, existingSessionId?: string) => Promise<void>;
+type UploadProcessor = (uploadId: string, file: File, resumeFromChunk?: number, existingSessionId?: string, metadata?: UploadItem['metadata']) => Promise<void>;
 
 interface UploadManagerContextType {
   uploads: UploadItem[];
@@ -280,8 +280,8 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
           u.id === upload.id ? { ...u, status: 'uploading' as const } : u
         ));
         
-        // Start the upload - pass sessionId for resume support
-        processor(upload.id, upload.file, upload.pausedAtChunk, upload.sessionId)
+        // Start the upload - pass sessionId and metadata for resume support
+        processor(upload.id, upload.file, upload.pausedAtChunk, upload.sessionId, upload.metadata)
           .finally(() => {
             processingRef.current.delete(upload.id);
             // After an upload finishes, trigger queue again to start next pending

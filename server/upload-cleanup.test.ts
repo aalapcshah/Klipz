@@ -154,8 +154,8 @@ describe("Upload Progress Persistence", () => {
     const filePath = path.resolve(__dirname, "../client/src/hooks/useResumableUpload.ts");
     const content = fs.readFileSync(filePath, "utf-8");
 
-    // Should sync every 10 chunks
-    expect(content).toContain("uploadedChunks % 10 === 0");
+    // Should sync every 5 chunks
+    expect(content).toContain("uploadedChunks % 5 === 0");
     expect(content).toContain("saveSessionsToStorage");
   });
 

@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
 
 /**
- * Tests for the file upload toast message fix:
- * - Large files (>50MB) use resumable upload which runs in background
- * - The handleUpload function should NOT show "0 file(s) uploaded successfully" for large files
- * - Instead, it should show an appropriate message about background uploads
+ * Tests for the file upload flow:
+ * - ALL files now go through the UploadManager's chunked upload system
+ * - The FileUploadDialog queues files via addUploads() and closes immediately
+ * - No more base64 upload path (which had a 10MB limit causing silent failures)
+ * - No more stale closure bug in success/failure counting
  */
 
 describe("File upload toast message fix", () => {
@@ -111,21 +112,44 @@ describe("Resumable upload operations in non-batching link", () => {
     expect(content).toContain("resumableUpload.saveThumbnail");
   });
 
-  it("should verify FileUploadDialog handles resumable uploads in success counting", async () => {
+  it("should verify FileUploadDialog routes ALL files through UploadManager", async () => {
     const fs = await import("fs");
     const content = fs.readFileSync("client/src/components/files/FileUploadDialog.tsx", "utf-8");
     
-    // Should count resumable uploads separately
-    expect(content).toContain("resumableCount");
-    expect(content).toContain("RESUMABLE_UPLOAD_THRESHOLD");
+    // Should use UploadManager's addUploads to queue files
+    expect(content).toContain("useUploadManager");
+    expect(content).toContain("addUploads");
     
-    // Should show appropriate message for background uploads
-    expect(content).toContain("uploading in the background");
+    // Should queue files via UploadManager chunked upload
+    expect(content).toContain("UploadManager chunked upload");
     
-    // Should NOT show "0 file(s) uploaded successfully" when only resumable uploads exist
-    // The resumableCount check should come before the regular success check
-    const resumableCheckIndex = content.indexOf("if (resumableCount > 0)");
-    const regularCheckIndex = content.indexOf("if (failedCount === 0 && successCount > 0)");
-    expect(resumableCheckIndex).toBeLessThan(regularCheckIndex);
+    // Should NOT contain the old base64 upload path that had the 10MB limit
+    // The old path called uploadToS3 directly in handleUpload
+    expect(content).not.toContain("await uploadToS3(fileData.file");
+    
+    // Should NOT contain the stale closure bug (reading files state for success counting)
+    expect(content).not.toContain("files.filter(f => f.uploadStatus === 'completed').length");
+  });
+
+  it("should verify FileUploadProcessor passes metadata to createSession", async () => {
+    const fs = await import("fs");
+    const content = fs.readFileSync("client/src/components/FileUploadProcessor.tsx", "utf-8");
+    
+    // Should accept metadata parameter
+    expect(content).toContain("metadata?: { title?: string; description?: string; quality?: string }");
+    
+    // Should pass metadata to createSession
+    expect(content).toContain("metadata: { title: metadata.title, description: metadata.description }");
+  });
+
+  it("should verify UploadManager passes metadata to processor", async () => {
+    const fs = await import("fs");
+    const content = fs.readFileSync("client/src/contexts/UploadManagerContext.tsx", "utf-8");
+    
+    // Processor type should include metadata parameter
+    expect(content).toContain("metadata?: UploadItem['metadata']");
+    
+    // processQueue should pass upload.metadata to processor
+    expect(content).toContain("upload.metadata");
   });
 });
