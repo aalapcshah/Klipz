@@ -6051,3 +6051,27 @@ Note: The application already has extensive annotation features including voice 
 - [x] Sets Content-Disposition: attachment when download=true
 - [x] Updated FileDetailDialog download link to use ?download=true for streaming URLs
 - [x] Works for both streaming URLs and direct S3 URLs
+
+## Bug: Resumable Upload Stuck at 1/82 Chunks
+- [ ] Upload gets stuck after first chunk (1 MB / 81.36 MB)
+- [ ] First chunk succeeds but subsequent chunks fail
+- [ ] Investigate server logs for chunk upload errors
+- [ ] Fix the issue and verify uploads complete
+
+## Bug: Video Playback Still Broken for Chunk-Streamed Files
+- [x] Video shows 0:00 duration and black screen when opened from Files section
+- [x] crossOrigin fix not yet deployed, but also investigate streaming endpoint headers
+- [x] Ensure streaming endpoint sends proper Content-Type, Content-Length, Accept-Ranges headers
+- [x] Test that range requests work correctly for video seeking
+- [x] SOLUTION: Background S3 assembly - after finalization, chunks are assembled into a single S3 file
+- [x] Created server/lib/backgroundAssembly.ts for background chunk assembly
+- [x] Downloads chunks to temp file on disk, uploads assembled file to S3 via storagePut
+- [x] Updates file/video records and session with direct S3 URL
+- [x] Streaming endpoint serves as fallback until assembly completes, then redirects to S3
+- [x] Direct S3 URLs natively support Range requests for proper video seeking
+
+## Bug: File List Not Auto-Refreshing After Upload Completes
+- [x] After resumable upload finishes, file doesn't appear in Files list until manual refresh
+- [x] Added direct tRPC cache invalidation in useResumableUpload hook (safety net)
+- [x] Invalidates files.list, files.enrichmentCounts, and recentlyViewed.list
+- [x] 500ms delay ensures DB commit is visible before query refetch

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head><title>Video Playback Test</title></head>
+<body style="background:#111;color:#fff;font-family:sans-serif;padding:20px;">
+<h2>Video Playback Test (No crossOrigin)</h2>
+<video id="v1" controls style="width:100%;max-width:800px;" src="/api/files/stream/FfpdOhTzpiEcWMihxYaeuh1ezlz3C67J"></video>
+<p id="info1">Loading...</p>
+
+<h2>Video Playback Test (With crossOrigin="anonymous")</h2>
+<video id="v2" controls crossOrigin="anonymous" style="width:100%;max-width:800px;" src="/api/files/stream/FfpdOhTzpiEcWMihxYaeuh1ezlz3C67J"></video>
+<p id="info2">Loading...</p>
+
+<script>
+const v1 = document.getElementById('v1');
+const v2 = document.getElementById('v2');
+v1.addEventListener('loadedmetadata', () => { document.getElementById('info1').textContent = 'Duration: ' + v1.duration + 's - WORKS!'; });
+v1.addEventListener('error', (e) => { document.getElementById('info1').textContent = 'ERROR: ' + (v1.error?.message || 'unknown'); });
+v2.addEventListener('loadedmetadata', () => { document.getElementById('info2').textContent = 'Duration: ' + v2.duration + 's - WORKS!'; });
+v2.addEventListener('error', (e) => { document.getElementById('info2').textContent = 'ERROR: ' + (v2.error?.message || 'unknown'); });
+</script>
+</body>
+</html>

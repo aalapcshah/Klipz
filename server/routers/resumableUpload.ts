@@ -7,6 +7,7 @@ import { nanoid } from "nanoid";
 import { TRPCError } from "@trpc/server";
 import { resumableUploadSessions, resumableUploadChunks } from "../../drizzle/schema";
 import { eq, and, lt, sql } from "drizzle-orm";
+import { assembleChunksInBackground } from "../lib/backgroundAssembly";
 
 // Constants
 const DEFAULT_CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks (kept small to avoid proxy body size limits on deployed sites)
@@ -85,6 +86,22 @@ async function finalizeLargeFileWithStreaming(
     .where(eq(resumableUploadSessions.id, sessionId));
 
   console.log(`[ResumableUpload] Chunk-streaming finalize complete for ${sessionToken}: file ID ${fileId}, video ID: ${videoId || 'N/A'}`);
+
+  // Kick off background assembly to create a single S3 file
+  // This runs asynchronously — the streaming endpoint works immediately as a fallback
+  // Once assembly completes, the file/video records are updated with the direct S3 URL
+  assembleChunksInBackground(
+    sessionToken,
+    sessionId,
+    userId,
+    fileId,
+    videoId,
+    session.filename,
+    session.mimeType,
+    session.uploadType,
+  ).catch(err => {
+    console.error(`[ResumableUpload] Background assembly error for ${sessionToken}:`, err);
+  });
 
   return { fileId, videoId, url: finalUrl, fileKey: finalFileKey };
 }

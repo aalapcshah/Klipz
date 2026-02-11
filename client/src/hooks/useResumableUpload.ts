@@ -187,6 +187,9 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   useEffect(() => { optionsRef.current = options; }, [options]);
   const setSessionsRef = useRef(setSessions);
   useEffect(() => { setSessionsRef.current = setSessions; }, [setSessions]);
+  
+  // tRPC utils for direct cache invalidation after upload completion
+  const trpcUtils = trpc.useUtils();
 
   // Keep chunkDelay ref in sync with options
   useEffect(() => {
@@ -591,6 +594,14 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
         return updated;
       });
 
+      // Invalidate file list cache directly to ensure the new file appears immediately
+      // This is a safety net in addition to the onComplete callback's invalidation
+      setTimeout(() => {
+        trpcUtils.files.list.invalidate();
+        trpcUtils.files.enrichmentCounts.invalidate();
+        trpcUtils.recentlyViewed.list.invalidate();
+      }, 500); // Small delay to ensure DB commit is visible
+      
       optionsRef.current.onComplete?.(session, completedResult);
       toast.success(`${session.filename} uploaded successfully!`);
 
