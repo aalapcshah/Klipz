@@ -6172,3 +6172,13 @@ Note: The application already has extensive annotation features including voice 
 - [x] Resume button opens file picker, then calls resumeInterruptedUpload with existing session ID
 - [x] Server checks session status and resumes from the first missing chunk
 - [x] All 33 upload-related tests passing
+
+## Bug: Video Playback Not Working in Files Section (FIXED)
+- [x] Video uploaded to Files shows black screen, can't play, 0:00.0 duration
+- [x] Root cause: HEAD requests and non-range GET requests to streaming endpoint timed out because it tried to fetch all chunks before sending response headers
+- [x] Fix: Added dedicated HEAD handler that returns metadata instantly without fetching chunks
+- [x] Fix: For GET requests without Range header, headers are now sent immediately before streaming chunks
+- [x] Fix: Range requests without end byte now cap at 2MB to prevent downloading entire file
+- [x] Increased background assembly limit from 200MB to 500MB to handle larger video files
+- [ ] Trigger background assembly for existing 461MB file to get direct S3 URL
+- [ ] Generate thumbnail for existing 461MB file

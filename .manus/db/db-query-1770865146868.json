@@ -1,0 +1,19 @@
+{
+  "query": "SELECT id, sessionToken, filename, CAST(fileSize AS CHAR) as fileSize, status, finalFileUrl, chunkSize FROM resumable_upload_sessions WHERE sessionToken = 'wBvSoy6243k5vQnpajOJJQ-dVyHdyLtJ'",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, sessionToken, filename, CAST(fileSize AS CHAR) as fileSize, status, finalFileUrl, chunkSize FROM resumable_upload_sessions WHERE sessionToken = 'wBvSoy6243k5vQnpajOJJQ-dVyHdyLtJ'",
+  "rows": [
+    {
+      "id": "210006",
+      "sessionToken": "wBvSoy6243k5vQnpajOJJQ-dVyHdyLtJ",
+      "filename": "Video 10 - No More Research.mp4",
+      "fileSize": "483822037",
+      "status": "completed",
+      "finalFileUrl": "/api/files/stream/wBvSoy6243k5vQnpajOJJQ-dVyHdyLtJ",
+      "chunkSize": "5242880"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tsessionToken\tfilename\tfileSize\tstatus\tfinalFileUrl\tchunkSize\n210006\twBvSoy6243k5vQnpajOJJQ-dVyHdyLtJ\tVideo 10 - No More Research.mp4\t483822037\tcompleted\t/api/files/stream/wBvSoy6243k5vQnpajOJJQ-dVyHdyLtJ\t5242880\n",
+  "stderr": "",
+  "execution_time_ms": 53
+}

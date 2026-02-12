@@ -31,9 +31,9 @@ import { generateVideoThumbnail } from "./videoThumbnail";
 // Track active assembly jobs to prevent duplicates
 const activeAssemblies = new Set<string>();
 
-// Max file size we'll attempt to assemble (200MB)
+// Max file size we'll attempt to assemble (500MB)
 // Larger files risk OOM when reading the temp file into a Buffer for upload
-const MAX_ASSEMBLY_SIZE = 200 * 1024 * 1024;
+const MAX_ASSEMBLY_SIZE = 500 * 1024 * 1024;
 
 /**
  * Assemble chunks into a single S3 file in the background.

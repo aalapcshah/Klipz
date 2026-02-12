@@ -1,0 +1,19 @@
+{
+  "query": "SELECT f.id, f.filename, f.mimeType, f.fileSize, f.url, f.fileKey, f.thumbnailUrl FROM files f WHERE f.mimeType LIKE 'video/%' ORDER BY f.createdAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT f.id, f.filename, f.mimeType, f.fileSize, f.url, f.fileKey, f.thumbnailUrl FROM files f WHERE f.mimeType LIKE 'video/%' ORDER BY f.createdAt DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "1740001",
+      "filename": "Video 10 - No More Research.mp4",
+      "mimeType": "video/mp4",
+      "fileSize": "483822037",
+      "url": "/api/files/stream/wBvSoy6243k5vQnpajOJJQ-dVyHdyLtJ",
+      "fileKey": "chunked/wBvSoy6243k5vQnpajOJJQ-dVyHdyLtJ/Video 10 - No More Research.mp4",
+      "thumbnailUrl": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfilename\tmimeType\tfileSize\turl\tfileKey\tthumbnailUrl\n1740001\tVideo 10 - No More Research.mp4\tvideo/mp4\t483822037\t/api/files/stream/wBvSoy6243k5vQnpajOJJQ-dVyHdyLtJ\tchunked/wBvSoy6243k5vQnpajOJJQ-dVyHdyLtJ/Video 10 - No More Research.mp4\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 62
+}
