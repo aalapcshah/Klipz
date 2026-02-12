@@ -838,11 +838,15 @@ export function FileUploadDialog({
     // for files between 10-50MB. The FileUploadProcessor handles chunked uploads
     // for files of ANY size, with retry, pause/resume, and progress tracking.
     const uploadItems = files.map(fileData => {
-      // Detect if file is a video based on MIME type
-      const isVideo = fileData.file.type.startsWith('video/');
+      // Always use 'file' uploadType because FileUploadProcessor is always mounted
+      // and handles ALL file types (including videos) via the resumable chunked upload system.
+      // The 'video' uploadType is only for VideoUploadSection's own recording flow,
+      // which registers its processor only when the Videos page is mounted.
+      // The resumable upload backend (createSession) already detects video MIME types
+      // and creates the appropriate video/file records.
       return {
         file: fileData.file,
-        uploadType: (isVideo ? 'video' : 'file') as 'video' | 'file',
+        uploadType: 'file' as const,
         metadata: {
           title: fileData.title || undefined,
           description: fileData.description || undefined,

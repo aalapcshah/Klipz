@@ -125,24 +125,21 @@ export function GlobalDropZone({ children }: GlobalDropZoneProps) {
 
   // Actually queue the files for upload
   const queueFiles = useCallback((files: { file: File; uploadType: 'video' | 'file' }[]) => {
-    const videoFiles = files.filter(f => f.uploadType === 'video');
-    const regularFiles = files.filter(f => f.uploadType === 'file');
-
-    if (videoFiles.length > 0) {
-      addUploads(videoFiles.map(f => ({
-        file: f.file,
-        uploadType: 'video' as const,
-        metadata: { quality: 'high' },
-      })));
-      toast.success(`${videoFiles.length} video(s) added to upload queue`);
-    }
-
-    if (regularFiles.length > 0) {
-      addUploads(regularFiles.map(f => ({
+    // Always use 'file' uploadType because FileUploadProcessor is always mounted
+    // and handles ALL file types (including videos) via the resumable chunked upload system.
+    // The backend (createSession) detects video MIME types and creates video records automatically.
+    if (files.length > 0) {
+      addUploads(files.map(f => ({
         file: f.file,
         uploadType: 'file' as const,
+        metadata: f.uploadType === 'video' ? { quality: 'high' } : undefined,
       })));
-      toast.success(`${regularFiles.length} file(s) added to upload queue`);
+      const videoCount = files.filter(f => f.uploadType === 'video').length;
+      const fileCount = files.length - videoCount;
+      const parts: string[] = [];
+      if (videoCount > 0) parts.push(`${videoCount} video(s)`);
+      if (fileCount > 0) parts.push(`${fileCount} file(s)`);
+      toast.success(`${parts.join(' and ')} added to upload queue`);
     }
 
     triggerHaptic("success");

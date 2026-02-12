@@ -6144,3 +6144,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix X button overlapping the quality percentage badge on right side
 - [x] Reduced selected card ring from ring-2 to ring-1 on mobile
 - [x] Shortened button labels on mobile (Edit Metadata → Edit, Compare Files → Compare, etc.)
+
+## Bug: Upload Interrupted on Mobile Tab Switch (FIXED)
+- [x] Upload gets queued at 0% but doesn't start uploading immediately
+- [x] When user swipes away and returns, upload shows "interrupted"
+- [x] ROOT CAUSE: Video files were sent with uploadType 'video' but the video processor is only registered when the Videos page is mounted. FileUploadProcessor (always mounted) only handles uploadType 'file'.
+- [x] FIX: Changed FileUploadDialog to always use uploadType 'file' for ALL files (including videos)
+- [x] FIX: Changed GlobalDropZone to always use uploadType 'file' for ALL dropped files
+- [x] The resumable upload backend already detects video MIME types and creates appropriate records
+- [x] All 21 upload-related tests passing
