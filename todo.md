@@ -6194,3 +6194,20 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix: Reduced chunk size to 2MB on mobile (vs 5MB desktop) for FileUploadProcessor
 - [x] Fix: Increased max retries from 5 to 8 on mobile with 2min timeout (vs 3min desktop)
 - [x] Fix: Backoff delay capped at 60s
+
+## Feature: Email Notification Preferences in Settings
+- [ ] Add database table for email notification preferences per user
+- [ ] Add server procedures to get/update email notification preferences
+- [ ] Build email preferences UI in Settings with toggles for each action type
+- [ ] Toggle categories: file uploaded, file deleted, file enriched, file edited, quality improved, video uploaded, video deleted, video edited
+- [ ] Integrate notification triggers into existing file/video action handlers
+- [ ] Send email notifications via notifyOwner or built-in notification API
+- [ ] Write tests for the new procedures
+
+## Bug: Subscription Upgrade Flow Broken (PARTIAL FIX)
+- [ ] Clicking Pro subscription gives an error — STRIPE_PRICE_ID_PRO env var not set, needs Stripe product/price created first
+- [x] Trial expired banner showing even during development — extended trial to May 13, 2026
+- [x] Investigated Stripe checkout session creation — missing price ID is root cause
+- [ ] Fix the error and ensure upgrade flow works — requires STRIPE_PRICE_ID_PRO to be configured
+- [x] Fix X button overlapping with 'Upgrade to Pro' text in trial expired banner
+- [x] Reset/extend owner's trial period for continued development
