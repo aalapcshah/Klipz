@@ -19,7 +19,7 @@ const INITIAL_RETRY_DELAY = 1000; // 1 second
 const MAX_RETRY_DELAY = 30000; // 30 seconds
 
 export type UploadType = 'video' | 'file';
-export type UploadStatus = 'pending' | 'uploading' | 'paused' | 'completed' | 'error' | 'cancelled' | 'scheduled' | 'retrying';
+export type UploadStatus = 'pending' | 'uploading' | 'paused' | 'completed' | 'error' | 'cancelled' | 'scheduled' | 'retrying' | 'interrupted';
 
 export interface UploadItem {
   id: string;
@@ -101,6 +101,7 @@ interface UploadManagerContextType {
   getAbortController: (id: string) => AbortController | undefined;
   scheduleUpload: (id: string, scheduledFor: number) => void;
   cancelSchedule: (id: string) => void;
+  resumeInterruptedUpload: (id: string, file: File) => void;
   isUploading: boolean;
   totalProgress: number;
   pendingCount: number;
@@ -109,6 +110,7 @@ interface UploadManagerContextType {
   completedCount: number;
   scheduledCount: number;
   retryingCount: number;
+  interruptedCount: number;
   activeUploads: UploadItem[];
   queuedCount: number;
 }
@@ -154,12 +156,12 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
   const saveToStorage = useCallback((items: UploadItem[]) => {
     try {
       const serialized: SerializedUploadItem[] = items
-        .filter(item => item.status === 'pending' || item.status === 'uploading' || item.status === 'paused' || item.status === 'scheduled')
+        .filter(item => item.status === 'pending' || item.status === 'uploading' || item.status === 'paused' || item.status === 'scheduled' || item.status === 'interrupted')
         .map(item => ({
           id: item.id,
           filename: item.filename,
           fileSize: item.fileSize,
-          mimeType: item.fileSize, // Note: This was a bug, should be mimeType
+          mimeType: item.mimeType as any, // Store as string
           progress: item.progress,
           uploadedBytes: item.uploadedBytes,
           status: item.status === 'uploading' ? 'paused' : item.status, // Reset uploading to paused
@@ -179,19 +181,74 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Load from localStorage on mount
+  // Resume an interrupted upload by providing a new File object
+  const resumeInterruptedUpload = useCallback((id: string, file: File) => {
+    // Create new abort controller
+    const newController = new AbortController();
+    abortControllersRef.current.set(id, newController);
+    
+    setUploads(prev => prev.map(item => {
+      if (item.id === id && item.status === 'interrupted') {
+        return {
+          ...item,
+          file,
+          status: 'pending' as const,
+          lastSpeedUpdate: Date.now(),
+          lastBytesForSpeed: item.uploadedBytes,
+        };
+      }
+      return item;
+    }));
+    
+    toast.success(`Resuming upload of ${file.name} from ${Math.round((uploadsRef.current.find(u => u.id === id)?.progress || 0))}%`);
+  }, []);
+
+  // Load from localStorage on mount - restore interrupted uploads
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const serialized: SerializedUploadItem[] = JSON.parse(stored);
         if (serialized.length > 0) {
-          toast.info(`${serialized.length} upload(s) were interrupted. Please re-add the files to continue.`);
+          // Restore interrupted uploads so user can re-attach files and resume
+          const restoredItems: UploadItem[] = serialized
+            .filter(item => item.sessionId) // Only restore items that have a server session
+            .map(item => ({
+              id: item.id,
+              file: new File([], item.filename), // Placeholder - user must re-select file
+              filename: item.filename,
+              fileSize: item.fileSize,
+              mimeType: typeof item.mimeType === 'number' ? 'application/octet-stream' : item.mimeType as unknown as string,
+              progress: item.progress,
+              uploadedBytes: item.uploadedBytes,
+              status: 'interrupted' as const,
+              sessionId: item.sessionId,
+              uploadType: item.uploadType,
+              metadata: item.metadata,
+              createdAt: item.createdAt,
+              speed: 0,
+              eta: 0,
+              lastSpeedUpdate: Date.now(),
+              lastBytesForSpeed: 0,
+              pausedAtChunk: item.pausedAtChunk,
+              retryCount: 0,
+            }));
+          
+          if (restoredItems.length > 0) {
+            setUploads(prev => [...prev, ...restoredItems]);
+            toast.info(
+              `${restoredItems.length} upload(s) can be resumed. Tap the resume button and re-select the file.`,
+              { duration: 8000 }
+            );
+          }
+          
+          // Clear localStorage after restoring
           localStorage.removeItem(STORAGE_KEY);
         }
       }
     } catch (e) {
       console.error('[UploadManager] Failed to load from localStorage:', e);
+      localStorage.removeItem(STORAGE_KEY);
     }
   }, []);
 
@@ -792,8 +849,9 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
   const completedCount = uploads.filter(u => u.status === 'completed').length;
   const scheduledCount = uploads.filter(u => u.status === 'scheduled').length;
   const retryingCount = uploads.filter(u => u.status === 'retrying').length;
+  const interruptedCount = uploads.filter(u => u.status === 'interrupted').length;
   const activeUploads = uploads.filter(u => 
-    u.status === 'pending' || u.status === 'uploading' || u.status === 'paused' || u.status === 'retrying' || u.status === 'scheduled'
+    u.status === 'pending' || u.status === 'uploading' || u.status === 'paused' || u.status === 'retrying' || u.status === 'scheduled' || u.status === 'interrupted'
   );
   const queuedCount = pendingCount;
   
@@ -823,6 +881,7 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         getAbortController,
         scheduleUpload,
         cancelSchedule,
+        resumeInterruptedUpload,
         isUploading,
         totalProgress,
         pendingCount,
@@ -831,6 +890,7 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         completedCount,
         scheduledCount,
         retryingCount,
+        interruptedCount,
         activeUploads,
         queuedCount,
       }}

@@ -6162,3 +6162,13 @@ Note: The application already has extensive annotation features including voice 
 - [x] Tested: Production proxy supports up to 13MB+ payloads (5MB chunk = 6.67MB base64 payload)
 - [x] Net improvement: ~15x faster uploads (5x larger chunks × 3x parallelism)
 - [x] All 92 upload-related tests passing
+
+## Bug: Upload Stalls at 10% for 461MB File + Resume Not Working (FIXED)
+- [x] Removed parallel chunk uploads — sequential is more reliable on slow/mobile connections
+- [x] Implemented real resume: interrupted uploads persist in localStorage with 'interrupted' status
+- [x] User can re-select the same file to continue from the last uploaded chunk
+- [x] Added resume UI to GlobalUploadProgress (popover) and InlineUploadProgress (inline banner)
+- [x] Interrupted uploads show amber progress bar with percentage and 'tap to resume' instruction
+- [x] Resume button opens file picker, then calls resumeInterruptedUpload with existing session ID
+- [x] Server checks session status and resumes from the first missing chunk
+- [x] All 33 upload-related tests passing

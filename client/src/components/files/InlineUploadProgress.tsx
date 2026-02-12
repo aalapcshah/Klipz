@@ -40,10 +40,13 @@ export function InlineUploadProgress() {
     pauseUpload,
     resumeUpload,
     retryUpload,
+    resumeInterruptedUpload,
+    removeUpload,
     uploadingCount,
     pendingCount,
     pausedCount,
     completedCount,
+    interruptedCount,
   } = useUploadManager();
 
   const [expanded, setExpanded] = useState(false);
@@ -56,6 +59,7 @@ export function InlineUploadProgress() {
       u.status === "paused" ||
       u.status === "retrying" ||
       u.status === "error" ||
+      u.status === "interrupted" ||
       (u.status === "completed" && Date.now() - u.createdAt < 60_000) // Show completed for 60s
   );
 
@@ -65,11 +69,14 @@ export function InlineUploadProgress() {
   const totalFiles = visibleUploads.length;
   const doneCount = visibleUploads.filter((u) => u.status === "completed").length;
   const errorCount = visibleUploads.filter((u) => u.status === "error").length;
+  const interruptedVisible = visibleUploads.filter((u) => u.status === "interrupted").length;
 
   // Summary line
   let summaryText = "";
   if (activeCount > 0) {
     summaryText = `Uploading ${doneCount + 1} of ${totalFiles} file${totalFiles !== 1 ? "s" : ""}`;
+  } else if (interruptedVisible > 0) {
+    summaryText = `${interruptedVisible} upload${interruptedVisible !== 1 ? "s" : ""} interrupted — tap to resume`;
   } else if (pausedCount > 0) {
     summaryText = `${pausedCount} upload${pausedCount !== 1 ? "s" : ""} paused`;
   } else if (errorCount > 0) {
@@ -88,6 +95,8 @@ export function InlineUploadProgress() {
         {/* Icon */}
         {isUploading ? (
           <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+        ) : interruptedVisible > 0 ? (
+          <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
         ) : errorCount > 0 ? (
           <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
         ) : doneCount === totalFiles ? (
@@ -181,6 +190,16 @@ export function InlineUploadProgress() {
                 {upload.status === "pending" && (
                   <span className="text-xs text-muted-foreground mt-0.5">Queued</span>
                 )}
+                {upload.status === "interrupted" && (
+                  <div className="mt-1">
+                    <Progress value={upload.progress} className="h-1.5 [&>div]:bg-amber-500" />
+                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-amber-500">
+                      <span>{Math.round(upload.progress)}% uploaded</span>
+                      <span>{formatFileSize(upload.uploadedBytes)} / {formatFileSize(upload.fileSize)}</span>
+                      <span>Interrupted — re-select file to resume</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Action buttons */}
@@ -227,6 +246,29 @@ export function InlineUploadProgress() {
                     <Loader2 className="h-3.5 w-3.5" />
                   </Button>
                 )}
+                {upload.status === "interrupted" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-amber-500"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = upload.mimeType || '*/*';
+                      input.onchange = (ev) => {
+                        const file = (ev.target as HTMLInputElement).files?.[0];
+                        if (file) {
+                          resumeInterruptedUpload(upload.id, file);
+                        }
+                      };
+                      input.click();
+                    }}
+                    title="Re-select file to resume"
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                  </Button>
+                )}
                 {(upload.status === "uploading" ||
                   upload.status === "paused" ||
                   upload.status === "pending" ||
@@ -240,6 +282,20 @@ export function InlineUploadProgress() {
                       cancelUpload(upload.id);
                     }}
                     title="Cancel"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+                {upload.status === "interrupted" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-muted-foreground"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeUpload(upload.id);
+                    }}
+                    title="Dismiss"
                   >
                     <X className="h-3.5 w-3.5" />
                   </Button>

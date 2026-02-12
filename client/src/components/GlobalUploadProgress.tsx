@@ -51,12 +51,14 @@ export function GlobalUploadProgress() {
     retryUpload,
     scheduleUpload,
     cancelSchedule,
+    resumeInterruptedUpload,
     completedCount,
     uploadingCount,
     pendingCount,
     pausedCount,
     scheduledCount,
     retryingCount,
+    interruptedCount,
   } = useUploadManager();
 
   // Fetch resumable upload sessions from server
@@ -149,6 +151,8 @@ export function GlobalUploadProgress() {
         return <Calendar className="h-4 w-4 text-blue-500" />;
       case 'pending':
         return <Clock className="h-4 w-4 text-muted-foreground" />;
+      case 'interrupted':
+        return <AlertCircle className="h-4 w-4 text-amber-500" />;
       default:
         return null;
     }
@@ -459,6 +463,47 @@ export function GlobalUploadProgress() {
                                 </Button>
                               )}
                               
+                              {/* Resume button for interrupted uploads - opens file picker */}
+                              {upload.status === 'interrupted' && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => {
+                                    const input = document.createElement('input');
+                                    input.type = 'file';
+                                    input.accept = upload.mimeType || '*/*';
+                                    input.onchange = (e) => {
+                                      const file = (e.target as HTMLInputElement).files?.[0];
+                                      if (file) {
+                                        if (file.size !== upload.fileSize) {
+                                          // Allow anyway but warn
+                                          console.warn(`[Resume] File size mismatch: expected ${upload.fileSize}, got ${file.size}`);
+                                        }
+                                        resumeInterruptedUpload(upload.id, file);
+                                      }
+                                    };
+                                    input.click();
+                                  }}
+                                  title="Re-select file to resume upload"
+                                >
+                                  <Play className="h-3 w-3" />
+                                </Button>
+                              )}
+                              
+                              {/* Cancel/remove button for interrupted */}
+                              {upload.status === 'interrupted' && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => removeUpload(upload.id)}
+                                  title="Remove from list"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              )}
+                              
                               {/* Remove button for finished uploads */}
                               {(upload.status === 'completed' || upload.status === 'error' || upload.status === 'cancelled') && (
                                 <Button
@@ -534,6 +579,23 @@ export function GlobalUploadProgress() {
                                   {Math.round((upload.pausedAtChunk / Math.ceil(upload.fileSize / (1 * 1024 * 1024))) * 100)}% uploaded • Click retry to resume
                                 </p>
                               )}
+                            </div>
+                          )}
+                          
+                          {/* Interrupted message with resume instructions */}
+                          {upload.status === 'interrupted' && (
+                            <div className="mt-2">
+                              <Progress 
+                                value={upload.progress} 
+                                className="h-1.5 [&>div]:bg-amber-500" 
+                              />
+                              <div className="flex justify-between text-xs text-amber-500 mt-1">
+                                <span>{Math.round(upload.progress)}% uploaded</span>
+                                <span>{formatFileSize(upload.uploadedBytes)} / {formatFileSize(upload.fileSize)}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Upload interrupted. Tap ▶ to re-select the file and resume.
+                              </p>
                             </div>
                           )}
                           

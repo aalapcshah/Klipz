@@ -62,9 +62,8 @@ describe("Upload architecture - resumable upload system", () => {
     
     // VideoUploadSection uses 1MB chunks (real-time recording)
     expect(videoContent).toContain("1 * 1024 * 1024");
-    // FileUploadProcessor uses 5MB chunks with parallel uploads for faster throughput
+    // FileUploadProcessor uses 5MB chunks with sequential uploads for reliability
     expect(fileContent).toContain("5 * 1024 * 1024");
-    expect(fileContent).toContain("PARALLEL_CHUNKS");
   });
 });
 

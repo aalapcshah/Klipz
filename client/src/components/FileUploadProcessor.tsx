@@ -16,7 +16,6 @@ import { trpcCall } from "@/lib/trpcCall";
  */
 
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks (proxy supports up to ~13MB payloads)
-const PARALLEL_CHUNKS = 3; // Upload 3 chunks concurrently for faster throughput
 
 export function FileUploadProcessor() {
   const {
@@ -247,12 +246,14 @@ export function FileUploadProcessor() {
         updateSessionId(uploadId, sessionToken);
       }
 
-      // Upload chunks in parallel batches for faster throughput
-      // Each batch uploads PARALLEL_CHUNKS chunks concurrently
-      let completedChunks = startChunk;
+      // Upload chunks sequentially (reliable on slow/mobile connections)
+      for (let i = startChunk; i < totalChunks; i++) {
+        if (abortController?.signal.aborted) {
+          console.log(`[FileUpload] Upload cancelled at chunk ${i}`);
+          return;
+        }
 
-      const uploadSingleChunk = async (chunkIndex: number): Promise<void> => {
-        const start = chunkIndex * CHUNK_SIZE;
+        const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, file.size);
         let retries = 0;
         const maxChunkRetries = 5;
@@ -270,46 +271,31 @@ export function FileUploadProcessor() {
               uploadedBytes: number;
             }>('resumableUpload.uploadChunk', {
               sessionToken,
-              chunkIndex,
+              chunkIndex: i,
               chunkData,
             }, 'mutation', {
               timeoutMs: 180_000, // 3 minute timeout per 5MB chunk
               signal: abortController?.signal,
             });
-            return; // Success
+            break; // Success
           } catch (error: any) {
             if (abortController?.signal.aborted) return;
             retries++;
             if (retries >= maxChunkRetries) {
-              updateChunk(uploadId, chunkIndex);
-              throw new Error(`Failed to upload chunk ${chunkIndex + 1}/${totalChunks} after ${maxChunkRetries} retries: ${error.message}`);
+              updateChunk(uploadId, i);
+              throw new Error(`Failed to upload chunk ${i + 1}/${totalChunks} after ${maxChunkRetries} retries: ${error.message}`);
             }
             const backoffDelay = 2000 * Math.pow(2, retries - 1);
-            console.warn(`[FileUpload] Chunk ${chunkIndex + 1}/${totalChunks} attempt ${retries} failed, retrying in ${backoffDelay / 1000}s...`);
+            console.warn(`[FileUpload] Chunk ${i + 1}/${totalChunks} attempt ${retries} failed, retrying in ${backoffDelay / 1000}s...`);
             await new Promise(resolve => setTimeout(resolve, backoffDelay));
           }
         }
-      };
 
-      // Process chunks in parallel batches
-      for (let batchStart = startChunk; batchStart < totalChunks; batchStart += PARALLEL_CHUNKS) {
-        if (abortController?.signal.aborted) {
-          console.log(`[FileUpload] Upload cancelled at batch starting chunk ${batchStart}`);
-          return;
-        }
-
-        const batchEnd = Math.min(batchStart + PARALLEL_CHUNKS, totalChunks);
-        const batchIndices = Array.from({ length: batchEnd - batchStart }, (_, i) => batchStart + i);
-
-        // Upload batch concurrently
-        await Promise.all(batchIndices.map(idx => uploadSingleChunk(idx)));
-
-        // Update progress after batch completes
-        completedChunks = batchEnd;
-        const progress = (completedChunks / totalChunks) * 100;
-        const uploadedBytes = Math.min(completedChunks * CHUNK_SIZE, file.size);
+        // Update progress after each chunk
+        const progress = ((i + 1) / totalChunks) * 100;
+        const uploadedBytes = Math.min((i + 1) * CHUNK_SIZE, file.size);
         updateProgress(uploadId, progress, uploadedBytes);
-        updateChunk(uploadId, completedChunks);
+        updateChunk(uploadId, i + 1);
       }
 
       console.log(`[FileUpload] All chunks uploaded, finalizing via resumable upload...`);
