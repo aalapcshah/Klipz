@@ -6182,3 +6182,15 @@ Note: The application already has extensive annotation features including voice 
 - [x] Increased background assembly limit from 200MB to 500MB to handle larger video files
 - [ ] Trigger background assembly for existing 461MB file to get direct S3 URL
 - [ ] Generate thumbnail for existing 461MB file
+
+## Bug: Mobile Upload Stuck at "Waiting in Queue" (FIXED)
+- [x] Upload from mobile phone gets stuck at 0/140 chunks, 0 B, "Waiting in queue..."
+- [x] Resume button keeps cycling back to "Waiting in queue" without actually uploading
+- [x] Root cause: uploadChunks queue deadlock - activeUploadsRef had stale entries from previous attempts, blocking new uploads
+- [x] Root cause: processUploadQueue isProcessingQueueRef could get stuck true if executeUploadChunks threw, permanently blocking queue
+- [x] Root cause: 5MB chunks too large for mobile LTE (base64 inflates to ~6.7MB payload)
+- [x] Fix: uploadChunks now checks if active entry is for same session and cleans up stale entries
+- [x] Fix: processUploadQueue wrapped in try/finally to prevent deadlock
+- [x] Fix: Reduced chunk size to 2MB on mobile (vs 5MB desktop) for FileUploadProcessor
+- [x] Fix: Increased max retries from 5 to 8 on mobile with 2min timeout (vs 3min desktop)
+- [x] Fix: Backoff delay capped at 60s

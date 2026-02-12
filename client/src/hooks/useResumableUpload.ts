@@ -437,23 +437,32 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     if (isProcessingQueueRef.current) return;
     isProcessingQueueRef.current = true;
     
-    while (uploadQueueRef.current.length > 0) {
-      const next = uploadQueueRef.current.shift();
-      if (next) {
-        // Check if this session was cancelled while waiting in queue
-        if (clearedTokensRef.current.has(next.session.sessionToken)) continue;
-        await executeUploadChunks(next.session, next.file);
+    try {
+      while (uploadQueueRef.current.length > 0) {
+        const next = uploadQueueRef.current.shift();
+        if (next) {
+          // Check if this session was cancelled while waiting in queue
+          if (clearedTokensRef.current.has(next.session.sessionToken)) continue;
+          // Wait for any active upload to finish before starting next
+          // (activeUploadsRef is cleaned up in executeUploadChunks finally block)
+          while (activeUploadsRef.current.size > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+          await executeUploadChunks(next.session, next.file);
+        }
       }
+    } finally {
+      isProcessingQueueRef.current = false;
     }
-    
-    isProcessingQueueRef.current = false;
   }, []);
 
   // Upload chunks for a session - uses direct fetch calls, survives component unmounts
   const uploadChunks = useCallback(async (session: ResumableUploadSession, file: File) => {
-    // If another upload is already active, queue this one
-    if (activeUploadsRef.current.size > 0) {
-      console.log(`[ResumableUpload] Queuing upload for ${session.filename} (another upload is active)`);
+    // If another upload is already active AND it's a different session, queue this one
+    const activeTokens = Array.from(activeUploadsRef.current);
+    const otherActive = activeTokens.filter(t => t !== session.sessionToken);
+    if (otherActive.length > 0) {
+      console.log(`[ResumableUpload] Queuing upload for ${session.filename} (another upload is active: ${otherActive.join(', ')})`);
       uploadQueueRef.current.push({ session, file });
       setSessionsRef.current(prev => prev.map(s =>
         s.sessionToken === session.sessionToken
@@ -462,6 +471,14 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
       ));
       processUploadQueue();
       return;
+    }
+    // If this session is already marked as active (stale entry), clean it up first
+    if (activeUploadsRef.current.has(session.sessionToken)) {
+      console.log(`[ResumableUpload] Cleaning up stale active entry for ${session.sessionToken}`);
+      const oldController = abortControllersRef.current.get(session.sessionToken);
+      if (oldController) oldController.abort();
+      activeUploadsRef.current.delete(session.sessionToken);
+      abortControllersRef.current.delete(session.sessionToken);
     }
     await executeUploadChunks(session, file);
     // After this upload finishes, process the next one in the queue

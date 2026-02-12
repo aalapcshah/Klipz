@@ -1,0 +1,22 @@
+{
+  "query": "SELECT sessionToken, filename, fileSize, status, totalChunks, uploadedChunks, uploadedBytes, mimeType, createdAt, lastActivityAt FROM resumable_upload_sessions WHERE status IN ('active', 'paused') ORDER BY createdAt DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT sessionToken, filename, fileSize, status, totalChunks, uploadedChunks, uploadedBytes, mimeType, createdAt, lastActivityAt FROM resumable_upload_sessions WHERE status IN ('active', 'paused') ORDER BY createdAt DESC LIMIT 10;",
+  "rows": [
+    {
+      "sessionToken": "aXUDYvDsPUnkTD5L0mQjb3I0HkT9ewfg",
+      "filename": "PXL_20260212_021015001.mp4",
+      "fileSize": "729401926",
+      "status": "active",
+      "totalChunks": "140",
+      "uploadedChunks": "27",
+      "uploadedBytes": "54525952",
+      "mimeType": "video/mp4",
+      "createdAt": "2026-02-12 03:38:25",
+      "lastActivityAt": "2026-02-12 03:46:30"
+    }
+  ],
+  "messages": [],
+  "stdout": "sessionToken\tfilename\tfileSize\tstatus\ttotalChunks\tuploadedChunks\tuploadedBytes\tmimeType\tcreatedAt\tlastActivityAt\naXUDYvDsPUnkTD5L0mQjb3I0HkT9ewfg\tPXL_20260212_021015001.mp4\t729401926\tactive\t140\t27\t54525952\tvideo/mp4\t2026-02-12 03:38:25\t2026-02-12 03:46:30\n",
+  "stderr": "",
+  "execution_time_ms": 99
+}

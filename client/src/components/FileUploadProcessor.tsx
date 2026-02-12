@@ -15,7 +15,9 @@ import { trpcCall } from "@/lib/trpcCall";
  * so the upload loop is independent of React component lifecycle.
  */
 
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks (proxy supports up to ~13MB payloads)
+// Detect mobile for smaller chunk sizes (base64 encoding inflates ~33%, so 2MB → ~2.7MB payload)
+const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+const CHUNK_SIZE = isMobile ? 2 * 1024 * 1024 : 5 * 1024 * 1024; // 2MB on mobile, 5MB on desktop
 
 export function FileUploadProcessor() {
   const {
@@ -256,7 +258,8 @@ export function FileUploadProcessor() {
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, file.size);
         let retries = 0;
-        const maxChunkRetries = 5;
+        const maxChunkRetries = isMobile ? 8 : 5; // More retries on mobile
+        const chunkTimeoutMs = isMobile ? 120_000 : 180_000; // 2min mobile, 3min desktop
 
         while (retries < maxChunkRetries) {
           if (abortController?.signal.aborted) return;
@@ -274,7 +277,7 @@ export function FileUploadProcessor() {
               chunkIndex: i,
               chunkData,
             }, 'mutation', {
-              timeoutMs: 180_000, // 3 minute timeout per 5MB chunk
+              timeoutMs: chunkTimeoutMs,
               signal: abortController?.signal,
             });
             break; // Success
@@ -285,7 +288,8 @@ export function FileUploadProcessor() {
               updateChunk(uploadId, i);
               throw new Error(`Failed to upload chunk ${i + 1}/${totalChunks} after ${maxChunkRetries} retries: ${error.message}`);
             }
-            const backoffDelay = 2000 * Math.pow(2, retries - 1);
+            // Exponential backoff: 2s, 4s, 8s, 16s, 32s, capped at 60s
+            const backoffDelay = Math.min(2000 * Math.pow(2, retries - 1), 60_000);
             console.warn(`[FileUpload] Chunk ${i + 1}/${totalChunks} attempt ${retries} failed, retrying in ${backoffDelay / 1000}s...`);
             await new Promise(resolve => setTimeout(resolve, backoffDelay));
           }
