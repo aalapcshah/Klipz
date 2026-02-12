@@ -15,7 +15,8 @@ import { trpcCall } from "@/lib/trpcCall";
  * so the upload loop is independent of React component lifecycle.
  */
 
-const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks (kept small to avoid proxy body size limits)
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks (proxy supports up to ~13MB payloads)
+const PARALLEL_CHUNKS = 3; // Upload 3 chunks concurrently for faster throughput
 
 export function FileUploadProcessor() {
   const {
@@ -246,28 +247,20 @@ export function FileUploadProcessor() {
         updateSessionId(uploadId, sessionToken);
       }
 
-      // Upload chunks using resumable upload API (chunks go to S3, not server memory)
-      for (let i = startChunk; i < totalChunks; i++) {
-        // Check if cancelled
-        if (abortController?.signal.aborted) {
-          console.log(`[FileUpload] Upload cancelled at chunk ${i}`);
-          return;
-        }
+      // Upload chunks in parallel batches for faster throughput
+      // Each batch uploads PARALLEL_CHUNKS chunks concurrently
+      let completedChunks = startChunk;
 
-        const start = i * CHUNK_SIZE;
+      const uploadSingleChunk = async (chunkIndex: number): Promise<void> => {
+        const start = chunkIndex * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, file.size);
-
-        // Upload chunk with retry (per-chunk retry with exponential backoff)
         let retries = 0;
         const maxChunkRetries = 5;
-        while (retries < maxChunkRetries) {
-          try {
-            // Check if cancelled before each attempt
-            if (abortController?.signal.aborted) {
-              console.log(`[FileUpload] Upload cancelled during chunk ${i} retry`);
-              return;
-            }
 
+        while (retries < maxChunkRetries) {
+          if (abortController?.signal.aborted) return;
+
+          try {
             const chunkData = await readChunkAsBase64(file, start, end);
 
             await trpcCall<{
@@ -277,32 +270,46 @@ export function FileUploadProcessor() {
               uploadedBytes: number;
             }>('resumableUpload.uploadChunk', {
               sessionToken,
-              chunkIndex: i,
+              chunkIndex,
               chunkData,
             }, 'mutation', {
-              timeoutMs: 120_000, // 2 minute timeout per chunk
+              timeoutMs: 180_000, // 3 minute timeout per 5MB chunk
               signal: abortController?.signal,
             });
-            break; // Success
+            return; // Success
           } catch (error: any) {
             if (abortController?.signal.aborted) return;
             retries++;
             if (retries >= maxChunkRetries) {
-              // Save the current chunk position so we can resume later
-              updateChunk(uploadId, i);
-              throw new Error(`Failed to upload chunk ${i + 1}/${totalChunks} after ${maxChunkRetries} retries: ${error.message}`);
+              updateChunk(uploadId, chunkIndex);
+              throw new Error(`Failed to upload chunk ${chunkIndex + 1}/${totalChunks} after ${maxChunkRetries} retries: ${error.message}`);
             }
             const backoffDelay = 2000 * Math.pow(2, retries - 1);
-            console.warn(`[FileUpload] Chunk ${i + 1}/${totalChunks} attempt ${retries} failed, retrying in ${backoffDelay / 1000}s...`);
+            console.warn(`[FileUpload] Chunk ${chunkIndex + 1}/${totalChunks} attempt ${retries} failed, retrying in ${backoffDelay / 1000}s...`);
             await new Promise(resolve => setTimeout(resolve, backoffDelay));
           }
         }
+      };
 
-        // Update progress
-        const progress = ((i + 1) / totalChunks) * 100;
-        const uploadedBytes = Math.min((i + 1) * CHUNK_SIZE, file.size);
+      // Process chunks in parallel batches
+      for (let batchStart = startChunk; batchStart < totalChunks; batchStart += PARALLEL_CHUNKS) {
+        if (abortController?.signal.aborted) {
+          console.log(`[FileUpload] Upload cancelled at batch starting chunk ${batchStart}`);
+          return;
+        }
+
+        const batchEnd = Math.min(batchStart + PARALLEL_CHUNKS, totalChunks);
+        const batchIndices = Array.from({ length: batchEnd - batchStart }, (_, i) => batchStart + i);
+
+        // Upload batch concurrently
+        await Promise.all(batchIndices.map(idx => uploadSingleChunk(idx)));
+
+        // Update progress after batch completes
+        completedChunks = batchEnd;
+        const progress = (completedChunks / totalChunks) * 100;
+        const uploadedBytes = Math.min(completedChunks * CHUNK_SIZE, file.size);
         updateProgress(uploadId, progress, uploadedBytes);
-        updateChunk(uploadId, i + 1);
+        updateChunk(uploadId, completedChunks);
       }
 
       console.log(`[FileUpload] All chunks uploaded, finalizing via resumable upload...`);

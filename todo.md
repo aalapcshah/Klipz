@@ -6153,3 +6153,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] FIX: Changed GlobalDropZone to always use uploadType 'file' for ALL dropped files
 - [x] The resumable upload backend already detects video MIME types and creates appropriate records
 - [x] All 21 upload-related tests passing
+
+## Bug: Upload Stalling at Chunk 11/378 for Large File (FIXED)
+- [x] 377.7MB file upload was extremely slow with 378 sequential 1MB chunk requests
+- [x] ROOT CAUSE: 1MB chunks meant 378 sequential HTTP requests — too slow on mobile
+- [x] FIX: Increased chunk size from 1MB to 5MB (reduces 378 requests to 76)
+- [x] FIX: Added parallel chunk uploads (3 concurrent) for ~3x faster throughput
+- [x] Tested: Production proxy supports up to 13MB+ payloads (5MB chunk = 6.67MB base64 payload)
+- [x] Net improvement: ~15x faster uploads (5x larger chunks × 3x parallelism)
+- [x] All 92 upload-related tests passing

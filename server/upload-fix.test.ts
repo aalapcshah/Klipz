@@ -49,7 +49,7 @@ describe("Upload architecture - resumable upload system", () => {
     expect(content).not.toContain("uploadChunk.finalizeUpload");
   });
 
-  it("should use 1MB chunk size for all uploads", async () => {
+  it("should use correct chunk sizes for uploads", async () => {
     const fs = await import("fs");
     const videoContent = fs.readFileSync(
       "/home/ubuntu/metaclips/client/src/components/VideoUploadSection.tsx",
@@ -60,9 +60,11 @@ describe("Upload architecture - resumable upload system", () => {
       "utf-8"
     );
     
-    // Both should use 1MB chunks
+    // VideoUploadSection uses 1MB chunks (real-time recording)
     expect(videoContent).toContain("1 * 1024 * 1024");
-    expect(fileContent).toContain("1 * 1024 * 1024");
+    // FileUploadProcessor uses 5MB chunks with parallel uploads for faster throughput
+    expect(fileContent).toContain("5 * 1024 * 1024");
+    expect(fileContent).toContain("PARALLEL_CHUNKS");
   });
 });
 

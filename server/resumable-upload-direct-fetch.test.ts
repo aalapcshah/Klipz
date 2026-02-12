@@ -105,15 +105,15 @@ describe("Resumable Upload - Direct Fetch Architecture", () => {
     expect(backoff3).toBe(8000);
   });
 
-  it("should ensure 1MB chunk base64 payload stays under proxy limits", () => {
-    const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB raw
+  it("should ensure 5MB chunk base64 payload stays under proxy limits", () => {
+    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB raw (FileUploadProcessor)
     // Base64 encoding expands data by ~33%
     const base64Size = Math.ceil(CHUNK_SIZE * 4 / 3);
     // JSON wrapper adds some overhead (~200 bytes for session token, chunk index, etc.)
     const jsonPayloadSize = base64Size + 200;
     
-    // Must stay well under typical proxy body size limits (usually 1-10MB)
-    expect(jsonPayloadSize).toBeLessThan(2 * 1024 * 1024); // Under 2MB total payload
-    expect(base64Size).toBeLessThan(1.5 * 1024 * 1024); // Base64 under 1.5MB
+    // Proxy supports up to ~13MB payloads (tested)
+    expect(jsonPayloadSize).toBeLessThan(10 * 1024 * 1024); // Under 10MB total payload
+    expect(base64Size).toBeLessThan(7 * 1024 * 1024); // Base64 under 7MB
   });
 });
