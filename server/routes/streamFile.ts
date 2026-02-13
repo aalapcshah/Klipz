@@ -20,6 +20,11 @@ const router = Router();
  * - Full file download (for non-media files or explicit download)
  */
 
+// Default range size for open-ended range requests (no end byte specified).
+// 10MB gives the browser enough buffer for smooth video playback while keeping
+// memory usage reasonable. The browser will make follow-up requests as needed.
+const DEFAULT_RANGE_SIZE = 10 * 1024 * 1024; // 10MB
+
 async function getSessionAndChunks(sessionToken: string) {
   const drizzle = await getDb();
   if (!drizzle) return null;
@@ -48,6 +53,63 @@ async function getSessionAndChunks(sessionToken: string) {
     .orderBy(resumableUploadChunks.chunkIndex);
 
   return { session, chunks, redirectUrl: null };
+}
+
+/**
+ * Stream the specified byte range from chunks to the response.
+ * Handles cross-chunk boundaries correctly by computing exact offsets.
+ */
+async function streamRange(
+  res: Response,
+  chunks: any[],
+  chunkSize: number,
+  rangeStart: number,
+  rangeEnd: number
+) {
+  const contentLength = rangeEnd - rangeStart + 1;
+  let bytesWritten = 0;
+
+  // Find which chunks contain the requested range
+  const startChunkIndex = Math.floor(rangeStart / chunkSize);
+  const endChunkIndex = Math.floor(rangeEnd / chunkSize);
+
+  for (let i = startChunkIndex; i <= endChunkIndex && i < chunks.length; i++) {
+    if (res.destroyed) break;
+
+    const chunk = chunks[i];
+    const chunkStartByte = i * chunkSize; // Global byte offset where this chunk starts
+
+    try {
+      const { url } = await storageGet(chunk.storageKey);
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.error(`[StreamFile] Failed to fetch chunk ${i}: HTTP ${response.status}`);
+        break;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+
+      // Calculate the slice of this chunk that falls within the requested range
+      const sliceStart = Math.max(0, rangeStart - chunkStartByte);
+      const sliceEnd = Math.min(buffer.length, rangeEnd - chunkStartByte + 1);
+
+      if (sliceStart < sliceEnd) {
+        const slice = buffer.subarray(sliceStart, sliceEnd);
+        const canContinue = res.write(slice);
+        bytesWritten += slice.length;
+
+        // Handle backpressure
+        if (!canContinue && !res.destroyed) {
+          await new Promise<void>((resolve) => res.once("drain", resolve));
+        }
+      }
+
+      if (bytesWritten >= contentLength) break;
+    } catch (error) {
+      console.error(`[StreamFile] Error streaming chunk ${i}:`, error);
+      break;
+    }
+  }
 }
 
 // HEAD request handler - returns metadata without streaming any data
@@ -117,16 +179,18 @@ router.get("/api/files/stream/:sessionToken", async (req: Request, res: Response
     const rangeHeader = req.headers.range;
     const isMedia = mimeType.startsWith("video/") || mimeType.startsWith("audio/");
 
-    // For media files without a Range header, respond with 200 but include Accept-Ranges
-    // to tell the browser it can use range requests. Then stream the data.
-    // For non-media files or explicit downloads, stream the full file.
-    
     if (rangeHeader) {
-      // Parse range header: "bytes=start-end"
+      // Parse range header: "bytes=start-end" or "bytes=start-"
       const parts = rangeHeader.replace(/bytes=/, "").split("-");
       const rangeStart = parseInt(parts[0], 10);
-      // If end is not specified, serve a reasonable chunk (2MB) to avoid downloading everything
-      const rangeEnd = parts[1] ? parseInt(parts[1], 10) : Math.min(rangeStart + 2 * 1024 * 1024 - 1, totalSize - 1);
+      
+      // If end byte is specified, honor it exactly.
+      // If not specified (open-ended), serve DEFAULT_RANGE_SIZE bytes.
+      // This gives the browser enough buffer for smooth video playback.
+      const rangeEnd = parts[1] && parts[1].length > 0
+        ? Math.min(parseInt(parts[1], 10), totalSize - 1)
+        : Math.min(rangeStart + DEFAULT_RANGE_SIZE - 1, totalSize - 1);
+      
       const contentLength = rangeEnd - rangeStart + 1;
 
       res.writeHead(206, {
@@ -137,52 +201,12 @@ router.get("/api/files/stream/:sessionToken", async (req: Request, res: Response
         "Cache-Control": "public, max-age=86400",
       });
 
-      // Find which chunks contain the requested range
-      const startChunkIndex = Math.floor(rangeStart / chunkSize);
-      const endChunkIndex = Math.floor(rangeEnd / chunkSize);
-
-      let bytesWritten = 0;
-      let globalOffset = startChunkIndex * chunkSize;
-
-      for (let i = startChunkIndex; i <= endChunkIndex && i < chunks.length; i++) {
-        const chunk = chunks[i];
-        try {
-          const { url } = await storageGet(chunk.storageKey);
-          const response = await fetch(url);
-          if (!response.ok) {
-            console.error(`[StreamFile] Failed to fetch chunk ${i}: HTTP ${response.status}`);
-            break;
-          }
-
-          const buffer = Buffer.from(await response.arrayBuffer());
-
-          // Calculate the slice of this chunk that falls within the requested range
-          const sliceStart = Math.max(0, rangeStart - globalOffset);
-          const sliceEnd = Math.min(buffer.length, rangeEnd - globalOffset + 1);
-
-          if (sliceStart < sliceEnd) {
-            const slice = buffer.subarray(sliceStart, sliceEnd);
-            res.write(slice);
-            bytesWritten += slice.length;
-          }
-
-          globalOffset += buffer.length;
-
-          if (bytesWritten >= contentLength) break;
-        } catch (error) {
-          console.error(`[StreamFile] Error streaming chunk ${i}:`, error);
-          break;
-        }
-      }
-
+      await streamRange(res, chunks, chunkSize, rangeStart, rangeEnd);
       res.end();
     } else if (isMedia) {
       // For media files without Range header: return 200 with Accept-Ranges
-      // and stream the first portion of data. The browser will then switch to
-      // range requests for seeking.
-      // 
-      // Key: send headers IMMEDIATELY so the browser doesn't time out,
-      // then stream chunks progressively.
+      // and stream the data. The browser will then switch to range requests for seeking.
+      // Send headers IMMEDIATELY so the browser doesn't time out.
       const isDownload = req.query.download === 'true';
       const disposition = isDownload ? 'attachment' : 'inline';
       
@@ -196,6 +220,7 @@ router.get("/api/files/stream/:sessionToken", async (req: Request, res: Response
 
       // Stream all chunks sequentially
       for (let i = 0; i < chunks.length; i++) {
+        if (res.destroyed) break;
         const chunk = chunks[i];
         try {
           const { url } = await storageGet(chunk.storageKey);
@@ -209,7 +234,7 @@ router.get("/api/files/stream/:sessionToken", async (req: Request, res: Response
           const canContinue = res.write(buffer);
 
           // Handle backpressure
-          if (!canContinue) {
+          if (!canContinue && !res.destroyed) {
             await new Promise<void>((resolve) => res.once("drain", resolve));
           }
         } catch (error) {
@@ -232,6 +257,7 @@ router.get("/api/files/stream/:sessionToken", async (req: Request, res: Response
       });
 
       for (let i = 0; i < chunks.length; i++) {
+        if (res.destroyed) break;
         const chunk = chunks[i];
         try {
           const { url } = await storageGet(chunk.storageKey);
@@ -244,7 +270,7 @@ router.get("/api/files/stream/:sessionToken", async (req: Request, res: Response
           const buffer = Buffer.from(await response.arrayBuffer());
           const canContinue = res.write(buffer);
 
-          if (!canContinue) {
+          if (!canContinue && !res.destroyed) {
             await new Promise<void>((resolve) => res.once("drain", resolve));
           }
         } catch (error) {

@@ -6211,3 +6211,11 @@ Note: The application already has extensive annotation features including voice 
 - [ ] Fix the error and ensure upgrade flow works — requires STRIPE_PRICE_ID_PRO to be configured
 - [x] Fix X button overlapping with 'Upgrade to Pro' text in trial expired banner
 - [x] Reset/extend owner's trial period for continued development
+
+## Bug: Video Freezes After Initial Playback in Files (FIXED)
+- [x] Large video (579MB, video/quicktime) plays initially but freezes after first few seconds
+- [x] Slider can be moved but video frame stays frozen
+- [x] Root cause: Open-ended range requests capped at 2MB, browser buffer runs dry between requests
+- [x] Fix: Increased default range size from 2MB to 10MB for open-ended range requests
+- [x] Fix: Refactored streamRange into a shared helper with proper backpressure and connection abort handling
+- [x] Fix: Added res.destroyed checks to stop streaming when client disconnects
