@@ -40,8 +40,10 @@ import MyShares from "./pages/MyShares";
 import Pricing from "./pages/Pricing";
 import TeamManagement from "./pages/TeamManagement";
 import TeamSetup from "./pages/TeamSetup";
+import TeamInviteAccept from "./pages/TeamInviteAccept";
 import { trpc } from "./lib/trpc";
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { CookieConsent } from "./components/CookieConsent";
 import { GlobalSearchModal } from "./components/GlobalSearchModal";
 import { PWAInstallBanner } from "./components/PWAInstallBanner";
@@ -71,6 +73,7 @@ function Router() {
       <Route path="/pricing" component={Pricing} />
       <Route path="/team" component={TeamManagement} />
       <Route path="/team/setup" component={TeamSetup} />
+      <Route path="/team/invite/:token" component={TeamInviteAccept} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/terms-of-service" component={TermsOfService} />
       <Route path="/payment/success" component={PaymentSuccess} />
@@ -119,11 +122,24 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  const [, setLocation] = useLocation();
+
   useEffect(() => {
     if (user && !user.profileCompleted) {
       setShowOnboarding(true);
     }
   }, [user]);
+
+  // Check for pending invite token after login
+  useEffect(() => {
+    if (user) {
+      const pendingToken = sessionStorage.getItem("pendingInviteToken");
+      if (pendingToken) {
+        sessionStorage.removeItem("pendingInviteToken");
+        setLocation(`/team/invite/${pendingToken}`);
+      }
+    }
+  }, [user, setLocation]);
 
   return (
     <ErrorBoundary>

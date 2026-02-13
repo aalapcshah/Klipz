@@ -1,10 +1,11 @@
 import { z } from "zod";
-import { protectedProcedure, router } from "../_core/trpc";
-import { teams, teamInvites, users } from "../../drizzle/schema";
-import { eq, and, count } from "drizzle-orm";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { teams, teamInvites, users, teamActivities } from "../../drizzle/schema";
+import { eq, and, count, desc, lt } from "drizzle-orm";
 import { getDb } from "../db";
 import { TRPCError } from "@trpc/server";
 import crypto from "crypto";
+import { logTeamActivity } from "../lib/teamActivity";
 
 /**
  * Helper to check if a user is a team owner or admin
@@ -22,6 +23,56 @@ async function requireTeamAdmin(userId: number, teamId: number) {
 }
 
 export const teamsRouter = router({
+  /**
+   * Get invite details by token (public - no auth required to view invite info)
+   */
+  getInviteDetails: publicProcedure
+    .input(z.object({
+      token: z.string(),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const [invite] = await db
+        .select({
+          id: teamInvites.id,
+          email: teamInvites.email,
+          role: teamInvites.role,
+          status: teamInvites.status,
+          expiresAt: teamInvites.expiresAt,
+          createdAt: teamInvites.createdAt,
+          teamId: teamInvites.teamId,
+          invitedBy: teamInvites.invitedBy,
+        })
+        .from(teamInvites)
+        .where(eq(teamInvites.token, input.token))
+        .limit(1);
+
+      if (!invite) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Invite not found" });
+      }
+
+      // Get team name
+      const [team] = await db.select({ name: teams.name }).from(teams).where(eq(teams.id, invite.teamId)).limit(1);
+
+      // Get inviter name
+      const [inviter] = await db.select({ name: users.name }).from(users).where(eq(users.id, invite.invitedBy)).limit(1);
+
+      // Check if expired
+      const isExpired = invite.status === "pending" && new Date() > invite.expiresAt;
+
+      return {
+        email: invite.email,
+        role: invite.role,
+        status: isExpired ? "expired" as const : invite.status,
+        teamName: team?.name || "Unknown Team",
+        inviterName: inviter?.name || "A team member",
+        expiresAt: invite.expiresAt,
+        createdAt: invite.createdAt,
+      };
+    }),
+
   /**
    * Get the current user's team (if they belong to one)
    */
@@ -90,6 +141,15 @@ export const teamsRouter = router({
       await db.update(users)
         .set({ teamId: Number(teamId) })
         .where(eq(users.id, ctx.user.id));
+
+      // Log activity
+      await logTeamActivity({
+        teamId: Number(teamId),
+        actorId: ctx.user.id,
+        actorName: ctx.user.name || null,
+        type: "team_created",
+        details: { teamName: input.name },
+      });
 
       return { teamId: Number(teamId), name: input.name };
     }),
@@ -199,6 +259,15 @@ export const teamsRouter = router({
         expiresAt,
       });
 
+      // Log activity
+      await logTeamActivity({
+        teamId: team.id,
+        actorId: ctx.user.id,
+        actorName: ctx.user.name || null,
+        type: "invite_sent",
+        details: { email: input.email, role: input.role },
+      });
+
       return { success: true, message: `Invite sent to ${input.email}` };
     }),
 
@@ -271,6 +340,22 @@ export const teamsRouter = router({
         })
         .where(eq(users.id, ctx.user.id));
 
+      // Log activities
+      await logTeamActivity({
+        teamId: invite.teamId,
+        actorId: ctx.user.id,
+        actorName: ctx.user.name || null,
+        type: "invite_accepted",
+        details: { email: invite.email },
+      });
+      await logTeamActivity({
+        teamId: invite.teamId,
+        actorId: ctx.user.id,
+        actorName: ctx.user.name || null,
+        type: "member_joined",
+        details: { memberName: ctx.user.name || ctx.user.email || "Unknown" },
+      });
+
       return { success: true, teamId: invite.teamId };
     }),
 
@@ -291,9 +376,25 @@ export const teamsRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
+      // Get invite details for logging
+      const [revokedInvite] = await db
+        .select({ email: teamInvites.email })
+        .from(teamInvites)
+        .where(eq(teamInvites.id, input.inviteId))
+        .limit(1);
+
       await db.update(teamInvites)
         .set({ status: "revoked" })
         .where(and(eq(teamInvites.id, input.inviteId), eq(teamInvites.teamId, ctx.user.teamId)));
+
+      // Log activity
+      await logTeamActivity({
+        teamId: ctx.user.teamId,
+        actorId: ctx.user.id,
+        actorName: ctx.user.name || null,
+        type: "invite_revoked",
+        details: { email: revokedInvite?.email || "unknown" },
+      });
 
       return { success: true };
     }),
@@ -316,10 +417,26 @@ export const teamsRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot remove the team owner" });
       }
 
+      // Get member details for logging
+      const [removedMember] = await db
+        .select({ name: users.name, email: users.email })
+        .from(users)
+        .where(eq(users.id, input.userId))
+        .limit(1);
+
       // Remove user from team
       await db.update(users)
         .set({ teamId: null, subscriptionTier: "free" })
         .where(and(eq(users.id, input.userId), eq(users.teamId, team.id)));
+
+      // Log activity
+      await logTeamActivity({
+        teamId: team.id,
+        actorId: ctx.user.id,
+        actorName: ctx.user.name || null,
+        type: "member_removed",
+        details: { memberName: removedMember?.name || removedMember?.email || "Unknown" },
+      });
 
       return { success: true };
     }),
@@ -344,10 +461,21 @@ export const teamsRouter = router({
       });
     }
 
+    const leavingTeamId = ctx.user.teamId;
+
     // Remove from team
     await db.update(users)
       .set({ teamId: null, subscriptionTier: "free" })
       .where(eq(users.id, ctx.user.id));
+
+    // Log activity
+    await logTeamActivity({
+      teamId: leavingTeamId,
+      actorId: ctx.user.id,
+      actorName: ctx.user.name || null,
+      type: "member_left",
+      details: { memberName: ctx.user.name || "Unknown" },
+    });
 
     return { success: true };
   }),
@@ -370,7 +498,57 @@ export const teamsRouter = router({
         .set({ name: input.name })
         .where(eq(teams.id, ctx.user.teamId));
 
+      // Log activity
+      await logTeamActivity({
+        teamId: ctx.user.teamId,
+        actorId: ctx.user.id,
+        actorName: ctx.user.name || null,
+        type: "team_name_updated",
+        details: { newName: input.name },
+      });
+
       return { success: true };
+    }),
+
+  /**
+   * Get team activity feed with pagination
+   */
+  getActivities: protectedProcedure
+    .input(z.object({
+      limit: z.number().min(1).max(50).optional().default(20),
+      cursor: z.number().optional(), // activity ID for cursor-based pagination
+    }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) return { activities: [], nextCursor: undefined };
+
+      if (!ctx.user.teamId) return { activities: [], nextCursor: undefined };
+
+      const limit = input?.limit ?? 20;
+      const cursor = input?.cursor;
+
+      const whereConditions = cursor
+        ? and(
+            eq(teamActivities.teamId, ctx.user.teamId),
+            lt(teamActivities.id, cursor)
+          )
+        : eq(teamActivities.teamId, ctx.user.teamId);
+
+      const activities = await db
+        .select()
+        .from(teamActivities)
+        .where(whereConditions)
+        .orderBy(desc(teamActivities.id))
+        .limit(limit + 1);
+
+      const hasMore = activities.length > limit;
+      const items = hasMore ? activities.slice(0, limit) : activities;
+      const nextCursor = hasMore ? items[items.length - 1]?.id : undefined;
+
+      return {
+        activities: items,
+        nextCursor,
+      };
     }),
 });
 

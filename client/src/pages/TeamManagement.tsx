@@ -37,6 +37,7 @@ import {
   Check,
   X,
 } from "lucide-react";
+import TeamActivityFeed from "@/components/TeamActivityFeed";
 
 export default function TeamManagement() {
   const { user, loading: authLoading } = useAuth();
@@ -459,6 +460,9 @@ export default function TeamManagement() {
             </CardContent>
           </Card>
         )}
+
+        {/* Activity Feed */}
+        <TeamActivityFeed />
 
         {/* Team Settings (owner only) */}
         {team.isOwner && (

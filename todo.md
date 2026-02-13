@@ -6349,3 +6349,21 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add route /team/setup for the onboarding wizard
 - [x] Skip onboarding if team already exists
 - [x] Skip option for invite step
+
+## Team Invite Acceptance Page
+- [x] Create /team/invite/:token route for accepting invites via email link
+- [x] Show invite details (team name, inviter) before accepting
+- [x] Handle expired/invalid/already-used invite tokens
+- [x] Auto-redirect to team page after accepting
+- [x] Support both logged-in and logged-out users (redirect to login first if needed)
+- [x] Store pending invite token in sessionStorage and auto-redirect after OAuth login
+
+## Team Activity Feed
+- [x] Create team_activities table in database schema
+- [x] Track key team events (member joins, file uploads, annotations, invites sent)
+- [x] Add getTeamActivities backend procedure with cursor-based pagination
+- [x] Display activity feed on Team Management page
+- [x] Show activity type icons, actor name, timestamp, and description
+- [x] Add pagination or "load more" for activity history
+- [x] Log activities for: team_created, member_joined, member_left, member_removed, invite_sent, invite_accepted, invite_revoked, team_name_updated
+- [x] 47 new tests for team activity feed and invite acceptance (teamActivity.test.ts)

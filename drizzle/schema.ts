@@ -1960,3 +1960,54 @@ export const teamInvitesRelations = relations(teamInvites, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+
+// ============= TEAM ACTIVITIES TABLE =============
+
+/**
+ * Team activities table - tracks team events for the activity feed
+ */
+export const teamActivities = mysqlTable("team_activities", {
+  id: int("id").autoincrement().primaryKey(),
+  teamId: int("teamId").notNull(),
+  
+  // Actor (who performed the action)
+  actorId: int("actorId").notNull(), // User ID
+  actorName: varchar("actorName", { length: 255 }), // Cached name for display
+  
+  // Activity type
+  type: mysqlEnum("type", [
+    "member_joined",
+    "member_left",
+    "member_removed",
+    "invite_sent",
+    "invite_accepted",
+    "invite_revoked",
+    "file_uploaded",
+    "annotation_created",
+    "team_created",
+    "team_name_updated",
+  ]).notNull(),
+  
+  // Activity details (JSON for flexible metadata)
+  details: json("details").$type<Record<string, string | number | null>>(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  teamIdIndex: index("team_activities_team_id_idx").on(table.teamId),
+  createdAtIndex: index("team_activities_created_at_idx").on(table.createdAt),
+}));
+
+export type TeamActivity = typeof teamActivities.$inferSelect;
+export type InsertTeamActivity = typeof teamActivities.$inferInsert;
+
+export const teamActivitiesRelations = relations(teamActivities, ({ one }) => ({
+  team: one(teams, {
+    fields: [teamActivities.teamId],
+    references: [teams.id],
+  }),
+  actor: one(users, {
+    fields: [teamActivities.actorId],
+    references: [users.id],
+  }),
+}));
