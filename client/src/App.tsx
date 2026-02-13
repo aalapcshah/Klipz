@@ -19,6 +19,7 @@ import Upgrade from "./pages/Upgrade";
 import { PrivacyPolicy } from "./pages/PrivacyPolicy";
 import { TermsOfService } from "./pages/TermsOfService";
 import { PaymentSuccess } from "./pages/PaymentSuccess";
+import { SubscriptionManagement } from "./pages/SubscriptionManagement";
 import ActivityDashboard from "./pages/ActivityDashboard";
 import { Admin } from "./pages/Admin";
 import { AdminScheduledReports } from "./pages/AdminScheduledReports";
@@ -68,6 +69,7 @@ function Router() {
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/terms-of-service" component={TermsOfService} />
       <Route path="/payment/success" component={PaymentSuccess} />
+      <Route path="/account/subscription" component={SubscriptionManagement} />
       <Route path="/activity" component={ActivityDashboard} />
       <Route path="/admin" component={Admin} />
       <Route path="/admin/scheduled" component={AdminScheduledReports} />

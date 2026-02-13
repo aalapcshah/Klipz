@@ -149,4 +149,35 @@ export const stripeRouter = router({
         success: true,
       };
     }),
+
+  /**
+   * Get billing history (recent invoices)
+   */
+  getBillingHistory: protectedProcedure
+    .query(async ({ ctx }) => {
+      if (!ctx.user.stripeCustomerId) {
+        return [];
+      }
+
+      try {
+        const invoices = await stripe.invoices.list({
+          customer: ctx.user.stripeCustomerId,
+          limit: 12,
+        });
+
+        return invoices.data.map((invoice) => ({
+          id: invoice.id,
+          date: invoice.created * 1000,
+          amount: invoice.amount_paid,
+          amountFormatted: `$${(invoice.amount_paid / 100).toFixed(2)}`,
+          currency: invoice.currency,
+          status: invoice.status,
+          description: invoice.lines.data[0]?.description || "MetaClips Pro Subscription",
+          receiptUrl: invoice.hosted_invoice_url || null,
+        }));
+      } catch (error) {
+        console.error("Error fetching billing history:", error);
+        return [];
+      }
+    }),
 });

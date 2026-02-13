@@ -6258,3 +6258,20 @@ Note: The application already has extensive annotation features including voice 
 
 ## Subscription Bug Fix
 - [x] Fix "Invalid subscription tier" error on pricing page when trying to subscribe (created stripeInit.ts to auto-create Stripe product/price on server startup, updated products.ts with dynamic getter)
+
+## Payment Success Page
+- [x] Create /payment/success route with subscription confirmation details
+- [x] Show plan name, billing period, and next billing date
+- [x] Add "Go to Dashboard" and "Manage Subscription" CTAs
+- [x] Handle edge cases (direct URL access without active subscription)
+
+## Subscription Management UI
+- [x] Create /account/subscription route for subscription management
+- [x] Display current plan, status, billing period, and next billing date
+- [x] Add cancel subscription button with confirmation dialog
+- [x] Add resume subscription button for canceled-but-active subscriptions
+- [x] Show billing history / recent invoices
+- [x] Add backend tRPC procedures for cancel and resume (already existed)
+- [x] Add backend procedure to fetch subscription details from Stripe (already existed)
+- [x] Add getBillingHistory procedure to fetch billing history from Stripe
+- [x] Add "Manage subscription" link from AccountSettings

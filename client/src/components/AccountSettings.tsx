@@ -23,6 +23,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { trpc } from "@/lib/trpc";
+import { Link } from "wouter";
 import { toast } from "sonner";
 import { Loader2, AlertTriangle, Camera, Mic, MapPin, Smartphone, CheckCircle2, XCircle, HelpCircle, Upload, User, Calendar, CreditCard, HardDrive, Sparkles } from "lucide-react";
 import { PermissionsDialog } from "@/components/PermissionsDialog";
@@ -280,6 +281,9 @@ export function AccountSettings() {
                 {status?.isOnTrial && status?.trialDaysRemaining !== null && (
                   <p className="text-xs text-purple-500">{status.trialDaysRemaining} days remaining</p>
                 )}
+                <Link href="/account/subscription">
+                  <span className="text-xs text-primary hover:underline cursor-pointer">Manage subscription</span>
+                </Link>
               </div>
             </div>
 

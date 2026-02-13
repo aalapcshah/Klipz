@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useLocation, Link } from "wouter";
-import { CheckCircle2, ArrowRight } from "lucide-react";
+import { CheckCircle2, ArrowRight, CreditCard, Calendar, Crown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { trpc } from "@/lib/trpc";
 
 export function PaymentSuccess() {
   const [, setLocation] = useLocation();
@@ -14,55 +15,134 @@ export function PaymentSuccess() {
     setSessionId(session);
   }, []);
 
+  const { data: subscriptionStatus, isLoading } = trpc.stripe.getSubscriptionStatus.useQuery(
+    undefined,
+    { refetchInterval: 3000, refetchIntervalInBackground: false }
+  );
+
+  const isPro = subscriptionStatus?.tier === "pro" && subscriptionStatus?.status === "active";
+  const periodEnd = subscriptionStatus?.currentPeriodEnd
+    ? new Date(subscriptionStatus.currentPeriodEnd).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : null;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
-      <Card className="max-w-md w-full p-8 text-center space-y-6">
-        <div className="flex justify-center">
-          <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
-            <CheckCircle2 className="w-12 h-12 text-emerald-600 dark:text-emerald-400" />
+      <Card className="max-w-lg w-full overflow-hidden">
+        {/* Success header */}
+        <div className="bg-gradient-to-r from-emerald-500 to-teal-500 p-8 text-center text-white">
+          <div className="flex justify-center mb-4">
+            <div className="w-20 h-20 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
+              <CheckCircle2 className="w-12 h-12 text-white" />
+            </div>
           </div>
-        </div>
-
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            Payment Successful!
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Thank you for subscribing to MetaClips. Your account has been upgraded.
+          <h1 className="text-3xl font-bold">Payment Successful!</h1>
+          <p className="text-emerald-100 mt-2">
+            Welcome to MetaClips Pro
           </p>
         </div>
 
-        {sessionId && (
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Session ID
-            </p>
-            <p className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all mt-1">
-              {sessionId}
-            </p>
+        <CardContent className="p-6 space-y-6">
+          {/* Subscription details */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Loading subscription details...</span>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">Subscription Details</h2>
+              
+              <div className="grid gap-3">
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <Crown className="h-5 w-5 text-amber-500 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Plan</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {isPro ? "MetaClips Pro" : subscriptionStatus?.tier === "trial" ? "Pro Trial" : "Processing..."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <CreditCard className="h-5 w-5 text-primary shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Billing</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {isPro ? "$9.99/month" : "—"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <Calendar className="h-5 w-5 text-blue-500 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Next Billing Date</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {periodEnd || "—"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {!isPro && subscriptionStatus?.status !== "active" && (
+                <p className="text-sm text-muted-foreground text-center py-2">
+                  Your subscription is being activated. This page will update automatically.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Pro features summary */}
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">What you now have access to:</h3>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              {[
+                "Unlimited files",
+                "50 GB storage",
+                "Unlimited video uploads",
+                "Video annotation",
+                "AI-powered enrichment",
+                "Knowledge graph",
+                "Export in all formats",
+                "Priority support",
+              ].map((feature) => (
+                <div key={feature} className="flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                  <span className="text-foreground">{feature}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        )}
 
-        <div className="space-y-3 pt-4">
-          <Button
-            onClick={() => setLocation("/files")}
-            className="w-full"
-            size="lg"
-          >
-            Go to Files
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-          
-          <Link href="/settings">
-            <Button variant="outline" className="w-full">
-              View Account Settings
+          {/* Actions */}
+          <div className="space-y-3 pt-2">
+            <Button
+              onClick={() => setLocation("/files")}
+              className="w-full"
+              size="lg"
+            >
+              Go to Dashboard
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-          </Link>
-        </div>
 
-        <p className="text-xs text-gray-500 dark:text-gray-400 pt-4">
-          You'll receive a confirmation email shortly with your subscription details.
-        </p>
+            <Link href="/account/subscription">
+              <Button variant="outline" className="w-full">
+                <CreditCard className="mr-2 h-4 w-4" />
+                Manage Subscription
+              </Button>
+            </Link>
+          </div>
+
+          {sessionId && (
+            <p className="text-xs text-muted-foreground text-center pt-2">
+              Transaction ID: {sessionId.slice(0, 20)}...
+            </p>
+          )}
+        </CardContent>
       </Card>
     </div>
   );
