@@ -26,14 +26,42 @@ import { eq, and } from "drizzle-orm";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { execSync } from "child_process";
 import { generateVideoThumbnail } from "./videoThumbnail";
+import { ENV } from "../_core/env";
 
 // Track active assembly jobs to prevent duplicates
 const activeAssemblies = new Set<string>();
 
-// Max file size we'll attempt to assemble (500MB)
-// Larger files risk OOM when reading the temp file into a Buffer for upload
-const MAX_ASSEMBLY_SIZE = 500 * 1024 * 1024;
+// Max file size we'll attempt to assemble (2GB)
+// Files up to 200MB use in-memory storagePut.
+// Files 200MB-2GB use curl to stream from disk (avoids OOM).
+const MAX_ASSEMBLY_SIZE = 2 * 1024 * 1024 * 1024;
+const MEMORY_UPLOAD_LIMIT = 200 * 1024 * 1024; // 200MB
+
+/**
+ * Upload a file from disk to S3 using curl (streams from disk, avoids OOM for large files).
+ */
+function storagePutViaCurl(key: string, filePath: string, contentType: string): string {
+  const normalizedKey = key.replace(/^\/+/, "");
+  const baseUrl = ENV.forgeApiUrl.replace(/\/+$/, "");
+  const uploadUrl = `${baseUrl}/v1/storage/upload?path=${encodeURIComponent(normalizedKey)}`;
+  const fileName = normalizedKey.split("/").pop() || "file";
+
+  const result = execSync(
+    `curl -s -X POST "${uploadUrl}" ` +
+    `-H "Authorization: Bearer ${ENV.forgeApiKey}" ` +
+    `-F "file=@${filePath};type=${contentType};filename=${fileName}" ` +
+    `--max-time 600`,
+    { maxBuffer: 10 * 1024 * 1024, timeout: 600000 }
+  );
+
+  const parsed = JSON.parse(result.toString());
+  if (!parsed.url) {
+    throw new Error(`storagePutViaCurl: No URL in response: ${result.toString().substring(0, 200)}`);
+  }
+  return parsed.url;
+}
 
 /**
  * Assemble chunks into a single S3 file in the background.
@@ -127,24 +155,31 @@ export async function assembleChunksInBackground(
 
       console.log(`[BackgroundAssembly] ${sessionToken}: All chunks written to temp file (${(totalBytesWritten / 1024 / 1024).toFixed(1)}MB)`);
 
-      // Check if the file is too large to upload in one shot
+      // Check if the file is too large to assemble
       if (totalBytesWritten > MAX_ASSEMBLY_SIZE) {
         console.warn(`[BackgroundAssembly] ${sessionToken}: File is ${(totalBytesWritten / 1024 / 1024).toFixed(1)}MB, exceeding ${MAX_ASSEMBLY_SIZE / 1024 / 1024}MB limit. Skipping S3 upload — streaming endpoint will continue to serve this file.`);
         return;
       }
 
-      // Read the assembled file and upload to S3
-      const assembledBuffer = fs.readFileSync(tmpFile);
-      
       const timestamp = Date.now();
       const randomSuffix = Math.random().toString(36).substring(2, 8);
       const folder = uploadType === 'video' ? 'videos' : 'files';
       const finalFileKey = `user-${userId}/${folder}/${timestamp}-${randomSuffix}-${filename}`;
 
-      console.log(`[BackgroundAssembly] ${sessionToken}: Uploading assembled file to S3 as ${finalFileKey}...`);
-      
-      const result = await storagePut(finalFileKey, assembledBuffer, mimeType);
-      const finalUrl = result.url;
+      console.log(`[BackgroundAssembly] ${sessionToken}: Uploading assembled file to S3 as ${finalFileKey} (${(totalBytesWritten / 1024 / 1024).toFixed(1)}MB)...`);
+
+      let finalUrl: string;
+
+      if (totalBytesWritten <= MEMORY_UPLOAD_LIMIT) {
+        // Small files: use in-memory storagePut
+        const assembledBuffer = fs.readFileSync(tmpFile);
+        const result = await storagePut(finalFileKey, assembledBuffer, mimeType);
+        finalUrl = result.url;
+      } else {
+        // Large files: use curl to stream from disk (avoids OOM)
+        console.log(`[BackgroundAssembly] ${sessionToken}: Using curl for large file upload...`);
+        finalUrl = storagePutViaCurl(finalFileKey, tmpFile, mimeType);
+      }
 
       console.log(`[BackgroundAssembly] ${sessionToken}: S3 upload complete. URL: ${finalUrl.substring(0, 80)}...`);
 

@@ -6180,7 +6180,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix: For GET requests without Range header, headers are now sent immediately before streaming chunks
 - [x] Fix: Range requests without end byte now cap at 2MB to prevent downloading entire file
 - [x] Increased background assembly limit from 200MB to 500MB to handle larger video files
-- [ ] Trigger background assembly for existing 461MB file to get direct S3 URL
+- [x] Trigger background assembly for existing 461MB file to get direct S3 URL
 - [ ] Generate thumbnail for existing 461MB file
 
 ## Bug: Mobile Upload Stuck at "Waiting in Queue" (FIXED)
@@ -6219,3 +6219,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix: Increased default range size from 2MB to 10MB for open-ended range requests
 - [x] Fix: Refactored streamRange into a shared helper with proper backpressure and connection abort handling
 - [x] Fix: Added res.destroyed checks to stop streaming when client disconnects
+- [x] Assembled DCS_8659.MOV (579MB) from 116 chunks into single S3 file via curl
+- [x] File/video/session records updated with direct CloudFront CDN URL
+- [x] Updated backgroundAssembly to use curl for files >200MB to avoid OOM
+- [x] Increased MAX_ASSEMBLY_SIZE from 500MB to 2GB
