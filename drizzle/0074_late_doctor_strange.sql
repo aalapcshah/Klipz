@@ -1,0 +1,3 @@
+ALTER TABLE `team_activities` MODIFY COLUMN `type` enum('member_joined','member_left','member_removed','member_promoted','member_demoted','invite_sent','invite_accepted','invite_revoked','file_uploaded','annotation_created','team_created','team_name_updated','ownership_transferred','storage_alert_80','storage_alert_90') NOT NULL;--> statement-breakpoint
+ALTER TABLE `teams` ADD `lastStorageAlert80SentAt` timestamp;--> statement-breakpoint
+ALTER TABLE `teams` ADD `lastStorageAlert90SentAt` timestamp;

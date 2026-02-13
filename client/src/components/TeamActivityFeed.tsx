@@ -18,6 +18,9 @@ import {
   Activity,
   ShieldCheck,
   ShieldMinus,
+  Crown,
+  AlertTriangle,
+  HardDrive,
 } from "lucide-react";
 
 type ActivityType =
@@ -32,7 +35,10 @@ type ActivityType =
   | "file_uploaded"
   | "annotation_created"
   | "team_created"
-  | "team_name_updated";
+  | "team_name_updated"
+  | "ownership_transferred"
+  | "storage_alert_80"
+  | "storage_alert_90";
 
 interface ActivityItem {
   id: number;
@@ -70,6 +76,12 @@ function getActivityIcon(type: ActivityType) {
       return <Building2 className="h-4 w-4 text-emerald-400" />;
     case "team_name_updated":
       return <Pencil className="h-4 w-4 text-blue-400" />;
+    case "ownership_transferred":
+      return <Crown className="h-4 w-4 text-amber-400" />;
+    case "storage_alert_80":
+      return <HardDrive className="h-4 w-4 text-yellow-400" />;
+    case "storage_alert_90":
+      return <AlertTriangle className="h-4 w-4 text-red-400" />;
     default:
       return <Activity className="h-4 w-4 text-muted-foreground" />;
   }
@@ -103,7 +115,13 @@ function getActivityDescription(activity: ActivityItem): string {
     case "annotation_created":
       return `${actor} created an annotation on ${details.filename || "a video"}`;
     case "team_name_updated":
-      return `${actor} renamed the team to "${details.newName || ""}"`;
+      return `${actor} renamed the team to "${details.newName || ""}"`;    
+    case "ownership_transferred":
+      return `${actor} transferred ownership to ${details.newOwnerName || "a member"}`;
+    case "storage_alert_80":
+      return `Storage warning: team is at ${details.usagePercent || 80}% capacity (${details.usedFormatted || ""} / ${details.limitFormatted || ""})`;
+    case "storage_alert_90":
+      return `Critical storage alert: team is at ${details.usagePercent || 90}% capacity (${details.usedFormatted || ""} / ${details.limitFormatted || ""})`;
     default:
       return `${actor} performed an action`;
   }
@@ -131,6 +149,12 @@ function getActivityColor(type: ActivityType): string {
       return "bg-cyan-500/10 border-cyan-500/20";
     case "annotation_created":
       return "bg-purple-500/10 border-purple-500/20";
+    case "ownership_transferred":
+      return "bg-amber-500/10 border-amber-500/20";
+    case "storage_alert_80":
+      return "bg-yellow-500/10 border-yellow-500/20";
+    case "storage_alert_90":
+      return "bg-red-500/10 border-red-500/20";
     default:
       return "bg-muted/30";
   }

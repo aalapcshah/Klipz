@@ -1904,6 +1904,10 @@ export const teams = mysqlTable("teams", {
   // Status
   status: mysqlEnum("status", ["active", "suspended", "canceled"]).default("active").notNull(),
   
+  // Storage alert tracking (prevent duplicate notifications)
+  lastStorageAlert80SentAt: timestamp("lastStorageAlert80SentAt"),
+  lastStorageAlert90SentAt: timestamp("lastStorageAlert90SentAt"),
+  
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({
@@ -1990,6 +1994,9 @@ export const teamActivities = mysqlTable("team_activities", {
     "annotation_created",
     "team_created",
     "team_name_updated",
+    "ownership_transferred",
+    "storage_alert_80",
+    "storage_alert_90",
   ]).notNull(),
   
   // Activity details (JSON for flexible metadata)

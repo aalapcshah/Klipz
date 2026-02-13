@@ -708,6 +708,201 @@ export const teamsRouter = router({
     }),
 
   /**
+   * Bulk invite multiple users via email list
+   */
+  bulkInvite: protectedProcedure
+    .input(z.object({
+      emails: z.array(z.string().email()).min(1).max(50),
+      role: z.enum(["member", "admin"]).optional().default("member"),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.user.teamId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You don't belong to a team" });
+      }
+
+      const { db, team } = await requireTeamAdmin(ctx.user.id, ctx.user.teamId);
+
+      // Get current seat usage
+      const [memberResult] = await db
+        .select({ count: count() })
+        .from(users)
+        .where(eq(users.teamId, team.id));
+
+      const [pendingResult] = await db
+        .select({ count: count() })
+        .from(teamInvites)
+        .where(and(eq(teamInvites.teamId, team.id), eq(teamInvites.status, "pending")));
+
+      const currentSeats = (memberResult?.count || 0) + (pendingResult?.count || 0);
+      const availableSeats = team.maxSeats - currentSeats;
+
+      // Get existing members' emails
+      const existingMembers = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.teamId, team.id));
+      const memberEmails = new Set(existingMembers.map(m => m.email?.toLowerCase()));
+
+      // Get existing pending invite emails
+      const existingInvites = await db
+        .select({ email: teamInvites.email })
+        .from(teamInvites)
+        .where(and(eq(teamInvites.teamId, team.id), eq(teamInvites.status, "pending")));
+      const pendingEmails = new Set(existingInvites.map(i => i.email.toLowerCase()));
+
+      const results: { email: string; status: "sent" | "skipped_member" | "skipped_pending" | "skipped_capacity" | "failed" }[] = [];
+      let sentCount = 0;
+
+      // Deduplicate input emails
+      const uniqueEmails = Array.from(new Set(input.emails.map(e => e.toLowerCase())));
+
+      const origin = ctx.req?.headers?.origin || ctx.req?.headers?.referer?.replace(/\/+$/, "") || "";
+
+      for (const email of uniqueEmails) {
+        if (memberEmails.has(email)) {
+          results.push({ email, status: "skipped_member" });
+          continue;
+        }
+
+        if (pendingEmails.has(email)) {
+          results.push({ email, status: "skipped_pending" });
+          continue;
+        }
+
+        if (sentCount >= availableSeats) {
+          results.push({ email, status: "skipped_capacity" });
+          continue;
+        }
+
+        try {
+          const token = crypto.randomBytes(32).toString("hex");
+          const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+          await db.insert(teamInvites).values({
+            teamId: team.id,
+            email,
+            invitedBy: ctx.user.id,
+            role: input.role,
+            token,
+            expiresAt,
+          });
+
+          // Log activity
+          await logTeamActivity({
+            teamId: team.id,
+            actorId: ctx.user.id,
+            actorName: ctx.user.name || null,
+            type: "invite_sent",
+            details: { email, role: input.role },
+          });
+
+          // Send notification (fire-and-forget)
+          const inviteLink = origin ? `${origin}/team/invite/${token}` : `(invite token: ${token})`;
+          notifyOwner({
+            title: `[Klipz] Team Invite: ${ctx.user.name || "A team member"} invited ${email} to ${team.name}`,
+            content: [
+              `You've been invited to join the team "${team.name}" on Klipz!`,
+              "",
+              `Invited by: ${ctx.user.name || ctx.user.email || "Team member"}`,
+              `Role: ${input.role}`,
+              `Team: ${team.name}`,
+              "",
+              `Accept your invite here: ${inviteLink}`,
+              "",
+              `This invite expires on ${expiresAt.toLocaleDateString()}.`,
+            ].join("\n"),
+          }).catch(() => {});
+
+          pendingEmails.add(email);
+          sentCount++;
+          results.push({ email, status: "sent" });
+        } catch (err) {
+          results.push({ email, status: "failed" });
+        }
+      }
+
+      return {
+        results,
+        summary: {
+          total: uniqueEmails.length,
+          sent: results.filter(r => r.status === "sent").length,
+          skippedMember: results.filter(r => r.status === "skipped_member").length,
+          skippedPending: results.filter(r => r.status === "skipped_pending").length,
+          skippedCapacity: results.filter(r => r.status === "skipped_capacity").length,
+          failed: results.filter(r => r.status === "failed").length,
+        },
+      };
+    }),
+
+  /**
+   * Transfer team ownership to another admin
+   */
+  transferOwnership: protectedProcedure
+    .input(z.object({
+      newOwnerId: z.number(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.user.teamId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You don't belong to a team" });
+      }
+
+      const { db, team } = await requireTeamOwner(ctx.user.id, ctx.user.teamId);
+
+      if (input.newOwnerId === ctx.user.id) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You are already the team owner" });
+      }
+
+      // Verify new owner is a team admin
+      const [newOwner] = await db
+        .select({ id: users.id, name: users.name, teamRole: users.teamRole })
+        .from(users)
+        .where(and(eq(users.id, input.newOwnerId), eq(users.teamId, team.id)))
+        .limit(1);
+
+      if (!newOwner) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User is not a member of this team" });
+      }
+
+      if (newOwner.teamRole !== "admin") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Ownership can only be transferred to a team admin. Promote the member to admin first." });
+      }
+
+      // Transfer ownership
+      await db.update(teams)
+        .set({ ownerId: input.newOwnerId })
+        .where(eq(teams.id, team.id));
+
+      // Set new owner's teamRole to member (they're now the owner, teamRole is irrelevant)
+      // Set old owner's teamRole to admin (so they retain management access)
+      await db.update(users)
+        .set({ teamRole: "member" })
+        .where(eq(users.id, input.newOwnerId));
+
+      await db.update(users)
+        .set({ teamRole: "admin" })
+        .where(eq(users.id, ctx.user.id));
+
+      // Log activity
+      await logTeamActivity({
+        teamId: team.id,
+        actorId: ctx.user.id,
+        actorName: ctx.user.name || null,
+        type: "ownership_transferred",
+        details: {
+          newOwnerId: input.newOwnerId,
+          newOwnerName: newOwner.name || "Unknown",
+          previousOwnerId: ctx.user.id,
+          previousOwnerName: ctx.user.name || "Unknown",
+        },
+      });
+
+      return {
+        success: true,
+        message: `Ownership transferred to ${newOwner.name || "the new owner"}. You have been set as an admin.`,
+      };
+    }),
+
+  /**
    * Get per-member storage breakdown for the team
    * Returns each member's file count, total storage used, and percentage of team storage
    */
@@ -788,4 +983,118 @@ function formatBytes(bytes: number): string {
   const sizes = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+/**
+ * Check team storage usage and send alerts at 80% and 90% thresholds.
+ * Called after file uploads to notify the team owner.
+ */
+export async function checkTeamStorageAlerts(teamId: number) {
+  try {
+    const db = await getDb();
+    if (!db) return;
+
+    const [team] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
+    if (!team) return;
+
+    const teamLimitBytes = team.storageGB * 1024 * 1024 * 1024;
+    if (teamLimitBytes <= 0) return;
+
+    // Calculate actual usage from team members' files
+    const teamMembers = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.teamId, teamId));
+
+    if (teamMembers.length === 0) return;
+
+    const [storageResult] = await db
+      .select({
+        totalSize: sql<number>`COALESCE(SUM(${files.fileSize}), 0)`,
+      })
+      .from(files)
+      .where(
+        sql`${files.userId} IN (${sql.join(teamMembers.map(m => sql`${m.id}`), sql`, `)})`
+      );
+
+    const totalUsed = Number(storageResult?.totalSize || 0);
+    const usagePercent = (totalUsed / teamLimitBytes) * 100;
+
+    // Get team owner info
+    const [owner] = await db
+      .select({ id: users.id, name: users.name })
+      .from(users)
+      .where(eq(users.id, team.ownerId))
+      .limit(1);
+
+    const now = new Date();
+    const cooldownMs = 24 * 60 * 60 * 1000; // 24 hours between alerts of the same type
+
+    // Check 90% threshold first (higher priority)
+    if (usagePercent >= 90) {
+      const lastSent = team.lastStorageAlert90SentAt;
+      if (!lastSent || (now.getTime() - lastSent.getTime()) > cooldownMs) {
+        await db.update(teams)
+          .set({ lastStorageAlert90SentAt: now })
+          .where(eq(teams.id, teamId));
+
+        await logTeamActivity({
+          teamId,
+          actorId: owner?.id || team.ownerId,
+          actorName: "System",
+          type: "storage_alert_90",
+          details: {
+            usagePercent: Math.round(usagePercent * 10) / 10,
+            usedFormatted: formatBytes(totalUsed),
+            limitFormatted: `${team.storageGB} GB`,
+          },
+        });
+
+        notifyOwner({
+          title: `[Klipz] ⚠️ Critical: Team "${team.name}" storage at ${Math.round(usagePercent)}%`,
+          content: [
+            `Your team "${team.name}" has used ${formatBytes(totalUsed)} of ${team.storageGB} GB (${Math.round(usagePercent)}%).`,
+            "",
+            "Storage is critically low. Consider:",
+            "• Removing unused files",
+            "• Upgrading your team storage plan",
+            "",
+            "Files cannot be uploaded once storage is full.",
+          ].join("\n"),
+        }).catch(() => {});
+      }
+    }
+    // Check 80% threshold
+    else if (usagePercent >= 80) {
+      const lastSent = team.lastStorageAlert80SentAt;
+      if (!lastSent || (now.getTime() - lastSent.getTime()) > cooldownMs) {
+        await db.update(teams)
+          .set({ lastStorageAlert80SentAt: now })
+          .where(eq(teams.id, teamId));
+
+        await logTeamActivity({
+          teamId,
+          actorId: owner?.id || team.ownerId,
+          actorName: "System",
+          type: "storage_alert_80",
+          details: {
+            usagePercent: Math.round(usagePercent * 10) / 10,
+            usedFormatted: formatBytes(totalUsed),
+            limitFormatted: `${team.storageGB} GB`,
+          },
+        });
+
+        notifyOwner({
+          title: `[Klipz] Warning: Team "${team.name}" storage at ${Math.round(usagePercent)}%`,
+          content: [
+            `Your team "${team.name}" has used ${formatBytes(totalUsed)} of ${team.storageGB} GB (${Math.round(usagePercent)}%).`,
+            "",
+            "Consider cleaning up unused files or upgrading your storage plan to avoid running out of space.",
+          ].join("\n"),
+        }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.error("[StorageAlert] Failed to check storage alerts:", err);
+  }
 }

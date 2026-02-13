@@ -9,6 +9,7 @@ import { resumableUploadSessions, resumableUploadChunks } from "../../drizzle/sc
 import { eq, and, lt, sql } from "drizzle-orm";
 import { assembleChunksInBackground } from "../lib/backgroundAssembly";
 import { logTeamActivity } from "../lib/teamActivity";
+import { checkTeamStorageAlerts } from "./teams";
 
 // Constants
 const DEFAULT_CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks (kept small to avoid proxy body size limits on deployed sites)
@@ -506,7 +507,7 @@ export const resumableUploadRouter = router({
 
           console.log(`[ResumableUpload] Sync finalize complete: file ID ${fileId}, video ID: ${videoId || 'N/A'}`);
 
-          // Log team activity if user belongs to a team
+          // Log team activity and check storage alerts if user belongs to a team
           if (ctx.user.teamId) {
             logTeamActivity({
               teamId: ctx.user.teamId,
@@ -515,6 +516,7 @@ export const resumableUploadRouter = router({
               type: "file_uploaded",
               details: { filename: session.filename },
             }).catch(() => {}); // fire-and-forget
+            checkTeamStorageAlerts(ctx.user.teamId).catch(() => {});
           }
 
           return {
@@ -550,7 +552,7 @@ export const resumableUploadRouter = router({
           metadata: session.metadata,
         });
 
-        // Log team activity if user belongs to a team
+        // Log team activity and check storage alerts if user belongs to a team
         if (ctx.user.teamId) {
           logTeamActivity({
             teamId: ctx.user.teamId,
@@ -559,6 +561,7 @@ export const resumableUploadRouter = router({
             type: "file_uploaded",
             details: { filename: session.filename },
           }).catch(() => {}); // fire-and-forget
+          checkTeamStorageAlerts(ctx.user.teamId).catch(() => {});
         }
 
         return {

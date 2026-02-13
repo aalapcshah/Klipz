@@ -41,6 +41,8 @@ import {
 } from "lucide-react";
 import TeamActivityFeed from "@/components/TeamActivityFeed";
 import { TeamStorageDashboard } from "@/components/TeamStorageDashboard";
+import { BulkInviteDialog } from "@/components/BulkInviteDialog";
+import { TransferOwnershipDialog } from "@/components/TransferOwnershipDialog";
 
 export default function TeamManagement() {
   const { user, loading: authLoading } = useAuth();
@@ -459,6 +461,9 @@ export default function TeamManagement() {
               <CardDescription>
                 Send an invite link to add new team members. They'll need to create an account and accept the invite.
               </CardDescription>
+              <div className="pt-1">
+                <BulkInviteDialog />
+              </div>
             </CardHeader>
             <CardContent>
               <form
@@ -566,6 +571,8 @@ export default function TeamManagement() {
                   <Button variant="outline" size="sm">Contact Us</Button>
                 </Link>
               </div>
+              <Separator />
+              <TransferOwnershipDialog members={members} />
             </CardContent>
           </Card>
         )}

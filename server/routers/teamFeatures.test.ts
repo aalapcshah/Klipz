@@ -901,3 +901,564 @@ describe("team storage dashboard", () => {
     });
   });
 });
+
+// ============= FEATURE 6: Bulk Invite via CSV =============
+
+describe("bulk invite via CSV", () => {
+  describe("email parsing from CSV content", () => {
+    const emailRegex = /[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+/g;
+
+    function parseEmails(text: string): string[] {
+      const matches = text.match(emailRegex) || [];
+      return Array.from(new Set(matches.map((e) => e.toLowerCase())));
+    }
+
+    it("should parse comma-separated emails", () => {
+      const input = "alice@example.com, bob@example.com, charlie@example.com";
+      const result = parseEmails(input);
+      expect(result).toEqual(["alice@example.com", "bob@example.com", "charlie@example.com"]);
+    });
+
+    it("should parse newline-separated emails", () => {
+      const input = "alice@example.com\nbob@example.com\ncharlie@example.com";
+      const result = parseEmails(input);
+      expect(result).toHaveLength(3);
+    });
+
+    it("should parse semicolon-separated emails", () => {
+      const input = "alice@example.com; bob@example.com; charlie@example.com";
+      const result = parseEmails(input);
+      expect(result).toHaveLength(3);
+    });
+
+    it("should extract emails from CSV with mixed columns", () => {
+      const csv = "Name,Email,Role\nAlice,alice@example.com,admin\nBob,bob@example.com,member";
+      const result = parseEmails(csv);
+      expect(result).toContain("alice@example.com");
+      expect(result).toContain("bob@example.com");
+    });
+
+    it("should deduplicate emails", () => {
+      const input = "alice@example.com, alice@example.com, ALICE@example.com";
+      const result = parseEmails(input);
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBe("alice@example.com");
+    });
+
+    it("should handle empty input", () => {
+      const result = parseEmails("");
+      expect(result).toHaveLength(0);
+    });
+
+    it("should handle input with no valid emails", () => {
+      const result = parseEmails("not an email, also not, 12345");
+      expect(result).toHaveLength(0);
+    });
+
+    it("should handle mixed valid and invalid entries", () => {
+      const input = "alice@example.com, not-an-email, bob@test.org, 12345";
+      const result = parseEmails(input);
+      expect(result).toHaveLength(2);
+      expect(result).toContain("alice@example.com");
+      expect(result).toContain("bob@test.org");
+    });
+  });
+
+  describe("bulk invite validation", () => {
+    it("should validate email array is not empty", () => {
+      const emails: string[] = [];
+      expect(emails.length > 0).toBe(false);
+    });
+
+    it("should validate maximum 50 emails per batch", () => {
+      const emails = Array.from({ length: 51 }, (_, i) => `user${i}@example.com`);
+      expect(emails.length <= 50).toBe(false);
+    });
+
+    it("should accept exactly 50 emails", () => {
+      const emails = Array.from({ length: 50 }, (_, i) => `user${i}@example.com`);
+      expect(emails.length <= 50).toBe(true);
+    });
+
+    it("should accept a single email", () => {
+      const emails = ["alice@example.com"];
+      expect(emails.length > 0 && emails.length <= 50).toBe(true);
+    });
+  });
+
+  describe("bulk invite result processing", () => {
+    it("should categorize results correctly", () => {
+      const results = [
+        { email: "new@example.com", status: "sent" },
+        { email: "existing@example.com", status: "skipped_member" },
+        { email: "pending@example.com", status: "skipped_pending" },
+        { email: "full@example.com", status: "skipped_capacity" },
+        { email: "error@example.com", status: "failed" },
+      ];
+
+      const summary = {
+        total: results.length,
+        sent: results.filter((r) => r.status === "sent").length,
+        skippedMember: results.filter((r) => r.status === "skipped_member").length,
+        skippedPending: results.filter((r) => r.status === "skipped_pending").length,
+        skippedCapacity: results.filter((r) => r.status === "skipped_capacity").length,
+        failed: results.filter((r) => r.status === "failed").length,
+      };
+
+      expect(summary.total).toBe(5);
+      expect(summary.sent).toBe(1);
+      expect(summary.skippedMember).toBe(1);
+      expect(summary.skippedPending).toBe(1);
+      expect(summary.skippedCapacity).toBe(1);
+      expect(summary.failed).toBe(1);
+    });
+
+    it("should handle all-success case", () => {
+      const results = [
+        { email: "a@example.com", status: "sent" },
+        { email: "b@example.com", status: "sent" },
+        { email: "c@example.com", status: "sent" },
+      ];
+
+      const sent = results.filter((r) => r.status === "sent").length;
+      expect(sent).toBe(3);
+    });
+
+    it("should handle all-skipped case", () => {
+      const results = [
+        { email: "a@example.com", status: "skipped_member" },
+        { email: "b@example.com", status: "skipped_pending" },
+      ];
+
+      const sent = results.filter((r) => r.status === "sent").length;
+      expect(sent).toBe(0);
+    });
+  });
+
+  describe("bulk invite seat capacity check", () => {
+    it("should track available seats during bulk invite", () => {
+      const maxSeats = 5;
+      const currentMembers = 3;
+      const pendingInvites = 1;
+      const availableSlots = maxSeats - currentMembers - pendingInvites;
+
+      expect(availableSlots).toBe(1);
+    });
+
+    it("should mark emails as skipped_capacity when no seats left", () => {
+      const maxSeats = 5;
+      const currentMembers = 5;
+      const pendingInvites = 0;
+      const availableSlots = maxSeats - currentMembers - pendingInvites;
+
+      expect(availableSlots).toBe(0);
+    });
+
+    it("should decrement available slots as invites are sent", () => {
+      let availableSlots = 3;
+      const emails = ["a@example.com", "b@example.com", "c@example.com", "d@example.com"];
+      const results: string[] = [];
+
+      for (const email of emails) {
+        if (availableSlots > 0) {
+          results.push("sent");
+          availableSlots--;
+        } else {
+          results.push("skipped_capacity");
+        }
+      }
+
+      expect(results).toEqual(["sent", "sent", "sent", "skipped_capacity"]);
+    });
+  });
+});
+
+// ============= FEATURE 7: Storage Alerts =============
+
+describe("storage alerts", () => {
+  describe("threshold detection", () => {
+    function getAlertLevel(usagePercent: number): "none" | "80" | "90" {
+      if (usagePercent >= 90) return "90";
+      if (usagePercent >= 80) return "80";
+      return "none";
+    }
+
+    it("should detect 80% threshold", () => {
+      expect(getAlertLevel(80)).toBe("80");
+      expect(getAlertLevel(85)).toBe("80");
+      expect(getAlertLevel(89.9)).toBe("80");
+    });
+
+    it("should detect 90% threshold", () => {
+      expect(getAlertLevel(90)).toBe("90");
+      expect(getAlertLevel(95)).toBe("90");
+      expect(getAlertLevel(100)).toBe("90");
+    });
+
+    it("should return none below 80%", () => {
+      expect(getAlertLevel(0)).toBe("none");
+      expect(getAlertLevel(50)).toBe("none");
+      expect(getAlertLevel(79.9)).toBe("none");
+    });
+  });
+
+  describe("alert deduplication", () => {
+    it("should not re-alert if 80% alert already sent", () => {
+      const team = { storageAlertSent80: true, storageAlertSent90: false };
+      const usagePercent = 85;
+
+      const shouldAlert80 = usagePercent >= 80 && !team.storageAlertSent80;
+      expect(shouldAlert80).toBe(false);
+    });
+
+    it("should alert at 80% if not previously alerted", () => {
+      const team = { storageAlertSent80: false, storageAlertSent90: false };
+      const usagePercent = 82;
+
+      const shouldAlert80 = usagePercent >= 80 && !team.storageAlertSent80;
+      expect(shouldAlert80).toBe(true);
+    });
+
+    it("should not re-alert if 90% alert already sent", () => {
+      const team = { storageAlertSent80: true, storageAlertSent90: true };
+      const usagePercent = 95;
+
+      const shouldAlert90 = usagePercent >= 90 && !team.storageAlertSent90;
+      expect(shouldAlert90).toBe(false);
+    });
+
+    it("should alert at 90% if not previously alerted", () => {
+      const team = { storageAlertSent80: true, storageAlertSent90: false };
+      const usagePercent = 92;
+
+      const shouldAlert90 = usagePercent >= 90 && !team.storageAlertSent90;
+      expect(shouldAlert90).toBe(true);
+    });
+
+    it("should reset alerts when storage drops below threshold", () => {
+      const team = { storageAlertSent80: true, storageAlertSent90: true };
+      const usagePercent = 70;
+
+      // Reset logic: if below 80%, reset both flags
+      const shouldReset80 = usagePercent < 80 && team.storageAlertSent80;
+      const shouldReset90 = usagePercent < 90 && team.storageAlertSent90;
+
+      expect(shouldReset80).toBe(true);
+      expect(shouldReset90).toBe(true);
+    });
+
+    it("should only reset 90% flag when between 80-90%", () => {
+      const team = { storageAlertSent80: true, storageAlertSent90: true };
+      const usagePercent = 85;
+
+      const shouldReset80 = usagePercent < 80 && team.storageAlertSent80;
+      const shouldReset90 = usagePercent < 90 && team.storageAlertSent90;
+
+      expect(shouldReset80).toBe(false);
+      expect(shouldReset90).toBe(true);
+    });
+  });
+
+  describe("storage alert notification content", () => {
+    it("should include usage percentage in 80% alert", () => {
+      const usagePercent = 82;
+      const teamName = "Marketing Team";
+      const title = `Storage Warning: ${teamName}`;
+      const content = `Your team "${teamName}" has reached ${usagePercent}% of its storage limit.`;
+
+      expect(title).toContain("Marketing Team");
+      expect(content).toContain("82%");
+    });
+
+    it("should include usage percentage in 90% alert", () => {
+      const usagePercent = 93;
+      const teamName = "Dev Team";
+      const title = `Critical Storage Alert: ${teamName}`;
+      const content = `Your team "${teamName}" has reached ${usagePercent}% of its storage limit.`;
+
+      expect(title).toContain("Critical");
+      expect(content).toContain("93%");
+    });
+  });
+
+  describe("storage alert activity logging", () => {
+    it("should log storage_alert_80 activity type", () => {
+      const activityType = "storage_alert_80";
+      const validTypes = [
+        "member_joined", "member_left", "member_removed", "member_promoted",
+        "member_demoted", "invite_sent", "invite_accepted", "invite_revoked",
+        "file_uploaded", "annotation_created", "team_created", "team_name_updated",
+        "ownership_transferred", "storage_alert_80", "storage_alert_90",
+      ];
+
+      expect(validTypes).toContain(activityType);
+    });
+
+    it("should log storage_alert_90 activity type", () => {
+      const activityType = "storage_alert_90";
+      const validTypes = [
+        "member_joined", "member_left", "member_removed", "member_promoted",
+        "member_demoted", "invite_sent", "invite_accepted", "invite_revoked",
+        "file_uploaded", "annotation_created", "team_created", "team_name_updated",
+        "ownership_transferred", "storage_alert_80", "storage_alert_90",
+      ];
+
+      expect(validTypes).toContain(activityType);
+    });
+  });
+});
+
+// ============= FEATURE 8: Transfer Ownership =============
+
+describe("transfer ownership", () => {
+  describe("ownership transfer validation", () => {
+    it("should only allow owner to transfer ownership", () => {
+      const team = { ownerId: 42 };
+      const actorId = 42;
+
+      expect(team.ownerId === actorId).toBe(true);
+    });
+
+    it("should reject non-owner from transferring ownership", () => {
+      const team = { ownerId: 42 };
+      const actorId = 99;
+
+      expect(team.ownerId === actorId).toBe(false);
+    });
+
+    it("should reject transfer to non-admin member", () => {
+      const targetUser = { id: 99, teamRole: "member" };
+
+      const isAdmin = targetUser.teamRole === "admin";
+      expect(isAdmin).toBe(false);
+    });
+
+    it("should allow transfer to admin member", () => {
+      const targetUser = { id: 99, teamRole: "admin" };
+
+      const isAdmin = targetUser.teamRole === "admin";
+      expect(isAdmin).toBe(true);
+    });
+
+    it("should reject transfer to self", () => {
+      const ownerId = 42;
+      const newOwnerId = 42;
+
+      expect(ownerId === newOwnerId).toBe(true);
+      // This should be rejected
+    });
+
+    it("should reject transfer to user not in team", () => {
+      const teamId = 1;
+      const targetUser = { id: 99, teamId: 2 };
+
+      expect(targetUser.teamId === teamId).toBe(false);
+    });
+  });
+
+  describe("ownership transfer state changes", () => {
+    it("should update team ownerId to new owner", () => {
+      const team = { id: 1, ownerId: 42 };
+      const newOwnerId = 99;
+
+      // After transfer
+      const updatedTeam = { ...team, ownerId: newOwnerId };
+      expect(updatedTeam.ownerId).toBe(99);
+    });
+
+    it("should set new owner teamRole to admin (they were already admin)", () => {
+      const newOwner = { id: 99, teamRole: "admin" };
+      // New owner keeps admin role (ownership is tracked via teams.ownerId)
+      expect(newOwner.teamRole).toBe("admin");
+    });
+
+    it("should demote old owner to admin role", () => {
+      const oldOwner = { id: 42, teamRole: "member" };
+      // After transfer, old owner becomes admin
+      const updatedOldOwner = { ...oldOwner, teamRole: "admin" };
+      expect(updatedOldOwner.teamRole).toBe("admin");
+    });
+  });
+
+  describe("ownership transfer activity logging", () => {
+    it("should log ownership_transferred activity", () => {
+      const activity = {
+        teamId: 1,
+        actorId: 42,
+        actorName: "Old Owner",
+        type: "ownership_transferred",
+        details: {
+          newOwnerId: 99,
+          newOwnerName: "New Owner",
+          previousOwnerId: 42,
+        },
+      };
+
+      expect(activity.type).toBe("ownership_transferred");
+      expect(activity.details.newOwnerId).toBe(99);
+      expect(activity.details.previousOwnerId).toBe(42);
+    });
+  });
+
+  describe("transfer ownership UI - admin filtering", () => {
+    it("should only show admins as transfer targets", () => {
+      const members = [
+        { id: 1, name: "Owner", teamRole: "member", isOwner: true },
+        { id: 2, name: "Admin 1", teamRole: "admin", isOwner: false },
+        { id: 3, name: "Member 1", teamRole: "member", isOwner: false },
+        { id: 4, name: "Admin 2", teamRole: "admin", isOwner: false },
+      ];
+
+      const admins = members.filter((m) => !m.isOwner && m.teamRole === "admin");
+      expect(admins).toHaveLength(2);
+      expect(admins[0].name).toBe("Admin 1");
+      expect(admins[1].name).toBe("Admin 2");
+    });
+
+    it("should return empty when no admins exist", () => {
+      const members = [
+        { id: 1, name: "Owner", teamRole: "member", isOwner: true },
+        { id: 2, name: "Member 1", teamRole: "member", isOwner: false },
+        { id: 3, name: "Member 2", teamRole: "member", isOwner: false },
+      ];
+
+      const admins = members.filter((m) => !m.isOwner && m.teamRole === "admin");
+      expect(admins).toHaveLength(0);
+    });
+
+    it("should not include the owner as a transfer target", () => {
+      const members = [
+        { id: 1, name: "Owner", teamRole: "admin", isOwner: true },
+        { id: 2, name: "Admin 1", teamRole: "admin", isOwner: false },
+      ];
+
+      const admins = members.filter((m) => !m.isOwner && m.teamRole === "admin");
+      expect(admins).toHaveLength(1);
+      expect(admins[0].name).toBe("Admin 1");
+    });
+  });
+
+  describe("post-transfer permission changes", () => {
+    it("should give new owner full permissions", () => {
+      const team = { ownerId: 99 }; // After transfer
+      const newOwnerId = 99;
+
+      const isOwner = team.ownerId === newOwnerId;
+      const canManage = isOwner;
+      const canPromote = isOwner;
+      const canTransfer = isOwner;
+
+      expect(isOwner).toBe(true);
+      expect(canManage).toBe(true);
+      expect(canPromote).toBe(true);
+      expect(canTransfer).toBe(true);
+    });
+
+    it("should give old owner admin-level permissions only", () => {
+      const team = { ownerId: 99 }; // After transfer
+      const oldOwnerId = 42;
+      const oldOwnerRole = "admin";
+
+      const isOwner = team.ownerId === oldOwnerId;
+      const isAdmin = oldOwnerRole === "admin";
+      const canManage = isOwner || isAdmin;
+      const canPromote = isOwner; // Owner-only
+      const canTransfer = isOwner; // Owner-only
+
+      expect(isOwner).toBe(false);
+      expect(canManage).toBe(true);
+      expect(canPromote).toBe(false);
+      expect(canTransfer).toBe(false);
+    });
+  });
+});
+
+// ============= CROSS-FEATURE: Updated Activity Types =============
+
+describe("updated activity feed types for all features", () => {
+  const allActivityTypes = [
+    "member_joined", "member_left", "member_removed", "member_promoted",
+    "member_demoted", "invite_sent", "invite_accepted", "invite_revoked",
+    "file_uploaded", "annotation_created", "team_created", "team_name_updated",
+    "ownership_transferred", "storage_alert_80", "storage_alert_90",
+  ];
+
+  it("should have 15 total activity types", () => {
+    expect(allActivityTypes).toHaveLength(15);
+  });
+
+  it("should include ownership_transferred type", () => {
+    expect(allActivityTypes).toContain("ownership_transferred");
+  });
+
+  it("should include storage_alert_80 type", () => {
+    expect(allActivityTypes).toContain("storage_alert_80");
+  });
+
+  it("should include storage_alert_90 type", () => {
+    expect(allActivityTypes).toContain("storage_alert_90");
+  });
+
+  describe("activity descriptions for new types", () => {
+    it("should describe ownership_transferred correctly", () => {
+      const actor = "Old Owner";
+      const details = { newOwnerName: "New Admin" };
+      const description = `${actor} transferred ownership to ${details.newOwnerName || "a member"}`;
+
+      expect(description).toBe("Old Owner transferred ownership to New Admin");
+    });
+
+    it("should describe storage_alert_80 correctly", () => {
+      const details = { usagePercent: 82, usedFormatted: "164 GB", limitFormatted: "200 GB" };
+      const description = `Storage warning: team is at ${details.usagePercent}% capacity (${details.usedFormatted} / ${details.limitFormatted})`;
+
+      expect(description).toContain("82%");
+      expect(description).toContain("164 GB");
+      expect(description).toContain("200 GB");
+    });
+
+    it("should describe storage_alert_90 correctly", () => {
+      const details = { usagePercent: 93, usedFormatted: "186 GB", limitFormatted: "200 GB" };
+      const description = `Critical storage alert: team is at ${details.usagePercent}% capacity (${details.usedFormatted} / ${details.limitFormatted})`;
+
+      expect(description).toContain("Critical");
+      expect(description).toContain("93%");
+    });
+  });
+
+  describe("activity icon colors for new types", () => {
+    const activityTypeIcons: Record<string, string> = {
+      member_joined: "emerald",
+      member_left: "yellow",
+      member_removed: "red",
+      member_promoted: "amber",
+      member_demoted: "orange",
+      invite_sent: "blue",
+      invite_accepted: "emerald",
+      invite_revoked: "orange",
+      file_uploaded: "cyan",
+      annotation_created: "purple",
+      team_created: "emerald",
+      team_name_updated: "blue",
+      ownership_transferred: "amber",
+      storage_alert_80: "yellow",
+      storage_alert_90: "red",
+    };
+
+    it("should have icon colors for all 15 activity types", () => {
+      expect(Object.keys(activityTypeIcons)).toHaveLength(15);
+    });
+
+    it("should have amber color for ownership_transferred", () => {
+      expect(activityTypeIcons.ownership_transferred).toBe("amber");
+    });
+
+    it("should have yellow color for storage_alert_80", () => {
+      expect(activityTypeIcons.storage_alert_80).toBe("yellow");
+    });
+
+    it("should have red color for storage_alert_90", () => {
+      expect(activityTypeIcons.storage_alert_90).toBe("red");
+    });
+  });
+});

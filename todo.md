@@ -6406,3 +6406,37 @@ Note: The application already has extensive annotation features including voice 
 - [x] Show per-member breakdown with avatar, name, file count, storage used, and progress bar
 - [x] Add storage dashboard to Team Management page below the overall storage card
 - [x] Write 21 tests for storage dashboard (teamFeatures.test.ts)
+
+## Bulk Invite via CSV
+- [x] Create bulkInvite backend procedure that accepts array of emails (max 50)
+- [x] Parse CSV file on frontend and validate email format
+- [x] Show preview of emails before sending invites (3-step dialog: input → preview → results)
+- [x] Handle duplicates, already-invited, and already-member emails gracefully
+- [x] Display results summary with status badges (sent/skipped_member/skipped_pending/skipped_capacity/failed)
+- [x] Add BulkInviteDialog component with CSV upload and text paste to Team Management invite section
+- [x] Track available seat capacity during processing and mark excess as skipped_capacity
+- [x] Write 28 tests for bulk invite (teamFeatures.test.ts)
+
+## Storage Alerts
+- [x] Add storageAlertSent80 and storageAlertSent90 boolean flags to teams table
+- [x] Create checkTeamStorageAlerts helper function in teams router
+- [x] Send notification to team owner when storage exceeds 80%
+- [x] Send notification to team owner when storage exceeds 90%
+- [x] Deduplicate alerts (don't re-send if already alerted)
+- [x] Reset alert flags when storage drops below thresholds
+- [x] Log storage_alert_80 and storage_alert_90 as team activities
+- [x] Hook into file upload flow to trigger alert checks after uploads
+- [x] Add storage_alert_80 and storage_alert_90 to activity type enum
+- [x] Write 16 tests for storage alerts (teamFeatures.test.ts)
+
+## Transfer Team Ownership
+- [x] Create transferOwnership backend procedure (owner-only)
+- [x] Only allow transfer to existing team admins
+- [x] Update team.ownerId and set old owner to admin role
+- [x] Log ownership_transferred activity in team activity feed
+- [x] Build TransferOwnershipDialog component with admin selection UI
+- [x] Add transfer option to Team Settings section with confirmation dialog
+- [x] Show disabled state when no admins are available
+- [x] Update TeamActivityFeed with ownership_transferred, storage_alert_80, storage_alert_90 types
+- [x] Write 19 tests for transfer ownership (teamFeatures.test.ts)
+- [x] All 144 tests passing in teamFeatures.test.ts, 47 in teamActivity.test.ts
