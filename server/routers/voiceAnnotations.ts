@@ -5,6 +5,7 @@ import { voiceAnnotations, files, users } from "../../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import { storagePut } from "../storage";
 import { transcribeAudio } from "../_core/voiceTranscription";
+import { logTeamActivity } from "../lib/teamActivity";
 
 export const voiceAnnotationsRouter = router({
   /**
@@ -76,6 +77,17 @@ export const voiceAnnotationsRouter = router({
           transcript,
         })
         .$returningId();
+
+      // Log team activity if user belongs to a team
+      if (ctx.user.teamId) {
+        logTeamActivity({
+          teamId: ctx.user.teamId,
+          actorId: ctx.user.id,
+          actorName: ctx.user.name || null,
+          type: "annotation_created",
+          details: { filename: file.filename || "a file", annotationType: "voice" },
+        }).catch(() => {}); // fire-and-forget
+      }
 
       return {
         id: annotation.id,

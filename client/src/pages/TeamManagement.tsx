@@ -33,6 +33,8 @@ import {
   XCircle,
   Loader2,
   Shield,
+  ShieldCheck,
+  ShieldMinus,
   Pencil,
   Check,
   X,
@@ -101,6 +103,22 @@ export default function TeamManagement() {
     onSuccess: () => {
       toast.success("You have left the team");
       utils.teams.getMyTeam.invalidate();
+      utils.teams.getMembers.invalidate();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const promoteMutation = trpc.teams.promoteMember.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.message);
+      utils.teams.getMembers.invalidate();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const demoteMutation = trpc.teams.demoteMember.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.message);
       utils.teams.getMembers.invalidate();
     },
     onError: (err) => toast.error(err.message),
@@ -311,6 +329,17 @@ export default function TeamManagement() {
                               Owner
                             </Badge>
                           )}
+                          {!member.isOwner && (member as any).teamRole === "admin" && (
+                            <Badge variant="outline" className="text-cyan-400 border-cyan-400/30 text-xs">
+                              <ShieldCheck className="h-3 w-3 mr-1" />
+                              Admin
+                            </Badge>
+                          )}
+                          {!member.isOwner && (!((member as any).teamRole) || (member as any).teamRole === "member") && (
+                            <Badge variant="outline" className="text-muted-foreground border-muted-foreground/30 text-xs">
+                              Member
+                            </Badge>
+                          )}
                         </div>
                         <span className="text-sm text-muted-foreground">{member.email}</span>
                       </div>
@@ -318,32 +347,60 @@ export default function TeamManagement() {
 
                     {/* Actions */}
                     {team.isOwner && !member.isOwner && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300">
-                            <UserMinus className="h-4 w-4 mr-1" />
-                            Remove
+                      <div className="flex items-center gap-2">
+                        {/* Promote / Demote */}
+                        {(member as any).teamRole === "admin" ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-orange-400 hover:text-orange-300"
+                            disabled={demoteMutation.isPending}
+                            onClick={() => demoteMutation.mutate({ userId: member.id })}
+                          >
+                            <ShieldMinus className="h-4 w-4 mr-1" />
+                            Demote
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Remove team member?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will remove <strong>{member.name || member.email}</strong> from your team.
-                              They will lose access to team resources and their subscription will revert to Free.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              className="bg-red-600 hover:bg-red-700"
-                              onClick={() => removeMemberMutation.mutate({ userId: member.id })}
-                            >
-                              Remove Member
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-cyan-400 hover:text-cyan-300"
+                            disabled={promoteMutation.isPending}
+                            onClick={() => promoteMutation.mutate({ userId: member.id })}
+                          >
+                            <ShieldCheck className="h-4 w-4 mr-1" />
+                            Promote
+                          </Button>
+                        )}
+
+                        {/* Remove */}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300">
+                              <UserMinus className="h-4 w-4 mr-1" />
+                              Remove
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remove team member?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will remove <strong>{member.name || member.email}</strong> from your team.
+                                They will lose access to team resources and their subscription will revert to Free.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-red-600 hover:bg-red-700"
+                                onClick={() => removeMemberMutation.mutate({ userId: member.id })}
+                              >
+                                Remove Member
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     )}
 
                     {/* Leave team button for non-owner members */}

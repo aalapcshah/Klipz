@@ -6367,3 +6367,22 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add pagination or "load more" for activity history
 - [x] Log activities for: team_created, member_joined, member_left, member_removed, invite_sent, invite_accepted, invite_revoked, team_name_updated
 - [x] 47 new tests for team activity feed and invite acceptance (teamActivity.test.ts)
+
+## Email Notifications for Team Invites
+- [x] Send email with direct /team/invite/:token link when someone is invited
+- [x] Include team name, inviter name, and role in the email
+- [x] Handle email send failures gracefully (don't block invite creation)
+
+## Log File Uploads & Annotations as Team Activities
+- [x] Hook into file upload flow to log file_uploaded activity for team members
+- [x] Hook into annotation creation flows (voice + visual) to log annotation_created activity
+- [x] Include filename and relevant details in activity metadata
+
+## Team Role Management
+- [x] Add teamRole field to users table (member/admin enum)
+- [x] Create promoteMember and demoteMember procedures (owner-only)
+- [x] Add member_promoted and member_demoted activity types to schema
+- [x] Log promote/demote events in team activity feed
+- [x] Add role badges (Owner/Admin/Member) and promote/demote UI on Team Management page
+- [x] Update TeamActivityFeed with new activity type icons and descriptions
+- [x] Write 46 tests for all new functionality (teamFeatures.test.ts)

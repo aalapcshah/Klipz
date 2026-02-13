@@ -29,6 +29,7 @@ export const users = mysqlTable("users", {
   // Subscription and premium features
   subscriptionTier: mysqlEnum("subscriptionTier", ["free", "trial", "pro", "team"]).default("free").notNull(),
   teamId: int("teamId"), // Foreign key to teams table (null for non-team users)
+  teamRole: mysqlEnum("teamRole", ["member", "admin"]).default("member"), // Role within the team (null if not in a team)
   knowledgeGraphUsageCount: int("knowledgeGraphUsageCount").default(0).notNull(),
   knowledgeGraphUsageLimit: int("knowledgeGraphUsageLimit").default(10).notNull(), // Free tier: 10 queries/month
   subscriptionExpiresAt: timestamp("subscriptionExpiresAt"),
@@ -1980,6 +1981,8 @@ export const teamActivities = mysqlTable("team_activities", {
     "member_joined",
     "member_left",
     "member_removed",
+    "member_promoted",
+    "member_demoted",
     "invite_sent",
     "invite_accepted",
     "invite_revoked",

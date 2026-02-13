@@ -6,6 +6,7 @@ import { getDb } from "../db";
 import { TRPCError } from "@trpc/server";
 import crypto from "crypto";
 import { logTeamActivity } from "../lib/teamActivity";
+import { notifyOwner } from "../_core/notification";
 
 /**
  * Helper to check if a user is a team owner or admin
@@ -170,6 +171,7 @@ export const teamsRouter = router({
         email: users.email,
         avatarUrl: users.avatarUrl,
         role: users.role,
+        teamRole: users.teamRole,
         createdAt: users.createdAt,
       })
       .from(users)
@@ -180,9 +182,98 @@ export const teamsRouter = router({
 
     return members.map((m) => ({
       ...m,
+      teamRole: team && m.id === team.ownerId ? "owner" as const : (m.teamRole || "member"),
       isOwner: team ? m.id === team.ownerId : false,
     }));
   }),
+
+  /**
+   * Promote a team member to admin
+   */
+  promoteMember: protectedProcedure
+    .input(z.object({ userId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.user.teamId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You don't belong to a team" });
+      }
+      const { db, team } = await requireTeamAdmin(ctx.user.id, ctx.user.teamId);
+
+      // Can't promote yourself
+      if (input.userId === ctx.user.id) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You cannot change your own role" });
+      }
+
+      // Verify target user is a team member
+      const [targetUser] = await db
+        .select({ id: users.id, name: users.name, teamRole: users.teamRole })
+        .from(users)
+        .where(and(eq(users.id, input.userId), eq(users.teamId, team.id)))
+        .limit(1);
+
+      if (!targetUser) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User is not a member of this team" });
+      }
+
+      if (targetUser.teamRole === "admin") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "User is already an admin" });
+      }
+
+      await db.update(users).set({ teamRole: "admin" }).where(eq(users.id, input.userId));
+
+      await logTeamActivity({
+        teamId: team.id,
+        actorId: ctx.user.id,
+        actorName: ctx.user.name || null,
+        type: "member_promoted",
+        details: { userId: input.userId, userName: targetUser.name || "Unknown", newRole: "admin" },
+      });
+
+      return { success: true, message: `${targetUser.name || "Member"} promoted to admin` };
+    }),
+
+  /**
+   * Demote a team admin back to member
+   */
+  demoteMember: protectedProcedure
+    .input(z.object({ userId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.user.teamId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You don't belong to a team" });
+      }
+      const { db, team } = await requireTeamAdmin(ctx.user.id, ctx.user.teamId);
+
+      // Can't demote yourself
+      if (input.userId === ctx.user.id) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You cannot change your own role" });
+      }
+
+      // Verify target user is a team member
+      const [targetUser] = await db
+        .select({ id: users.id, name: users.name, teamRole: users.teamRole })
+        .from(users)
+        .where(and(eq(users.id, input.userId), eq(users.teamId, team.id)))
+        .limit(1);
+
+      if (!targetUser) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User is not a member of this team" });
+      }
+
+      if (targetUser.teamRole !== "admin") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "User is not an admin" });
+      }
+
+      await db.update(users).set({ teamRole: "member" }).where(eq(users.id, input.userId));
+
+      await logTeamActivity({
+        teamId: team.id,
+        actorId: ctx.user.id,
+        actorName: ctx.user.name || null,
+        type: "member_demoted",
+        details: { userId: input.userId, userName: targetUser.name || "Unknown", newRole: "member" },
+      });
+
+      return { success: true, message: `${targetUser.name || "Member"} demoted to member` };
+    }),
 
   /**
    * Invite a user to the team
@@ -267,6 +358,31 @@ export const teamsRouter = router({
         type: "invite_sent",
         details: { email: input.email, role: input.role },
       });
+
+      // Send email notification with invite link
+      const origin = ctx.req?.headers?.origin || ctx.req?.headers?.referer?.replace(/\/+$/, "") || "";
+      const inviteLink = origin ? `${origin}/team/invite/${token}` : `(invite token: ${token})`;
+      try {
+        await notifyOwner({
+          title: `[Klipz] Team Invite: ${ctx.user.name || "A team member"} invited ${input.email} to ${team.name}`,
+          content: [
+            `You've been invited to join the team "${team.name}" on Klipz!`,
+            "",
+            `Invited by: ${ctx.user.name || ctx.user.email || "Team member"}`,
+            `Role: ${input.role}`,
+            `Team: ${team.name}`,
+            "",
+            `Accept your invite here: ${inviteLink}`,
+            "",
+            `This invite expires on ${expiresAt.toLocaleDateString()}.`,
+            "",
+            "If you don't have a Klipz account yet, you'll be prompted to create one when you click the link.",
+          ].join("\n"),
+        });
+      } catch (err) {
+        // Don't block invite creation if email fails
+        console.error("[Teams] Failed to send invite email notification:", err);
+      }
 
       return { success: true, message: `Invite sent to ${input.email}` };
     }),

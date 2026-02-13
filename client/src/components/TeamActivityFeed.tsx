@@ -16,12 +16,16 @@ import {
   Loader2,
   ChevronDown,
   Activity,
+  ShieldCheck,
+  ShieldMinus,
 } from "lucide-react";
 
 type ActivityType =
   | "member_joined"
   | "member_left"
   | "member_removed"
+  | "member_promoted"
+  | "member_demoted"
   | "invite_sent"
   | "invite_accepted"
   | "invite_revoked"
@@ -48,6 +52,10 @@ function getActivityIcon(type: ActivityType) {
       return <LogOut className="h-4 w-4 text-yellow-400" />;
     case "member_removed":
       return <UserMinus className="h-4 w-4 text-red-400" />;
+    case "member_promoted":
+      return <ShieldCheck className="h-4 w-4 text-amber-400" />;
+    case "member_demoted":
+      return <ShieldMinus className="h-4 w-4 text-orange-400" />;
     case "invite_sent":
       return <Mail className="h-4 w-4 text-blue-400" />;
     case "invite_accepted":
@@ -80,6 +88,10 @@ function getActivityDescription(activity: ActivityItem): string {
       return `${details.memberName || actor} left the team`;
     case "member_removed":
       return `${actor} removed ${details.memberName || "a member"} from the team`;
+    case "member_promoted":
+      return `${actor} promoted ${details.userName || "a member"} to admin`;
+    case "member_demoted":
+      return `${actor} changed ${details.userName || "a member"} role to member`;
     case "invite_sent":
       return `${actor} invited ${details.email || "someone"} to the team`;
     case "invite_accepted":
@@ -108,6 +120,10 @@ function getActivityColor(type: ActivityType): string {
     case "member_removed":
     case "invite_revoked":
       return "bg-red-500/10 border-red-500/20";
+    case "member_promoted":
+      return "bg-amber-500/10 border-amber-500/20";
+    case "member_demoted":
+      return "bg-orange-500/10 border-orange-500/20";
     case "invite_sent":
     case "team_name_updated":
       return "bg-blue-500/10 border-blue-500/20";

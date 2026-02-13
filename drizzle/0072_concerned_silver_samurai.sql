@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `teamRole` enum('member','admin') DEFAULT 'member';

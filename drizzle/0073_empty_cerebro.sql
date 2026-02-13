@@ -1,0 +1,1 @@
+ALTER TABLE `team_activities` MODIFY COLUMN `type` enum('member_joined','member_left','member_removed','member_promoted','member_demoted','invite_sent','invite_accepted','invite_revoked','file_uploaded','annotation_created','team_created','team_name_updated') NOT NULL;

@@ -5,6 +5,7 @@ import { visualAnnotations, annotationHistory, users } from "../../drizzle/schem
 import { eq, and } from "drizzle-orm";
 import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
+import { logTeamActivity } from "../lib/teamActivity";
 
 export const visualAnnotationsRouter = router({
   /**
@@ -62,6 +63,17 @@ export const visualAnnotationsRouter = router({
         changeType: "created",
         previousState: null,
       });
+
+      // Log team activity if user belongs to a team
+      if (ctx.user.teamId) {
+        logTeamActivity({
+          teamId: ctx.user.teamId,
+          actorId: ctx.user.id,
+          actorName: ctx.user.name || null,
+          type: "annotation_created",
+          details: { filename: `file #${fileId}`, annotationType: "visual" },
+        }).catch(() => {}); // fire-and-forget
+      }
 
       return {
         success: true,
