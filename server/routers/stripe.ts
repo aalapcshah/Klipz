@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import Stripe from "stripe";
-import { SUBSCRIPTION_TIERS, getProPriceIdForInterval, type BillingInterval } from "../products";
-import { users } from "../../drizzle/schema";
+import { SUBSCRIPTION_TIERS, getPriceIdForTierAndInterval, type BillingInterval } from "../products";
+import { users, teams } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { getDb } from "../db";
 import {
@@ -20,12 +20,12 @@ export const stripeRouter = router({
    */
   createCheckoutSession: protectedProcedure
     .input(z.object({
-      tierId: z.enum(["pro"]),
+      tierId: z.enum(["pro", "team"]),
       billingInterval: z.enum(["month", "year"]).optional().default("month"),
     }))
     .mutation(async ({ input, ctx }) => {
       const tier = SUBSCRIPTION_TIERS[input.tierId];
-      const priceId = getProPriceIdForInterval(input.billingInterval as BillingInterval);
+      const priceId = getPriceIdForTierAndInterval(input.tierId, input.billingInterval as BillingInterval);
       if (!tier || !priceId) {
         throw new Error("Invalid subscription tier");
       }
@@ -70,7 +70,7 @@ export const stripeRouter = router({
           user_id: ctx.user.id.toString(),
           customer_email: ctx.user.email || "",
           customer_name: ctx.user.name || "",
-          tier_id: tier.id,
+          tier_id: input.tierId,
         },
       });
 
@@ -129,6 +129,7 @@ export const stripeRouter = router({
       );
 
       const periodEnd = (subscription as any).current_period_end;
+      const tierName = ctx.user.subscriptionTier === "team" ? "Team" : "Pro";
 
       // Send cancellation notification
       const accessEndsDate = periodEnd
@@ -142,7 +143,7 @@ export const stripeRouter = router({
       notifySubscriptionCanceled({
         userName: ctx.user.name || "User",
         userEmail: ctx.user.email || "",
-        planName: "Pro",
+        planName: tierName,
         accessEndsDate,
       }).catch(() => {}); // Fire and forget
 
@@ -168,7 +169,7 @@ export const stripeRouter = router({
         }
       );
 
-      // Send resumption notification
+      const tierName = ctx.user.subscriptionTier === "team" ? "Team" : "Pro";
       const periodEnd = (subscription as any).current_period_end;
       const nextBillingDate = periodEnd
         ? new Date(periodEnd * 1000).toLocaleDateString("en-US", {
@@ -181,7 +182,7 @@ export const stripeRouter = router({
       notifySubscriptionResumed({
         userName: ctx.user.name || "User",
         userEmail: ctx.user.email || "",
-        planName: "Pro",
+        planName: tierName,
         nextBillingDate,
       }).catch(() => {}); // Fire and forget
 
@@ -212,20 +213,32 @@ export const stripeRouter = router({
     }),
 
   /**
-   * Get pricing options for Pro tier (monthly and annual)
+   * Get all pricing options (Pro and Team, monthly and annual)
    */
   getPricingOptions: publicProcedure
     .query(async () => {
-      const { getProPricingOptions } = await import("../products");
-      const options = getProPricingOptions();
-      return options.map((opt) => ({
-        interval: opt.interval,
-        amount: opt.amount,
-        amountFormatted: opt.interval === "month" ? "$9.99" : "$99.99",
-        monthlyEquivalent: opt.interval === "month" ? "$9.99" : "$8.33",
-        label: opt.label,
-        savings: opt.savings || null,
-      }));
+      const { getProPricingOptions, getTeamPricingOptions } = await import("../products");
+      const proOptions = getProPricingOptions();
+      const teamOptions = getTeamPricingOptions();
+
+      return {
+        pro: proOptions.map((opt) => ({
+          interval: opt.interval,
+          amount: opt.amount,
+          amountFormatted: opt.interval === "month" ? "$9.99" : "$99.99",
+          monthlyEquivalent: opt.interval === "month" ? "$9.99" : "$8.33",
+          label: opt.label,
+          savings: opt.savings || null,
+        })),
+        team: teamOptions.map((opt) => ({
+          interval: opt.interval,
+          amount: opt.amount,
+          amountFormatted: opt.interval === "month" ? "$29.99" : "$299.99",
+          monthlyEquivalent: opt.interval === "month" ? "$29.99" : "$25.00",
+          label: opt.label,
+          savings: opt.savings || null,
+        })),
+      };
     }),
 
   /**
@@ -250,7 +263,7 @@ export const stripeRouter = router({
           amountFormatted: `$${(invoice.amount_paid / 100).toFixed(2)}`,
           currency: invoice.currency,
           status: invoice.status,
-          description: invoice.lines.data[0]?.description || "MetaClips Pro Subscription",
+          description: invoice.lines.data[0]?.description || "MetaClips Subscription",
           receiptUrl: invoice.hosted_invoice_url || null,
         }));
       } catch (error) {

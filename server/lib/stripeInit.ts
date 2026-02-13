@@ -4,112 +4,124 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-12-15.clover",
 });
 
-let cachedMonthlyPriceId: string | null = null;
-let cachedAnnualPriceId: string | null = null;
+let cachedProMonthlyPriceId: string | null = null;
+let cachedProAnnualPriceId: string | null = null;
+let cachedTeamMonthlyPriceId: string | null = null;
+let cachedTeamAnnualPriceId: string | null = null;
 
 /**
- * Ensures the MetaClips Pro subscription product and prices exist in Stripe.
- * Creates both monthly ($9.99/mo) and annual ($99.99/yr, ~17% discount) prices.
+ * Helper to find or create a Stripe product by metadata
+ */
+async function ensureProduct(name: string, description: string, tier: string): Promise<string> {
+  const existing = await stripe.products.search({
+    query: `metadata["app"]:"metaclips" AND metadata["tier"]:"${tier}"`,
+  });
+
+  if (existing.data.length > 0) {
+    console.log(`[StripeInit] Found existing ${tier} product:`, existing.data[0].id);
+    return existing.data[0].id;
+  }
+
+  const product = await stripe.products.create({
+    name,
+    description,
+    metadata: { app: "metaclips", tier },
+  });
+  console.log(`[StripeInit] Created new ${tier} product:`, product.id);
+  return product.id;
+}
+
+/**
+ * Helper to find or create a recurring price for a product
+ */
+async function ensurePrice(
+  productId: string,
+  amount: number,
+  interval: "month" | "year",
+  tier: string
+): Promise<string> {
+  const existingPrices = await stripe.prices.list({
+    product: productId,
+    active: true,
+    type: "recurring",
+    limit: 20,
+  });
+
+  const match = existingPrices.data.find(
+    (p) => p.unit_amount === amount && p.recurring?.interval === interval
+  );
+
+  if (match) {
+    console.log(`[StripeInit] Found existing ${tier} ${interval} price:`, match.id);
+    return match.id;
+  }
+
+  const price = await stripe.prices.create({
+    product: productId,
+    unit_amount: amount,
+    currency: "usd",
+    recurring: { interval },
+    metadata: { app: "metaclips", tier, interval },
+  });
+  console.log(`[StripeInit] Created new ${tier} ${interval} price:`, price.id);
+  return price.id;
+}
+
+/**
+ * Ensures all MetaClips subscription products and prices exist in Stripe.
+ * Creates Pro (monthly/annual) and Team (monthly/annual) prices.
  * 
  * This runs on server startup and caches the results so checkout sessions
  * can reference the correct price IDs without needing manual env vars.
  */
 export async function ensureStripeProductAndPrice(): Promise<string> {
-  if (cachedMonthlyPriceId && cachedAnnualPriceId) return cachedMonthlyPriceId;
+  if (cachedProMonthlyPriceId && cachedProAnnualPriceId && cachedTeamMonthlyPriceId && cachedTeamAnnualPriceId) {
+    return cachedProMonthlyPriceId;
+  }
 
   try {
-    // Search for existing product by metadata
-    const existingProducts = await stripe.products.search({
-      query: `metadata["app"]:"metaclips" AND metadata["tier"]:"pro"`,
-    });
-
-    let productId: string;
-
-    if (existingProducts.data.length > 0) {
-      productId = existingProducts.data[0].id;
-      console.log("[StripeInit] Found existing product:", productId);
-    } else {
-      // Create the product
-      const product = await stripe.products.create({
-        name: "MetaClips Pro",
-        description: "Unlimited files, 50 GB storage, video annotation, AI enrichment, and more.",
-        metadata: {
-          app: "metaclips",
-          tier: "pro",
-        },
-      });
-      productId = product.id;
-      console.log("[StripeInit] Created new product:", productId);
-    }
-
-    // List all active recurring prices for this product
-    const existingPrices = await stripe.prices.list({
-      product: productId,
-      active: true,
-      type: "recurring",
-      limit: 20,
-    });
-
-    // --- Monthly price ($9.99/month) ---
-    const matchingMonthly = existingPrices.data.find(
-      (p) => p.unit_amount === 999 && p.recurring?.interval === "month"
+    // --- Pro tier ---
+    const proProductId = await ensureProduct(
+      "MetaClips Pro",
+      "Unlimited files, 50 GB storage, video annotation, AI enrichment, and more.",
+      "pro"
     );
+    cachedProMonthlyPriceId = await ensurePrice(proProductId, 999, "month", "pro");
+    cachedProAnnualPriceId = await ensurePrice(proProductId, 9999, "year", "pro");
 
-    if (matchingMonthly) {
-      cachedMonthlyPriceId = matchingMonthly.id;
-      console.log("[StripeInit] Found existing monthly price:", cachedMonthlyPriceId);
-    } else {
-      const price = await stripe.prices.create({
-        product: productId,
-        unit_amount: 999, // $9.99
-        currency: "usd",
-        recurring: { interval: "month" },
-        metadata: { app: "metaclips", tier: "pro", interval: "month" },
-      });
-      cachedMonthlyPriceId = price.id;
-      console.log("[StripeInit] Created new monthly price:", cachedMonthlyPriceId);
-    }
-
-    // --- Annual price ($99.99/year, ~17% discount) ---
-    const matchingAnnual = existingPrices.data.find(
-      (p) => p.unit_amount === 9999 && p.recurring?.interval === "year"
+    // --- Team tier ---
+    const teamProductId = await ensureProduct(
+      "MetaClips Team",
+      "Collaborative media management with 200 GB shared storage, up to 5 team members, and admin controls.",
+      "team"
     );
+    cachedTeamMonthlyPriceId = await ensurePrice(teamProductId, 2999, "month", "team");
+    cachedTeamAnnualPriceId = await ensurePrice(teamProductId, 29999, "year", "team");
 
-    if (matchingAnnual) {
-      cachedAnnualPriceId = matchingAnnual.id;
-      console.log("[StripeInit] Found existing annual price:", cachedAnnualPriceId);
-    } else {
-      const price = await stripe.prices.create({
-        product: productId,
-        unit_amount: 9999, // $99.99
-        currency: "usd",
-        recurring: { interval: "year" },
-        metadata: { app: "metaclips", tier: "pro", interval: "year" },
-      });
-      cachedAnnualPriceId = price.id;
-      console.log("[StripeInit] Created new annual price:", cachedAnnualPriceId);
-    }
-
-    console.log("[StripeInit] Product and prices initialized successfully");
-    return cachedMonthlyPriceId;
+    console.log("[StripeInit] All products and prices initialized successfully");
+    return cachedProMonthlyPriceId;
   } catch (error) {
-    console.error("[StripeInit] Failed to initialize Stripe product/prices:", error);
+    console.error("[StripeInit] Failed to initialize Stripe products/prices:", error);
     throw error;
   }
 }
 
-/**
- * Get the cached Stripe price ID for the Pro tier (monthly).
- * Returns null if not yet initialized.
- */
+// --- Pro price getters ---
+
 export function getProPriceId(): string | null {
-  return cachedMonthlyPriceId || process.env.STRIPE_PRICE_ID_PRO || null;
+  return cachedProMonthlyPriceId || process.env.STRIPE_PRICE_ID_PRO || null;
 }
 
-/**
- * Get the cached Stripe price ID for the Pro annual tier.
- * Returns null if not yet initialized.
- */
 export function getProAnnualPriceId(): string | null {
-  return cachedAnnualPriceId || process.env.STRIPE_PRICE_ID_PRO_ANNUAL || null;
+  return cachedProAnnualPriceId || process.env.STRIPE_PRICE_ID_PRO_ANNUAL || null;
+}
+
+// --- Team price getters ---
+
+export function getTeamPriceId(): string | null {
+  return cachedTeamMonthlyPriceId || process.env.STRIPE_PRICE_ID_TEAM || null;
+}
+
+export function getTeamAnnualPriceId(): string | null {
+  return cachedTeamAnnualPriceId || process.env.STRIPE_PRICE_ID_TEAM_ANNUAL || null;
 }

@@ -51,6 +51,7 @@ import { socialMediaExtractRouter } from "./routers/socialMediaExtract";
 import { enrichmentJobsRouter } from "./routers/enrichmentJobs";
 import { videoCompressionRouter } from "./routers/videoCompression";
 import { adminControlRouter } from "./routers/adminControl";
+import { teamsRouter } from "./routers/teams";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { sendUploadEmail, sendEditEmail, sendDeleteEmail, sendEnrichEmail } from "./_core/activityEmailNotifications";
 import { TRPCError } from "@trpc/server";
@@ -67,6 +68,7 @@ import { eq, and } from "drizzle-orm";
 
 export const appRouter = router({
   adminControl: adminControlRouter,
+  teams: teamsRouter,
   uploadFromUrl: uploadFromUrlRouter,
   socialMediaExtract: socialMediaExtractRouter,
   enrichmentJobs: enrichmentJobsRouter,

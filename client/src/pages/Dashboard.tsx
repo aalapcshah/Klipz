@@ -47,6 +47,7 @@ import { triggerHaptic } from "@/lib/haptics";
 import { GlobalUploadProgress } from "@/components/GlobalUploadProgress";
 import { StorageAlertBanner } from "@/components/StorageAlertBanner";
 import { TrialBanner } from "@/components/TrialBanner";
+import { UsageAlertBanner } from "@/components/UsageAlertBanner";
 import { UsageDashboardWidget } from "@/components/UsageDashboardWidget";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { UsageOverviewCompact } from "@/components/UsageOverviewCompact";
@@ -136,9 +137,10 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Storage Alert Banner */}
+      {/* Alert Banners */}
       <StorageAlertBanner />
       <TrialBanner />
+      <UsageAlertBanner />
       
       {/* Top Navigation */}
       <header className="border-b border-border bg-card sticky top-0 z-50">

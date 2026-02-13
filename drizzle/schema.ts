@@ -27,7 +27,8 @@ export const users = mysqlTable("users", {
   deactivatedAt: timestamp("deactivatedAt"),
   
   // Subscription and premium features
-  subscriptionTier: mysqlEnum("subscriptionTier", ["free", "trial", "pro"]).default("free").notNull(),
+  subscriptionTier: mysqlEnum("subscriptionTier", ["free", "trial", "pro", "team"]).default("free").notNull(),
+  teamId: int("teamId"), // Foreign key to teams table (null for non-team users)
   knowledgeGraphUsageCount: int("knowledgeGraphUsageCount").default(0).notNull(),
   knowledgeGraphUsageLimit: int("knowledgeGraphUsageLimit").default(10).notNull(), // Free tier: 10 queries/month
   subscriptionExpiresAt: timestamp("subscriptionExpiresAt"),
@@ -1876,3 +1877,86 @@ export const uploadSessions = mysqlTable("upload_sessions", {
 
 export type UploadSession = typeof uploadSessions.$inferSelect;
 export type InsertUploadSession = typeof uploadSessions.$inferInsert;
+
+
+// ============= TEAMS TABLE =============
+
+/**
+ * Teams table - stores team/organization information for team subscriptions
+ */
+export const teams = mysqlTable("teams", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  
+  // Owner (the user who created the team and manages billing)
+  ownerId: int("ownerId").notNull(),
+  
+  // Stripe integration
+  stripeCustomerId: varchar("stripeCustomerId", { length: 255 }),
+  stripeSubscriptionId: varchar("stripeSubscriptionId", { length: 255 }),
+  
+  // Plan limits
+  maxSeats: int("maxSeats").default(5).notNull(), // Maximum team members
+  storageGB: int("storageGB").default(200).notNull(), // Shared storage in GB
+  storageUsedBytes: bigint("storageUsedBytes", { mode: "number" }).default(0).notNull(),
+  
+  // Status
+  status: mysqlEnum("status", ["active", "suspended", "canceled"]).default("active").notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  ownerIdIndex: index("teams_owner_id_idx").on(table.ownerId),
+}));
+
+export type Team = typeof teams.$inferSelect;
+export type InsertTeam = typeof teams.$inferInsert;
+
+/**
+ * Team invites table - pending invitations to join a team
+ */
+export const teamInvites = mysqlTable("team_invites", {
+  id: int("id").autoincrement().primaryKey(),
+  teamId: int("teamId").notNull(),
+  
+  // Invite details
+  email: varchar("email", { length: 320 }).notNull(),
+  invitedBy: int("invitedBy").notNull(), // User who sent the invite
+  role: mysqlEnum("role", ["member", "admin"]).default("member").notNull(),
+  
+  // Invite token for accepting
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  
+  // Status
+  status: mysqlEnum("status", ["pending", "accepted", "expired", "revoked"]).default("pending").notNull(),
+  
+  expiresAt: timestamp("expiresAt").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  acceptedAt: timestamp("acceptedAt"),
+}, (table) => ({
+  teamIdIndex: index("team_invites_team_id_idx").on(table.teamId),
+  emailIndex: index("team_invites_email_idx").on(table.email),
+  tokenIndex: index("team_invites_token_idx").on(table.token),
+}));
+
+export type TeamInvite = typeof teamInvites.$inferSelect;
+export type InsertTeamInvite = typeof teamInvites.$inferInsert;
+
+export const teamsRelations = relations(teams, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [teams.ownerId],
+    references: [users.id],
+  }),
+  invites: many(teamInvites),
+}));
+
+export const teamInvitesRelations = relations(teamInvites, ({ one }) => ({
+  team: one(teams, {
+    fields: [teamInvites.teamId],
+    references: [teams.id],
+  }),
+  inviter: one(users, {
+    fields: [teamInvites.invitedBy],
+    references: [users.id],
+  }),
+}));

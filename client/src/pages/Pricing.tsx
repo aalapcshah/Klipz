@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Check, Sparkles, Crown, Zap, ArrowRight, Clock, AlertCircle } from "lucide-react";
+import { Check, Sparkles, Crown, Zap, ArrowRight, Clock, AlertCircle, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "wouter";
 
@@ -52,9 +52,9 @@ export default function Pricing() {
     }
   };
   
-  const handleUpgrade = async () => {
+  const handleUpgrade = async (tierId: "pro" | "team") => {
     await createCheckoutMutation.mutateAsync({
-      tierId: "pro",
+      tierId,
       billingInterval,
     });
   };
@@ -74,19 +74,90 @@ export default function Pricing() {
   const trialExpired = status?.trialExpired || false;
   const trialUsed = status?.trialUsed || false;
 
-  // Get the selected pricing option
-  const selectedOption = pricingOptions?.find((o) => o.interval === billingInterval);
-  const monthlyOption = pricingOptions?.find((o) => o.interval === "month");
-  const annualOption = pricingOptions?.find((o) => o.interval === "year");
+  // Get pricing options for each tier
+  const proMonthly = pricingOptions?.pro?.find((o: { interval: string }) => o.interval === "month");
+  const proAnnual = pricingOptions?.pro?.find((o: { interval: string }) => o.interval === "year");
+  const teamMonthly = pricingOptions?.team?.find((o: { interval: string }) => o.interval === "month");
+  const teamAnnual = pricingOptions?.team?.find((o: { interval: string }) => o.interval === "year");
+
+  // Determine display prices based on billing interval
+  const proPrice = billingInterval === "month" ? "$9.99" : "$8.33";
+  const proPriceNote = billingInterval === "year" ? "$99.99 billed annually" : null;
+  const teamPrice = billingInterval === "month" ? "$29.99" : "$25.00";
+  const teamPriceNote = billingInterval === "year" ? "$299.99 billed annually" : null;
+  
+  // Plan definitions for the grid
+  const planCards = [
+    {
+      id: "free" as const,
+      name: "Free",
+      icon: <Zap className="h-5 w-5 text-muted-foreground" />,
+      description: "Basic file management for individuals",
+      price: "Free",
+      priceNote: null,
+      priceSubtext: "",
+      recommended: false,
+      features: [
+        "Upload up to 100 files",
+        "2 GB storage",
+        "Label and organize files",
+        "Edit file metadata",
+        "Delete files",
+        "Create collections",
+        "Share files via links",
+      ],
+    },
+    {
+      id: "pro" as const,
+      name: "Pro",
+      icon: <Crown className="h-5 w-5 text-yellow-500" />,
+      description: "Full-featured media management for professionals",
+      price: proPrice,
+      priceNote: proPriceNote,
+      priceSubtext: "/month",
+      recommended: true,
+      features: [
+        "Unlimited files",
+        "50 GB storage",
+        "Unlimited video uploads",
+        "Video annotation with transcription",
+        "Link annotations to metadata-labeled files",
+        "AI-powered file enrichment",
+        "Knowledge graph visualization",
+        "Export data in multiple formats",
+        "Priority support",
+      ],
+    },
+    {
+      id: "team" as const,
+      name: "Team",
+      icon: <Users className="h-5 w-5 text-blue-500" />,
+      description: "Collaborative media management for teams",
+      price: teamPrice,
+      priceNote: teamPriceNote,
+      priceSubtext: "/month per seat",
+      recommended: false,
+      features: [
+        "Everything in Pro",
+        "200 GB shared storage",
+        "Up to 5 team members",
+        "Team admin controls",
+        "Shared collections & files",
+        "Team annotation workflow",
+        "Centralized billing",
+        "Priority support",
+      ],
+    },
+  ];
   
   return (
     <div className="min-h-screen bg-background">
-      <div className="container max-w-6xl py-12">
+      <div className="container max-w-7xl py-12">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Start with our free plan or unlock the full power of MetaClips with Pro features.
+            Start with our free plan or unlock the full power of MetaClips with Pro or Team features.
           </p>
         </div>
 
@@ -122,9 +193,9 @@ export default function Pricing() {
           >
             Annual
           </span>
-          {annualOption?.savings && (
+          {(proAnnual?.savings || teamAnnual?.savings) && (
             <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-              {annualOption.savings}
+              Save 17%
             </Badge>
           )}
         </div>
@@ -145,7 +216,7 @@ export default function Pricing() {
                         </p>
                       </div>
                     </div>
-                    <Button onClick={handleUpgrade} disabled={createCheckoutMutation.isPending}>
+                    <Button onClick={() => handleUpgrade("pro")} disabled={createCheckoutMutation.isPending}>
                       Upgrade Now <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </div>
@@ -162,12 +233,12 @@ export default function Pricing() {
                       <div>
                         <p className="font-medium">Trial Expired</p>
                         <p className="text-sm text-muted-foreground">
-                          Upgrade to Pro to continue using premium features
+                          Upgrade to Pro or Team to continue using premium features
                         </p>
                       </div>
                     </div>
-                    <Button onClick={handleUpgrade} disabled={createCheckoutMutation.isPending}>
-                      Upgrade to Pro <ArrowRight className="ml-2 h-4 w-4" />
+                    <Button onClick={() => handleUpgrade("pro")} disabled={createCheckoutMutation.isPending}>
+                      Upgrade Now <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </div>
                 </CardContent>
@@ -178,26 +249,8 @@ export default function Pricing() {
         
         {/* Plans Grid */}
         <div className="grid md:grid-cols-3 gap-6 mb-12">
-          {plans?.map((plan) => {
+          {planCards.map((plan) => {
             const isCurrentPlan = currentTier === plan.id;
-            const isPro = plan.id === "pro";
-            const isTrial = plan.id === "trial";
-            
-            // Dynamic pricing for Pro based on billing interval
-            let displayPrice = plan.priceFormatted;
-            let priceSubtext = "";
-            if (isPro && selectedOption) {
-              if (billingInterval === "month") {
-                displayPrice = "$9.99";
-                priceSubtext = "/month";
-              } else {
-                displayPrice = "$8.33";
-                priceSubtext = "/month";
-              }
-            } else if (plan.price === 0) {
-              displayPrice = "Free";
-              priceSubtext = "";
-            }
             
             return (
               <Card 
@@ -206,7 +259,7 @@ export default function Pricing() {
               >
                 {plan.recommended && (
                   <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary">
-                    Recommended
+                    Most Popular
                   </Badge>
                 )}
                 
@@ -218,22 +271,20 @@ export default function Pricing() {
                 
                 <CardHeader>
                   <div className="flex items-center gap-2 mb-2">
-                    {plan.id === "free" && <Zap className="h-5 w-5 text-muted-foreground" />}
-                    {plan.id === "trial" && <Sparkles className="h-5 w-5 text-primary" />}
-                    {plan.id === "pro" && <Crown className="h-5 w-5 text-yellow-500" />}
+                    {plan.icon}
                     <CardTitle>{plan.name}</CardTitle>
                   </div>
                   <CardDescription>{plan.description}</CardDescription>
                   <div className="mt-4">
-                    <span className="text-4xl font-bold">{displayPrice}</span>
-                    {priceSubtext && <span className="text-muted-foreground">{priceSubtext}</span>}
-                    {isPro && billingInterval === "year" && (
+                    <span className="text-4xl font-bold">{plan.price}</span>
+                    {plan.priceSubtext && <span className="text-muted-foreground">{plan.priceSubtext}</span>}
+                    {plan.priceNote && (
                       <div className="mt-1">
                         <span className="text-sm text-muted-foreground line-through mr-2">
-                          $9.99/mo
+                          {plan.id === "pro" ? "$9.99/mo" : "$29.99/mo"}
                         </span>
                         <span className="text-sm text-primary font-medium">
-                          $99.99 billed annually
+                          {plan.priceNote}
                         </span>
                       </div>
                     )}
@@ -253,24 +304,26 @@ export default function Pricing() {
                 
                 <CardFooter>
                   {plan.id === "free" && (
-                    <Button 
-                      variant={isCurrentPlan ? "outline" : "default"} 
-                      className="w-full"
-                      disabled={isCurrentPlan}
-                    >
-                      {isCurrentPlan ? "Current Plan" : "Get Started"}
-                    </Button>
-                  )}
-                  
-                  {plan.id === "trial" && (
-                    <Button 
-                      variant="default"
-                      className="w-full"
-                      disabled={trialUsed || isOnTrial || currentTier === "pro" || startingTrial}
-                      onClick={handleStartTrial}
-                    >
-                      {isOnTrial ? "Trial Active" : trialUsed ? "Trial Used" : "Start Free Trial"}
-                    </Button>
+                    <div className="w-full space-y-2">
+                      <Button 
+                        variant={isCurrentPlan ? "outline" : "default"} 
+                        className="w-full"
+                        disabled={isCurrentPlan}
+                      >
+                        {isCurrentPlan ? "Current Plan" : "Get Started"}
+                      </Button>
+                      {!trialUsed && !isOnTrial && currentTier === "free" && user && (
+                        <Button 
+                          variant="ghost"
+                          className="w-full text-primary"
+                          disabled={startingTrial}
+                          onClick={handleStartTrial}
+                        >
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          {startingTrial ? "Starting..." : "Start 14-day Pro Trial"}
+                        </Button>
+                      )}
+                    </div>
                   )}
                   
                   {plan.id === "pro" && (
@@ -278,9 +331,20 @@ export default function Pricing() {
                       variant={plan.recommended ? "default" : "outline"}
                       className="w-full"
                       disabled={currentTier === "pro" || createCheckoutMutation.isPending}
-                      onClick={handleUpgrade}
+                      onClick={() => handleUpgrade("pro")}
                     >
-                      {currentTier === "pro" ? "Current Plan" : "Upgrade to Pro"}
+                      {currentTier === "pro" ? "Current Plan" : currentTier === "team" ? "Downgrade to Pro" : "Upgrade to Pro"}
+                    </Button>
+                  )}
+
+                  {plan.id === "team" && (
+                    <Button 
+                      variant="outline"
+                      className="w-full"
+                      disabled={currentTier === "team" || createCheckoutMutation.isPending}
+                      onClick={() => handleUpgrade("team")}
+                    >
+                      {currentTier === "team" ? "Current Plan" : "Upgrade to Team"}
                     </Button>
                   )}
                 </CardFooter>

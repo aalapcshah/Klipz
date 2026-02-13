@@ -6305,3 +6305,25 @@ Note: The application already has extensive annotation features including voice 
 - [x] Show savings percentage (Save 17%) for annual plan
 - [x] Update checkout session to support billingInterval param
 - [x] Add getPricingOptions public procedure for frontend
+
+## Team/Enterprise Pricing Tier
+- [x] Create Team tier Stripe product and prices (monthly $29.99, annual $299.99)
+- [x] Add team tier to products.ts and subscriptionPlans.ts
+- [x] Update stripeInit.ts to create team prices on startup
+- [x] Create teams table in database schema (team name, owner, storage quota)
+- [x] Create team_invites table (email, team_id, invite code, status, expiry)
+- [x] Add team management procedures (create team, invite members, remove members, accept invite)
+- [x] Add team admin controls (manage members, view usage)
+- [x] Update pricing page with 3-tier layout (Free, Pro, Team) and billing toggle
+- [x] Update checkout flow to support team tier
+
+## Usage-Based Billing Alerts
+- [x] Add usage tracking queries (storage used, file count, video count)
+- [x] Create usage alert thresholds (80% and 95% of plan limits)
+- [x] Send notification when user reaches 80% of storage limit
+- [x] Send notification when user reaches 95% of storage limit
+- [x] Send notification when user reaches 80% of file count limit
+- [x] Send notification when user reaches 95% of file count limit
+- [x] Add UsageAlertBanner component to Dashboard
+- [x] Show upgrade prompts when approaching limits
+- [x] Add getUsageAlerts and dismissUsageAlert procedures to subscription router

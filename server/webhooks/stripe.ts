@@ -116,7 +116,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         .set({
           stripeCustomerId: customerId,
           stripeSubscriptionId: subscriptionId,
-          subscriptionTier: tier.id as "free" | "trial" | "pro",
+          subscriptionTier: tier.id as "free" | "trial" | "pro" | "team",
           subscriptionExpiresAt: new Date((subscription as any).current_period_end * 1000),
         })
         .where(eq(users.id, parseInt(userId)));
@@ -174,7 +174,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
   await db.update(users)
     .set({
-      subscriptionTier: tier.id as "free" | "trial" | "pro",
+      subscriptionTier: tier.id as "free" | "trial" | "pro" | "team",
       subscriptionExpiresAt: new Date((subscription as any).current_period_end * 1000),
     })
     .where(eq(users.id, user.id));
@@ -268,7 +268,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
   await notifyPaymentFailed({
     userName: user.name || "User",
     userEmail: user.email || "",
-    planName: "Pro",
+    planName: user.subscriptionTier === "team" ? "Team" : "Pro",
     amount,
     retryDate: nextRetry,
   });

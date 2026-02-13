@@ -3,7 +3,7 @@
  * Defines the features and limits for each subscription tier
  */
 
-export type SubscriptionTier = 'free' | 'trial' | 'pro';
+export type SubscriptionTier = 'free' | 'trial' | 'pro' | 'team';
 
 export interface PlanLimits {
   // Storage limits
@@ -21,6 +21,11 @@ export interface PlanLimits {
   canExportData: boolean;
   canShareFiles: boolean;
   canCreateCollections: boolean;
+  
+  // Team features
+  canManageTeam: boolean;
+  canUseSharedStorage: boolean;
+  maxTeamSeats: number; // 0 for non-team plans
   
   // Usage limits
   knowledgeGraphQueriesPerMonth: number;
@@ -60,6 +65,9 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, PlanInfo> = {
       canExportData: false,
       canShareFiles: true,
       canCreateCollections: true,
+      canManageTeam: false,
+      canUseSharedStorage: false,
+      maxTeamSeats: 0,
       knowledgeGraphQueriesPerMonth: 0,
       aiEnrichmentPerMonth: 0,
     },
@@ -92,6 +100,9 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, PlanInfo> = {
       canExportData: true,
       canShareFiles: true,
       canCreateCollections: true,
+      canManageTeam: false,
+      canUseSharedStorage: false,
+      maxTeamSeats: 0,
       knowledgeGraphQueriesPerMonth: 50,
       aiEnrichmentPerMonth: 100,
     },
@@ -126,6 +137,9 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, PlanInfo> = {
       canExportData: true,
       canShareFiles: true,
       canCreateCollections: true,
+      canManageTeam: false,
+      canUseSharedStorage: false,
+      maxTeamSeats: 0,
       knowledgeGraphQueriesPerMonth: -1, // Unlimited
       aiEnrichmentPerMonth: -1, // Unlimited
     },
@@ -138,6 +152,42 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, PlanInfo> = {
       'AI-powered file enrichment',
       'Knowledge graph visualization',
       'Export data in multiple formats',
+      'Priority support',
+    ],
+  },
+
+  team: {
+    id: 'team',
+    name: 'Team',
+    description: 'Collaborative media management for teams',
+    price: 2999, // $29.99/month
+    limits: {
+      maxStorageBytes: 200 * 1024 * 1024 * 1024, // 200 GB shared
+      maxVideoCount: -1, // Unlimited
+      maxFileCount: -1, // Unlimited
+      canUploadVideos: true,
+      canAnnotateVideos: true,
+      canUseTranscription: true,
+      canLinkAnnotationsToFiles: true,
+      canUseAIEnrichment: true,
+      canUseKnowledgeGraph: true,
+      canExportData: true,
+      canShareFiles: true,
+      canCreateCollections: true,
+      canManageTeam: true,
+      canUseSharedStorage: true,
+      maxTeamSeats: 5,
+      knowledgeGraphQueriesPerMonth: -1, // Unlimited
+      aiEnrichmentPerMonth: -1, // Unlimited
+    },
+    features: [
+      'Everything in Pro',
+      '200 GB shared storage',
+      'Up to 5 team members',
+      'Team admin controls',
+      'Shared collections & files',
+      'Team annotation workflow',
+      'Centralized billing',
       'Priority support',
     ],
   },
@@ -162,7 +212,7 @@ export function getPlanInfo(tier: SubscriptionTier): PlanInfo {
  */
 export function canPerformAction(
   tier: SubscriptionTier,
-  action: keyof Omit<PlanLimits, 'maxStorageBytes' | 'maxVideoCount' | 'maxFileCount' | 'knowledgeGraphQueriesPerMonth' | 'aiEnrichmentPerMonth'>
+  action: keyof Omit<PlanLimits, 'maxStorageBytes' | 'maxVideoCount' | 'maxFileCount' | 'knowledgeGraphQueriesPerMonth' | 'aiEnrichmentPerMonth' | 'maxTeamSeats'>
 ): boolean {
   return SUBSCRIPTION_PLANS[tier].limits[action];
 }

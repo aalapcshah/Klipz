@@ -52,12 +52,13 @@ describe("Subscription Router", () => {
       
       expect(plans).toBeDefined();
       expect(Array.isArray(plans)).toBe(true);
-      expect(plans.length).toBe(3); // free, trial, pro
+      expect(plans.length).toBe(4); // free, trial, pro, team
       
       const planIds = plans.map(p => p.id);
       expect(planIds).toContain("free");
       expect(planIds).toContain("trial");
       expect(planIds).toContain("pro");
+      expect(planIds).toContain("team");
     });
     
     it("should include correct plan details", async () => {

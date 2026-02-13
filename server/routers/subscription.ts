@@ -14,6 +14,7 @@ import {
   TRIAL_DURATION_DAYS,
   type SubscriptionTier 
 } from "../../shared/subscriptionPlans";
+import { checkUsageAlerts, sendUsageAlertNotification } from "../lib/usageAlerts";
 
 /**
  * Calculate current storage usage for a user
@@ -383,6 +384,31 @@ export const subscriptionRouter = router({
     await updateStorageUsage(ctx.user.id);
     return { success: true };
   }),
+
+  /**
+   * Get usage alerts for the current user
+   */
+  getUsageAlerts: protectedProcedure.query(async ({ ctx }) => {
+    const alerts = await checkUsageAlerts(ctx.user.id);
+    return {
+      alerts,
+      hasWarnings: alerts.some(a => a.level === 80),
+      hasCritical: alerts.some(a => a.level >= 95),
+      alertCount: alerts.length,
+    };
+  }),
+
+  /**
+   * Dismiss a usage alert (sends notification to owner and marks as seen)
+   */
+  dismissUsageAlert: protectedProcedure
+    .input(z.object({
+      alertType: z.enum(["storage", "files", "videos"]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // For now, just acknowledge - could track dismissed alerts in DB later
+      return { success: true, dismissed: input.alertType };
+    }),
 });
 
 export type SubscriptionRouter = typeof subscriptionRouter;

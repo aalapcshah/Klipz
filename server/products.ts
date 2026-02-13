@@ -5,9 +5,9 @@
  * These should match the products created in your Stripe Dashboard.
  */
 
-import { getProPriceId, getProAnnualPriceId } from './lib/stripeInit';
+import { getProPriceId, getProAnnualPriceId, getTeamPriceId, getTeamAnnualPriceId } from './lib/stripeInit';
 
-export type SubscriptionTierId = 'free' | 'trial' | 'pro';
+export type SubscriptionTierId = 'free' | 'trial' | 'pro' | 'team';
 export type BillingInterval = 'month' | 'year';
 
 export interface SubscriptionTier {
@@ -64,7 +64,6 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTierId, SubscriptionTier> = 
   pro: {
     id: 'pro',
     name: 'Pro',
-    // Stripe Price ID - dynamically resolved from Stripe on server startup (monthly)
     get stripePriceId() {
       return getProPriceId() || process.env.STRIPE_PRICE_ID_PRO || '';
     },
@@ -79,6 +78,25 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTierId, SubscriptionTier> = 
       'AI-powered file enrichment',
       'Knowledge graph visualization',
       'Export data in multiple formats',
+      'Priority support',
+    ]
+  },
+  team: {
+    id: 'team',
+    name: 'Team',
+    get stripePriceId() {
+      return getTeamPriceId() || process.env.STRIPE_PRICE_ID_TEAM || '';
+    },
+    storageGB: 200,
+    priceMonthly: 2999, // $29.99 in cents
+    features: [
+      'Everything in Pro',
+      '200 GB shared storage',
+      'Up to 5 team members',
+      'Team admin controls',
+      'Shared collections & files',
+      'Team annotation workflow',
+      'Centralized billing',
       'Priority support',
     ]
   },
@@ -109,9 +127,40 @@ export function getProPricingOptions(): PricingOption[] {
 }
 
 /**
- * Get the Stripe price ID for a given billing interval
+ * Get pricing options for the Team tier (monthly and annual)
  */
-export function getProPriceIdForInterval(interval: BillingInterval): string {
+export function getTeamPricingOptions(): PricingOption[] {
+  const monthlyPriceId = getTeamPriceId() || process.env.STRIPE_PRICE_ID_TEAM || '';
+  const annualPriceId = getTeamAnnualPriceId() || process.env.STRIPE_PRICE_ID_TEAM_ANNUAL || '';
+
+  return [
+    {
+      interval: 'month',
+      priceId: monthlyPriceId,
+      amount: 2999, // $29.99/month
+      label: '$29.99/month',
+    },
+    {
+      interval: 'year',
+      priceId: annualPriceId,
+      amount: 29999, // $299.99/year ($25.00/month equivalent)
+      label: '$299.99/year',
+      savings: 'Save 17%',
+    },
+  ];
+}
+
+/**
+ * Get the Stripe price ID for a given tier and billing interval
+ */
+export function getPriceIdForTierAndInterval(tier: 'pro' | 'team', interval: BillingInterval): string {
+  if (tier === 'team') {
+    if (interval === 'year') {
+      return getTeamAnnualPriceId() || process.env.STRIPE_PRICE_ID_TEAM_ANNUAL || '';
+    }
+    return getTeamPriceId() || process.env.STRIPE_PRICE_ID_TEAM || '';
+  }
+  // Default to pro
   if (interval === 'year') {
     return getProAnnualPriceId() || process.env.STRIPE_PRICE_ID_PRO_ANNUAL || '';
   }
@@ -127,17 +176,23 @@ export function getSubscriptionTier(tierId: string): SubscriptionTier | undefine
 
 /**
  * Get subscription tier by Stripe Price ID
- * Matches both monthly and annual price IDs to the Pro tier
+ * Matches monthly and annual price IDs to the correct tier
  */
 export function getSubscriptionTierByPriceId(priceId: string): SubscriptionTier | undefined {
-  // Check standard tier price IDs
+  // Check standard tier price IDs (monthly)
   const directMatch = Object.values(SUBSCRIPTION_TIERS).find(tier => tier.stripePriceId === priceId);
   if (directMatch) return directMatch;
 
-  // Also check annual price ID (maps to pro tier)
-  const annualPriceId = getProAnnualPriceId() || process.env.STRIPE_PRICE_ID_PRO_ANNUAL;
-  if (annualPriceId && priceId === annualPriceId) {
+  // Check Pro annual price ID
+  const proAnnualPriceId = getProAnnualPriceId() || process.env.STRIPE_PRICE_ID_PRO_ANNUAL;
+  if (proAnnualPriceId && priceId === proAnnualPriceId) {
     return SUBSCRIPTION_TIERS.pro;
+  }
+
+  // Check Team annual price ID
+  const teamAnnualPriceId = getTeamAnnualPriceId() || process.env.STRIPE_PRICE_ID_TEAM_ANNUAL;
+  if (teamAnnualPriceId && priceId === teamAnnualPriceId) {
+    return SUBSCRIPTION_TIERS.team;
   }
 
   return undefined;
