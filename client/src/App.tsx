@@ -38,6 +38,8 @@ import VideoDetail from "./pages/VideoDetail";
 import Share from "./pages/Share";
 import MyShares from "./pages/MyShares";
 import Pricing from "./pages/Pricing";
+import TeamManagement from "./pages/TeamManagement";
+import TeamSetup from "./pages/TeamSetup";
 import { trpc } from "./lib/trpc";
 import { useState, useEffect } from "react";
 import { CookieConsent } from "./components/CookieConsent";
@@ -67,6 +69,8 @@ function Router() {
       <Route path="/contact" component={Contact} />
       <Route path="/upgrade" component={Upgrade} />
       <Route path="/pricing" component={Pricing} />
+      <Route path="/team" component={TeamManagement} />
+      <Route path="/team/setup" component={TeamSetup} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/terms-of-service" component={TermsOfService} />
       <Route path="/payment/success" component={PaymentSuccess} />

@@ -28,7 +28,8 @@ import {
   CreditCard,
   MessageSquare,
   LogOut,
-  Captions
+  Captions,
+  Users
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -118,6 +119,7 @@ export default function Dashboard() {
     { href: "/", label: "Files", icon: FileIcon },
     { href: "/videos", label: "Videos", icon: VideoIcon },
     { href: "/collections", label: "Collections", icon: FolderIcon },
+    ...(user?.subscriptionTier === "team" ? [{ href: "/team", label: "Team", icon: Users }] : []),
   ];
 
   const toolsMenuItems = [

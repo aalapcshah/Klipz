@@ -6327,3 +6327,25 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add UsageAlertBanner component to Dashboard
 - [x] Show upgrade prompts when approaching limits
 - [x] Add getUsageAlerts and dismissUsageAlert procedures to subscription router
+
+## Team Management UI Page
+- [x] Create /team route and TeamManagement page component
+- [x] Show team overview (name, member count, storage usage)
+- [x] Display team members list with roles (owner, admin, member)
+- [x] Add invite member form (email input + send invite button)
+- [x] Show pending invites with revoke option
+- [x] Add remove member functionality with confirmation
+- [x] Add edit team name functionality
+- [x] Add leave team option for non-owner members
+- [x] Add empty state for users without a team
+- [x] Add Team link to navigation for team-tier subscribers
+
+## Team Onboarding Wizard
+- [x] Create team onboarding wizard component (multi-step)
+- [x] Step 1: Name your team
+- [x] Step 2: Invite team members (email list with add/remove)
+- [x] Step 3: Confirmation / success screen with next steps
+- [x] Trigger onboarding after Team subscription checkout success
+- [x] Add route /team/setup for the onboarding wizard
+- [x] Skip onboarding if team already exists
+- [x] Skip option for invite step
