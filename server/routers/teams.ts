@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
-import { teams, teamInvites, users, teamActivities } from "../../drizzle/schema";
-import { eq, and, count, desc, lt } from "drizzle-orm";
+import { teams, teamInvites, users, teamActivities, files } from "../../drizzle/schema";
+import { eq, and, count, desc, lt, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import { TRPCError } from "@trpc/server";
 import crypto from "crypto";
@@ -9,9 +9,9 @@ import { logTeamActivity } from "../lib/teamActivity";
 import { notifyOwner } from "../_core/notification";
 
 /**
- * Helper to check if a user is a team owner or admin
+ * Helper to check if a user is a team owner (for owner-only operations like promote/demote)
  */
-async function requireTeamAdmin(userId: number, teamId: number) {
+async function requireTeamOwner(userId: number, teamId: number) {
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
 
@@ -21,6 +21,31 @@ async function requireTeamAdmin(userId: number, teamId: number) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Only the team owner can perform this action" });
   }
   return { db, team };
+}
+
+/**
+ * Helper to check if a user is a team owner OR admin (for invite/remove operations)
+ */
+async function requireTeamAdmin(userId: number, teamId: number) {
+  const db = await getDb();
+  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+  const [team] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
+  if (!team) throw new TRPCError({ code: "NOT_FOUND", message: "Team not found" });
+
+  const isOwner = team.ownerId === userId;
+  if (!isOwner) {
+    // Check if user is an admin
+    const [user] = await db
+      .select({ teamRole: users.teamRole })
+      .from(users)
+      .where(and(eq(users.id, userId), eq(users.teamId, teamId)))
+      .limit(1);
+    if (!user || user.teamRole !== "admin") {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Only team owners and admins can perform this action" });
+    }
+  }
+  return { db, team, isOwner };
 }
 
 export const teamsRouter = router({
@@ -103,6 +128,8 @@ export const teamsRouter = router({
       memberCount: memberResult?.count || 0,
       pendingInvites: inviteResult?.count || 0,
       isOwner: team.ownerId === ctx.user.id,
+      isAdmin: ctx.user.teamRole === "admin",
+      canManage: team.ownerId === ctx.user.id || ctx.user.teamRole === "admin",
       storageUsedFormatted: formatBytes(team.storageUsedBytes),
       storageLimitFormatted: `${team.storageGB} GB`,
       storagePercentage: Math.round((team.storageUsedBytes / (team.storageGB * 1024 * 1024 * 1024)) * 100),
@@ -196,7 +223,7 @@ export const teamsRouter = router({
       if (!ctx.user.teamId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "You don't belong to a team" });
       }
-      const { db, team } = await requireTeamAdmin(ctx.user.id, ctx.user.teamId);
+      const { db, team } = await requireTeamOwner(ctx.user.id, ctx.user.teamId);
 
       // Can't promote yourself
       if (input.userId === ctx.user.id) {
@@ -240,7 +267,7 @@ export const teamsRouter = router({
       if (!ctx.user.teamId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "You don't belong to a team" });
       }
-      const { db, team } = await requireTeamAdmin(ctx.user.id, ctx.user.teamId);
+      const { db, team } = await requireTeamOwner(ctx.user.id, ctx.user.teamId);
 
       // Can't demote yourself
       if (input.userId === ctx.user.id) {
@@ -516,7 +543,8 @@ export const teamsRouter = router({
     }),
 
   /**
-   * Remove a member from the team (owner only)
+   * Remove a member from the team (owner or admin)
+   * Admins can only remove regular members, not other admins or the owner
    */
   removeMember: protectedProcedure
     .input(z.object({
@@ -527,10 +555,22 @@ export const teamsRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "You don't belong to a team" });
       }
 
-      const { db, team } = await requireTeamAdmin(ctx.user.id, ctx.user.teamId);
+      const { db, team, isOwner } = await requireTeamAdmin(ctx.user.id, ctx.user.teamId);
 
       if (input.userId === team.ownerId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot remove the team owner" });
+      }
+
+      // If the actor is an admin (not owner), prevent removing other admins
+      if (!isOwner) {
+        const [targetUser] = await db
+          .select({ teamRole: users.teamRole })
+          .from(users)
+          .where(and(eq(users.id, input.userId), eq(users.teamId, team.id)))
+          .limit(1);
+        if (targetUser?.teamRole === "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Admins cannot remove other admins. Only the team owner can do this." });
+        }
       }
 
       // Get member details for logging
@@ -608,7 +648,7 @@ export const teamsRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "You don't belong to a team" });
       }
 
-      const { db } = await requireTeamAdmin(ctx.user.id, ctx.user.teamId);
+      const { db } = await requireTeamOwner(ctx.user.id, ctx.user.teamId);
 
       await db.update(teams)
         .set({ name: input.name })
@@ -666,6 +706,80 @@ export const teamsRouter = router({
         nextCursor,
       };
     }),
+
+  /**
+   * Get per-member storage breakdown for the team
+   * Returns each member's file count, total storage used, and percentage of team storage
+   */
+  getStorageBreakdown: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return { members: [], teamTotal: 0, teamLimit: 0 };
+
+    if (!ctx.user.teamId) return { members: [], teamTotal: 0, teamLimit: 0 };
+
+    // Get the team info
+    const [team] = await db.select().from(teams).where(eq(teams.id, ctx.user.teamId)).limit(1);
+    if (!team) return { members: [], teamTotal: 0, teamLimit: 0 };
+
+    const teamLimitBytes = team.storageGB * 1024 * 1024 * 1024;
+
+    // Get all team members
+    const teamMembers = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        avatarUrl: users.avatarUrl,
+        storageUsedBytes: users.storageUsedBytes,
+      })
+      .from(users)
+      .where(eq(users.teamId, ctx.user.teamId));
+
+    // Get file counts and actual storage per member from the files table
+    const memberFileStats = await db
+      .select({
+        userId: files.userId,
+        fileCount: count(),
+        totalSize: sql<number>`COALESCE(SUM(${files.fileSize}), 0)`,
+      })
+      .from(files)
+      .where(
+        sql`${files.userId} IN (${teamMembers.length > 0 ? sql.join(teamMembers.map(m => sql`${m.id}`), sql`, `) : sql`-1`})`
+      )
+      .groupBy(files.userId);
+
+    const fileStatsMap = new Map(memberFileStats.map(s => [s.userId, s]));
+
+    const memberBreakdown = teamMembers.map(m => {
+      const stats = fileStatsMap.get(m.id);
+      const storageUsed = stats ? Number(stats.totalSize) : 0;
+      const fileCount = stats ? Number(stats.fileCount) : 0;
+      return {
+        id: m.id,
+        name: m.name,
+        email: m.email,
+        avatarUrl: m.avatarUrl,
+        storageUsedBytes: storageUsed,
+        storageUsedFormatted: formatBytes(storageUsed),
+        fileCount,
+        percentage: teamLimitBytes > 0 ? Math.round((storageUsed / teamLimitBytes) * 100 * 10) / 10 : 0,
+      };
+    });
+
+    // Sort by storage used descending
+    memberBreakdown.sort((a, b) => b.storageUsedBytes - a.storageUsedBytes);
+
+    const teamTotal = memberBreakdown.reduce((sum, m) => sum + m.storageUsedBytes, 0);
+
+    return {
+      members: memberBreakdown,
+      teamTotal,
+      teamTotalFormatted: formatBytes(teamTotal),
+      teamLimit: teamLimitBytes,
+      teamLimitFormatted: formatBytes(teamLimitBytes),
+      teamPercentage: teamLimitBytes > 0 ? Math.round((teamTotal / teamLimitBytes) * 100 * 10) / 10 : 0,
+    };
+  }),
 });
 
 function formatBytes(bytes: number): string {

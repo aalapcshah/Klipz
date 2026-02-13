@@ -6386,3 +6386,23 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add role badges (Owner/Admin/Member) and promote/demote UI on Team Management page
 - [x] Update TeamActivityFeed with new activity type icons and descriptions
 - [x] Write 46 tests for all new functionality (teamFeatures.test.ts)
+
+## Extend Admin Permissions
+- [x] Update requireTeamAdmin helper to accept both owner and admin roles
+- [x] Add requireTeamOwner helper for owner-only operations (promote/demote/rename)
+- [x] Allow admins to send team invites (not just owner)
+- [x] Allow admins to revoke pending invites (not just owner)
+- [x] Allow admins to remove regular members (not just owner)
+- [x] Prevent admins from removing other admins or the owner
+- [x] Update UI to show invite/remove controls for admins too
+- [x] Update getPendingInvites to be accessible by admins
+- [x] Add canManage and isAdmin flags to getMyTeam response
+- [x] Write 20 tests for admin permissions (teamFeatures.test.ts)
+
+## Team Storage Dashboard
+- [x] Create getStorageBreakdown procedure with per-member file count and storage
+- [x] Build TeamStorageDashboard component with stacked bar and per-member breakdown
+- [x] Show total team storage used vs limit with color-coded stacked bar
+- [x] Show per-member breakdown with avatar, name, file count, storage used, and progress bar
+- [x] Add storage dashboard to Team Management page below the overall storage card
+- [x] Write 21 tests for storage dashboard (teamFeatures.test.ts)

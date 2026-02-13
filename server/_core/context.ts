@@ -53,6 +53,8 @@ export async function createContext(
           trialUsed: false,
           storageUsedBytes: 0,
           videoCount: 0,
+          teamId: null,
+          teamRole: null,
           stripeCustomerId: null,
           stripeSubscriptionId: null,
           createdAt: new Date(),

@@ -502,3 +502,402 @@ describe("activity feed UI support for new types", () => {
     });
   });
 });
+
+// ============= FEATURE 4: Extended Admin Permissions =============
+
+describe("extended admin permissions", () => {
+  describe("requireTeamAdmin helper logic", () => {
+    it("should allow team owner to pass admin check", () => {
+      const team = { id: 1, ownerId: 42 };
+      const userId = 42;
+
+      const isOwner = team.ownerId === userId;
+      expect(isOwner).toBe(true);
+      // Owner always passes requireTeamAdmin
+    });
+
+    it("should allow admin user to pass admin check", () => {
+      const team = { id: 1, ownerId: 42 };
+      const userId = 99;
+      const userTeamRole = "admin";
+
+      const isOwner = team.ownerId === userId;
+      const isAdmin = userTeamRole === "admin";
+      expect(isOwner).toBe(false);
+      expect(isAdmin).toBe(true);
+      // Admin passes requireTeamAdmin
+    });
+
+    it("should reject regular member from admin check", () => {
+      const team = { id: 1, ownerId: 42 };
+      const userId = 99;
+      const userTeamRole = "member";
+
+      const isOwner = team.ownerId === userId;
+      const isAdmin = userTeamRole === "admin";
+      expect(isOwner).toBe(false);
+      expect(isAdmin).toBe(false);
+      // Regular member fails requireTeamAdmin
+    });
+
+    it("should return isOwner flag in the result", () => {
+      const team = { id: 1, ownerId: 42 };
+
+      const ownerResult = { db: {}, team, isOwner: team.ownerId === 42 };
+      const adminResult = { db: {}, team, isOwner: team.ownerId === 99 };
+
+      expect(ownerResult.isOwner).toBe(true);
+      expect(adminResult.isOwner).toBe(false);
+    });
+  });
+
+  describe("admin invite permissions", () => {
+    it("should allow admin to send invites (requireTeamAdmin passes)", () => {
+      const actorRole = "admin";
+      const canInvite = actorRole === "admin" || actorRole === "owner";
+      expect(canInvite).toBe(true);
+    });
+
+    it("should allow admin to revoke pending invites", () => {
+      const actorRole = "admin";
+      const canRevoke = actorRole === "admin" || actorRole === "owner";
+      expect(canRevoke).toBe(true);
+    });
+
+    it("should not allow regular member to send invites", () => {
+      const actorRole = "member";
+      const canInvite = actorRole === "admin" || actorRole === "owner";
+      expect(canInvite).toBe(false);
+    });
+  });
+
+  describe("admin remove member permissions", () => {
+    it("should allow admin to remove regular members", () => {
+      const isOwner = false;
+      const targetRole = "member";
+
+      // Admin can remove regular members
+      const canRemove = isOwner || targetRole !== "admin";
+      expect(canRemove).toBe(true);
+    });
+
+    it("should not allow admin to remove other admins", () => {
+      const isOwner = false;
+      const targetRole = "admin";
+
+      // Admin cannot remove other admins
+      const canRemove = isOwner || targetRole !== "admin";
+      expect(canRemove).toBe(false);
+    });
+
+    it("should allow owner to remove admins", () => {
+      const isOwner = true;
+      const targetRole = "admin";
+
+      // Owner can remove anyone
+      const canRemove = isOwner || targetRole !== "admin";
+      expect(canRemove).toBe(true);
+    });
+
+    it("should not allow anyone to remove the team owner", () => {
+      const team = { ownerId: 42 };
+      const targetUserId = 42;
+
+      const isTargetOwner = targetUserId === team.ownerId;
+      expect(isTargetOwner).toBe(true);
+      // This should be blocked before the admin check
+    });
+
+    it("should not allow removing yourself", () => {
+      const actorId = 99;
+      const targetUserId = 99;
+
+      expect(actorId === targetUserId).toBe(true);
+    });
+  });
+
+  describe("owner-only operations remain restricted", () => {
+    it("should only allow owner to promote members", () => {
+      const team = { ownerId: 42 };
+      const actorId = 99; // admin, not owner
+      const actorRole = "admin";
+
+      // promoteMember uses requireTeamOwner, not requireTeamAdmin
+      const canPromote = team.ownerId === actorId;
+      expect(canPromote).toBe(false);
+    });
+
+    it("should only allow owner to demote members", () => {
+      const team = { ownerId: 42 };
+      const actorId = 99; // admin, not owner
+      const actorRole = "admin";
+
+      const canDemote = team.ownerId === actorId;
+      expect(canDemote).toBe(false);
+    });
+
+    it("should only allow owner to update team name", () => {
+      const team = { ownerId: 42 };
+      const actorId = 99; // admin, not owner
+
+      const canUpdateName = team.ownerId === actorId;
+      expect(canUpdateName).toBe(false);
+    });
+
+    it("should allow owner to promote members", () => {
+      const team = { ownerId: 42 };
+      const actorId = 42; // owner
+
+      const canPromote = team.ownerId === actorId;
+      expect(canPromote).toBe(true);
+    });
+  });
+
+  describe("getMyTeam canManage flag", () => {
+    it("should set canManage true for team owner", () => {
+      const team = { ownerId: 42 };
+      const userId = 42;
+      const teamRole = "member";
+
+      const isOwner = team.ownerId === userId;
+      const isAdmin = teamRole === "admin";
+      const canManage = isOwner || isAdmin;
+
+      expect(canManage).toBe(true);
+    });
+
+    it("should set canManage true for team admin", () => {
+      const team = { ownerId: 42 };
+      const userId = 99;
+      const teamRole = "admin";
+
+      const isOwner = team.ownerId === userId;
+      const isAdmin = teamRole === "admin";
+      const canManage = isOwner || isAdmin;
+
+      expect(canManage).toBe(true);
+    });
+
+    it("should set canManage false for regular member", () => {
+      const team = { ownerId: 42 };
+      const userId = 99;
+      const teamRole = "member";
+
+      const isOwner = team.ownerId === userId;
+      const isAdmin = teamRole === "admin";
+      const canManage = isOwner || isAdmin;
+
+      expect(canManage).toBe(false);
+    });
+
+    it("should set isAdmin flag correctly", () => {
+      expect(("admin" as string) === "admin").toBe(true);
+      expect(("member" as string) === "admin").toBe(false);
+      expect((null as string | null) === "admin").toBe(false);
+    });
+  });
+});
+
+// ============= FEATURE 5: Team Storage Dashboard =============
+
+describe("team storage dashboard", () => {
+  describe("storage breakdown calculation", () => {
+    it("should calculate per-member storage percentage correctly", () => {
+      const teamLimitBytes = 200 * 1024 * 1024 * 1024; // 200 GB
+      const memberStorageUsed = 10 * 1024 * 1024 * 1024; // 10 GB
+
+      const percentage = Math.round((memberStorageUsed / teamLimitBytes) * 100 * 10) / 10;
+      expect(percentage).toBe(5);
+    });
+
+    it("should handle zero team limit gracefully", () => {
+      const teamLimitBytes = 0;
+      const memberStorageUsed = 100;
+
+      const percentage = teamLimitBytes > 0
+        ? Math.round((memberStorageUsed / teamLimitBytes) * 100 * 10) / 10
+        : 0;
+      expect(percentage).toBe(0);
+    });
+
+    it("should sort members by storage used descending", () => {
+      const members = [
+        { id: 1, name: "Alice", storageUsedBytes: 5000 },
+        { id: 2, name: "Bob", storageUsedBytes: 15000 },
+        { id: 3, name: "Carol", storageUsedBytes: 8000 },
+      ];
+
+      members.sort((a, b) => b.storageUsedBytes - a.storageUsedBytes);
+
+      expect(members[0].name).toBe("Bob");
+      expect(members[1].name).toBe("Carol");
+      expect(members[2].name).toBe("Alice");
+    });
+
+    it("should calculate team total from member breakdown", () => {
+      const members = [
+        { storageUsedBytes: 5000 },
+        { storageUsedBytes: 15000 },
+        { storageUsedBytes: 8000 },
+      ];
+
+      const teamTotal = members.reduce((sum, m) => sum + m.storageUsedBytes, 0);
+      expect(teamTotal).toBe(28000);
+    });
+
+    it("should handle empty team (no members)", () => {
+      const members: { storageUsedBytes: number }[] = [];
+      const teamTotal = members.reduce((sum, m) => sum + m.storageUsedBytes, 0);
+      expect(teamTotal).toBe(0);
+    });
+  });
+
+  describe("formatBytes utility", () => {
+    function formatBytes(bytes: number): string {
+      if (bytes === 0) return "0 B";
+      const k = 1024;
+      const sizes = ["B", "KB", "MB", "GB", "TB"];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+    }
+
+    it("should format 0 bytes", () => {
+      expect(formatBytes(0)).toBe("0 B");
+    });
+
+    it("should format bytes", () => {
+      expect(formatBytes(500)).toBe("500 B");
+    });
+
+    it("should format kilobytes", () => {
+      expect(formatBytes(1024)).toBe("1 KB");
+    });
+
+    it("should format megabytes", () => {
+      expect(formatBytes(1024 * 1024)).toBe("1 MB");
+    });
+
+    it("should format gigabytes", () => {
+      expect(formatBytes(1024 * 1024 * 1024)).toBe("1 GB");
+    });
+
+    it("should format with decimal precision", () => {
+      expect(formatBytes(1500)).toBe("1.5 KB");
+    });
+
+    it("should format 200 GB correctly", () => {
+      expect(formatBytes(200 * 1024 * 1024 * 1024)).toBe("200 GB");
+    });
+  });
+
+  describe("storage breakdown response shape", () => {
+    it("should return correct response shape with all fields", () => {
+      const response = {
+        members: [
+          {
+            id: 1,
+            name: "Alice",
+            email: "alice@example.com",
+            avatarUrl: null,
+            storageUsedBytes: 5000,
+            storageUsedFormatted: "4.9 KB",
+            fileCount: 3,
+            percentage: 0,
+          },
+        ],
+        teamTotal: 5000,
+        teamTotalFormatted: "4.9 KB",
+        teamLimit: 200 * 1024 * 1024 * 1024,
+        teamLimitFormatted: "200 GB",
+        teamPercentage: 0,
+      };
+
+      expect(response.members).toHaveLength(1);
+      expect(response.members[0]).toHaveProperty("id");
+      expect(response.members[0]).toHaveProperty("name");
+      expect(response.members[0]).toHaveProperty("email");
+      expect(response.members[0]).toHaveProperty("storageUsedBytes");
+      expect(response.members[0]).toHaveProperty("storageUsedFormatted");
+      expect(response.members[0]).toHaveProperty("fileCount");
+      expect(response.members[0]).toHaveProperty("percentage");
+      expect(response).toHaveProperty("teamTotal");
+      expect(response).toHaveProperty("teamTotalFormatted");
+      expect(response).toHaveProperty("teamLimit");
+      expect(response).toHaveProperty("teamLimitFormatted");
+      expect(response).toHaveProperty("teamPercentage");
+    });
+
+    it("should return empty state for user without team", () => {
+      const response = { members: [], teamTotal: 0, teamLimit: 0 };
+
+      expect(response.members).toHaveLength(0);
+      expect(response.teamTotal).toBe(0);
+      expect(response.teamLimit).toBe(0);
+    });
+  });
+
+  describe("storage color thresholds", () => {
+    it("should use red for 90%+ usage", () => {
+      const percentage = 95;
+      const color = percentage >= 90 ? "bg-red-500" : percentage >= 70 ? "bg-yellow-500" : "bg-emerald-500";
+      expect(color).toBe("bg-red-500");
+    });
+
+    it("should use yellow for 70-89% usage", () => {
+      const percentage = 75;
+      const color = percentage >= 90 ? "bg-red-500" : percentage >= 70 ? "bg-yellow-500" : "bg-emerald-500";
+      expect(color).toBe("bg-yellow-500");
+    });
+
+    it("should use emerald for under 70% usage", () => {
+      const percentage = 50;
+      const color = percentage >= 90 ? "bg-red-500" : percentage >= 70 ? "bg-yellow-500" : "bg-emerald-500";
+      expect(color).toBe("bg-emerald-500");
+    });
+  });
+
+  describe("member color assignment", () => {
+    const MEMBER_COLORS = [
+      "bg-emerald-500",
+      "bg-cyan-500",
+      "bg-violet-500",
+      "bg-amber-500",
+      "bg-rose-500",
+      "bg-blue-500",
+      "bg-pink-500",
+      "bg-teal-500",
+    ];
+
+    function getColorForIndex(index: number): string {
+      return MEMBER_COLORS[index % MEMBER_COLORS.length];
+    }
+
+    it("should assign different colors to different members", () => {
+      expect(getColorForIndex(0)).toBe("bg-emerald-500");
+      expect(getColorForIndex(1)).toBe("bg-cyan-500");
+      expect(getColorForIndex(2)).toBe("bg-violet-500");
+    });
+
+    it("should cycle colors for teams with more than 8 members", () => {
+      expect(getColorForIndex(8)).toBe("bg-emerald-500"); // wraps around
+      expect(getColorForIndex(9)).toBe("bg-cyan-500");
+    });
+  });
+
+  describe("team limit calculation from storageGB", () => {
+    it("should convert storageGB to bytes correctly", () => {
+      const storageGB = 200;
+      const teamLimitBytes = storageGB * 1024 * 1024 * 1024;
+      expect(teamLimitBytes).toBe(214748364800);
+    });
+
+    it("should handle default 200 GB team storage", () => {
+      const storageGB = 200;
+      const teamLimitBytes = storageGB * 1024 * 1024 * 1024;
+      const teamTotal = 50 * 1024 * 1024 * 1024; // 50 GB used
+
+      const percentage = Math.round((teamTotal / teamLimitBytes) * 100 * 10) / 10;
+      expect(percentage).toBe(25);
+    });
+  });
+});

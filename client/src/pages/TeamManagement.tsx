@@ -40,6 +40,7 @@ import {
   X,
 } from "lucide-react";
 import TeamActivityFeed from "@/components/TeamActivityFeed";
+import { TeamStorageDashboard } from "@/components/TeamStorageDashboard";
 
 export default function TeamManagement() {
   const { user, loading: authLoading } = useAuth();
@@ -59,7 +60,7 @@ export default function TeamManagement() {
   );
   const { data: pendingInvites = [], isLoading: invitesLoading } = trpc.teams.getPendingInvites.useQuery(
     undefined,
-    { enabled: !!user && !!team?.isOwner }
+    { enabled: !!user && !!(team?.isOwner || team?.canManage) }
   );
 
   const inviteMutation = trpc.teams.inviteMember.useMutation({
@@ -285,6 +286,11 @@ export default function TeamManagement() {
           </CardContent>
         </Card>
 
+        {/* Storage Breakdown per Member */}
+        <div className="mb-6">
+          <TeamStorageDashboard />
+        </div>
+
         {/* Team Members */}
         <Card className="mb-6">
           <CardHeader>
@@ -346,9 +352,9 @@ export default function TeamManagement() {
                     </div>
 
                     {/* Actions */}
+                    {/* Promote/Demote - owner only */}
                     {team.isOwner && !member.isOwner && (
-                      <div className="flex items-center gap-2">
-                        {/* Promote / Demote */}
+                      <div className="flex items-center gap-1">
                         {(member as any).teamRole === "admin" ? (
                           <Button
                             variant="ghost"
@@ -372,8 +378,13 @@ export default function TeamManagement() {
                             Promote
                           </Button>
                         )}
+                      </div>
+                    )}
 
-                        {/* Remove */}
+                    {/* Remove - owner can remove anyone, admin can remove regular members */}
+                    {team.canManage && !member.isOwner && member.id !== user?.id && (
+                      // Admins can't remove other admins
+                      !(team.isAdmin && !team.isOwner && (member as any).teamRole === "admin") ? (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300">
@@ -400,7 +411,7 @@ export default function TeamManagement() {
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
-                      </div>
+                      ) : null
                     )}
 
                     {/* Leave team button for non-owner members */}
@@ -437,8 +448,8 @@ export default function TeamManagement() {
           </CardContent>
         </Card>
 
-        {/* Invite Members (owner only) */}
-        {team.isOwner && (
+        {/* Invite Members (owner and admins) */}
+        {team.canManage && (
           <Card className="mb-6">
             <CardHeader>
               <div className="flex items-center gap-2">
