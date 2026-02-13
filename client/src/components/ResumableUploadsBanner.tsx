@@ -10,6 +10,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
   Upload, 
   X, 
@@ -22,9 +28,13 @@ import {
   ChevronUp,
   FileVideo,
   File,
-  FolderOpen
+  FolderOpen,
+  Wifi,
+  WifiOff,
+  Timer,
+  CalendarClock,
 } from "lucide-react";
-import { useResumableUpload, ResumableUploadSession } from "@/hooks/useResumableUpload";
+import { useResumableUpload, ResumableUploadSession, NetworkQuality } from "@/hooks/useResumableUpload";
 import { useUploadSettings } from "@/hooks/useUploadSettings";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -69,6 +79,36 @@ function formatTimeAgo(dateString: string): string {
   return `${diffDays}d ago`;
 }
 
+function formatScheduledTime(timestamp: number): string {
+  const now = Date.now();
+  const diffMs = timestamp - now;
+  if (diffMs <= 0) return "now";
+  const diffMins = Math.ceil(diffMs / 60000);
+  if (diffMins < 60) return `${diffMins}m`;
+  const diffHours = Math.floor(diffMins / 60);
+  const remainMins = diffMins % 60;
+  return `${diffHours}h ${remainMins}m`;
+}
+
+function NetworkQualityBadge({ quality }: { quality: NetworkQuality }) {
+  if (quality === 'unknown') return null;
+  
+  const config = {
+    good: { color: 'text-green-500', bg: 'bg-green-500/10', label: 'Good', icon: Wifi },
+    fair: { color: 'text-amber-500', bg: 'bg-amber-500/10', label: 'Fair', icon: Wifi },
+    poor: { color: 'text-red-500', bg: 'bg-red-500/10', label: 'Poor', icon: WifiOff },
+  }[quality];
+  
+  const Icon = config.icon;
+  
+  return (
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${config.color} ${config.bg}`}>
+      <Icon className="h-2.5 w-2.5" />
+      {config.label}
+    </span>
+  );
+}
+
 interface ResumableUploadsBannerProps {
   onUploadComplete?: () => void;
 }
@@ -91,10 +131,13 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
     pauseAll,
     resumeAll,
     retryAllFailed,
+    scheduleRetry,
+    cancelScheduledRetry,
     activeCount,
     pausedCount,
     errorCount,
     resumableCount,
+    networkQuality,
   } = useResumableUpload({
     autoResume: true,
     chunkDelayMs: uploadSettings.chunkDelayMs,
@@ -159,6 +202,10 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
   }
 
   const handleResumeClick = (session: ResumableUploadSession) => {
+    // Cancel any scheduled retry when manually resuming
+    if (session.scheduledRetryAt) {
+      cancelScheduledRetry(session.sessionToken);
+    }
     if (session.file) {
       // File is still in memory, resume directly
       resumeUpload(session.sessionToken, session.file);
@@ -230,6 +277,8 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
             <span className="text-sm text-muted-foreground">
               (uploads can continue from where they left off)
             </span>
+            {/* Global network quality badge */}
+            {activeCount > 0 && <NetworkQualityBadge quality={networkQuality} />}
           </div>
           <Button variant="ghost" size="sm">
             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -333,6 +382,10 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                     <span className="text-xs text-muted-foreground">
                       {formatBytes(session.fileSize)}
                     </span>
+                    {/* Per-session network quality badge when active */}
+                    {session.status === "active" && session.networkQuality && (
+                      <NetworkQualityBadge quality={session.networkQuality} />
+                    )}
                   </div>
 
                   {/* Progress bar */}
@@ -344,7 +397,7 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                   </div>
 
                   {/* Status info */}
-                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
                     <span>
                       {session.uploadedChunks}/{session.totalChunks} chunks
                     </span>
@@ -381,10 +434,16 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                         Assembling and uploading to storage...
                       </span>
                     )}
-                    {session.status === "error" && (
+                    {session.status === "error" && !session.scheduledRetryAt && (
                       <span className="flex items-center gap-1 text-red-500">
                         <AlertCircle className="h-3 w-3" />
                         {session.error || "Error"}
+                      </span>
+                    )}
+                    {session.status === "error" && session.scheduledRetryAt && (
+                      <span className="flex items-center gap-1 text-blue-500">
+                        <CalendarClock className="h-3 w-3" />
+                        Retry in {formatScheduledTime(session.scheduledRetryAt)}
                       </span>
                     )}
                   </div>
@@ -415,18 +474,68 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                       <Pause className="h-4 w-4" />
                     </Button>
                   ) : session.status === "error" ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleResumeClick(session);
-                      }}
-                      className="text-amber-500 hover:text-amber-600"
-                      title="Retry upload"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                    </Button>
+                    <>
+                      {/* Retry now button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleResumeClick(session);
+                        }}
+                        className="text-amber-500 hover:text-amber-600"
+                        title="Retry now"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                      {/* Schedule retry dropdown */}
+                      {!session.scheduledRetryAt ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-blue-500 hover:text-blue-600"
+                              title="Schedule retry"
+                            >
+                              <Timer className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => scheduleRetry(session.sessionToken, 5)}>
+                              <Clock className="h-4 w-4 mr-2" />
+                              Retry in 5 minutes
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => scheduleRetry(session.sessionToken, 15)}>
+                              <Clock className="h-4 w-4 mr-2" />
+                              Retry in 15 minutes
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => scheduleRetry(session.sessionToken, 30)}>
+                              <Clock className="h-4 w-4 mr-2" />
+                              Retry in 30 minutes
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => scheduleRetry(session.sessionToken, 60)}>
+                              <Clock className="h-4 w-4 mr-2" />
+                              Retry in 1 hour
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cancelScheduledRetry(session.sessionToken);
+                          }}
+                          className="text-blue-500 hover:text-blue-600"
+                          title="Cancel scheduled retry"
+                        >
+                          <CalendarClock className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </>
                   ) : (
                     <Button
                       variant="ghost"

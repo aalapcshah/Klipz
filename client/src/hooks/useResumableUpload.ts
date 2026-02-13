@@ -6,6 +6,22 @@ import { trpcCall } from "@/lib/trpcCall";
 const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks (kept small to avoid proxy body size limits on deployed sites)
 const STORAGE_KEY = "metaclips-resumable-uploads";
 
+// Network quality levels
+export type NetworkQuality = 'good' | 'fair' | 'poor' | 'unknown';
+
+// Adaptive upload settings per session
+interface AdaptiveSettings {
+  currentTimeoutMs: number; // Current timeout per chunk (starts at 120s)
+  consecutiveSuccesses: number; // Count of consecutive successes at current settings
+  consecutiveFailures: number; // Count of consecutive failures
+  totalFailures: number; // Total failures for this session
+  totalSuccesses: number; // Total successes for this session
+}
+
+const DEFAULT_TIMEOUT_MS = 120_000; // 2 minutes
+const MIN_TIMEOUT_MS = 30_000; // 30 seconds minimum
+const MAX_TIMEOUT_MS = 300_000; // 5 minutes maximum
+
 export interface ResumableUploadSession {
   sessionToken: string;
   filename: string;
@@ -34,6 +50,11 @@ export interface ResumableUploadSession {
   // Local tracking
   file?: File;
   isPaused?: boolean;
+  // Network quality tracking
+  networkQuality?: NetworkQuality;
+  recentSpeeds?: number[]; // Last N chunk speeds in bytes/sec
+  // Scheduled retry
+  scheduledRetryAt?: number; // Unix timestamp for scheduled retry
 }
 
 interface UseResumableUploadOptions {
@@ -182,6 +203,13 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   const clearedTokensRef = useRef<Set<string>>(new Set());
   const autoResumedRef = useRef(false);
   const chunkDelayRef = useRef(options.chunkDelayMs ?? 0);
+  // Adaptive upload settings per session
+  const adaptiveSettingsRef = useRef<Map<string, AdaptiveSettings>>(new Map());
+  // Network quality tracking: rolling window of chunk speeds (bytes/sec)
+  const chunkSpeedHistoryRef = useRef<number[]>([]);
+  const chunkFailureHistoryRef = useRef<boolean[]>([]); // true = success, false = failure
+  // Scheduled retry timers
+  const scheduledRetryTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   // Keep refs to callbacks so the upload loop always calls the latest version
   const optionsRef = useRef(options);
   useEffect(() => { optionsRef.current = options; }, [options]);
@@ -314,6 +342,148 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
         reject(new Error("Failed to initialize chunk reader"));
       }
     });
+  }, []);
+
+  // --- Adaptive upload helpers ---
+  const getAdaptiveSettings = useCallback((sessionToken: string): AdaptiveSettings => {
+    let settings = adaptiveSettingsRef.current.get(sessionToken);
+    if (!settings) {
+      settings = {
+        currentTimeoutMs: DEFAULT_TIMEOUT_MS,
+        consecutiveSuccesses: 0,
+        consecutiveFailures: 0,
+        totalFailures: 0,
+        totalSuccesses: 0,
+      };
+      adaptiveSettingsRef.current.set(sessionToken, settings);
+    }
+    return settings;
+  }, []);
+
+  const recordChunkSuccess = useCallback((sessionToken: string, speedBytesPerSec: number) => {
+    const settings = getAdaptiveSettings(sessionToken);
+    settings.consecutiveSuccesses++;
+    settings.consecutiveFailures = 0;
+    settings.totalSuccesses++;
+
+    // After 5 consecutive successes with increased timeout, reduce timeout back toward default
+    if (settings.consecutiveSuccesses >= 5 && settings.currentTimeoutMs > DEFAULT_TIMEOUT_MS) {
+      settings.currentTimeoutMs = Math.max(DEFAULT_TIMEOUT_MS, settings.currentTimeoutMs - 30_000);
+      settings.consecutiveSuccesses = 0;
+      console.log(`[Adaptive] Reduced timeout to ${settings.currentTimeoutMs / 1000}s for ${sessionToken}`);
+    }
+
+    // Track speed and success in rolling window (keep last 20)
+    chunkSpeedHistoryRef.current.push(speedBytesPerSec);
+    if (chunkSpeedHistoryRef.current.length > 20) chunkSpeedHistoryRef.current.shift();
+    chunkFailureHistoryRef.current.push(true);
+    if (chunkFailureHistoryRef.current.length > 20) chunkFailureHistoryRef.current.shift();
+  }, [getAdaptiveSettings]);
+
+  const recordChunkFailure = useCallback((sessionToken: string) => {
+    const settings = getAdaptiveSettings(sessionToken);
+    settings.consecutiveFailures++;
+    settings.consecutiveSuccesses = 0;
+    settings.totalFailures++;
+
+    // After 3 consecutive failures, increase timeout (up to max)
+    if (settings.consecutiveFailures >= 3 && settings.currentTimeoutMs < MAX_TIMEOUT_MS) {
+      settings.currentTimeoutMs = Math.min(MAX_TIMEOUT_MS, settings.currentTimeoutMs + 60_000);
+      console.log(`[Adaptive] Increased timeout to ${settings.currentTimeoutMs / 1000}s for ${sessionToken}`);
+    }
+
+    // Track failure in rolling window
+    chunkFailureHistoryRef.current.push(false);
+    if (chunkFailureHistoryRef.current.length > 20) chunkFailureHistoryRef.current.shift();
+  }, [getAdaptiveSettings]);
+
+  const calculateNetworkQuality = useCallback((): NetworkQuality => {
+    const speeds = chunkSpeedHistoryRef.current;
+    const results = chunkFailureHistoryRef.current;
+    if (speeds.length < 3 && results.length < 3) return 'unknown';
+
+    const avgSpeed = speeds.length > 0 ? speeds.reduce((a, b) => a + b, 0) / speeds.length : 0;
+    const successRate = results.length > 0 ? results.filter(r => r).length / results.length : 1;
+
+    // Good: >100KB/s avg speed and >90% success rate
+    if (avgSpeed > 100_000 && successRate > 0.9) return 'good';
+    // Poor: <20KB/s avg speed or <50% success rate
+    if (avgSpeed < 20_000 || successRate < 0.5) return 'poor';
+    // Fair: everything else
+    return 'fair';
+  }, []);
+
+  // --- Scheduled retry helpers ---
+  const scheduleRetry = useCallback((sessionToken: string, delayMinutes: number) => {
+    // Cancel any existing scheduled retry for this session
+    const existingTimer = scheduledRetryTimersRef.current.get(sessionToken);
+    if (existingTimer) clearTimeout(existingTimer);
+
+    const retryAt = Date.now() + delayMinutes * 60 * 1000;
+
+    // Update session with scheduled time
+    setSessionsRef.current(prev => {
+      const updated = prev.map(s =>
+        s.sessionToken === sessionToken
+          ? { ...s, scheduledRetryAt: retryAt, error: `Scheduled retry in ${delayMinutes}m` }
+          : s
+      );
+      saveSessionsToStorage(updated);
+      return updated;
+    });
+
+    const timer = setTimeout(() => {
+      scheduledRetryTimersRef.current.delete(sessionToken);
+      const currentSession = sessionsRef.current.find(s => s.sessionToken === sessionToken);
+      if (currentSession && (currentSession.status === 'error' || currentSession.scheduledRetryAt)) {
+        const file = currentSession.file;
+        if (file) {
+          console.log(`[ScheduledRetry] Auto-retrying ${currentSession.filename}`);
+          toast.info(`Scheduled retry starting for ${currentSession.filename}`);
+          setSessionsRef.current(prev => prev.map(s =>
+            s.sessionToken === sessionToken
+              ? { ...s, status: 'active' as const, error: undefined, scheduledRetryAt: undefined }
+              : s
+          ));
+          uploadChunksRef.current({ ...currentSession, status: 'active', scheduledRetryAt: undefined }, file);
+        } else {
+          toast.warning(`Cannot auto-retry ${currentSession.filename}: file needs to be re-selected`);
+          setSessionsRef.current(prev => prev.map(s =>
+            s.sessionToken === sessionToken
+              ? { ...s, scheduledRetryAt: undefined, error: 'Scheduled retry failed: file not available. Please re-select the file.' }
+              : s
+          ));
+        }
+      }
+    }, delayMinutes * 60 * 1000);
+
+    scheduledRetryTimersRef.current.set(sessionToken, timer);
+    toast.success(`Upload will retry in ${delayMinutes} minute${delayMinutes > 1 ? 's' : ''}`);
+  }, []);
+
+  const cancelScheduledRetry = useCallback((sessionToken: string) => {
+    const timer = scheduledRetryTimersRef.current.get(sessionToken);
+    if (timer) {
+      clearTimeout(timer);
+      scheduledRetryTimersRef.current.delete(sessionToken);
+    }
+    setSessionsRef.current(prev => prev.map(s =>
+      s.sessionToken === sessionToken
+        ? { ...s, scheduledRetryAt: undefined }
+        : s
+    ));
+    toast.info('Scheduled retry cancelled');
+  }, []);
+
+  // Keep a ref to uploadChunks for the scheduled retry callback
+  const uploadChunksRef = useRef<(session: ResumableUploadSession, file: File) => void>(() => {});
+
+  // Clean up scheduled retry timers on unmount
+  useEffect(() => {
+    return () => {
+      scheduledRetryTimersRef.current.forEach(timer => clearTimeout(timer));
+      scheduledRetryTimersRef.current.clear();
+    };
   }, []);
 
   // Start a new upload
@@ -508,6 +678,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     let lastSpeedUpdate = Date.now();
     let lastBytesForSpeed = session.uploadedBytes;
     let consecutiveFailures = 0;
+    const adaptive = getAdaptiveSettings(session.sessionToken);
 
     try {
       for (let i = session.uploadedChunks; i < session.totalChunks; i++) {
@@ -525,20 +696,22 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
           await new Promise(resolve => setTimeout(resolve, chunkDelayRef.current));
         }
 
-        // Upload chunk with retries (10 retries with exponential backoff, 2min timeout per chunk)
+        // Upload chunk with retries (10 retries with exponential backoff, adaptive timeout)
         let retries = 0;
         const maxRetries = 10;
         let chunkSuccess = false;
+        const chunkStartTime = Date.now();
         
         while (retries < maxRetries) {
           try {
             if (abortController.signal.aborted) return;
             
-            // Show retry status in UI
+            // Show retry status in UI with adaptive info
             if (retries > 0) {
+              const timeoutSec = Math.round(adaptive.currentTimeoutMs / 1000);
               setSessionsRef.current(prev => prev.map(s =>
                 s.sessionToken === session.sessionToken
-                  ? { ...s, error: `Retrying chunk ${i + 1} (attempt ${retries + 1}/${maxRetries})...` }
+                  ? { ...s, error: `Retrying chunk ${i + 1} (attempt ${retries + 1}/${maxRetries}, timeout ${timeoutSec}s)...` }
                   : s
               ));
             }
@@ -546,7 +719,8 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
             // Read chunk inside retry loop so file read failures are also retried
             const chunkData = await readChunkAsBase64(file, start, end);
             
-            // Use direct fetch with timeout and abort signal
+            // Use direct fetch with adaptive timeout and abort signal
+            const attemptStart = Date.now();
             const result = await trpcCall<{
               uploadedChunks: number;
               totalChunks: number;
@@ -556,15 +730,23 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
               chunkIndex: i,
               chunkData,
             }, 'mutation', {
-              timeoutMs: 120_000, // 2 minute timeout per chunk
+              timeoutMs: adaptive.currentTimeoutMs, // Adaptive timeout
               signal: abortController.signal,
             });
 
-            console.log(`[ResumableUpload] Chunk ${i + 1}/${session.totalChunks} uploaded for ${session.filename}`);
-            chunkSuccess = true;
-            consecutiveFailures = 0; // Reset on success
+            const attemptDuration = (Date.now() - attemptStart) / 1000;
+            const chunkBytes = end - start;
+            const chunkSpeed = attemptDuration > 0 ? chunkBytes / attemptDuration : 0;
 
-            // Update session state
+            console.log(`[ResumableUpload] Chunk ${i + 1}/${session.totalChunks} uploaded for ${session.filename} (${(chunkSpeed / 1024).toFixed(1)} KB/s, timeout ${adaptive.currentTimeoutMs / 1000}s)`);
+            chunkSuccess = true;
+            consecutiveFailures = 0;
+
+            // Record success for adaptive settings and network quality
+            recordChunkSuccess(session.sessionToken, chunkSpeed);
+            const networkQuality = calculateNetworkQuality();
+
+            // Update session state with network quality
             const now = Date.now();
             const timeDiff = (now - lastSpeedUpdate) / 1000;
             const bytesDiff = result.uploadedBytes - lastBytesForSpeed;
@@ -587,7 +769,9 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
                       progress: (result.uploadedChunks / result.totalChunks) * 100,
                       speed,
                       eta,
-                      error: undefined, // Clear retry message on success
+                      error: undefined,
+                      networkQuality,
+                      recentSpeeds: [...(s.recentSpeeds || []).slice(-9), chunkSpeed],
                     }
                   : s
               );
@@ -605,6 +789,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
               progress: (result.uploadedChunks / result.totalChunks) * 100,
               speed,
               eta,
+              networkQuality,
             });
 
             break; // Success, exit retry loop
@@ -619,12 +804,16 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
             const retryLabel = isTimeout ? 'timeout' : isNetwork ? 'network error' : error?.message;
             console.warn(`[ResumableUpload] Chunk ${i} attempt ${retries} failed (${retryLabel})`);
             
+            // Record failure for adaptive settings
+            recordChunkFailure(session.sessionToken);
+            
             if (retries >= maxRetries) {
               // Mark as error so user can manually retry or cancel — do NOT auto-resume
               console.warn(`[ResumableUpload] Upload failed for ${session.filename} after ${maxRetries} retries on chunk ${i + 1}`);
               
               // Abort the controller to stop this upload
               abortController.abort();
+              const networkQuality = calculateNetworkQuality();
               
               // Update session to error state (not paused — prevents auto-resume loop)
               setSessionsRef.current(prev => {
@@ -635,6 +824,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
                         status: 'error' as const,
                         speed: 0,
                         eta: 0,
+                        networkQuality,
                         error: `Failed at chunk ${i + 1}/${session.totalChunks}: ${retryLabel}. Tap retry or cancel.`,
                       }
                     : s
@@ -643,7 +833,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
                 return updated;
               });
               
-              toast.error(`${session.filename}: Upload failed after ${maxRetries} retries. You can retry or cancel the upload.`, {
+              toast.error(`${session.filename}: Upload failed after ${maxRetries} retries. You can retry, schedule a retry, or cancel.`, {
                 duration: 8000,
               });
               
@@ -651,7 +841,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
             }
             // Exponential backoff: 2s, 4s, 8s, 16s, 32s, 60s, 60s, 60s, 60s, 60s
             const backoffMs = Math.min(2000 * Math.pow(2, retries - 1), 60_000);
-            console.log(`[ResumableUpload] Retrying chunk ${i} in ${backoffMs / 1000}s...`);
+            console.log(`[ResumableUpload] Retrying chunk ${i} in ${backoffMs / 1000}s (timeout: ${adaptive.currentTimeoutMs / 1000}s)...`);
             await new Promise(resolve => setTimeout(resolve, backoffMs));
           }
         }
@@ -743,6 +933,9 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
       abortControllersRef.current.delete(session.sessionToken);
     }
   }, [readChunkAsBase64]);
+
+  // Keep uploadChunksRef in sync for scheduled retry callbacks
+  useEffect(() => { uploadChunksRef.current = uploadChunks; }, [uploadChunks]);
 
   // Auto-resume: when sessions load and have file references in memory, auto-resume them
   useEffect(() => {
@@ -1053,6 +1246,9 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   const errorCount = sessions.filter(s => s.status === "error").length;
   const resumableCount = sessions.filter(s => s.status === "active" || s.status === "paused").length;
 
+  // Compute global network quality from all active sessions
+  const networkQuality = calculateNetworkQuality();
+
   return {
     sessions,
     isLoading,
@@ -1064,10 +1260,13 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     pauseAll,
     resumeAll,
     retryAllFailed,
+    scheduleRetry,
+    cancelScheduledRetry,
     refetchSessions,
     activeCount,
     pausedCount,
     errorCount,
     resumableCount,
+    networkQuality,
   };
 }

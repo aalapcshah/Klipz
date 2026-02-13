@@ -32,10 +32,28 @@ import {
   Clock,
   Calendar,
   FileIcon,
-  FolderOpen
+  FolderOpen,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
+import type { NetworkQuality } from "@/hooks/useResumableUpload";
+
+function NetworkQualityBadgeSmall({ quality }: { quality?: NetworkQuality }) {
+  if (!quality || quality === 'unknown') return null;
+  const config = {
+    good: { color: 'text-green-500', icon: Wifi, label: 'Good' },
+    fair: { color: 'text-amber-500', icon: Wifi, label: 'Fair' },
+    poor: { color: 'text-red-500', icon: WifiOff, label: 'Poor' },
+  }[quality];
+  const Icon = config.icon;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[10px] ${config.color}`} title={`Network: ${config.label}`}>
+      <Icon className="h-2.5 w-2.5" />
+    </span>
+  );
+}
 
 export function GlobalUploadProgress() {
   const {
@@ -311,6 +329,9 @@ export function GlobalUploadProgress() {
                                   {formatFileSize(Number(session.fileSize))}
                                   <span className="ml-1 text-amber-500">(resumable)</span>
                                 </p>
+                                {session.status === 'active' && session.networkQuality && (
+                                  <NetworkQualityBadgeSmall quality={session.networkQuality} />
+                                )}
                               </div>
                               <div className="flex items-center gap-1">
                                 {session.status === "active" ? (

@@ -6451,3 +6451,33 @@ Note: The application already has extensive annotation features including voice 
 - [x] Show error state in GlobalUploadProgress with red icon and "Go to Files" link
 - [x] Save error sessions to localStorage for persistence across page reloads
 - [x] Clear error message: "Failed at chunk X/Y: reason. Tap retry or cancel."
+
+## Chunk Size Auto-Tuning → Adaptive Timeout
+- [x] Implemented adaptive timeout instead of chunk size reduction (server pre-creates fixed chunk records)
+- [x] Track per-session adaptive settings: timeout, consecutive successes/failures, totals
+- [x] Start at 120s timeout, increase by 1.5x on failure (up to 300s max)
+- [x] Decrease by 0.8x after 5 consecutive successes (down to 30s min)
+- [x] Persist adaptive settings per session in useResumableUpload hook
+- [x] Write 11 tests for adaptive timeout logic (uploadAdaptive.test.ts)
+
+## Upload Network Quality Indicator
+- [x] Track recent chunk upload speeds in rolling window (last 10 chunks)
+- [x] Calculate rolling average speed and failure rate from chunk history
+- [x] Show connection quality badge (Good/Fair/Poor) in ResumableUploadsBanner
+- [x] Show per-session network quality badge next to filename during active uploads
+- [x] Show global network quality badge in banner header when uploads are active
+- [x] Show compact network quality icon in GlobalUploadProgress popover
+- [x] Quality thresholds: Good (>500KB/s, <10% failures), Fair (>100KB/s, <30%), Poor (rest)
+- [x] Write 10 tests for network quality calculation (uploadAdaptive.test.ts)
+
+## Background Upload Retry Scheduling
+- [x] Add scheduleRetry and cancelScheduledRetry functions to useResumableUpload hook
+- [x] Add timer dropdown (5m/15m/30m/1h) to error state in ResumableUploadsBanner
+- [x] Implement timer-based auto-retry that fires after delay and resumes upload
+- [x] Show "Retry in Xm" countdown in upload status with CalendarClock icon
+- [x] Cancel scheduled retry button replaces timer dropdown when scheduled
+- [x] Cancel any scheduled retry when user manually retries
+- [x] Clean up all timers on component unmount
+- [x] Add retryAllFailed bulk action button for error state sessions
+- [x] Write 5 tests for scheduled retry logic + 3 integration tests (uploadAdaptive.test.ts)
+- [x] All 1,116 tests passing across 88 test files
