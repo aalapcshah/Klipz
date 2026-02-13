@@ -97,6 +97,15 @@ async function startServer() {
   const { initializeCronJobs } = await import("./cronJobs");
   initializeCronJobs();
 
+  // Initialize Stripe product and price (creates them if they don't exist)
+  try {
+    const { ensureStripeProductAndPrice } = await import("../lib/stripeInit");
+    await ensureStripeProductAndPrice();
+    console.log("[StripeInit] Product and price initialized successfully");
+  } catch (error) {
+    console.error("[StripeInit] Failed to initialize (subscriptions may not work):", error);
+  }
+
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
   });

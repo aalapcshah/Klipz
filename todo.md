@@ -6255,3 +6255,6 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix touch event cleanup (proper removeEventListener in useEffect cleanup)
 - [x] Fix pinch-to-zoom handling in touchMove (was missing)
 - [x] Fix touchEnd to reset pinch/pan state and mark unsaved changes
+
+## Subscription Bug Fix
+- [x] Fix "Invalid subscription tier" error on pricing page when trying to subscribe (created stripeInit.ts to auto-create Stripe product/price on server startup, updated products.ts with dynamic getter)

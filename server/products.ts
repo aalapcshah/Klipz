@@ -5,6 +5,8 @@
  * These should match the products created in your Stripe Dashboard.
  */
 
+import { getProPriceId } from './lib/stripeInit';
+
 export type SubscriptionTierId = 'free' | 'trial' | 'pro';
 
 export interface SubscriptionTier {
@@ -53,8 +55,10 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTierId, SubscriptionTier> = 
   pro: {
     id: 'pro',
     name: 'Pro',
-    // Stripe Price ID - set via environment variable after creating product in Stripe Dashboard
-    stripePriceId: process.env.STRIPE_PRICE_ID_PRO || '',
+    // Stripe Price ID - dynamically resolved from Stripe on server startup
+    get stripePriceId() {
+      return getProPriceId() || process.env.STRIPE_PRICE_ID_PRO || '';
+    },
     storageGB: 50,
     priceMonthly: 999, // $9.99 in cents
     features: [
