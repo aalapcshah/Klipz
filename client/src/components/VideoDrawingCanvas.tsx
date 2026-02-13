@@ -252,94 +252,35 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
     }
   }, [onToggleRequest, onDrawingModeChange]);
 
+  // Canvas sizing effect - only handles sizing, no event listeners
+  // (Event handling is done via React props in the parent component through the ref)
   useEffect(() => {
-    // Only attach event listeners when drawing mode is active
-    if (!showCanvas) {
-      return;
-    }
+    if (!showCanvas) return;
     
-    // Use a small delay to ensure canvas is mounted in the DOM
-    const setupTimer = setTimeout(() => {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      
-      if (!canvas || !video) {
-        return;
-      }
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video) return;
     
-    
-    // Immediately size the canvas to match video
-    const rect = video.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-    
-    // Add touch event listeners
-    const touchStart = (e: TouchEvent) => {
-      setTouchDetected(true);
-      e.preventDefault();
-      e.stopPropagation();
-      handleTouchStart(e);
-    };
-    const touchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      handleTouchMove(e);
-    };
-    const touchEnd = () => handleTouchEnd();
-    
-    // Add mouse event listeners with proper native event handling
-    const mouseDown = (e: MouseEvent) => {
-      // Convert native MouseEvent to React-like event
-      const reactEvent = {
-        ...e,
-        currentTarget: canvas,
-        nativeEvent: e,
-      } as unknown as React.MouseEvent<HTMLCanvasElement>;
-      handleMouseDown(reactEvent);
-    };
-    const mouseMove = (e: MouseEvent) => {
-      const reactEvent = {
-        ...e,
-        currentTarget: canvas,
-        nativeEvent: e,
-      } as unknown as React.MouseEvent<HTMLCanvasElement>;
-      handleMouseMove(reactEvent);
-    };
-    const mouseUp = () => handleMouseUp();
-    
-    // Attach event listeners
-    canvas.addEventListener('touchstart', touchStart, { passive: false });
-    canvas.addEventListener('touchmove', touchMove, { passive: false });
-    canvas.addEventListener('touchend', touchEnd, { passive: false });
-    canvas.addEventListener('touchcancel', touchEnd, { passive: false });
-    canvas.addEventListener('mousedown', mouseDown);
-    canvas.addEventListener('mousemove', mouseMove);
-    canvas.addEventListener('mouseup', mouseUp);
-    canvas.addEventListener('mouseleave', mouseUp);
-    
-    // Match canvas size to video display size
+    // Size the canvas to match video display size
     const resizeCanvas = () => {
       const rect = video.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
-      redrawCanvas();
-    };
-    
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-    
-    }, 50); // Small delay to ensure canvas is mounted
-    
-    // Cleanup function
-    return () => {
-      clearTimeout(setupTimer);
-      const canvas = canvasRef.current;
-      if (canvas) {
-        window.removeEventListener("resize", () => {});
-        // Note: We can't remove the exact listener functions here since they're defined inside the timeout
-        // But the canvas will be hidden anyway when showCanvas is false
+      if (rect.width > 0 && rect.height > 0) {
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        redrawCanvas();
       }
     };
-  }, [showCanvas]); // Re-run when drawing mode is toggled
+    
+    // Initial sizing with a small delay to ensure layout is complete
+    const setupTimer = setTimeout(resizeCanvas, 50);
+    
+    window.addEventListener("resize", resizeCanvas);
+    
+    return () => {
+      clearTimeout(setupTimer);
+      window.removeEventListener("resize", resizeCanvas);
+    };
+  }, [showCanvas]);
 
   const redrawCanvas = () => {
     const canvas = canvasRef.current;
@@ -592,6 +533,7 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement> | TouchEvent) => {
     e.preventDefault();
+    setTouchDetected(true);
     
     // Handle pinch-to-zoom (two fingers)
     if (e.touches.length === 2) {
@@ -602,14 +544,7 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
       return;
     }
     
-    // Handle pan mode when zoomed in (one finger when zoom > 1)
-    if (e.touches.length === 1 && zoom > 1) {
-      const touch = e.touches[0];
-      setLastPanPosition({ x: touch.clientX, y: touch.clientY });
-      setIsPanning(true);
-      return;
-    }
-    
+    // Single finger always draws (no pan mode - it blocks drawing on mobile)
     // Check if current layer is locked
     const currentLayer = layers.find(l => l.id === currentLayerId);
     if (currentLayer?.locked) {
@@ -704,6 +639,16 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
 
   const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement> | TouchEvent) => {
     e.preventDefault();
+    
+    // Handle pinch-to-zoom (two fingers)
+    if (e.touches.length === 2 && lastPinchDistance !== null) {
+      const newDistance = getPinchDistance(e);
+      const scale = newDistance / lastPinchDistance;
+      setZoom(prev => Math.max(0.5, Math.min(3, prev * scale)));
+      setLastPinchDistance(newDistance);
+      return;
+    }
+    
     const pos = getTouchPos(e);
     
     // Handle dragging an existing shape
@@ -749,6 +694,11 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
   };
 
   const handleTouchEnd = () => {
+    // Reset pinch/pan state
+    setLastPinchDistance(null);
+    setIsPanning(false);
+    setLastPanPosition(null);
+    
     // Handle end of dragging
     if (isDraggingElement) {
       setIsDraggingElement(false);
@@ -763,15 +713,19 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
     
     if (!isDrawing || !currentElement) return;
     
-    setElements([...elements, currentElement]);
+    const newElements = [...elements, currentElement];
+    setElements(newElements);
     setCurrentElement(null);
     setIsDrawing(false);
     
     // Add to history
     const newHistory = history.slice(0, historyStep + 1);
-    newHistory.push([...elements, currentElement]);
+    newHistory.push(newElements);
     setHistory(newHistory);
     setHistoryStep(newHistory.length - 1);
+    setHasUnsavedChanges(true);
+    
+    redrawCanvas();
   };
 
   const handleMouseUp = () => {
@@ -812,7 +766,7 @@ export const VideoDrawingCanvas = forwardRef<VideoDrawingCanvasHandle, VideoDraw
     handleTouchMove: (e: React.TouchEvent<HTMLCanvasElement>) => handleTouchMove(e),
     handleTouchEnd,
     isActive: showCanvas,
-  }), [showCanvas, handleMouseDown, handleMouseMove, handleMouseUp, handleTouchStart, handleTouchMove, handleTouchEnd]);
+  }));
 
   // Pass handlers to parent immediately - they're always needed when drawing mode is active
   useEffect(() => {

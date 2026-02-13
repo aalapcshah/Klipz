@@ -3602,10 +3602,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Remove extra space around badges (flex-nowrap, reduced padding)
 
 ## Mobile Drawing and Canvas Improvements (CRITICAL)
-- [ ] Fix mobile drawing - canvas not responding to touch events
-- [ ] Add Clear All button to delete all drawings on canvas
-- [ ] Fix canvas positioning over video on mobile
-- [ ] Test drawing with finger on mobile device
+- [x] Fix mobile drawing - canvas not responding to touch events (removed duplicate native event listeners, fixed pan mode blocking drawing, added proper non-passive touch listeners)
+- [x] Add Clear All button to delete all drawings on canvas (already existed - Trash2 button)
+- [x] Fix canvas positioning over video on mobile (removed debug green tint/lime border, proper absolute positioning)
+- [x] Fix touch event cleanup (proper removeEventListener in useEffect cleanup)
+- [x] Fix pinch-to-zoom handling in touchMove (was missing)
+- [x] Fix touchEnd to reset pinch/pan state and mark unsaved changes
 
 ## Drawing Canvas Improvements
 - [x] Clear All button already implemented (Trash2 icon in toolbar)
@@ -6239,3 +6241,17 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix scheduled auto-captioning to use resolved S3 URLs
 - [x] Add annotation count badges (voice + drawing) on video file cards in Files grid view
 - [x] Add resolveFileUrl utility with unit tests (6 tests passing)
+
+## Transcription/Captioning Status Badges on Files Grid
+- [x] Add transcription status (transcribed/processing/failed) to files.list query for video files
+- [x] Add captioning status (captioned/processing/failed) to files.list query for video files
+- [x] Display transcription status badge on video file cards in Files grid
+- [x] Display captioning status badge on video file cards in Files grid
+
+## Mobile Drawing Canvas Fix
+- [x] Fix mobile drawing - canvas not responding to touch events (removed duplicate native event listeners, fixed pan mode blocking drawing, added proper non-passive touch listeners)
+- [x] Add Clear All button to delete all drawings on canvas (already existed - Trash2 button)
+- [x] Fix canvas positioning over video on mobile (removed debug green tint/lime border, proper absolute positioning)
+- [x] Fix touch event cleanup (proper removeEventListener in useEffect cleanup)
+- [x] Fix pinch-to-zoom handling in touchMove (was missing)
+- [x] Fix touchEnd to reset pinch/pan state and mark unsaved changes

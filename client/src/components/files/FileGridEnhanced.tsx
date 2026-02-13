@@ -32,6 +32,8 @@ import {
   Filter,
   Play,
   Mic,
+  FileAudio,
+  Subtitles,
 } from "lucide-react";
 import {
   Collapsible,
@@ -2084,6 +2086,31 @@ export default function FileGridEnhanced({
                                     </span>
                                   )}
                                 </div>
+                              )}
+                              {/* Transcription/Captioning status badges */}
+                              {(file as any).transcriptionStatus === 'completed' && (
+                                <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs bg-green-500/20 text-green-400" title="Transcribed">
+                                  <FileAudio className="h-3 w-3" />
+                                  Transcribed
+                                </span>
+                              )}
+                              {(file as any).transcriptionStatus === 'processing' && (
+                                <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs bg-yellow-500/20 text-yellow-400" title="Transcription in progress">
+                                  <FileAudio className="h-3 w-3" />
+                                  Transcribing...
+                                </span>
+                              )}
+                              {(file as any).captioningStatus === 'completed' && (
+                                <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs bg-cyan-500/20 text-cyan-400" title="Captioned">
+                                  <Subtitles className="h-3 w-3" />
+                                  Captioned
+                                </span>
+                              )}
+                              {(file as any).captioningStatus === 'processing' && (
+                                <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs bg-yellow-500/20 text-yellow-400" title="Captioning in progress">
+                                  <Subtitles className="h-3 w-3" />
+                                  Captioning...
+                                </span>
                               )}
                             </>
                           )}

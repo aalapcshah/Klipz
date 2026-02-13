@@ -62,7 +62,7 @@ import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
 import { nanoid } from "nanoid";
 import { exportVideoWithAnnotations, batchExportVideosWithAnnotations } from "./videoExport";
-import { voiceAnnotations, visualAnnotations, files } from "../drizzle/schema";
+import { voiceAnnotations, visualAnnotations, files, videoTranscripts, visualCaptions } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 
 export const appRouter = router({
@@ -602,9 +602,11 @@ export const appRouter = router({
             ? file.enrichmentStatus 
             : 'pending';
           
-          // For video files, get annotation counts
+          // For video files, get annotation counts and processing status
           let voiceAnnotationCount = 0;
           let visualAnnotationCount = 0;
+          let transcriptionStatus: string | null = null;
+          let captioningStatus: string | null = null;
           if (file.mimeType?.startsWith('video/')) {
             const drizzle = await db.getDb();
             if (drizzle) {
@@ -618,10 +620,26 @@ export const appRouter = router({
                 .where(eq(visualAnnotations.fileId, file.id));
               voiceAnnotationCount = voiceAnns.length;
               visualAnnotationCount = visualAnns.length;
+
+              // Get transcription status
+              const [transcriptRecord] = await drizzle
+                .select({ status: videoTranscripts.status })
+                .from(videoTranscripts)
+                .where(eq(videoTranscripts.fileId, file.id))
+                .limit(1);
+              transcriptionStatus = transcriptRecord?.status || null;
+
+              // Get captioning status
+              const [captionRecord] = await drizzle
+                .select({ status: visualCaptions.status })
+                .from(visualCaptions)
+                .where(eq(visualCaptions.fileId, file.id))
+                .limit(1);
+              captioningStatus = captionRecord?.status || null;
             }
           }
 
-          return { ...file, enrichmentStatus, tags, qualityScore, voiceAnnotationCount, visualAnnotationCount };
+          return { ...file, enrichmentStatus, tags, qualityScore, voiceAnnotationCount, visualAnnotationCount, transcriptionStatus, captioningStatus };
         })
       );
            return {

@@ -215,8 +215,24 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
     setLastDrawPoint(null);
   };
   
-  // Debug logging for drawing mode changes
+  // Attach native non-passive touch event listeners for proper preventDefault on mobile
+  // React's synthetic touch events are passive by default, so we need native listeners
   useEffect(() => {
+    const canvas = drawingCanvasRef.current;
+    if (!canvas || !isDrawingMode) return;
+    
+    const preventDefaultTouch = (e: TouchEvent) => {
+      e.preventDefault();
+    };
+    
+    // These must be non-passive to allow preventDefault (stops page scroll while drawing)
+    canvas.addEventListener('touchstart', preventDefaultTouch, { passive: false });
+    canvas.addEventListener('touchmove', preventDefaultTouch, { passive: false });
+    
+    return () => {
+      canvas.removeEventListener('touchstart', preventDefaultTouch);
+      canvas.removeEventListener('touchmove', preventDefaultTouch);
+    };
   }, [isDrawingMode]);
   const [showTimeline, setShowTimeline] = useState(false);
   const [showAnnotationPreview, setShowAnnotationPreview] = useState(true);
@@ -796,14 +812,17 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
             onMouseUp={() => drawingCanvasComponentRef.current?.handleMouseUp()}
             onMouseLeave={() => drawingCanvasComponentRef.current?.handleMouseUp()}
             onTouchStart={(e) => {
-              e.preventDefault();
+              e.stopPropagation();
+              // Note: React touch events are passive by default in React 17+
+              // preventDefault is called inside the handler
               drawingCanvasComponentRef.current?.handleTouchStart(e);
             }}
             onTouchMove={(e) => {
-              e.preventDefault();
+              e.stopPropagation();
               drawingCanvasComponentRef.current?.handleTouchMove(e);
             }}
-            onTouchEnd={() => {
+            onTouchEnd={(e) => {
+              e.stopPropagation();
               drawingCanvasComponentRef.current?.handleTouchEnd();
             }}
             onTouchCancel={() => drawingCanvasComponentRef.current?.handleTouchEnd()}
@@ -817,9 +836,8 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
               display: isDrawingMode ? 'block' : 'none',
               zIndex: 9999,
               touchAction: 'none',
-              backgroundColor: isDrawingMode ? 'rgba(0, 255, 0, 0.1)' : 'transparent',
+              backgroundColor: 'transparent',
               cursor: isDrawingMode ? 'crosshair' : 'default',
-              border: isDrawingMode ? '3px solid lime' : 'none',
             }}
           />
           
