@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { useResumableUpload, ResumableUploadSession, NetworkQuality } from "@/hooks/useResumableUpload";
 import { useUploadSettings } from "@/hooks/useUploadSettings";
+import UploadSettings from "@/components/UploadSettings";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { extractVideoThumbnail } from "@/lib/videoThumbnail";
@@ -138,6 +139,10 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
     errorCount,
     resumableCount,
     networkQuality,
+    speedLimit,
+    concurrency,
+    setSpeedLimit,
+    setConcurrency,
   } = useResumableUpload({
     autoResume: true,
     chunkDelayMs: uploadSettings.chunkDelayMs,
@@ -340,18 +345,26 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                   Retry All Failed ({errorCount})
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  clearAllSessions();
-                }}
-                className="text-muted-foreground border-muted-foreground/50 hover:bg-muted ml-auto"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Clear All
-              </Button>
+              <div className="flex items-center gap-2 ml-auto">
+                <UploadSettings
+                  speedLimit={speedLimit}
+                  concurrency={concurrency}
+                  onSpeedLimitChange={setSpeedLimit}
+                  onConcurrencyChange={setConcurrency}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearAllSessions();
+                  }}
+                  className="text-muted-foreground border-muted-foreground/50 hover:bg-muted"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Clear All
+                </Button>
+              </div>
             </div>
             {resumableSessions.map((session) => (
               <div

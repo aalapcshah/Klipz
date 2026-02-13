@@ -5,9 +5,61 @@ import { trpcCall } from "@/lib/trpcCall";
 
 const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks (kept small to avoid proxy body size limits on deployed sites)
 const STORAGE_KEY = "metaclips-resumable-uploads";
+const SPEED_LIMIT_KEY = "metaclips-upload-speed-limit";
+const CONCURRENCY_KEY = "metaclips-upload-concurrency";
 
 // Network quality levels
 export type NetworkQuality = 'good' | 'fair' | 'poor' | 'unknown';
+
+// Speed limit options (bytes per second, 0 = unlimited)
+export type SpeedLimitOption = 0 | 512000 | 1048576 | 2097152 | 5242880;
+export const SPEED_LIMIT_OPTIONS: { value: SpeedLimitOption; label: string }[] = [
+  { value: 0, label: 'Unlimited' },
+  { value: 512000, label: '500 KB/s' },
+  { value: 1048576, label: '1 MB/s' },
+  { value: 2097152, label: '2 MB/s' },
+  { value: 5242880, label: '5 MB/s' },
+];
+
+// Concurrency options
+export type ConcurrencyOption = 1 | 2 | 3;
+export const CONCURRENCY_OPTIONS: { value: ConcurrencyOption; label: string }[] = [
+  { value: 1, label: 'Sequential (1)' },
+  { value: 2, label: 'Parallel (2)' },
+  { value: 3, label: 'Parallel (3)' },
+];
+
+function loadSpeedLimit(): SpeedLimitOption {
+  try {
+    const stored = localStorage.getItem(SPEED_LIMIT_KEY);
+    if (stored) return Number(stored) as SpeedLimitOption;
+  } catch {}
+  return 0;
+}
+
+function saveSpeedLimit(limit: SpeedLimitOption) {
+  try { localStorage.setItem(SPEED_LIMIT_KEY, String(limit)); } catch {}
+}
+
+function loadConcurrency(): ConcurrencyOption {
+  try {
+    const stored = localStorage.getItem(CONCURRENCY_KEY);
+    if (stored) return Number(stored) as ConcurrencyOption;
+  } catch {}
+  return 1;
+}
+
+function saveConcurrency(c: ConcurrencyOption) {
+  try { localStorage.setItem(CONCURRENCY_KEY, String(c)); } catch {}
+}
+
+// Calculate delay between chunks to achieve target speed limit
+function calculateThrottleDelay(chunkSizeBytes: number, speedLimitBps: number, actualDurationMs: number): number {
+  if (speedLimitBps <= 0) return 0;
+  const targetDurationMs = (chunkSizeBytes / speedLimitBps) * 1000;
+  const delay = targetDurationMs - actualDurationMs;
+  return Math.max(0, delay);
+}
 
 // Adaptive upload settings per session
 interface AdaptiveSettings {
@@ -197,12 +249,16 @@ function generateVideoThumbnail(file: File): Promise<string | null> {
 export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   const [sessions, setSessions] = useState<ResumableUploadSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [speedLimit, setSpeedLimitState] = useState<SpeedLimitOption>(loadSpeedLimit);
+  const [concurrency, setConcurrencyState] = useState<ConcurrencyOption>(loadConcurrency);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const activeUploadsRef = useRef<Set<string>>(new Set());
   // Track session tokens that have been cleared/cancelled to prevent server sync from bringing them back
   const clearedTokensRef = useRef<Set<string>>(new Set());
   const autoResumedRef = useRef(false);
   const chunkDelayRef = useRef(options.chunkDelayMs ?? 0);
+  const speedLimitRef = useRef<SpeedLimitOption>(speedLimit);
+  const concurrencyRef = useRef<ConcurrencyOption>(concurrency);
   // Adaptive upload settings per session
   const adaptiveSettingsRef = useRef<Map<string, AdaptiveSettings>>(new Map());
   // Network quality tracking: rolling window of chunk speeds (bytes/sec)
@@ -226,6 +282,24 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   useEffect(() => {
     chunkDelayRef.current = options.chunkDelayMs ?? 0;
   }, [options.chunkDelayMs]);
+
+  // Keep speed limit and concurrency refs in sync
+  useEffect(() => { speedLimitRef.current = speedLimit; }, [speedLimit]);
+  useEffect(() => { concurrencyRef.current = concurrency; }, [concurrency]);
+
+  const setSpeedLimit = useCallback((limit: SpeedLimitOption) => {
+    setSpeedLimitState(limit);
+    speedLimitRef.current = limit;
+    saveSpeedLimit(limit);
+    toast.info(limit === 0 ? 'Upload speed: Unlimited' : `Upload speed limited to ${SPEED_LIMIT_OPTIONS.find(o => o.value === limit)?.label}`);
+  }, []);
+
+  const setConcurrency = useCallback((c: ConcurrencyOption) => {
+    setConcurrencyState(c);
+    concurrencyRef.current = c;
+    saveConcurrency(c);
+    toast.info(`Upload concurrency: ${c} chunk${c > 1 ? 's' : ''} at a time`);
+  }, []);
 
   // tRPC mutations - only used for non-upload-loop operations (create session, pause, cancel, thumbnail)
   const createSessionMutation = trpc.resumableUpload.createSession.useMutation();
@@ -677,180 +751,220 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
 
     let lastSpeedUpdate = Date.now();
     let lastBytesForSpeed = session.uploadedBytes;
-    let consecutiveFailures = 0;
+    let uploadFailed = false;
     const adaptive = getAdaptiveSettings(session.sessionToken);
+    // Track completed chunk count for progress (needed for parallel uploads)
+    let completedChunkCount = session.uploadedChunks;
+    let completedBytes = session.uploadedBytes;
 
-    try {
-      for (let i = session.uploadedChunks; i < session.totalChunks; i++) {
-        // Check if paused or cancelled
-        if (abortController.signal.aborted) {
-          console.log(`[ResumableUpload] Upload ${session.sessionToken} was aborted at chunk ${i}`);
-          return;
-        }
+    // Helper to upload a single chunk with retries — returns true on success, false on fatal failure
+    const uploadSingleChunk = async (chunkIndex: number): Promise<boolean> => {
+      if (abortController.signal.aborted) return false;
 
-        const start = i * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, file.size);
+      const start = chunkIndex * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      let retries = 0;
+      const maxRetries = 10;
 
-        // Apply throttle delay between chunks (skip first chunk)
-        if (i > session.uploadedChunks && chunkDelayRef.current > 0) {
-          await new Promise(resolve => setTimeout(resolve, chunkDelayRef.current));
-        }
+      while (retries < maxRetries) {
+        try {
+          if (abortController.signal.aborted) return false;
 
-        // Upload chunk with retries (10 retries with exponential backoff, adaptive timeout)
-        let retries = 0;
-        const maxRetries = 10;
-        let chunkSuccess = false;
-        const chunkStartTime = Date.now();
-        
-        while (retries < maxRetries) {
-          try {
-            if (abortController.signal.aborted) return;
-            
-            // Show retry status in UI with adaptive info
-            if (retries > 0) {
-              const timeoutSec = Math.round(adaptive.currentTimeoutMs / 1000);
-              setSessionsRef.current(prev => prev.map(s =>
-                s.sessionToken === session.sessionToken
-                  ? { ...s, error: `Retrying chunk ${i + 1} (attempt ${retries + 1}/${maxRetries}, timeout ${timeoutSec}s)...` }
-                  : s
-              ));
+          // Show retry status in UI
+          if (retries > 0) {
+            const timeoutSec = Math.round(adaptive.currentTimeoutMs / 1000);
+            setSessionsRef.current(prev => prev.map(s =>
+              s.sessionToken === session.sessionToken
+                ? { ...s, error: `Retrying chunk ${chunkIndex + 1} (attempt ${retries + 1}/${maxRetries}, timeout ${timeoutSec}s)...` }
+                : s
+            ));
+          }
+
+          const chunkData = await readChunkAsBase64(file, start, end);
+
+          const attemptStart = Date.now();
+          const result = await trpcCall<{
+            uploadedChunks: number;
+            totalChunks: number;
+            uploadedBytes: number;
+          }>('resumableUpload.uploadChunk', {
+            sessionToken: session.sessionToken,
+            chunkIndex,
+            chunkData,
+          }, 'mutation', {
+            timeoutMs: adaptive.currentTimeoutMs,
+            signal: abortController.signal,
+          });
+
+          const attemptDuration = (Date.now() - attemptStart) / 1000;
+          const chunkBytes = end - start;
+          const chunkSpeed = attemptDuration > 0 ? chunkBytes / attemptDuration : 0;
+
+          console.log(`[ResumableUpload] Chunk ${chunkIndex + 1}/${session.totalChunks} uploaded for ${session.filename} (${(chunkSpeed / 1024).toFixed(1)} KB/s, timeout ${adaptive.currentTimeoutMs / 1000}s)`);
+
+          // Record success for adaptive settings and network quality
+          recordChunkSuccess(session.sessionToken, chunkSpeed);
+          const networkQuality = calculateNetworkQuality();
+
+          // Update progress atomically
+          completedChunkCount++;
+          completedBytes += chunkBytes;
+
+          const now = Date.now();
+          const timeDiff = (now - lastSpeedUpdate) / 1000;
+          const bytesDiff = completedBytes - lastBytesForSpeed;
+          const speed = timeDiff > 0 ? bytesDiff / timeDiff : 0;
+          const remainingBytes = file.size - completedBytes;
+          const eta = speed > 0 ? remainingBytes / speed : 0;
+
+          if (timeDiff > 0.5) {
+            lastSpeedUpdate = now;
+            lastBytesForSpeed = completedBytes;
+          }
+
+          setSessionsRef.current(prev => {
+            const updated = prev.map(s =>
+              s.sessionToken === session.sessionToken
+                ? {
+                    ...s,
+                    uploadedChunks: result.uploadedChunks,
+                    uploadedBytes: result.uploadedBytes,
+                    progress: (result.uploadedChunks / result.totalChunks) * 100,
+                    speed,
+                    eta,
+                    error: undefined,
+                    networkQuality,
+                    recentSpeeds: [...(s.recentSpeeds || []).slice(-9), chunkSpeed],
+                  }
+                : s
+            );
+            if (result.uploadedChunks % 5 === 0) {
+              saveSessionsToStorage(updated);
             }
-            
-            // Read chunk inside retry loop so file read failures are also retried
-            const chunkData = await readChunkAsBase64(file, start, end);
-            
-            // Use direct fetch with adaptive timeout and abort signal
-            const attemptStart = Date.now();
-            const result = await trpcCall<{
-              uploadedChunks: number;
-              totalChunks: number;
-              uploadedBytes: number;
-            }>('resumableUpload.uploadChunk', {
-              sessionToken: session.sessionToken,
-              chunkIndex: i,
-              chunkData,
-            }, 'mutation', {
-              timeoutMs: adaptive.currentTimeoutMs, // Adaptive timeout
-              signal: abortController.signal,
-            });
+            return updated;
+          });
 
-            const attemptDuration = (Date.now() - attemptStart) / 1000;
-            const chunkBytes = end - start;
-            const chunkSpeed = attemptDuration > 0 ? chunkBytes / attemptDuration : 0;
+          optionsRef.current.onProgress?.({
+            ...session,
+            uploadedChunks: result.uploadedChunks,
+            uploadedBytes: result.uploadedBytes,
+            progress: (result.uploadedChunks / result.totalChunks) * 100,
+            speed,
+            eta,
+            networkQuality,
+          });
 
-            console.log(`[ResumableUpload] Chunk ${i + 1}/${session.totalChunks} uploaded for ${session.filename} (${(chunkSpeed / 1024).toFixed(1)} KB/s, timeout ${adaptive.currentTimeoutMs / 1000}s)`);
-            chunkSuccess = true;
-            consecutiveFailures = 0;
+          // Apply speed-limit throttle delay after successful chunk
+          const currentSpeedLimit = speedLimitRef.current;
+          if (currentSpeedLimit > 0) {
+            const chunkDurationMs = Date.now() - attemptStart;
+            const throttleDelay = calculateThrottleDelay(chunkBytes, currentSpeedLimit, chunkDurationMs);
+            if (throttleDelay > 0) {
+              await new Promise(resolve => setTimeout(resolve, throttleDelay));
+            }
+          }
 
-            // Record success for adaptive settings and network quality
-            recordChunkSuccess(session.sessionToken, chunkSpeed);
+          return true; // Success
+        } catch (error: any) {
+          if (abortController.signal.aborted) return false;
+
+          retries++;
+          const isTimeout = error?.message?.includes('timed out');
+          const isNetwork = error?.message?.includes('fetch') || error?.message?.includes('network') || error?.name === 'TypeError';
+          const retryLabel = isTimeout ? 'timeout' : isNetwork ? 'network error' : error?.message;
+          console.warn(`[ResumableUpload] Chunk ${chunkIndex} attempt ${retries} failed (${retryLabel})`);
+
+          recordChunkFailure(session.sessionToken);
+
+          if (retries >= maxRetries) {
+            console.warn(`[ResumableUpload] Upload failed for ${session.filename} after ${maxRetries} retries on chunk ${chunkIndex + 1}`);
+            abortController.abort();
             const networkQuality = calculateNetworkQuality();
 
-            // Update session state with network quality
-            const now = Date.now();
-            const timeDiff = (now - lastSpeedUpdate) / 1000;
-            const bytesDiff = result.uploadedBytes - lastBytesForSpeed;
-            const speed = timeDiff > 0 ? bytesDiff / timeDiff : 0;
-            const remainingBytes = file.size - result.uploadedBytes;
-            const eta = speed > 0 ? remainingBytes / speed : 0;
-
-            if (timeDiff > 0.5) {
-              lastSpeedUpdate = now;
-              lastBytesForSpeed = result.uploadedBytes;
-            }
-
             setSessionsRef.current(prev => {
-              const updated = prev.map(s => 
+              const updated = prev.map(s =>
                 s.sessionToken === session.sessionToken
                   ? {
                       ...s,
-                      uploadedChunks: result.uploadedChunks,
-                      uploadedBytes: result.uploadedBytes,
-                      progress: (result.uploadedChunks / result.totalChunks) * 100,
-                      speed,
-                      eta,
-                      error: undefined,
+                      status: 'error' as const,
+                      speed: 0,
+                      eta: 0,
                       networkQuality,
-                      recentSpeeds: [...(s.recentSpeeds || []).slice(-9), chunkSpeed],
+                      error: `Failed at chunk ${chunkIndex + 1}/${session.totalChunks}: ${retryLabel}. Tap retry or cancel.`,
                     }
                   : s
               );
-              // Sync to localStorage every 5 chunks for persistence
-              if (result.uploadedChunks % 5 === 0) {
-                saveSessionsToStorage(updated);
-              }
+              saveSessionsToStorage(updated);
               return updated;
             });
 
-            optionsRef.current.onProgress?.({
-              ...session,
-              uploadedChunks: result.uploadedChunks,
-              uploadedBytes: result.uploadedBytes,
-              progress: (result.uploadedChunks / result.totalChunks) * 100,
-              speed,
-              eta,
-              networkQuality,
+            toast.error(`${session.filename}: Upload failed after ${maxRetries} retries. You can retry, schedule a retry, or cancel.`, {
+              duration: 8000,
             });
 
-            break; // Success, exit retry loop
-          } catch (error: any) {
-            // If user cancelled, don't retry
-            if (abortController.signal.aborted) return;
-            
-            retries++;
-            consecutiveFailures++;
-            const isTimeout = error?.message?.includes('timed out');
-            const isNetwork = error?.message?.includes('fetch') || error?.message?.includes('network') || error?.name === 'TypeError';
-            const retryLabel = isTimeout ? 'timeout' : isNetwork ? 'network error' : error?.message;
-            console.warn(`[ResumableUpload] Chunk ${i} attempt ${retries} failed (${retryLabel})`);
-            
-            // Record failure for adaptive settings
-            recordChunkFailure(session.sessionToken);
-            
-            if (retries >= maxRetries) {
-              // Mark as error so user can manually retry or cancel — do NOT auto-resume
-              console.warn(`[ResumableUpload] Upload failed for ${session.filename} after ${maxRetries} retries on chunk ${i + 1}`);
-              
-              // Abort the controller to stop this upload
-              abortController.abort();
-              const networkQuality = calculateNetworkQuality();
-              
-              // Update session to error state (not paused — prevents auto-resume loop)
-              setSessionsRef.current(prev => {
-                const updated = prev.map(s =>
-                  s.sessionToken === session.sessionToken
-                    ? {
-                        ...s,
-                        status: 'error' as const,
-                        speed: 0,
-                        eta: 0,
-                        networkQuality,
-                        error: `Failed at chunk ${i + 1}/${session.totalChunks}: ${retryLabel}. Tap retry or cancel.`,
-                      }
-                    : s
-                );
-                saveSessionsToStorage(updated);
-                return updated;
-              });
-              
-              toast.error(`${session.filename}: Upload failed after ${maxRetries} retries. You can retry, schedule a retry, or cancel.`, {
-                duration: 8000,
-              });
-              
-              return; // Exit the upload function — no auto-resume
-            }
-            // Exponential backoff: 2s, 4s, 8s, 16s, 32s, 60s, 60s, 60s, 60s, 60s
-            const backoffMs = Math.min(2000 * Math.pow(2, retries - 1), 60_000);
-            console.log(`[ResumableUpload] Retrying chunk ${i} in ${backoffMs / 1000}s (timeout: ${adaptive.currentTimeoutMs / 1000}s)...`);
-            await new Promise(resolve => setTimeout(resolve, backoffMs));
+            return false; // Fatal failure
           }
+
+          const backoffMs = Math.min(2000 * Math.pow(2, retries - 1), 60_000);
+          console.log(`[ResumableUpload] Retrying chunk ${chunkIndex} in ${backoffMs / 1000}s (timeout: ${adaptive.currentTimeoutMs / 1000}s)...`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+        }
+      }
+      return false; // Should not reach here
+    };
+
+    try {
+      // Upload chunks with configurable concurrency
+      const maxConcurrency = concurrencyRef.current;
+      let nextChunkIndex = session.uploadedChunks;
+
+      if (maxConcurrency <= 1) {
+        // Sequential mode (default) — upload one chunk at a time
+        for (let i = nextChunkIndex; i < session.totalChunks; i++) {
+          if (abortController.signal.aborted) return;
+          const success = await uploadSingleChunk(i);
+          if (!success) {
+            uploadFailed = true;
+            return;
+          }
+        }
+      } else {
+        // Parallel mode — upload multiple chunks concurrently
+        // Auto-fallback to sequential if network quality is poor
+        while (nextChunkIndex < session.totalChunks) {
+          if (abortController.signal.aborted) return;
+
+          const currentQuality = calculateNetworkQuality();
+          const effectiveConcurrency = currentQuality === 'poor' ? 1 : maxConcurrency;
+
+          // Build batch of chunks to upload in parallel
+          const batchSize = Math.min(effectiveConcurrency, session.totalChunks - nextChunkIndex);
+          const batchIndices: number[] = [];
+          for (let j = 0; j < batchSize; j++) {
+            batchIndices.push(nextChunkIndex + j);
+          }
+
+          if (effectiveConcurrency > 1) {
+            console.log(`[ResumableUpload] Uploading chunks ${batchIndices.map(i => i + 1).join(',')} in parallel (concurrency: ${effectiveConcurrency})`);
+          }
+
+          // Upload batch concurrently
+          const results = await Promise.all(batchIndices.map(idx => uploadSingleChunk(idx)));
+
+          // Check if any chunk failed
+          if (results.some(r => !r)) {
+            uploadFailed = true;
+            return;
+          }
+
+          nextChunkIndex += batchSize;
         }
       }
 
       // All chunks uploaded, finalize
       console.log(`[ResumableUpload] All chunks uploaded for ${session.filename}, starting finalization...`);
 
-      setSessionsRef.current(prev => prev.map(s => 
+      setSessionsRef.current(prev => prev.map(s =>
         s.sessionToken === session.sessionToken
           ? { ...s, status: "finalizing" as const, progress: 100 }
           : s
@@ -867,20 +981,17 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
       }>('resumableUpload.finalizeUpload', {
         sessionToken: session.sessionToken,
       }, 'mutation', {
-        timeoutMs: 300_000, // 5 minute timeout for sync finalization
+        timeoutMs: 300_000,
         signal: abortController.signal,
       });
 
       let completedResult: { fileId: number; videoId?: number; url: string };
 
       if (finalizeResult.async) {
-        // Large file: server is assembling in background, poll for completion
         console.log(`[ResumableUpload] Background assembly started for ${session.filename}, polling for completion...`);
         toast.info(`${session.filename}: Assembling file on server... This may take a few minutes for large files.`);
-
         completedResult = await pollFinalizeStatus(session.sessionToken, abortController.signal);
       } else {
-        // Small file: completed synchronously
         completedResult = {
           fileId: finalizeResult.fileId!,
           videoId: finalizeResult.videoId,
@@ -891,7 +1002,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
       console.log(`[ResumableUpload] Finalization complete for ${session.filename}:`, completedResult);
 
       setSessionsRef.current(prev => {
-        const updated = prev.map(s => 
+        const updated = prev.map(s =>
           s.sessionToken === session.sessionToken
             ? { ...s, status: "completed" as const, progress: 100 }
             : s
@@ -900,23 +1011,21 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
         return updated;
       });
 
-      // Invalidate file list cache directly to ensure the new file appears immediately
-      // This is a safety net in addition to the onComplete callback's invalidation
       setTimeout(() => {
         trpcUtils.files.list.invalidate();
         trpcUtils.files.enrichmentCounts.invalidate();
         trpcUtils.recentlyViewed.list.invalidate();
-      }, 500); // Small delay to ensure DB commit is visible
-      
+      }, 500);
+
       optionsRef.current.onComplete?.(session, completedResult);
       toast.success(`${session.filename} uploaded successfully!`);
 
     } catch (error) {
       if (!abortController.signal.aborted) {
         console.error("[ResumableUpload] Upload failed:", error);
-        
+
         setSessionsRef.current(prev => {
-          const updated = prev.map(s => 
+          const updated = prev.map(s =>
             s.sessionToken === session.sessionToken
               ? { ...s, status: "error" as const, error: error instanceof Error ? error.message : "Upload failed" }
               : s
@@ -1268,5 +1377,9 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     errorCount,
     resumableCount,
     networkQuality,
+    speedLimit,
+    setSpeedLimit,
+    concurrency,
+    setConcurrency,
   };
 }

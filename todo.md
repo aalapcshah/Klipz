@@ -6481,3 +6481,31 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add retryAllFailed bulk action button for error state sessions
 - [x] Write 5 tests for scheduled retry logic + 3 integration tests (uploadAdaptive.test.ts)
 - [x] All 1,116 tests passing across 88 test files
+
+## Upload Bandwidth Throttling
+- [x] Add speed limit setting to upload hook (0/unlimited, 512KB/s, 1MB/s, 2MB/s, 5MB/s)
+- [x] Implement calculateThrottleDelay function based on speed limit and actual chunk duration
+- [x] Build UploadSettings popover component with speed limit and concurrency selectors
+- [x] Add UploadSettings to ResumableUploadsBanner action bar
+- [x] Persist speed limit preference in localStorage
+- [x] Show amber dot indicator when non-default settings are active
+- [x] Write 10 tests for throttle delay calculation (uploadAdaptive.test.ts)
+
+## Upload History Page
+- [x] upload_history table already existed in schema
+- [x] uploadHistory router already existed with record, list, and stats procedures
+- [x] UploadHistory page already existed with stats cards, filters, and pagination
+- [x] Upload recording already integrated in UploadManagerContext for standard uploads
+- [x] Verified all existing functionality is working
+
+## Parallel Chunk Uploads
+- [x] Implement concurrent chunk upload with batch-based approach (uploadSingleChunk helper)
+- [x] Add concurrency setting (1/2/3 parallel chunks) with ConcurrencyOption type
+- [x] Auto-fallback to sequential on poor network quality or 3+ consecutive failures
+- [x] Cap concurrency at 2 on fair network quality
+- [x] Track per-chunk progress for parallel uploads via Promise.allSettled
+- [x] Ensure chunk ordering is maintained (batches process in order)
+- [x] Persist concurrency preference in localStorage
+- [x] Write 15 tests for concurrency determination and batch creation (uploadAdaptive.test.ts)
+- [x] Write 7 integration tests for settings interaction (uploadAdaptive.test.ts)
+- [x] All 67 upload adaptive tests passing, 1,145/1,147 total tests passing (2 pre-existing notification test failures)

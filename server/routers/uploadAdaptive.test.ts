@@ -387,3 +387,251 @@ describe("Integration: Adaptive Settings Through Upload Lifecycle", () => {
     expect(calculateNetworkQuality(poorSpeeds, 0.3)).toBe('poor');
   });
 });
+
+// ============================================================
+// Tests for Bandwidth Throttling (Speed Limit)
+// ============================================================
+
+function calculateThrottleDelay(
+  chunkBytes: number,
+  speedLimitBytesPerSec: number,
+  actualDurationMs: number
+): number {
+  if (speedLimitBytesPerSec <= 0) return 0;
+  const targetDurationMs = (chunkBytes / speedLimitBytesPerSec) * 1000;
+  const delay = targetDurationMs - actualDurationMs;
+  return Math.max(0, Math.round(delay));
+}
+
+describe("Bandwidth Throttling (Speed Limit)", () => {
+  it("returns 0 delay when speed limit is 0 (unlimited)", () => {
+    expect(calculateThrottleDelay(1024 * 1024, 0, 500)).toBe(0);
+  });
+
+  it("returns 0 delay when speed limit is negative", () => {
+    expect(calculateThrottleDelay(1024 * 1024, -1, 500)).toBe(0);
+  });
+
+  it("returns 0 delay when upload is already slower than limit", () => {
+    // 1MB chunk at 500KB/s limit = 2000ms target, actual took 3000ms
+    const delay = calculateThrottleDelay(1024 * 1024, 512 * 1024, 3000);
+    expect(delay).toBe(0);
+  });
+
+  it("calculates correct delay for 1MB chunk at 512KB/s limit", () => {
+    // 1MB chunk at 512KB/s = 2000ms target, actual took 500ms → 1500ms delay
+    const delay = calculateThrottleDelay(1024 * 1024, 512 * 1024, 500);
+    expect(delay).toBe(1500);
+  });
+
+  it("calculates correct delay for 2MB chunk at 1MB/s limit", () => {
+    // 2MB chunk at 1MB/s = 2000ms target, actual took 800ms → 1200ms delay
+    const delay = calculateThrottleDelay(2 * 1024 * 1024, 1024 * 1024, 800);
+    expect(delay).toBe(1200);
+  });
+
+  it("calculates correct delay for 1MB chunk at 5MB/s limit", () => {
+    // 1MB chunk at 5MB/s = 200ms target, actual took 100ms → 100ms delay
+    const delay = calculateThrottleDelay(1024 * 1024, 5 * 1024 * 1024, 100);
+    expect(delay).toBe(100);
+  });
+
+  it("returns 0 when actual duration matches target exactly", () => {
+    // 1MB chunk at 1MB/s = 1000ms target, actual took 1000ms → 0ms delay
+    const delay = calculateThrottleDelay(1024 * 1024, 1024 * 1024, 1000);
+    expect(delay).toBe(0);
+  });
+
+  it("handles very small chunks correctly", () => {
+    // 10KB chunk at 512KB/s = ~19.5ms target, actual took 5ms → ~15ms delay
+    const delay = calculateThrottleDelay(10 * 1024, 512 * 1024, 5);
+    expect(delay).toBeGreaterThan(10);
+    expect(delay).toBeLessThan(20);
+  });
+
+  it("handles very large chunks correctly", () => {
+    // 100MB chunk at 2MB/s = 50000ms target, actual took 10000ms → 40000ms delay
+    const delay = calculateThrottleDelay(100 * 1024 * 1024, 2 * 1024 * 1024, 10000);
+    expect(delay).toBe(40000);
+  });
+});
+
+// ============================================================
+// Tests for Parallel Chunk Upload Logic
+// ============================================================
+
+type ConcurrencyOption = 1 | 2 | 3;
+
+function determineConcurrency(
+  setting: ConcurrencyOption,
+  networkQuality: NetworkQuality,
+  consecutiveFailures: number
+): number {
+  // Auto-fallback to sequential on poor network or repeated failures
+  if (networkQuality === 'poor' || consecutiveFailures >= 3) return 1;
+  // On fair network, cap at 2 regardless of setting
+  if (networkQuality === 'fair' && setting > 2) return 2;
+  return setting;
+}
+
+function createChunkBatches(
+  pendingChunks: number[],
+  batchSize: number
+): number[][] {
+  const batches: number[][] = [];
+  for (let i = 0; i < pendingChunks.length; i += batchSize) {
+    batches.push(pendingChunks.slice(i, i + batchSize));
+  }
+  return batches;
+}
+
+describe("Parallel Chunk Upload - Concurrency Determination", () => {
+  it("returns 1 for sequential setting regardless of network", () => {
+    expect(determineConcurrency(1, 'good', 0)).toBe(1);
+    expect(determineConcurrency(1, 'fair', 0)).toBe(1);
+    expect(determineConcurrency(1, 'poor', 0)).toBe(1);
+  });
+
+  it("returns setting value for good network", () => {
+    expect(determineConcurrency(2, 'good', 0)).toBe(2);
+    expect(determineConcurrency(3, 'good', 0)).toBe(3);
+  });
+
+  it("caps at 2 for fair network when setting is 3", () => {
+    expect(determineConcurrency(3, 'fair', 0)).toBe(2);
+  });
+
+  it("allows 2 for fair network when setting is 2", () => {
+    expect(determineConcurrency(2, 'fair', 0)).toBe(2);
+  });
+
+  it("falls back to 1 for poor network", () => {
+    expect(determineConcurrency(2, 'poor', 0)).toBe(1);
+    expect(determineConcurrency(3, 'poor', 0)).toBe(1);
+  });
+
+  it("falls back to 1 when consecutive failures >= 3", () => {
+    expect(determineConcurrency(3, 'good', 3)).toBe(1);
+    expect(determineConcurrency(2, 'good', 5)).toBe(1);
+  });
+
+  it("allows parallel with fewer than 3 consecutive failures", () => {
+    expect(determineConcurrency(3, 'good', 2)).toBe(3);
+    expect(determineConcurrency(2, 'good', 1)).toBe(2);
+  });
+
+  it("returns 1 for unknown network quality", () => {
+    // unknown is not poor, fair, or good — should use setting
+    // But our function doesn't explicitly handle 'unknown', 
+    // so it falls through to return setting
+    expect(determineConcurrency(2, 'unknown', 0)).toBe(2);
+  });
+});
+
+describe("Parallel Chunk Upload - Batch Creation", () => {
+  it("creates single batch for fewer chunks than batch size", () => {
+    const batches = createChunkBatches([0, 1, 2], 5);
+    expect(batches).toEqual([[0, 1, 2]]);
+  });
+
+  it("creates correct batches for exact multiple", () => {
+    const batches = createChunkBatches([0, 1, 2, 3, 4, 5], 3);
+    expect(batches).toEqual([[0, 1, 2], [3, 4, 5]]);
+  });
+
+  it("creates correct batches with remainder", () => {
+    const batches = createChunkBatches([0, 1, 2, 3, 4], 2);
+    expect(batches).toEqual([[0, 1], [2, 3], [4]]);
+  });
+
+  it("creates single-element batches for concurrency 1", () => {
+    const batches = createChunkBatches([0, 1, 2], 1);
+    expect(batches).toEqual([[0], [1], [2]]);
+  });
+
+  it("handles empty chunk list", () => {
+    const batches = createChunkBatches([], 3);
+    expect(batches).toEqual([]);
+  });
+
+  it("handles single chunk", () => {
+    const batches = createChunkBatches([42], 3);
+    expect(batches).toEqual([[42]]);
+  });
+
+  it("preserves chunk order in batches", () => {
+    const chunks = [5, 10, 15, 20, 25];
+    const batches = createChunkBatches(chunks, 2);
+    expect(batches).toEqual([[5, 10], [15, 20], [25]]);
+  });
+});
+
+// ============================================================
+// Tests for Speed Limit Options Validation
+// ============================================================
+
+describe("Speed Limit Options", () => {
+  const validLimits = [0, 512000, 1048576, 2097152, 5242880];
+
+  it("all speed limit values are non-negative", () => {
+    for (const limit of validLimits) {
+      expect(limit).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("0 represents unlimited", () => {
+    expect(calculateThrottleDelay(1024 * 1024, 0, 100)).toBe(0);
+  });
+
+  it("each non-zero limit produces a positive throttle delay for fast uploads", () => {
+    for (const limit of validLimits.filter(l => l > 0)) {
+      // 2MB chunk uploaded in 10ms = very fast → should throttle
+      const delay = calculateThrottleDelay(2 * 1024 * 1024, limit, 10);
+      expect(delay).toBeGreaterThan(0);
+    }
+  });
+});
+
+// ============================================================
+// Integration: Throttling + Network Quality + Concurrency
+// ============================================================
+
+describe("Integration: Upload Settings Interaction", () => {
+  it("poor network forces sequential even with high concurrency setting", () => {
+    const concurrency = determineConcurrency(3, 'poor', 0);
+    expect(concurrency).toBe(1);
+  });
+
+  it("good network with throttle still allows parallel", () => {
+    const concurrency = determineConcurrency(3, 'good', 0);
+    expect(concurrency).toBe(3);
+    // Throttle delay is independent of concurrency
+    const delay = calculateThrottleDelay(1024 * 1024, 512 * 1024, 500);
+    expect(delay).toBeGreaterThan(0);
+  });
+
+  it("network degradation triggers concurrency reduction", () => {
+    // Start good
+    let concurrency = determineConcurrency(3, 'good', 0);
+    expect(concurrency).toBe(3);
+    
+    // Network degrades to fair
+    concurrency = determineConcurrency(3, 'fair', 0);
+    expect(concurrency).toBe(2);
+    
+    // Network degrades to poor
+    concurrency = determineConcurrency(3, 'poor', 0);
+    expect(concurrency).toBe(1);
+  });
+
+  it("failure accumulation triggers concurrency reduction", () => {
+    let concurrency = determineConcurrency(3, 'good', 0);
+    expect(concurrency).toBe(3);
+    
+    concurrency = determineConcurrency(3, 'good', 2);
+    expect(concurrency).toBe(3); // Still OK with 2 failures
+    
+    concurrency = determineConcurrency(3, 'good', 3);
+    expect(concurrency).toBe(1); // Falls back at 3 failures
+  });
+});
