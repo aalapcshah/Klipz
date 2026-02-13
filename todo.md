@@ -6560,3 +6560,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Auto-scale axes based on speed range with MB/KB formatting
 - [x] Collapsible graph with LIVE indicator
 - [x] Aggregated speed from multiple concurrent upload sessions
+
+## Bug Fix: Upload Speed Graph Showing 0 During Active Uploads
+- [x] Speed graph shows 0/s for all stats even when upload is actively progressing
+- [x] Investigate speed data flow from resumable upload hook to UploadSpeedGraph component
+- [x] Fix speed data source so graph reflects actual upload speed
+- [x] Root cause: server sync (listActiveSessions query) was overwriting live speed/eta data with 0
+- [x] Fix: preserve speed, eta, progress, networkQuality for active sessions during server sync merge
+- [x] Added staleTime: 30s to prevent GlobalUploadProgress polling from triggering frequent resets

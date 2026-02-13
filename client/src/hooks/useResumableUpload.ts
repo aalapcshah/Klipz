@@ -359,7 +359,12 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   // tRPC queries
   const { data: serverSessions, refetch: refetchSessions } = trpc.resumableUpload.listActiveSessions.useQuery(
     undefined,
-    { enabled: true }
+    { 
+      enabled: true,
+      // Use a longer staleTime so the GlobalUploadProgress polling (5s)
+      // doesn't constantly trigger the serverSessions effect and reset speed data
+      staleTime: 30_000,
+    }
   );
 
   // Load cached sessions from localStorage immediately for instant UI display
@@ -423,6 +428,23 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
             // The user must explicitly retry or cancel an errored upload
             if (existing.status === 'error') {
               return { ...existing, file: existing.file };
+            }
+            // For active uploads, preserve live tracking data (speed, eta, progress)
+            // that gets calculated during chunk uploads — server sync only has static data
+            if (existing.status === 'active') {
+              return {
+                ...mapped,
+                file: existing.file,
+                status: existing.status,
+                speed: existing.speed,
+                eta: existing.eta,
+                uploadedChunks: Math.max(existing.uploadedChunks, mapped.uploadedChunks),
+                uploadedBytes: Math.max(existing.uploadedBytes, mapped.uploadedBytes),
+                progress: Math.max(existing.progress, mapped.progress),
+                networkQuality: existing.networkQuality,
+                recentSpeeds: existing.recentSpeeds,
+                isPaused: existing.isPaused,
+              };
             }
             // Preserve file reference for resuming
             if (existing.file) {
