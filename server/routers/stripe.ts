@@ -58,7 +58,7 @@ export const stripeRouter = router({
         ],
         mode: "subscription",
         success_url: `${origin}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/upgrade?canceled=true`,
+        cancel_url: `${origin}/payment/canceled`,
         allow_promotion_codes: true,
         metadata: {
           user_id: ctx.user.id.toString(),
@@ -147,6 +147,27 @@ export const stripeRouter = router({
 
       return {
         success: true,
+      };
+    }),
+
+  /**
+   * Create a Stripe Customer Portal session for managing billing
+   */
+  createPortalSession: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      if (!ctx.user.stripeCustomerId) {
+        throw new Error("No billing account found. Please subscribe to a plan first.");
+      }
+
+      const origin = ctx.req.headers.origin || "http://localhost:3000";
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: ctx.user.stripeCustomerId,
+        return_url: `${origin}/account/subscription`,
+      });
+
+      return {
+        portalUrl: session.url,
       };
     }),
 

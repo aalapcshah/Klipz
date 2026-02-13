@@ -67,6 +67,21 @@ export function SubscriptionManagement() {
     },
   });
 
+  const portalMutation = trpc.stripe.createPortalSession.useMutation({
+    onSuccess: (data) => {
+      if (data.portalUrl) {
+        window.open(data.portalUrl, "_blank");
+        toast.info("Opening billing portal...");
+      }
+    },
+    onError: (error) => {
+      toast.error(
+        "Error",
+        { description: error.message || "Failed to open billing portal." }
+      );
+    },
+  });
+
   const resumeMutation = trpc.stripe.resumeSubscription.useMutation({
     onSuccess: () => {
       toast.success(
@@ -289,6 +304,34 @@ export function SubscriptionManagement() {
                   </Button>
                 )}
               </div>
+
+              {/* Manage Billing via Stripe Portal */}
+              {isPro && (
+                <div className="border-t pt-4">
+                  <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => portalMutation.mutate()}
+                    disabled={portalMutation.isPending}
+                  >
+                    {portalMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Opening...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="h-4 w-4" />
+                        Manage Billing
+                        <ExternalLink className="h-3 w-3 ml-1" />
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Update payment method, download invoices, and manage billing details
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

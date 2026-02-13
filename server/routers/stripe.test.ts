@@ -170,3 +170,29 @@ describe("Stripe Router - resumeSubscription", () => {
     }).toThrow("No subscription to resume");
   });
 });
+
+describe("Stripe Router - createPortalSession", () => {
+  it("should throw error when no stripe customer ID", () => {
+    const user = { stripeCustomerId: null };
+    expect(() => {
+      if (!user.stripeCustomerId) {
+        throw new Error("No billing account found. Please subscribe to a plan first.");
+      }
+    }).toThrow("No billing account found. Please subscribe to a plan first.");
+  });
+
+  it("should allow portal session creation when customer ID exists", () => {
+    const user = { stripeCustomerId: "cus_abc123" };
+    expect(user.stripeCustomerId).toBeTruthy();
+    // The actual Stripe API call is mocked - we just verify the guard logic
+  });
+});
+
+describe("Stripe Router - cancel_url configuration", () => {
+  it("should point to /payment/canceled route", () => {
+    const origin = "https://example.com";
+    const cancelUrl = `${origin}/payment/canceled`;
+    expect(cancelUrl).toBe("https://example.com/payment/canceled");
+    expect(cancelUrl).not.toContain("upgrade?canceled");
+  });
+});

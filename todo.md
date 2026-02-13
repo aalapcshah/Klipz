@@ -6275,3 +6275,16 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add backend procedure to fetch subscription details from Stripe (already existed)
 - [x] Add getBillingHistory procedure to fetch billing history from Stripe
 - [x] Add "Manage subscription" link from AccountSettings
+
+## Payment Canceled/Failed Page
+- [x] Create /payment/canceled route with retry options
+- [x] Show friendly message explaining checkout was not completed
+- [x] Add "Try Again" button to restart checkout
+- [x] Add "View Plans" button to go back to pricing
+- [x] Update cancel_url in checkout session to point to /payment/canceled
+
+## Stripe Customer Portal Integration
+- [x] Add createPortalSession backend procedure to Stripe router
+- [x] Add "Manage Billing" button on subscription management page (shown for Pro subscribers)
+- [x] Allow users to update payment method, view/download invoices via Stripe portal
+- [x] Portal returns to /account/subscription after session ends
