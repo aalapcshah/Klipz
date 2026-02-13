@@ -4,6 +4,7 @@ import { eq, and, sql, notInArray, isNull } from "drizzle-orm";
 import { invokeLLM } from "./llm";
 import { notifyOwner } from "./notification";
 import * as db from "../db";
+import { resolveFileUrl } from "../lib/resolveFileUrl";
 
 const BATCH_SIZE = 3; // Process 3 videos at a time to avoid overloading LLM API
 
@@ -13,7 +14,7 @@ const BATCH_SIZE = 3; // Process 3 videos at a time to avoid overloading LLM API
  * We cross-reference with visual_captions table to find uncaptioned ones.
  */
 async function getUncaptionedVideoFiles(): Promise<
-  Array<{ id: number; userId: number; url: string; filename: string }>
+  Array<{ id: number; userId: number; url: string; fileKey: string; filename: string }>
 > {
   const drizzle = await getDb();
   if (!drizzle) return [];
@@ -39,6 +40,7 @@ async function getUncaptionedVideoFiles(): Promise<
       id: files.id,
       userId: files.userId,
       url: files.url,
+      fileKey: files.fileKey,
       filename: files.filename,
     })
     .from(files)
@@ -61,7 +63,8 @@ async function getUncaptionedVideoFiles(): Promise<
 async function captionSingleVideo(
   fileId: number,
   userId: number,
-  url: string
+  url: string,
+  fileKey: string
 ): Promise<{ success: boolean; captionCount: number; error?: string }> {
   try {
     // Check if captions already exist
@@ -87,6 +90,10 @@ async function captionSingleVideo(
       });
     }
 
+    // Resolve relative streaming URLs to publicly accessible S3 URLs
+    const accessibleUrl = await resolveFileUrl({ url, fileKey });
+    console.log(`[ScheduledAutoCaptioning] Resolved URL for file ${fileId}: ${accessibleUrl.substring(0, 80)}...`);
+
     // Send video to LLM vision API
     const response = await invokeLLM({
       messages: [
@@ -107,7 +114,7 @@ Focus on: what is shown on screen (text, diagrams, images, UI elements), actions
             {
               type: "file_url" as const,
               file_url: {
-                url,
+                url: accessibleUrl,
                 mime_type: "video/mp4" as const,
               },
             },
@@ -233,7 +240,8 @@ export async function processScheduledAutoCaptioning(): Promise<{
       const captionResult = await captionSingleVideo(
         video.id,
         video.userId,
-        video.url
+        video.url,
+        video.fileKey
       );
 
       if (captionResult.success) {

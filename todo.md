@@ -6223,3 +6223,19 @@ Note: The application already has extensive annotation features including voice 
 - [x] File/video/session records updated with direct CloudFront CDN URL
 - [x] Updated backgroundAssembly to use curl for files >200MB to avoid OOM
 - [x] Increased MAX_ASSEMBLY_SIZE from 500MB to 2GB
+
+## Bug: Transcription and Captioning Fail for Videos (ACTIVE)
+- [ ] Transcript fails: "Failed to fetch audio file" - transcription service can't access video URL
+- [ ] Captions fail: "This video format is not supported for visual captioning" - rejects MOV format
+- [ ] Both MP4 and MOV videos from phones/laptops/desktops should be supported
+- [ ] DCS_8659.MOV (video/quicktime) - both transcript and captions failed
+- [ ] ADD TO VIDEO MP4 - captions failed
+- [ ] Fix transcription to properly pass accessible video URL to Whisper API
+- [ ] Fix captioning to support MOV/QuickTime format in addition to MP4
+
+## Bug Fixes - Transcription, Captioning, and Annotation Badges
+- [x] Fix transcription "Failed to fetch audio file" error - resolve relative streaming URLs to S3 URLs via resolveFileUrl utility
+- [x] Fix captioning "format not supported" error - resolve relative streaming URLs to S3 URLs for LLM vision API
+- [x] Fix scheduled auto-captioning to use resolved S3 URLs
+- [x] Add annotation count badges (voice + drawing) on video file cards in Files grid view
+- [x] Add resolveFileUrl utility with unit tests (6 tests passing)

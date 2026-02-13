@@ -31,6 +31,7 @@ import {
   ChevronUp,
   Filter,
   Play,
+  Mic,
 } from "lucide-react";
 import {
   Collapsible,
@@ -2054,18 +2055,37 @@ export default function FileGridEnhanced({
                         <div className="flex items-center gap-2 flex-wrap">
                           {/* Annotate button for video files */}
                           {file.mimeType?.startsWith('video/') && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-6 px-2 text-xs bg-purple-600 hover:bg-purple-700 text-white border-purple-600"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onFileClick?.(file.id);
-                              }}
-                            >
-                              <PenLine className="h-3 w-3 mr-1" />
-                              Annotate
-                            </Button>
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 px-2 text-xs bg-purple-600 hover:bg-purple-700 text-white border-purple-600"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onFileClick?.(file.id);
+                                }}
+                              >
+                                <PenLine className="h-3 w-3 mr-1" />
+                                Annotate
+                              </Button>
+                              {/* Annotation count badges */}
+                              {((file as any).voiceAnnotationCount > 0 || (file as any).visualAnnotationCount > 0) && (
+                                <div className="flex items-center gap-1">
+                                  {(file as any).voiceAnnotationCount > 0 && (
+                                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs bg-blue-500/20 text-blue-400" title="Voice annotations">
+                                      <Mic className="h-3 w-3" />
+                                      {(file as any).voiceAnnotationCount}
+                                    </span>
+                                  )}
+                                  {(file as any).visualAnnotationCount > 0 && (
+                                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs bg-purple-500/20 text-purple-400" title="Drawing annotations">
+                                      <PenLine className="h-3 w-3" />
+                                      {(file as any).visualAnnotationCount}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </>
                           )}
                           {file.enrichmentStatus === "enriched" && (
                             <span className="text-green-500">Enriched</span>

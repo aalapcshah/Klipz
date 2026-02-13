@@ -7,17 +7,22 @@ import * as db from "../db";
 import { videoTranscripts, fileSuggestions, files } from "../../drizzle/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getTranscriptionErrorMessage } from "../lib/errorMessages";
+import { resolveFileUrl } from "../lib/resolveFileUrl";
 
 /**
  * LLM-based transcription fallback for large video files that exceed Whisper's 16MB limit.
  * Uses the LLM vision API to analyze the video and extract speech content.
  */
 async function transcribeWithLLM(
-  file: { id: number; url: string; mimeType?: string | null },
+  file: { id: number; url: string; fileKey: string; mimeType?: string | null },
   transcriptId: number
 ) {
   try {
     console.log(`[Transcription] Using LLM fallback for file ${file.id}`);
+
+    // Resolve relative streaming URLs to publicly accessible S3 URLs
+    const accessibleUrl = await resolveFileUrl(file);
+    console.log(`[Transcription] Resolved URL for LLM: ${accessibleUrl.substring(0, 80)}...`);
 
     const response = await invokeLLM({
       messages: [
@@ -39,7 +44,7 @@ Detect the language automatically.`,
             {
               type: "file_url" as const,
               file_url: {
-                url: file.url,
+                url: accessibleUrl,
                 mime_type: (file.mimeType || "video/mp4") as "video/mp4",
               },
             },
@@ -214,9 +219,13 @@ export const videoTranscriptionRouter = router({
       await db.updateVideoTranscriptStatus(transcriptId, "processing");
 
       try {
+        // Resolve relative streaming URLs to publicly accessible S3 URLs
+        const accessibleUrl = await resolveFileUrl(file);
+        console.log(`[Transcription] Resolved URL for file ${input.fileId}: ${accessibleUrl.substring(0, 80)}...`);
+
         // Try Whisper first
         const result = await transcribeAudio({
-          audioUrl: file.url,
+          audioUrl: accessibleUrl,
           language: "en",
         });
 

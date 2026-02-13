@@ -602,7 +602,26 @@ export const appRouter = router({
             ? file.enrichmentStatus 
             : 'pending';
           
-          return { ...file, enrichmentStatus, tags, qualityScore };
+          // For video files, get annotation counts
+          let voiceAnnotationCount = 0;
+          let visualAnnotationCount = 0;
+          if (file.mimeType?.startsWith('video/')) {
+            const drizzle = await db.getDb();
+            if (drizzle) {
+              const voiceAnns = await drizzle
+                .select({ id: voiceAnnotations.id })
+                .from(voiceAnnotations)
+                .where(eq(voiceAnnotations.fileId, file.id));
+              const visualAnns = await drizzle
+                .select({ id: visualAnnotations.id })
+                .from(visualAnnotations)
+                .where(eq(visualAnnotations.fileId, file.id));
+              voiceAnnotationCount = voiceAnns.length;
+              visualAnnotationCount = visualAnns.length;
+            }
+          }
+
+          return { ...file, enrichmentStatus, tags, qualityScore, voiceAnnotationCount, visualAnnotationCount };
         })
       );
            return {

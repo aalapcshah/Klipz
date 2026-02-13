@@ -5,6 +5,7 @@ import { invokeLLM } from "../_core/llm";
 import * as db from "../db";
 import { getAutoCaptioningStatus, processScheduledAutoCaptioning } from "../_core/scheduledAutoCaptioning";
 import { getCaptioningErrorMessage } from "../lib/errorMessages";
+import { resolveFileUrl } from "../lib/resolveFileUrl";
 
 /**
  * Video Visual Captions Router
@@ -73,6 +74,10 @@ export const videoVisualCaptionsRouter = router({
       }
 
       try {
+        // Resolve relative streaming URLs to publicly accessible S3 URLs
+        const accessibleUrl = await resolveFileUrl(file);
+        console.log(`[VisualCaptions] Resolved URL for file ${input.fileId}: ${accessibleUrl.substring(0, 80)}...`);
+
         // Send the video to LLM vision API for analysis
         // The LLM can process video content directly via file_url
         const response = await invokeLLM({
@@ -100,11 +105,11 @@ Generate captions for the entire duration of the video. If the video is short, p
               role: "user",
               content: [
                 {
-                  type: "file_url" as const,
-                  file_url: {
-                    url: file.url,
-                    mime_type: "video/mp4" as const,
-                  },
+              type: "file_url" as const,
+              file_url: {
+                url: accessibleUrl,
+                mime_type: "video/mp4" as const,
+              },
                 },
                 {
                   type: "text" as const,
@@ -696,6 +701,10 @@ For each relevant match, provide the file index, the timestamp it matches, relev
       // Fire-and-forget: run captioning in background
       (async () => {
         try {
+          // Resolve relative streaming URLs to publicly accessible S3 URLs
+          const accessibleUrl = await resolveFileUrl(file);
+          console.log(`[AutoCaption] Resolved URL for file ${input.fileId}: ${accessibleUrl.substring(0, 80)}...`);
+
           const response = await invokeLLM({
             messages: [
               {
@@ -715,7 +724,7 @@ Focus on: what is shown on screen (text, diagrams, images, UI elements), actions
                   {
                     type: "file_url" as const,
                     file_url: {
-                      url: file.url,
+                      url: accessibleUrl,
                       mime_type: "video/mp4" as const,
                     },
                   },
