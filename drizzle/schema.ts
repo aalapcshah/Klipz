@@ -1678,6 +1678,9 @@ export const resumableUploadSessions = mysqlTable("resumable_upload_sessions", {
   // Thumbnail for visual identification
   thumbnailUrl: text("thumbnailUrl"),
   
+  // Device tracking for cross-device resume
+  deviceInfo: varchar("deviceInfo", { length: 255 }),
+  
   // Session status
   status: mysqlEnum("status", ["active", "paused", "finalizing", "completed", "failed", "expired"]).default("active").notNull(),
   errorMessage: text("errorMessage"),

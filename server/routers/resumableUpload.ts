@@ -134,6 +134,7 @@ export const resumableUploadRouter = router({
           collectionId: z.number().optional(),
           tags: z.array(z.string()).optional(),
         }).optional(),
+        deviceInfo: z.string().max(255).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -160,6 +161,7 @@ export const resumableUploadRouter = router({
         totalChunks,
         chunkStoragePrefix,
         metadata: input.metadata || {},
+        deviceInfo: input.deviceInfo || null,
         expiresAt,
       }).$returningId();
       
@@ -734,6 +736,7 @@ export const resumableUploadRouter = router({
         uploadedBytes: resumableUploadSessions.uploadedBytes,
         metadata: resumableUploadSessions.metadata,
         thumbnailUrl: resumableUploadSessions.thumbnailUrl,
+        deviceInfo: resumableUploadSessions.deviceInfo,
         expiresAt: resumableUploadSessions.expiresAt,
         createdAt: resumableUploadSessions.createdAt,
         lastActivityAt: resumableUploadSessions.lastActivityAt,

@@ -39,6 +39,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
 import type { NetworkQuality } from "@/hooks/useResumableUpload";
+import { UploadSpeedGraph } from "@/components/UploadSpeedGraph";
 
 function NetworkQualityBadgeSmall({ quality }: { quality?: NetworkQuality }) {
   if (!quality || quality === 'unknown') return null;
@@ -644,6 +645,20 @@ export function GlobalUploadProgress() {
             </div>
           )}
           
+          {/* Compact speed graph when uploads are active */}
+          {isExpanded && (allActiveCount > 0) && (
+            <div className="px-3 pb-2 border-t pt-2">
+              <UploadSpeedGraph
+                currentSpeed={
+                  uploads.filter(u => u.status === 'uploading').reduce((sum, u) => sum + (u.speed || 0), 0) +
+                  activeResumableSessions.filter((s: any) => s.status === 'active').reduce((sum: number, s: any) => sum + (s.speed || 0), 0)
+                }
+                isActive={allActiveCount > 0}
+                compact
+              />
+            </div>
+          )}
+
           {/* Summary footer when collapsed */}
           {!isExpanded && hasActiveUploads && (
             <div className="p-3 border-t">

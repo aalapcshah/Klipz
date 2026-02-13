@@ -40,6 +40,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useResumableUpload, ResumableUploadSession, NetworkQuality } from "@/hooks/useResumableUpload";
+import { UploadSpeedGraph, useAggregatedUploadSpeed } from "@/components/UploadSpeedGraph";
 import { useUploadSettings } from "@/hooks/useUploadSettings";
 import UploadSettings from "@/components/UploadSettings";
 import { trpc } from "@/lib/trpc";
@@ -208,6 +209,9 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
   const resumableSessions = sessions.filter(
     s => s.status === "active" || s.status === "paused" || s.status === "error" || s.status === "finalizing"
   );
+
+  // Aggregated speed for the speed graph
+  const { totalSpeed, isActive: hasActiveUploads } = useAggregatedUploadSpeed(sessions);
 
   // Don't show if no resumable sessions
   if (isLoading || resumableSessions.length === 0) {
@@ -535,8 +539,17 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                     )}
                   </div>
 
+                  {/* Remote session indicator */}
+                  {session.isRemoteSession && (
+                    <div className="mt-1 text-xs text-blue-500 flex items-center gap-1">
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      Started on {session.deviceInfo || 'another device'} — select the same file to continue here
+                    </div>
+                  )}
                   {/* Hint when file needs re-selection */}
-                  {!session.file && session.status === "paused" && (
+                  {!session.file && session.status === "paused" && !session.isRemoteSession && (
                     <div className="mt-1 text-xs text-amber-500 flex items-center gap-1">
                       <FolderOpen className="h-3 w-3" />
                       Tap resume to re-select file and continue
@@ -656,6 +669,17 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                 </div>
               </div>
             ))}
+
+            {/* Upload Speed Graph */}
+            {(hasActiveUploads || totalSpeed > 0) && (
+              <div className="mt-2">
+                <UploadSpeedGraph
+                  currentSpeed={totalSpeed}
+                  isActive={hasActiveUploads}
+                  label={resumableSessions.length === 1 ? resumableSessions[0]?.filename : `${resumableSessions.length} files`}
+                />
+              </div>
+            )}
 
             {/* Hidden file input for resuming - no capture attribute so it opens file browser */}
             <input

@@ -33,7 +33,8 @@ import { Lock, Crown, Sparkles } from "lucide-react";
 import { UploadTranscriptInline } from "@/components/UploadTranscriptInline";
 import { useUploadSettings, type ThrottleLevel, getThrottlePresets, getThrottleLabel } from "@/hooks/useUploadSettings";
 import { playUploadCompleteSound, playUploadErrorSound } from "@/lib/notificationSound";
-// CompressionPreviewDialog no longer needed (compression moved to server-side)
+import { ClientVideoCompressor, type CompressionQuality } from "@/components/ClientVideoCompressor";
+import { isCompressionSupported } from "@/lib/videoCompression";
 
 type VideoQuality = "original" | "high" | "medium" | "low" | "custom";
 
@@ -97,6 +98,10 @@ export function VideoUploadSection() {
   const [estimatedSizes, setEstimatedSizes] = useState<Map<string, { original: number; compressed: number }>>(new Map());
   const [previewEstimate, setPreviewEstimate] = useState<{ filename: string; original: number; estimated: number; savings: string } | null>(null);
   
+  // Client-side compression dialog state
+  const [compressionDialogOpen, setCompressionDialogOpen] = useState(false);
+  const [compressionPendingFiles, setCompressionPendingFiles] = useState<File[]>([]);
+
   // Compression preview dialog state
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
@@ -761,7 +766,16 @@ export function VideoUploadSection() {
     }
     
     const fileArray = Array.from(files);
-    // Always upload original quality - server-side compression available after upload
+    
+    // Offer client-side compression if supported and files are video
+    const videoFiles = fileArray.filter(f => ACCEPTED_VIDEO_FORMATS.includes(f.type));
+    if (videoFiles.length > 0 && isCompressionSupported()) {
+      setCompressionPendingFiles(fileArray);
+      setCompressionDialogOpen(true);
+      return;
+    }
+    
+    // No compression available or no video files - upload directly
     await checkAndAddFiles(fileArray);
   };
   
@@ -1404,6 +1418,30 @@ export function VideoUploadSection() {
 
 
 
+
+      {/* Client-side Video Compression Dialog */}
+      <ClientVideoCompressor
+        files={compressionPendingFiles}
+        open={compressionDialogOpen}
+        onConfirm={async (files, compressionResults) => {
+          setCompressionDialogOpen(false);
+          setCompressionPendingFiles([]);
+          if (compressionResults && compressionResults.length > 0) {
+            const totalSaved = compressionResults.reduce((sum, r) => sum + (r.originalSize - r.compressedSize), 0);
+            if (totalSaved > 0) {
+              toast.success(`Compressed! Saved ${formatFileSize(totalSaved)}`, {
+                description: compressionResults.map(r => `${r.originalFile.name}: ${r.savings} smaller`).join(', '),
+                duration: 5000,
+              });
+            }
+          }
+          await checkAndAddFiles(files);
+        }}
+        onCancel={() => {
+          setCompressionDialogOpen(false);
+          setCompressionPendingFiles([]);
+        }}
+      />
 
       {/* Duplicate Warning Dialog */}
       <DuplicateWarningDialog

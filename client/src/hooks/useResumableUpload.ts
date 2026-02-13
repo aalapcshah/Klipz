@@ -5,6 +5,35 @@ import { trpcCall } from "@/lib/trpcCall";
 
 const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks (kept small to avoid proxy body size limits on deployed sites)
 const STORAGE_KEY = "metaclips-resumable-uploads";
+const DEVICE_ID_KEY = "metaclips-device-id";
+
+// Generate a stable device identifier for cross-device resume
+function getDeviceId(): string {
+  try {
+    let id = localStorage.getItem(DEVICE_ID_KEY);
+    if (!id) {
+      id = Math.random().toString(36).substring(2, 10);
+      localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
+  } catch { return 'unknown'; }
+}
+
+function getDeviceInfo(): string {
+  const ua = navigator.userAgent;
+  let browser = 'Unknown';
+  if (ua.includes('Chrome') && !ua.includes('Edg')) browser = 'Chrome';
+  else if (ua.includes('Firefox')) browser = 'Firefox';
+  else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
+  else if (ua.includes('Edg')) browser = 'Edge';
+  let os = 'Unknown';
+  if (ua.includes('Windows')) os = 'Windows';
+  else if (ua.includes('Mac')) os = 'macOS';
+  else if (ua.includes('Linux') && !ua.includes('Android')) os = 'Linux';
+  else if (ua.includes('Android')) os = 'Android';
+  else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+  return `${browser} on ${os} [${getDeviceId()}]`;
+}
 const SPEED_LIMIT_KEY = "metaclips-upload-speed-limit";
 const CONCURRENCY_KEY = "metaclips-upload-concurrency";
 
@@ -110,6 +139,9 @@ export interface ResumableUploadSession {
   // Queue priority
   priority?: 'normal' | 'high'; // high = pinned to top of queue
   queueOrder?: number; // Manual ordering index
+  // Cross-device resume
+  deviceInfo?: string | null; // Browser/OS info of the device that started the upload
+  isRemoteSession?: boolean; // True if this session was started on another device
 }
 
 interface UseResumableUploadOptions {
@@ -354,25 +386,33 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
         (s: any) => !clearedTokensRef.current.has(s.sessionToken)
       );
       
-      const mappedSessions: ResumableUploadSession[] = filteredServerSessions.map((s: any) => ({
-        sessionToken: s.sessionToken,
-        filename: s.filename,
-        fileSize: Number(s.fileSize),
-        mimeType: s.mimeType,
-        uploadType: s.uploadType,
-        status: s.status,
-        totalChunks: s.totalChunks,
-        uploadedChunks: s.uploadedChunks,
-        uploadedBytes: Number(s.uploadedBytes),
-        progress: s.totalChunks > 0 ? (s.uploadedChunks / s.totalChunks) * 100 : 0,
-        speed: 0,
-        eta: 0,
-        metadata: s.metadata,
-        thumbnailUrl: s.thumbnailUrl,
-        expiresAt: s.expiresAt,
-        createdAt: s.createdAt,
-        lastActivityAt: s.lastActivityAt,
-      }));
+      const currentDeviceId = getDeviceId();
+      const mappedSessions: ResumableUploadSession[] = filteredServerSessions.map((s: any) => {
+        // Check if this session was started on a different device
+        const sessionDeviceId = s.deviceInfo ? s.deviceInfo.match(/\[([^\]]+)\]$/)?.[1] : null;
+        const isRemote = sessionDeviceId ? sessionDeviceId !== currentDeviceId : false;
+        return {
+          sessionToken: s.sessionToken,
+          filename: s.filename,
+          fileSize: Number(s.fileSize),
+          mimeType: s.mimeType,
+          uploadType: s.uploadType,
+          status: s.status,
+          totalChunks: s.totalChunks,
+          uploadedChunks: s.uploadedChunks,
+          uploadedBytes: Number(s.uploadedBytes),
+          progress: s.totalChunks > 0 ? (s.uploadedChunks / s.totalChunks) * 100 : 0,
+          speed: 0,
+          eta: 0,
+          metadata: s.metadata,
+          thumbnailUrl: s.thumbnailUrl,
+          deviceInfo: s.deviceInfo,
+          isRemoteSession: isRemote,
+          expiresAt: s.expiresAt,
+          createdAt: s.createdAt,
+          lastActivityAt: s.lastActivityAt,
+        };
+      });
       
       // Merge file references and preserve local error status from existing sessions
       setSessions(prev => {
@@ -595,6 +635,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
         uploadType,
         chunkSize: CHUNK_SIZE,
         metadata,
+        deviceInfo: getDeviceInfo(),
       });
 
       const newSession: ResumableUploadSession = {

@@ -1,0 +1,1 @@
+ALTER TABLE `resumable_upload_sessions` ADD `deviceInfo` varchar(255);

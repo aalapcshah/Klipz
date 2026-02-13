@@ -6537,3 +6537,26 @@ Note: The application already has extensive annotation features including voice 
 - [x] Write 9 tests for SHA-256 hashing and verification flow (uploadAdaptive.test.ts)
 - [x] Write 3 integration tests for priority + checksum + notifications (uploadAdaptive.test.ts)
 - [x] All 98 upload adaptive tests passing
+
+## Upload Resume Across Devices
+- [x] Sync resumable upload session metadata to database
+- [x] Allow users to see pending uploads from other devices
+- [x] Resume uploads started on a different device by re-selecting the file
+- [x] Show device/browser info for each session
+- [x] Handle session conflicts when same file is uploaded from multiple devices
+
+## Client-Side Video Compression
+- [x] Add optional video compression before upload using browser APIs (ClientVideoCompressor component)
+- [x] Show compression progress and estimated savings
+- [x] Allow user to choose quality preset (original/high/medium/low)
+- [x] Skip compression for non-video files
+- [x] Show before/after file size comparison with estimated savings
+
+## Upload Speed Graph
+- [x] Track upload speed data points over time during active uploads (1-second sampling)
+- [x] Build real-time line chart component using Chart.js (UploadSpeedGraph component)
+- [x] Show speed graph in ResumableUploadsBanner (full) and GlobalUploadProgress (compact)
+- [x] Display current, average, peak, and minimum speed stats
+- [x] Auto-scale axes based on speed range with MB/KB formatting
+- [x] Collapsible graph with LIVE indicator
+- [x] Aggregated speed from multiple concurrent upload sessions
