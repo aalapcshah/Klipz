@@ -76,7 +76,7 @@ export function GlobalUploadProgress() {
 
   // Filter resumable sessions to only active/paused ones
   const activeResumableSessions = (resumableSessions || []).filter(
-    (s: any) => s.status === "active" || s.status === "paused" || s.status === "finalizing"
+    (s: any) => s.status === "active" || s.status === "paused" || s.status === "finalizing" || s.status === "error"
   );
 
   const resumableCount = activeResumableSessions.length;
@@ -317,6 +317,8 @@ export function GlobalUploadProgress() {
                                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                                 ) : session.status === "finalizing" ? (
                                   <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
+                                ) : session.status === "error" ? (
+                                  <AlertCircle className="h-4 w-4 text-red-500" />
                                 ) : (
                                   <Pause className="h-4 w-4 text-yellow-500" />
                                 )}
@@ -346,8 +348,15 @@ export function GlobalUploadProgress() {
                               </div>
                             </div>
 
+                            {/* Error message for failed uploads */}
+                            {session.status === "error" && (
+                              <div className="mt-1">
+                                <p className="text-xs text-red-500">Upload failed. Go to Files to retry or cancel.</p>
+                              </div>
+                            )}
+
                             {/* Hint to go to Files page for management */}
-                            {session.status === "paused" && (
+                            {(session.status === "paused" || session.status === "error") && (
                               <button
                                 className="mt-1 text-xs text-amber-500 hover:text-amber-600 flex items-center gap-1 cursor-pointer"
                                 onClick={() => {

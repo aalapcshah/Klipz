@@ -64,7 +64,7 @@ interface StoredSessionInfo {
 function saveSessionsToStorage(sessions: ResumableUploadSession[]) {
   try {
     const toStore: StoredSessionInfo[] = sessions
-      .filter(s => s.status === 'active' || s.status === 'paused' || s.status === 'finalizing')
+      .filter(s => s.status === 'active' || s.status === 'paused' || s.status === 'finalizing' || s.status === 'error')
       .map(s => ({
         sessionToken: s.sessionToken,
         filename: s.filename,
@@ -255,12 +255,20 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
         lastActivityAt: s.lastActivityAt,
       }));
       
-      // Merge file references from existing sessions (in case user navigated away and back)
+      // Merge file references and preserve local error status from existing sessions
       setSessions(prev => {
         return mappedSessions.map(mapped => {
           const existing = prev.find(p => p.sessionToken === mapped.sessionToken);
-          if (existing?.file) {
-            return { ...mapped, file: existing.file };
+          if (existing) {
+            // Preserve local error status — don't let server sync override it
+            // The user must explicitly retry or cancel an errored upload
+            if (existing.status === 'error') {
+              return { ...existing, file: existing.file };
+            }
+            // Preserve file reference for resuming
+            if (existing.file) {
+              return { ...mapped, file: existing.file };
+            }
           }
           return mapped;
         });
@@ -612,23 +620,22 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
             console.warn(`[ResumableUpload] Chunk ${i} attempt ${retries} failed (${retryLabel})`);
             
             if (retries >= maxRetries) {
-              // Instead of throwing an error, auto-pause the upload so user can resume later
-              console.warn(`[ResumableUpload] Auto-pausing ${session.filename} after ${maxRetries} failed retries`);
+              // Mark as error so user can manually retry or cancel — do NOT auto-resume
+              console.warn(`[ResumableUpload] Upload failed for ${session.filename} after ${maxRetries} retries on chunk ${i + 1}`);
               
               // Abort the controller to stop this upload
               abortController.abort();
               
-              // Update session to paused with error info
+              // Update session to error state (not paused — prevents auto-resume loop)
               setSessionsRef.current(prev => {
                 const updated = prev.map(s =>
                   s.sessionToken === session.sessionToken
                     ? {
                         ...s,
-                        status: 'paused' as const,
-                        isPaused: true,
+                        status: 'error' as const,
                         speed: 0,
                         eta: 0,
-                        error: `Auto-paused: ${retryLabel}. Tap resume to continue.`,
+                        error: `Failed at chunk ${i + 1}/${session.totalChunks}: ${retryLabel}. Tap retry or cancel.`,
                       }
                     : s
                 );
@@ -636,22 +643,11 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
                 return updated;
               });
               
-              toast.warning(`${session.filename}: Upload paused due to connection issues. It will auto-resume shortly.`);
+              toast.error(`${session.filename}: Upload failed after ${maxRetries} retries. You can retry or cancel the upload.`, {
+                duration: 8000,
+              });
               
-              // Schedule auto-resume after 30 seconds
-              setTimeout(() => {
-                const currentSessions = sessionsRef.current || [];
-                const currentSession = currentSessions.find((s: ResumableUploadSession) => s.sessionToken === session.sessionToken);
-                if (currentSession && currentSession.status === 'paused' && currentSession.file) {
-                  console.log(`[ResumableUpload] Auto-resuming ${session.filename} after cooldown`);
-                  toast.info(`Auto-resuming ${session.filename}...`);
-                  // Re-queue the upload
-                  uploadQueueRef.current.push({ session: { ...currentSession, status: 'active' }, file: currentSession.file });
-                  processUploadQueue();
-                }
-              }, 30_000);
-              
-              return; // Exit the upload function
+              return; // Exit the upload function — no auto-resume
             }
             // Exponential backoff: 2s, 4s, 8s, 16s, 32s, 60s, 60s, 60s, 60s, 60s
             const backoffMs = Math.min(2000 * Math.pow(2, retries - 1), 60_000);
@@ -804,7 +800,8 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
         const currentSessions = sessionsRef.current;
         
         for (const session of currentSessions) {
-          if (session.status === 'active' && session.file) {
+          // Only restart truly active uploads — skip error/paused sessions
+          if (session.status === 'active' && session.file && activeUploadsRef.current.has(session.sessionToken)) {
             const lastProgress = lastProgressRef.current.get(session.sessionToken);
             const stalledFor = lastProgress ? now - lastProgress.time : 0;
             

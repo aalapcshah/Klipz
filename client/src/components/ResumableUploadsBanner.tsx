@@ -410,8 +410,22 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                         e.stopPropagation();
                         pauseUpload(session.sessionToken);
                       }}
+                      title="Pause upload"
                     >
                       <Pause className="h-4 w-4" />
+                    </Button>
+                  ) : session.status === "error" ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleResumeClick(session);
+                      }}
+                      className="text-amber-500 hover:text-amber-600"
+                      title="Retry upload"
+                    >
+                      <RefreshCw className="h-4 w-4" />
                     </Button>
                   ) : (
                     <Button
@@ -439,6 +453,7 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                       cancelUpload(session.sessionToken);
                     }}
                     className="text-red-500 hover:text-red-600"
+                    title="Cancel upload"
                   >
                     <X className="h-4 w-4" />
                   </Button>

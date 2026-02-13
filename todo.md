@@ -6440,3 +6440,14 @@ Note: The application already has extensive annotation features including voice 
 - [x] Update TeamActivityFeed with ownership_transferred, storage_alert_80, storage_alert_90 types
 - [x] Write 19 tests for transfer ownership (teamFeatures.test.ts)
 - [x] All 144 tests passing in teamFeatures.test.ts, 47 in teamActivity.test.ts
+
+## Bug Fix: Resumable Upload Stuck Retry Loop
+- [x] Fix upload getting stuck cycling through retry attempts when a chunk fails
+- [x] Change retry exhaustion from auto-pause to error status (prevents auto-resume loop)
+- [x] Remove auto-resume after max retries — user must explicitly retry or cancel
+- [x] Preserve local error status during server sync (prevent server overriding error back to active/paused)
+- [x] Fix visibility change handler to only restart truly active uploads (check activeUploadsRef)
+- [x] Show distinct retry (RefreshCw) button for error state in ResumableUploadsBanner
+- [x] Show error state in GlobalUploadProgress with red icon and "Go to Files" link
+- [x] Save error sessions to localStorage for persistence across page reloads
+- [x] Clear error message: "Failed at chunk X/Y: reason. Tap retry or cancel."
