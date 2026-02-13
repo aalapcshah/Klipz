@@ -4,6 +4,12 @@ import { getDb } from "../db";
 import { users } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { getSubscriptionTierByPriceId } from "../products";
+import {
+  notifySubscriptionStarted,
+  notifySubscriptionCanceled,
+  notifySubscriptionExpired,
+  notifyPaymentFailed,
+} from "../lib/subscriptionNotifications";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-12-15.clover",
@@ -61,14 +67,12 @@ export async function handleStripeWebhook(req: Request, res: Response) {
       case "invoice.paid": {
         const invoice = event.data.object as Stripe.Invoice;
         console.log("[Stripe Webhook] Invoice paid:", invoice.id);
-        // Optional: Track payment history
         break;
       }
 
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
-        console.log("[Stripe Webhook] Payment failed:", invoice.id);
-        // Optional: Notify user of payment failure
+        await handlePaymentFailed(invoice);
         break;
       }
 
@@ -118,6 +122,29 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         .where(eq(users.id, parseInt(userId)));
 
       console.log("[Stripe Webhook] Updated user subscription to:", tier.name);
+
+      // Send subscription started notification
+      const price = subscription.items.data[0]?.price;
+      const interval = price?.recurring?.interval || "month";
+      const amount = price?.unit_amount
+        ? `$${(price.unit_amount / 100).toFixed(2)}`
+        : "$9.99";
+      const nextBillingDate = new Date(
+        (subscription as any).current_period_end * 1000
+      ).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+
+      await notifySubscriptionStarted({
+        userName: session.metadata?.customer_name || "User",
+        userEmail: session.metadata?.customer_email || session.customer_email || "",
+        planName: tier.name,
+        amount,
+        interval,
+        nextBillingDate,
+      });
     }
   }
 }
@@ -153,6 +180,24 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     .where(eq(users.id, user.id));
 
   console.log("[Stripe Webhook] Updated subscription for user:", user.id);
+
+  // Check if subscription was just canceled (cancel_at_period_end set to true)
+  if (subscription.cancel_at_period_end) {
+    const accessEndsDate = new Date(
+      (subscription as any).current_period_end * 1000
+    ).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    await notifySubscriptionCanceled({
+      userName: user.name || "User",
+      userEmail: user.email || "",
+      planName: tier.name,
+      accessEndsDate,
+    });
+  }
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
@@ -180,4 +225,51 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     .where(eq(users.id, user.id));
 
   console.log("[Stripe Webhook] Downgraded user to free tier:", user.id);
+
+  // Send subscription expired notification
+  await notifySubscriptionExpired({
+    userName: user.name || "User",
+    userEmail: user.email || "",
+  });
+}
+
+async function handlePaymentFailed(invoice: Stripe.Invoice) {
+  console.log("[Stripe Webhook] Payment failed:", invoice.id);
+
+  const customerId = invoice.customer as string;
+  if (!customerId) return;
+
+  const db = await getDb();
+  if (!db) return;
+
+  // Find user by Stripe customer ID
+  const [user] = await db.select()
+    .from(users)
+    .where(eq(users.stripeCustomerId, customerId))
+    .limit(1);
+
+  if (!user) {
+    console.error("[Stripe Webhook] User not found for customer:", customerId);
+    return;
+  }
+
+  const amount = invoice.amount_due
+    ? `$${(invoice.amount_due / 100).toFixed(2)}`
+    : "Unknown";
+
+  const nextRetry = invoice.next_payment_attempt
+    ? new Date(invoice.next_payment_attempt * 1000).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : undefined;
+
+  await notifyPaymentFailed({
+    userName: user.name || "User",
+    userEmail: user.email || "",
+    planName: "Pro",
+    amount,
+    retryDate: nextRetry,
+  });
 }

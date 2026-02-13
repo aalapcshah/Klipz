@@ -1,10 +1,14 @@
 import { z } from "zod";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import Stripe from "stripe";
-import { SUBSCRIPTION_TIERS } from "../products";
+import { SUBSCRIPTION_TIERS, getProPriceIdForInterval, type BillingInterval } from "../products";
 import { users } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { getDb } from "../db";
+import {
+  notifySubscriptionCanceled,
+  notifySubscriptionResumed,
+} from "../lib/subscriptionNotifications";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-12-15.clover",
@@ -17,10 +21,12 @@ export const stripeRouter = router({
   createCheckoutSession: protectedProcedure
     .input(z.object({
       tierId: z.enum(["pro"]),
+      billingInterval: z.enum(["month", "year"]).optional().default("month"),
     }))
     .mutation(async ({ input, ctx }) => {
       const tier = SUBSCRIPTION_TIERS[input.tierId];
-      if (!tier || !tier.stripePriceId) {
+      const priceId = getProPriceIdForInterval(input.billingInterval as BillingInterval);
+      if (!tier || !priceId) {
         throw new Error("Invalid subscription tier");
       }
 
@@ -52,7 +58,7 @@ export const stripeRouter = router({
         client_reference_id: ctx.user.id.toString(),
         line_items: [
           {
-            price: tier.stripePriceId,
+            price: priceId,
             quantity: 1,
           },
         ],
@@ -123,6 +129,23 @@ export const stripeRouter = router({
       );
 
       const periodEnd = (subscription as any).current_period_end;
+
+      // Send cancellation notification
+      const accessEndsDate = periodEnd
+        ? new Date(periodEnd * 1000).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : "Unknown";
+
+      notifySubscriptionCanceled({
+        userName: ctx.user.name || "User",
+        userEmail: ctx.user.email || "",
+        planName: "Pro",
+        accessEndsDate,
+      }).catch(() => {}); // Fire and forget
+
       return {
         success: true,
         cancelAt: periodEnd ? new Date(periodEnd * 1000) : null,
@@ -138,12 +161,29 @@ export const stripeRouter = router({
         throw new Error("No subscription to resume");
       }
 
-      await stripe.subscriptions.update(
+      const subscription = await stripe.subscriptions.update(
         ctx.user.stripeSubscriptionId,
         {
           cancel_at_period_end: false,
         }
       );
+
+      // Send resumption notification
+      const periodEnd = (subscription as any).current_period_end;
+      const nextBillingDate = periodEnd
+        ? new Date(periodEnd * 1000).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : "Unknown";
+
+      notifySubscriptionResumed({
+        userName: ctx.user.name || "User",
+        userEmail: ctx.user.email || "",
+        planName: "Pro",
+        nextBillingDate,
+      }).catch(() => {}); // Fire and forget
 
       return {
         success: true,
@@ -169,6 +209,23 @@ export const stripeRouter = router({
       return {
         portalUrl: session.url,
       };
+    }),
+
+  /**
+   * Get pricing options for Pro tier (monthly and annual)
+   */
+  getPricingOptions: publicProcedure
+    .query(async () => {
+      const { getProPricingOptions } = await import("../products");
+      const options = getProPricingOptions();
+      return options.map((opt) => ({
+        interval: opt.interval,
+        amount: opt.amount,
+        amountFormatted: opt.interval === "month" ? "$9.99" : "$99.99",
+        monthlyEquivalent: opt.interval === "month" ? "$9.99" : "$8.33",
+        label: opt.label,
+        savings: opt.savings || null,
+      }));
     }),
 
   /**

@@ -6288,3 +6288,20 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add "Manage Billing" button on subscription management page (shown for Pro subscribers)
 - [x] Allow users to update payment method, view/download invoices via Stripe portal
 - [x] Portal returns to /account/subscription after session ends
+
+## Email Notifications for Subscription Events
+- [x] Send confirmation email after successful subscription (via webhook)
+- [x] Send notification before billing renewal (via webhook invoice.upcoming)
+- [x] Send notification on subscription cancellation (via stripe router + webhook)
+- [x] Send notification on subscription resumption (via stripe router)
+- [x] Send notification on payment failure (via webhook invoice.payment_failed)
+- [x] Send notification on subscription expiry (via webhook customer.subscription.deleted)
+
+## Annual Billing with Plan Comparison Toggle
+- [x] Create annual Stripe price ($99.99/year, ~17% discount)
+- [x] Update products.ts with annual pricing tier and getProPricingOptions
+- [x] Update stripeInit.ts to create both monthly and annual prices on startup
+- [x] Add monthly/annual toggle to pricing page
+- [x] Show savings percentage (Save 17%) for annual plan
+- [x] Update checkout session to support billingInterval param
+- [x] Add getPricingOptions public procedure for frontend

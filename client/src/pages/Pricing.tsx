@@ -9,11 +9,15 @@ import { Check, Sparkles, Crown, Zap, ArrowRight, Clock, AlertCircle } from "luc
 import { toast } from "sonner";
 import { Link } from "wouter";
 
+type BillingInterval = "month" | "year";
+
 export default function Pricing() {
   const { user, loading: authLoading } = useAuth();
   const [startingTrial, setStartingTrial] = useState(false);
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>("month");
   
   const { data: plans, isLoading: plansLoading } = trpc.subscription.getPlans.useQuery();
+  const { data: pricingOptions } = trpc.stripe.getPricingOptions.useQuery();
   const { data: status, isLoading: statusLoading, refetch: refetchStatus } = trpc.subscription.getStatus.useQuery(
     undefined,
     { enabled: !!user }
@@ -49,7 +53,10 @@ export default function Pricing() {
   };
   
   const handleUpgrade = async () => {
-    await createCheckoutMutation.mutateAsync({ tierId: "pro" });
+    await createCheckoutMutation.mutateAsync({
+      tierId: "pro",
+      billingInterval,
+    });
   };
   
   const isLoading = authLoading || plansLoading || (user && statusLoading);
@@ -66,16 +73,60 @@ export default function Pricing() {
   const isOnTrial = status?.isOnTrial || false;
   const trialExpired = status?.trialExpired || false;
   const trialUsed = status?.trialUsed || false;
+
+  // Get the selected pricing option
+  const selectedOption = pricingOptions?.find((o) => o.interval === billingInterval);
+  const monthlyOption = pricingOptions?.find((o) => o.interval === "month");
+  const annualOption = pricingOptions?.find((o) => o.interval === "year");
   
   return (
     <div className="min-h-screen bg-background">
       <div className="container max-w-6xl py-12">
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Start with our free plan or unlock the full power of MetaClips with Pro features.
           </p>
+        </div>
+
+        {/* Billing Toggle */}
+        <div className="flex items-center justify-center gap-3 mb-10">
+          <span
+            className={`text-sm font-medium cursor-pointer transition-colors ${
+              billingInterval === "month" ? "text-foreground" : "text-muted-foreground"
+            }`}
+            onClick={() => setBillingInterval("month")}
+          >
+            Monthly
+          </span>
+          <button
+            onClick={() =>
+              setBillingInterval((prev) => (prev === "month" ? "year" : "month"))
+            }
+            className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              billingInterval === "year" ? "bg-primary" : "bg-muted"
+            }`}
+          >
+            <span
+              className={`pointer-events-none block h-5.5 w-5.5 rounded-full bg-white shadow-lg ring-0 transition-transform ${
+                billingInterval === "year" ? "translate-x-5" : "translate-x-0.5"
+              } mt-[1px]`}
+            />
+          </button>
+          <span
+            className={`text-sm font-medium cursor-pointer transition-colors ${
+              billingInterval === "year" ? "text-foreground" : "text-muted-foreground"
+            }`}
+            onClick={() => setBillingInterval("year")}
+          >
+            Annual
+          </span>
+          {annualOption?.savings && (
+            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+              {annualOption.savings}
+            </Badge>
+          )}
         </div>
         
         {/* Current Status Banner */}
@@ -132,6 +183,22 @@ export default function Pricing() {
             const isPro = plan.id === "pro";
             const isTrial = plan.id === "trial";
             
+            // Dynamic pricing for Pro based on billing interval
+            let displayPrice = plan.priceFormatted;
+            let priceSubtext = "";
+            if (isPro && selectedOption) {
+              if (billingInterval === "month") {
+                displayPrice = "$9.99";
+                priceSubtext = "/month";
+              } else {
+                displayPrice = "$8.33";
+                priceSubtext = "/month";
+              }
+            } else if (plan.price === 0) {
+              displayPrice = "Free";
+              priceSubtext = "";
+            }
+            
             return (
               <Card 
                 key={plan.id} 
@@ -158,8 +225,18 @@ export default function Pricing() {
                   </div>
                   <CardDescription>{plan.description}</CardDescription>
                   <div className="mt-4">
-                    <span className="text-4xl font-bold">{plan.priceFormatted}</span>
-                    {plan.price > 0 && <span className="text-muted-foreground">/month</span>}
+                    <span className="text-4xl font-bold">{displayPrice}</span>
+                    {priceSubtext && <span className="text-muted-foreground">{priceSubtext}</span>}
+                    {isPro && billingInterval === "year" && (
+                      <div className="mt-1">
+                        <span className="text-sm text-muted-foreground line-through mr-2">
+                          $9.99/mo
+                        </span>
+                        <span className="text-sm text-primary font-medium">
+                          $99.99 billed annually
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
                 

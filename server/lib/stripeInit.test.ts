@@ -1,15 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// We need to mock Stripe at the module level. Since stripeInit.ts creates
-// a Stripe instance at module scope, we need the mock to be set up before
-// the module is imported. vi.mock is hoisted, so it runs before imports.
-
 const mockProductsSearch = vi.fn();
 const mockProductsCreate = vi.fn();
 const mockPricesList = vi.fn();
 const mockPricesCreate = vi.fn();
 
-// This mock factory is hoisted and runs before any imports
 vi.mock("stripe", () => {
   return {
     default: function MockStripe() {
@@ -30,114 +25,136 @@ vi.mock("stripe", () => {
 describe("stripeInit", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    // Reset modules to clear the cached price ID
     vi.resetModules();
     delete process.env.STRIPE_PRICE_ID_PRO;
+    delete process.env.STRIPE_PRICE_ID_PRO_ANNUAL;
   });
 
-  it("should return env var price ID if STRIPE_PRICE_ID_PRO is set", async () => {
-    process.env.STRIPE_PRICE_ID_PRO = "price_test_123";
-    // Re-import after setting env to get fresh module
-    const mod = await vi.importActual<typeof import("./stripeInit")>("./stripeInit");
-    // Since the module caches, we need a fresh import
-    const { ensureStripeProductAndPrice } = await import("./stripeInit");
-    const priceId = await ensureStripeProductAndPrice();
-    expect(priceId).toBe("price_test_123");
-    expect(mockProductsSearch).not.toHaveBeenCalled();
-  });
-
-  it("should create product and price if none exist", async () => {
+  it("should create product and both monthly and annual prices if none exist", async () => {
     mockProductsSearch.mockResolvedValue({ data: [] });
     mockProductsCreate.mockResolvedValue({ id: "prod_new_123" });
     mockPricesList.mockResolvedValue({ data: [] });
-    mockPricesCreate.mockResolvedValue({ id: "price_new_456" });
+    mockPricesCreate
+      .mockResolvedValueOnce({ id: "price_monthly_456" })
+      .mockResolvedValueOnce({ id: "price_annual_789" });
 
-    const { ensureStripeProductAndPrice } = await import("./stripeInit");
+    const { ensureStripeProductAndPrice, getProPriceId, getProAnnualPriceId } =
+      await import("./stripeInit");
     const priceId = await ensureStripeProductAndPrice();
 
-    expect(priceId).toBe("price_new_456");
-    expect(mockProductsCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: "MetaClips Pro",
-        metadata: { app: "metaclips", tier: "pro" },
-      })
-    );
-    expect(mockPricesCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        product: "prod_new_123",
-        unit_amount: 999,
-        currency: "usd",
-        recurring: { interval: "month" },
-      })
-    );
+    expect(priceId).toBe("price_monthly_456");
+    expect(getProPriceId()).toBe("price_monthly_456");
+    expect(getProAnnualPriceId()).toBe("price_annual_789");
+
+    expect(mockProductsCreate).toHaveBeenCalledOnce();
+    expect(mockPricesCreate).toHaveBeenCalledTimes(2);
+
+    // Monthly price
+    expect(mockPricesCreate.mock.calls[0][0]).toMatchObject({
+      product: "prod_new_123",
+      unit_amount: 999,
+      currency: "usd",
+      recurring: { interval: "month" },
+    });
+
+    // Annual price
+    expect(mockPricesCreate.mock.calls[1][0]).toMatchObject({
+      product: "prod_new_123",
+      unit_amount: 9999,
+      currency: "usd",
+      recurring: { interval: "year" },
+    });
   });
 
-  it("should reuse existing product and price if they exist", async () => {
+  it("should reuse existing product and both prices if they exist", async () => {
     mockProductsSearch.mockResolvedValue({
-      data: [{ id: "prod_existing_789" }],
+      data: [{ id: "prod_existing" }],
     });
     mockPricesList.mockResolvedValue({
       data: [
-        {
-          id: "price_existing_101",
-          unit_amount: 999,
-          recurring: { interval: "month" },
-        },
+        { id: "price_monthly_existing", unit_amount: 999, recurring: { interval: "month" } },
+        { id: "price_annual_existing", unit_amount: 9999, recurring: { interval: "year" } },
       ],
     });
 
-    const { ensureStripeProductAndPrice } = await import("./stripeInit");
-    const priceId = await ensureStripeProductAndPrice();
+    const { ensureStripeProductAndPrice, getProPriceId, getProAnnualPriceId } =
+      await import("./stripeInit");
+    await ensureStripeProductAndPrice();
 
-    expect(priceId).toBe("price_existing_101");
     expect(mockProductsCreate).not.toHaveBeenCalled();
     expect(mockPricesCreate).not.toHaveBeenCalled();
+    expect(getProPriceId()).toBe("price_monthly_existing");
+    expect(getProAnnualPriceId()).toBe("price_annual_existing");
   });
 
-  it("should create price if product exists but no matching price", async () => {
+  it("should create only annual price when monthly already exists", async () => {
     mockProductsSearch.mockResolvedValue({
-      data: [{ id: "prod_existing_789" }],
+      data: [{ id: "prod_existing" }],
     });
     mockPricesList.mockResolvedValue({
       data: [
-        {
-          id: "price_wrong",
-          unit_amount: 1999,
-          recurring: { interval: "month" },
-        },
+        { id: "price_monthly_existing", unit_amount: 999, recurring: { interval: "month" } },
       ],
     });
-    mockPricesCreate.mockResolvedValue({ id: "price_correct_202" });
+    mockPricesCreate.mockResolvedValue({ id: "price_annual_new" });
 
-    const { ensureStripeProductAndPrice } = await import("./stripeInit");
-    const priceId = await ensureStripeProductAndPrice();
+    const { ensureStripeProductAndPrice, getProPriceId, getProAnnualPriceId } =
+      await import("./stripeInit");
+    await ensureStripeProductAndPrice();
 
-    expect(priceId).toBe("price_correct_202");
-    expect(mockProductsCreate).not.toHaveBeenCalled();
-    expect(mockPricesCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        product: "prod_existing_789",
-        unit_amount: 999,
-      })
-    );
+    expect(mockPricesCreate).toHaveBeenCalledOnce();
+    expect(mockPricesCreate.mock.calls[0][0]).toMatchObject({
+      unit_amount: 9999,
+      recurring: { interval: "year" },
+    });
+    expect(getProPriceId()).toBe("price_monthly_existing");
+    expect(getProAnnualPriceId()).toBe("price_annual_new");
+  });
+
+  it("should create only monthly price when annual already exists", async () => {
+    mockProductsSearch.mockResolvedValue({
+      data: [{ id: "prod_existing" }],
+    });
+    mockPricesList.mockResolvedValue({
+      data: [
+        { id: "price_annual_existing", unit_amount: 9999, recurring: { interval: "year" } },
+      ],
+    });
+    mockPricesCreate.mockResolvedValue({ id: "price_monthly_new" });
+
+    const { ensureStripeProductAndPrice, getProPriceId, getProAnnualPriceId } =
+      await import("./stripeInit");
+    await ensureStripeProductAndPrice();
+
+    expect(mockPricesCreate).toHaveBeenCalledOnce();
+    expect(mockPricesCreate.mock.calls[0][0]).toMatchObject({
+      unit_amount: 999,
+      recurring: { interval: "month" },
+    });
+    expect(getProPriceId()).toBe("price_monthly_new");
+    expect(getProAnnualPriceId()).toBe("price_annual_existing");
   });
 });
 
-describe("getProPriceId", () => {
+describe("getProPriceId / getProAnnualPriceId", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
     delete process.env.STRIPE_PRICE_ID_PRO;
+    delete process.env.STRIPE_PRICE_ID_PRO_ANNUAL;
   });
 
   it("should return null when not initialized and no env var", async () => {
-    const { getProPriceId } = await import("./stripeInit");
+    const { getProPriceId, getProAnnualPriceId } = await import("./stripeInit");
     expect(getProPriceId()).toBeNull();
+    expect(getProAnnualPriceId()).toBeNull();
   });
 
   it("should return env var when set", async () => {
-    process.env.STRIPE_PRICE_ID_PRO = "price_env_123";
-    const { getProPriceId } = await import("./stripeInit");
-    expect(getProPriceId()).toBe("price_env_123");
+    process.env.STRIPE_PRICE_ID_PRO = "price_env_monthly";
+    process.env.STRIPE_PRICE_ID_PRO_ANNUAL = "price_env_annual";
+    const { getProPriceId, getProAnnualPriceId } = await import("./stripeInit");
+    expect(getProPriceId()).toBe("price_env_monthly");
+    expect(getProAnnualPriceId()).toBe("price_env_annual");
   });
 });

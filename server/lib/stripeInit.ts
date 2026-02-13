@@ -4,24 +4,18 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-12-15.clover",
 });
 
-let cachedPriceId: string | null = null;
+let cachedMonthlyPriceId: string | null = null;
+let cachedAnnualPriceId: string | null = null;
 
 /**
- * Ensures the MetaClips Pro subscription product and price exist in Stripe.
- * Creates them if they don't exist. Returns the price ID.
+ * Ensures the MetaClips Pro subscription product and prices exist in Stripe.
+ * Creates both monthly ($9.99/mo) and annual ($99.99/yr, ~17% discount) prices.
  * 
- * This runs on server startup and caches the result so checkout sessions
- * can reference the correct price ID without needing a manual env var.
+ * This runs on server startup and caches the results so checkout sessions
+ * can reference the correct price IDs without needing manual env vars.
  */
 export async function ensureStripeProductAndPrice(): Promise<string> {
-  if (cachedPriceId) return cachedPriceId;
-
-  // Check if price ID is already set via env var
-  if (process.env.STRIPE_PRICE_ID_PRO) {
-    cachedPriceId = process.env.STRIPE_PRICE_ID_PRO;
-    console.log("[StripeInit] Using STRIPE_PRICE_ID_PRO from env:", cachedPriceId);
-    return cachedPriceId;
-  }
+  if (cachedMonthlyPriceId && cachedAnnualPriceId) return cachedMonthlyPriceId;
 
   try {
     // Search for existing product by metadata
@@ -48,51 +42,74 @@ export async function ensureStripeProductAndPrice(): Promise<string> {
       console.log("[StripeInit] Created new product:", productId);
     }
 
-    // Check for existing active price on this product
+    // List all active recurring prices for this product
     const existingPrices = await stripe.prices.list({
       product: productId,
       active: true,
       type: "recurring",
-      limit: 10,
+      limit: 20,
     });
 
-    // Look for a $9.99/month price
-    const matchingPrice = existingPrices.data.find(
+    // --- Monthly price ($9.99/month) ---
+    const matchingMonthly = existingPrices.data.find(
       (p) => p.unit_amount === 999 && p.recurring?.interval === "month"
     );
 
-    if (matchingPrice) {
-      cachedPriceId = matchingPrice.id;
-      console.log("[StripeInit] Found existing price:", cachedPriceId);
+    if (matchingMonthly) {
+      cachedMonthlyPriceId = matchingMonthly.id;
+      console.log("[StripeInit] Found existing monthly price:", cachedMonthlyPriceId);
     } else {
-      // Create the price
       const price = await stripe.prices.create({
         product: productId,
         unit_amount: 999, // $9.99
         currency: "usd",
-        recurring: {
-          interval: "month",
-        },
-        metadata: {
-          app: "metaclips",
-          tier: "pro",
-        },
+        recurring: { interval: "month" },
+        metadata: { app: "metaclips", tier: "pro", interval: "month" },
       });
-      cachedPriceId = price.id;
-      console.log("[StripeInit] Created new price:", cachedPriceId);
+      cachedMonthlyPriceId = price.id;
+      console.log("[StripeInit] Created new monthly price:", cachedMonthlyPriceId);
     }
 
-    return cachedPriceId;
+    // --- Annual price ($99.99/year, ~17% discount) ---
+    const matchingAnnual = existingPrices.data.find(
+      (p) => p.unit_amount === 9999 && p.recurring?.interval === "year"
+    );
+
+    if (matchingAnnual) {
+      cachedAnnualPriceId = matchingAnnual.id;
+      console.log("[StripeInit] Found existing annual price:", cachedAnnualPriceId);
+    } else {
+      const price = await stripe.prices.create({
+        product: productId,
+        unit_amount: 9999, // $99.99
+        currency: "usd",
+        recurring: { interval: "year" },
+        metadata: { app: "metaclips", tier: "pro", interval: "year" },
+      });
+      cachedAnnualPriceId = price.id;
+      console.log("[StripeInit] Created new annual price:", cachedAnnualPriceId);
+    }
+
+    console.log("[StripeInit] Product and prices initialized successfully");
+    return cachedMonthlyPriceId;
   } catch (error) {
-    console.error("[StripeInit] Failed to initialize Stripe product/price:", error);
+    console.error("[StripeInit] Failed to initialize Stripe product/prices:", error);
     throw error;
   }
 }
 
 /**
- * Get the cached Stripe price ID for the Pro tier.
+ * Get the cached Stripe price ID for the Pro tier (monthly).
  * Returns null if not yet initialized.
  */
 export function getProPriceId(): string | null {
-  return cachedPriceId || process.env.STRIPE_PRICE_ID_PRO || null;
+  return cachedMonthlyPriceId || process.env.STRIPE_PRICE_ID_PRO || null;
+}
+
+/**
+ * Get the cached Stripe price ID for the Pro annual tier.
+ * Returns null if not yet initialized.
+ */
+export function getProAnnualPriceId(): string | null {
+  return cachedAnnualPriceId || process.env.STRIPE_PRICE_ID_PRO_ANNUAL || null;
 }

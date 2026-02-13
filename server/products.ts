@@ -5,9 +5,10 @@
  * These should match the products created in your Stripe Dashboard.
  */
 
-import { getProPriceId } from './lib/stripeInit';
+import { getProPriceId, getProAnnualPriceId } from './lib/stripeInit';
 
 export type SubscriptionTierId = 'free' | 'trial' | 'pro';
+export type BillingInterval = 'month' | 'year';
 
 export interface SubscriptionTier {
   id: SubscriptionTierId;
@@ -16,6 +17,14 @@ export interface SubscriptionTier {
   storageGB: number;
   priceMonthly: number;
   features: string[];
+}
+
+export interface PricingOption {
+  interval: BillingInterval;
+  priceId: string;
+  amount: number; // in cents
+  label: string;
+  savings?: string; // e.g., "Save 17%"
 }
 
 export const SUBSCRIPTION_TIERS: Record<SubscriptionTierId, SubscriptionTier> = {
@@ -55,7 +64,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTierId, SubscriptionTier> = 
   pro: {
     id: 'pro',
     name: 'Pro',
-    // Stripe Price ID - dynamically resolved from Stripe on server startup
+    // Stripe Price ID - dynamically resolved from Stripe on server startup (monthly)
     get stripePriceId() {
       return getProPriceId() || process.env.STRIPE_PRICE_ID_PRO || '';
     },
@@ -76,6 +85,40 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTierId, SubscriptionTier> = 
 };
 
 /**
+ * Get pricing options for the Pro tier (monthly and annual)
+ */
+export function getProPricingOptions(): PricingOption[] {
+  const monthlyPriceId = getProPriceId() || process.env.STRIPE_PRICE_ID_PRO || '';
+  const annualPriceId = getProAnnualPriceId() || process.env.STRIPE_PRICE_ID_PRO_ANNUAL || '';
+
+  return [
+    {
+      interval: 'month',
+      priceId: monthlyPriceId,
+      amount: 999, // $9.99/month
+      label: '$9.99/month',
+    },
+    {
+      interval: 'year',
+      priceId: annualPriceId,
+      amount: 9999, // $99.99/year ($8.33/month equivalent)
+      label: '$99.99/year',
+      savings: 'Save 17%',
+    },
+  ];
+}
+
+/**
+ * Get the Stripe price ID for a given billing interval
+ */
+export function getProPriceIdForInterval(interval: BillingInterval): string {
+  if (interval === 'year') {
+    return getProAnnualPriceId() || process.env.STRIPE_PRICE_ID_PRO_ANNUAL || '';
+  }
+  return getProPriceId() || process.env.STRIPE_PRICE_ID_PRO || '';
+}
+
+/**
  * Get subscription tier by ID
  */
 export function getSubscriptionTier(tierId: string): SubscriptionTier | undefined {
@@ -84,9 +127,20 @@ export function getSubscriptionTier(tierId: string): SubscriptionTier | undefine
 
 /**
  * Get subscription tier by Stripe Price ID
+ * Matches both monthly and annual price IDs to the Pro tier
  */
 export function getSubscriptionTierByPriceId(priceId: string): SubscriptionTier | undefined {
-  return Object.values(SUBSCRIPTION_TIERS).find(tier => tier.stripePriceId === priceId);
+  // Check standard tier price IDs
+  const directMatch = Object.values(SUBSCRIPTION_TIERS).find(tier => tier.stripePriceId === priceId);
+  if (directMatch) return directMatch;
+
+  // Also check annual price ID (maps to pro tier)
+  const annualPriceId = getProAnnualPriceId() || process.env.STRIPE_PRICE_ID_PRO_ANNUAL;
+  if (annualPriceId && priceId === annualPriceId) {
+    return SUBSCRIPTION_TIERS.pro;
+  }
+
+  return undefined;
 }
 
 /**
