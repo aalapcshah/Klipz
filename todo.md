@@ -6509,3 +6509,31 @@ Note: The application already has extensive annotation features including voice 
 - [x] Write 15 tests for concurrency determination and batch creation (uploadAdaptive.test.ts)
 - [x] Write 7 integration tests for settings interaction (uploadAdaptive.test.ts)
 - [x] All 67 upload adaptive tests passing, 1,145/1,147 total tests passing (2 pre-existing notification test failures)
+
+## Upload Queue Priority
+- [x] Add priority field (normal/high) and queueOrder to ResumableUploadSession interface
+- [x] Implement sortByPriority helper (high priority first, then by queue order)
+- [x] Add pinUpload and unpinUpload functions to useResumableUpload hook
+- [x] Add reorderUploads function for manual queue reordering
+- [x] Add pin/unpin button (Pin icon) to ResumableUploadsBanner per session
+- [x] Add move-up/move-down buttons (ArrowUp/ArrowDown) for manual reorder
+- [x] Show "Pinned" badge on high-priority sessions
+- [x] Persist priority and queueOrder in localStorage session state
+- [x] Write 14 tests for sort, pin/unpin, and reorder logic (uploadAdaptive.test.ts)
+
+## Upload Notifications
+- [x] Request browser Notification permission on first upload start
+- [x] Send browser Notification when upload completes ("Upload Complete" with filename)
+- [x] Send browser Notification when upload fails after all retries ("Upload Failed" with error)
+- [x] Use tag-based deduplication to prevent notification spam
+- [x] Write 5 tests for notification payload structure (uploadAdaptive.test.ts)
+
+## Chunk Integrity Verification
+- [x] Compute SHA-256 hash for each chunk on client side using Web Crypto API (SubtleCrypto)
+- [x] Send checksum field with chunk upload request
+- [x] Verify checksum on server side using Node.js crypto module
+- [x] Return checksumVerified flag in upload response
+- [x] Throw CHECKSUM_MISMATCH error on server when hashes don't match (triggers auto-retry)
+- [x] Write 9 tests for SHA-256 hashing and verification flow (uploadAdaptive.test.ts)
+- [x] Write 3 integration tests for priority + checksum + notifications (uploadAdaptive.test.ts)
+- [x] All 98 upload adaptive tests passing

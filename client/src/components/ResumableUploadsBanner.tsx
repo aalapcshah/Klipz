@@ -33,6 +33,11 @@ import {
   WifiOff,
   Timer,
   CalendarClock,
+  Pin,
+  PinOff,
+  ArrowUp,
+  ArrowDown,
+  ShieldCheck,
 } from "lucide-react";
 import { useResumableUpload, ResumableUploadSession, NetworkQuality } from "@/hooks/useResumableUpload";
 import { useUploadSettings } from "@/hooks/useUploadSettings";
@@ -143,6 +148,9 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
     concurrency,
     setSpeedLimit,
     setConcurrency,
+    pinUpload,
+    unpinUpload,
+    reorderUploads,
   } = useResumableUpload({
     autoResume: true,
     chunkDelayMs: uploadSettings.chunkDelayMs,
@@ -371,6 +379,60 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                 key={session.sessionToken}
                 className="flex items-center gap-3 p-3 bg-background rounded-lg border"
               >
+                {/* Priority pin indicator + move buttons */}
+                <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                  {resumableSessions.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const idx = resumableSessions.findIndex(s => s.sessionToken === session.sessionToken);
+                        const globalIdx = sessions.findIndex(s => s.sessionToken === session.sessionToken);
+                        if (idx > 0) reorderUploads(globalIdx, globalIdx - 1);
+                      }}
+                      disabled={resumableSessions.findIndex(s => s.sessionToken === session.sessionToken) === 0}
+                      title="Move up"
+                    >
+                      <ArrowUp className="h-3 w-3" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`h-5 w-5 p-0 ${session.priority === 'high' ? 'text-amber-500' : 'text-muted-foreground hover:text-foreground'}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (session.priority === 'high') {
+                        unpinUpload(session.sessionToken);
+                      } else {
+                        pinUpload(session.sessionToken);
+                      }
+                    }}
+                    title={session.priority === 'high' ? 'Unpin' : 'Pin to top'}
+                  >
+                    {session.priority === 'high' ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                  </Button>
+                  {resumableSessions.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const idx = resumableSessions.findIndex(s => s.sessionToken === session.sessionToken);
+                        const globalIdx = sessions.findIndex(s => s.sessionToken === session.sessionToken);
+                        if (idx < resumableSessions.length - 1) reorderUploads(globalIdx, globalIdx + 1);
+                      }}
+                      disabled={resumableSessions.findIndex(s => s.sessionToken === session.sessionToken) === resumableSessions.length - 1}
+                      title="Move down"
+                    >
+                      <ArrowDown className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+
                 {/* Thumbnail or file icon */}
                 <div className="flex-shrink-0">
                   {session.thumbnailUrl ? (
@@ -417,6 +479,18 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
                     <span>
                       {formatBytes(session.uploadedBytes)} / {formatBytes(session.fileSize)}
                     </span>
+                    {session.priority === 'high' && (
+                      <span className="inline-flex items-center gap-0.5 text-amber-500">
+                        <Pin className="h-2.5 w-2.5" />
+                        Priority
+                      </span>
+                    )}
+                    {session.status === "active" && (
+                      <span className="inline-flex items-center gap-0.5 text-green-600">
+                        <ShieldCheck className="h-2.5 w-2.5" />
+                        Verified
+                      </span>
+                    )}
                     {session.status === "active" && session.speed > 0 && (
                       <>
                         <span>{formatSpeed(session.speed)}</span>

@@ -320,6 +320,19 @@ export const resumableUploadRouter = router({
       
       // Decode and upload chunk to S3
       const chunkBuffer = Buffer.from(input.chunkData, "base64");
+
+      // Verify checksum if provided
+      if (input.checksum) {
+        const crypto = await import('crypto');
+        const serverChecksum = crypto.createHash('sha256').update(chunkBuffer).digest('hex');
+        if (serverChecksum !== input.checksum) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Chunk ${input.chunkIndex} integrity check failed: expected ${input.checksum}, got ${serverChecksum}`,
+          });
+        }
+      }
+
       await storagePut(chunk.storageKey, chunkBuffer, "application/octet-stream");
       
       // Update chunk status
@@ -369,6 +382,7 @@ export const resumableUploadRouter = router({
         totalChunks: session.totalChunks,
         uploadedBytes: newUploadedBytes,
         fileSize: Number(session.fileSize),
+        checksumVerified: !!input.checksum,
       };
     }),
 

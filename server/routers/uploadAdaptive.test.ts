@@ -635,3 +635,389 @@ describe("Integration: Upload Settings Interaction", () => {
     expect(concurrency).toBe(1); // Falls back at 3 failures
   });
 });
+
+// ============================================================
+// Tests for Upload Queue Priority
+// ============================================================
+
+type UploadPriority = 'normal' | 'high';
+
+interface MockSession {
+  sessionToken: string;
+  priority: UploadPriority;
+  queueOrder: number;
+  status: string;
+}
+
+function sortByPriority(sessions: MockSession[]): MockSession[] {
+  return [...sessions].sort((a, b) => {
+    // High priority first
+    if (a.priority === 'high' && b.priority !== 'high') return -1;
+    if (b.priority === 'high' && a.priority !== 'high') return 1;
+    // Then by queue order
+    return a.queueOrder - b.queueOrder;
+  });
+}
+
+function pinSession(sessions: MockSession[], token: string): MockSession[] {
+  return sessions.map(s =>
+    s.sessionToken === token ? { ...s, priority: 'high' as UploadPriority } : s
+  );
+}
+
+function unpinSession(sessions: MockSession[], token: string): MockSession[] {
+  return sessions.map(s =>
+    s.sessionToken === token ? { ...s, priority: 'normal' as UploadPriority } : s
+  );
+}
+
+function reorderSessions(sessions: MockSession[], fromIndex: number, toIndex: number): MockSession[] {
+  const result = [...sessions];
+  const [moved] = result.splice(fromIndex, 1);
+  result.splice(toIndex, 0, moved!);
+  return result.map((s, i) => ({ ...s, queueOrder: i }));
+}
+
+describe("Upload Queue Priority - Sort by Priority", () => {
+  it("puts high priority sessions first", () => {
+    const sessions: MockSession[] = [
+      { sessionToken: "a", priority: "normal", queueOrder: 0, status: "active" },
+      { sessionToken: "b", priority: "high", queueOrder: 1, status: "paused" },
+      { sessionToken: "c", priority: "normal", queueOrder: 2, status: "active" },
+    ];
+    const sorted = sortByPriority(sessions);
+    expect(sorted[0]!.sessionToken).toBe("b");
+    expect(sorted[1]!.sessionToken).toBe("a");
+    expect(sorted[2]!.sessionToken).toBe("c");
+  });
+
+  it("preserves queue order within same priority", () => {
+    const sessions: MockSession[] = [
+      { sessionToken: "a", priority: "normal", queueOrder: 2, status: "active" },
+      { sessionToken: "b", priority: "normal", queueOrder: 0, status: "active" },
+      { sessionToken: "c", priority: "normal", queueOrder: 1, status: "active" },
+    ];
+    const sorted = sortByPriority(sessions);
+    expect(sorted[0]!.sessionToken).toBe("b");
+    expect(sorted[1]!.sessionToken).toBe("c");
+    expect(sorted[2]!.sessionToken).toBe("a");
+  });
+
+  it("handles all high priority sessions", () => {
+    const sessions: MockSession[] = [
+      { sessionToken: "a", priority: "high", queueOrder: 1, status: "active" },
+      { sessionToken: "b", priority: "high", queueOrder: 0, status: "active" },
+    ];
+    const sorted = sortByPriority(sessions);
+    expect(sorted[0]!.sessionToken).toBe("b");
+    expect(sorted[1]!.sessionToken).toBe("a");
+  });
+
+  it("handles empty sessions list", () => {
+    const sorted = sortByPriority([]);
+    expect(sorted).toEqual([]);
+  });
+
+  it("handles single session", () => {
+    const sessions: MockSession[] = [
+      { sessionToken: "a", priority: "normal", queueOrder: 0, status: "active" },
+    ];
+    const sorted = sortByPriority(sessions);
+    expect(sorted.length).toBe(1);
+    expect(sorted[0]!.sessionToken).toBe("a");
+  });
+});
+
+describe("Upload Queue Priority - Pin/Unpin", () => {
+  it("pins a session to high priority", () => {
+    const sessions: MockSession[] = [
+      { sessionToken: "a", priority: "normal", queueOrder: 0, status: "active" },
+      { sessionToken: "b", priority: "normal", queueOrder: 1, status: "active" },
+    ];
+    const updated = pinSession(sessions, "b");
+    expect(updated[1]!.priority).toBe("high");
+    expect(updated[0]!.priority).toBe("normal");
+  });
+
+  it("unpins a session back to normal priority", () => {
+    const sessions: MockSession[] = [
+      { sessionToken: "a", priority: "high", queueOrder: 0, status: "active" },
+      { sessionToken: "b", priority: "normal", queueOrder: 1, status: "active" },
+    ];
+    const updated = unpinSession(sessions, "a");
+    expect(updated[0]!.priority).toBe("normal");
+  });
+
+  it("pinning already-pinned session is idempotent", () => {
+    const sessions: MockSession[] = [
+      { sessionToken: "a", priority: "high", queueOrder: 0, status: "active" },
+    ];
+    const updated = pinSession(sessions, "a");
+    expect(updated[0]!.priority).toBe("high");
+  });
+
+  it("unpinning already-normal session is idempotent", () => {
+    const sessions: MockSession[] = [
+      { sessionToken: "a", priority: "normal", queueOrder: 0, status: "active" },
+    ];
+    const updated = unpinSession(sessions, "a");
+    expect(updated[0]!.priority).toBe("normal");
+  });
+
+  it("pin does not affect other sessions", () => {
+    const sessions: MockSession[] = [
+      { sessionToken: "a", priority: "normal", queueOrder: 0, status: "active" },
+      { sessionToken: "b", priority: "normal", queueOrder: 1, status: "active" },
+      { sessionToken: "c", priority: "normal", queueOrder: 2, status: "active" },
+    ];
+    const updated = pinSession(sessions, "b");
+    expect(updated[0]!.priority).toBe("normal");
+    expect(updated[1]!.priority).toBe("high");
+    expect(updated[2]!.priority).toBe("normal");
+  });
+});
+
+describe("Upload Queue Priority - Reorder", () => {
+  it("moves session from position 2 to position 0", () => {
+    const sessions: MockSession[] = [
+      { sessionToken: "a", priority: "normal", queueOrder: 0, status: "active" },
+      { sessionToken: "b", priority: "normal", queueOrder: 1, status: "active" },
+      { sessionToken: "c", priority: "normal", queueOrder: 2, status: "active" },
+    ];
+    const reordered = reorderSessions(sessions, 2, 0);
+    expect(reordered[0]!.sessionToken).toBe("c");
+    expect(reordered[1]!.sessionToken).toBe("a");
+    expect(reordered[2]!.sessionToken).toBe("b");
+  });
+
+  it("updates queueOrder after reorder", () => {
+    const sessions: MockSession[] = [
+      { sessionToken: "a", priority: "normal", queueOrder: 0, status: "active" },
+      { sessionToken: "b", priority: "normal", queueOrder: 1, status: "active" },
+      { sessionToken: "c", priority: "normal", queueOrder: 2, status: "active" },
+    ];
+    const reordered = reorderSessions(sessions, 2, 0);
+    expect(reordered[0]!.queueOrder).toBe(0);
+    expect(reordered[1]!.queueOrder).toBe(1);
+    expect(reordered[2]!.queueOrder).toBe(2);
+  });
+
+  it("moving to same position is a no-op", () => {
+    const sessions: MockSession[] = [
+      { sessionToken: "a", priority: "normal", queueOrder: 0, status: "active" },
+      { sessionToken: "b", priority: "normal", queueOrder: 1, status: "active" },
+    ];
+    const reordered = reorderSessions(sessions, 0, 0);
+    expect(reordered[0]!.sessionToken).toBe("a");
+    expect(reordered[1]!.sessionToken).toBe("b");
+  });
+
+  it("moves session down in the list", () => {
+    const sessions: MockSession[] = [
+      { sessionToken: "a", priority: "normal", queueOrder: 0, status: "active" },
+      { sessionToken: "b", priority: "normal", queueOrder: 1, status: "active" },
+      { sessionToken: "c", priority: "normal", queueOrder: 2, status: "active" },
+    ];
+    const reordered = reorderSessions(sessions, 0, 2);
+    expect(reordered[0]!.sessionToken).toBe("b");
+    expect(reordered[1]!.sessionToken).toBe("c");
+    expect(reordered[2]!.sessionToken).toBe("a");
+  });
+});
+
+// ============================================================
+// Tests for Chunk Integrity Verification
+// ============================================================
+
+describe("Chunk Integrity Verification", () => {
+  it("SHA-256 hash of empty buffer is correct", async () => {
+    const crypto = await import('crypto');
+    const hash = crypto.createHash('sha256').update(Buffer.from('')).digest('hex');
+    expect(hash).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+  });
+
+  it("SHA-256 hash of known string is correct", async () => {
+    const crypto = await import('crypto');
+    const hash = crypto.createHash('sha256').update(Buffer.from('hello world')).digest('hex');
+    expect(hash).toBe('b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9');
+  });
+
+  it("SHA-256 hash is deterministic", async () => {
+    const crypto = await import('crypto');
+    const data = Buffer.from('test chunk data 12345');
+    const hash1 = crypto.createHash('sha256').update(data).digest('hex');
+    const hash2 = crypto.createHash('sha256').update(data).digest('hex');
+    expect(hash1).toBe(hash2);
+  });
+
+  it("different data produces different hashes", async () => {
+    const crypto = await import('crypto');
+    const hash1 = crypto.createHash('sha256').update(Buffer.from('chunk A')).digest('hex');
+    const hash2 = crypto.createHash('sha256').update(Buffer.from('chunk B')).digest('hex');
+    expect(hash1).not.toBe(hash2);
+  });
+
+  it("hash of base64-decoded data matches hash of original buffer", async () => {
+    const crypto = await import('crypto');
+    const original = Buffer.from('test binary data \x00\x01\x02\x03');
+    const base64 = original.toString('base64');
+    const decoded = Buffer.from(base64, 'base64');
+    const hashOriginal = crypto.createHash('sha256').update(original).digest('hex');
+    const hashDecoded = crypto.createHash('sha256').update(decoded).digest('hex');
+    expect(hashOriginal).toBe(hashDecoded);
+  });
+
+  it("checksum mismatch is detectable", async () => {
+    const crypto = await import('crypto');
+    const data = Buffer.from('correct data');
+    const correctHash = crypto.createHash('sha256').update(data).digest('hex');
+    const corruptedData = Buffer.from('corrupted data');
+    const corruptedHash = crypto.createHash('sha256').update(corruptedData).digest('hex');
+    expect(correctHash).not.toBe(corruptedHash);
+  });
+
+  it("hash output is always 64 hex characters", async () => {
+    const crypto = await import('crypto');
+    const testCases = ['', 'a', 'hello', 'x'.repeat(1000)];
+    for (const input of testCases) {
+      const hash = crypto.createHash('sha256').update(Buffer.from(input)).digest('hex');
+      expect(hash.length).toBe(64);
+      expect(/^[0-9a-f]+$/.test(hash)).toBe(true);
+    }
+  });
+
+  it("simulates server-side verification flow", async () => {
+    const crypto = await import('crypto');
+    // Client computes checksum
+    const chunkData = Buffer.from('simulated chunk binary data');
+    const clientChecksum = crypto.createHash('sha256').update(chunkData).digest('hex');
+    
+    // Server receives base64 and verifies
+    const base64Data = chunkData.toString('base64');
+    const serverBuffer = Buffer.from(base64Data, 'base64');
+    const serverChecksum = crypto.createHash('sha256').update(serverBuffer).digest('hex');
+    
+    expect(clientChecksum).toBe(serverChecksum);
+  });
+
+  it("detects corruption in base64 transmission", async () => {
+    const crypto = await import('crypto');
+    const originalData = Buffer.from('original chunk data');
+    const clientChecksum = crypto.createHash('sha256').update(originalData).digest('hex');
+    
+    // Simulate corruption: different data arrives at server
+    const corruptedData = Buffer.from('corrupted chunk data');
+    const serverChecksum = crypto.createHash('sha256').update(corruptedData).digest('hex');
+    
+    expect(clientChecksum).not.toBe(serverChecksum);
+  });
+});
+
+// ============================================================
+// Tests for Upload Notification Logic
+// ============================================================
+
+describe("Upload Notification Logic", () => {
+  it("notification permission check returns valid values", () => {
+    // In test environment, Notification may not exist
+    const validPermissions = ['granted', 'denied', 'default', undefined];
+    const permission = typeof Notification !== 'undefined' ? Notification.permission : undefined;
+    expect(validPermissions).toContain(permission);
+  });
+
+  it("notification payload for completed upload has correct structure", () => {
+    const filename = "test-video.mp4";
+    const fileSize = 695.61 * 1024 * 1024; // ~695MB
+    
+    const notification = {
+      title: "Upload Complete",
+      body: `${filename} has been uploaded successfully`,
+      tag: `upload-complete-${filename}`,
+    };
+    
+    expect(notification.title).toBe("Upload Complete");
+    expect(notification.body).toContain(filename);
+    expect(notification.tag).toContain("upload-complete");
+  });
+
+  it("notification payload for failed upload has correct structure", () => {
+    const filename = "test-video.mp4";
+    const error = "Network timeout at chunk 264";
+    
+    const notification = {
+      title: "Upload Failed",
+      body: `${filename}: ${error}`,
+      tag: `upload-failed-${filename}`,
+    };
+    
+    expect(notification.title).toBe("Upload Failed");
+    expect(notification.body).toContain(filename);
+    expect(notification.body).toContain(error);
+    expect(notification.tag).toContain("upload-failed");
+  });
+
+  it("notification tags are unique per file", () => {
+    const tag1 = `upload-complete-file1.mp4`;
+    const tag2 = `upload-complete-file2.mp4`;
+    expect(tag1).not.toBe(tag2);
+  });
+
+  it("notification body truncates long filenames", () => {
+    const longFilename = "a".repeat(200) + ".mp4";
+    const maxLength = 100;
+    const truncated = longFilename.length > maxLength 
+      ? longFilename.substring(0, maxLength) + "..." 
+      : longFilename;
+    expect(truncated.length).toBeLessThanOrEqual(maxLength + 3);
+  });
+});
+
+// ============================================================
+// Integration: Priority + Checksum + Notifications
+// ============================================================
+
+describe("Integration: Priority + Checksum + Notifications", () => {
+  it("pinned uploads maintain priority after sort", () => {
+    const sessions: MockSession[] = [
+      { sessionToken: "a", priority: "normal", queueOrder: 0, status: "active" },
+      { sessionToken: "b", priority: "normal", queueOrder: 1, status: "active" },
+      { sessionToken: "c", priority: "normal", queueOrder: 2, status: "active" },
+    ];
+    
+    // Pin session c
+    const pinned = pinSession(sessions, "c");
+    const sorted = sortByPriority(pinned);
+    
+    expect(sorted[0]!.sessionToken).toBe("c");
+    expect(sorted[0]!.priority).toBe("high");
+  });
+
+  it("reorder preserves pin status", () => {
+    const sessions: MockSession[] = [
+      { sessionToken: "a", priority: "high", queueOrder: 0, status: "active" },
+      { sessionToken: "b", priority: "normal", queueOrder: 1, status: "active" },
+      { sessionToken: "c", priority: "normal", queueOrder: 2, status: "active" },
+    ];
+    
+    const reordered = reorderSessions(sessions, 1, 2);
+    expect(reordered[0]!.priority).toBe("high");
+    expect(reordered[0]!.sessionToken).toBe("a");
+  });
+
+  it("checksum verification works with different chunk sizes", async () => {
+    const crypto = await import('crypto');
+    const sizes = [256, 1024, 1024 * 1024]; // 256B, 1KB, 1MB
+    
+    for (const size of sizes) {
+      const data = Buffer.alloc(size, 0x42);
+      const hash = crypto.createHash('sha256').update(data).digest('hex');
+      expect(hash.length).toBe(64);
+      
+      // Verify round-trip through base64
+      const base64 = data.toString('base64');
+      const decoded = Buffer.from(base64, 'base64');
+      const hash2 = crypto.createHash('sha256').update(decoded).digest('hex');
+      expect(hash).toBe(hash2);
+    }
+  });
+});

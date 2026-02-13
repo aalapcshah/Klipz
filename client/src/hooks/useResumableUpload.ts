@@ -107,6 +107,9 @@ export interface ResumableUploadSession {
   recentSpeeds?: number[]; // Last N chunk speeds in bytes/sec
   // Scheduled retry
   scheduledRetryAt?: number; // Unix timestamp for scheduled retry
+  // Queue priority
+  priority?: 'normal' | 'high'; // high = pinned to top of queue
+  queueOrder?: number; // Manual ordering index
 }
 
 interface UseResumableUploadOptions {
@@ -132,6 +135,18 @@ interface StoredSessionInfo {
   uploadedChunks: number;
   totalChunks: number;
   thumbnailUrl?: string | null;
+  priority?: 'normal' | 'high';
+  queueOrder?: number;
+}
+
+// Sort sessions by priority (high first) then by queueOrder
+function sortByPriority(sessions: ResumableUploadSession[]): ResumableUploadSession[] {
+  return [...sessions].sort((a, b) => {
+    const aPri = a.priority === 'high' ? 0 : 1;
+    const bPri = b.priority === 'high' ? 0 : 1;
+    if (aPri !== bPri) return aPri - bPri;
+    return (a.queueOrder ?? 999) - (b.queueOrder ?? 999);
+  });
 }
 
 function saveSessionsToStorage(sessions: ResumableUploadSession[]) {
@@ -148,6 +163,8 @@ function saveSessionsToStorage(sessions: ResumableUploadSession[]) {
         uploadedChunks: s.uploadedChunks,
         totalChunks: s.totalChunks,
         thumbnailUrl: s.thumbnailUrl,
+      priority: s.priority,
+      queueOrder: s.queueOrder,
       }));
     if (toStore.length > 0) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
@@ -566,6 +583,9 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     uploadType: "video" | "file",
     metadata?: ResumableUploadSession["metadata"]
   ): Promise<string> => {
+    // Request notification permission on first upload (non-blocking)
+    requestNotificationPermission().catch(() => {});
+
     try {
       // Create session on server
       const result = await createSessionMutation.mutateAsync({
@@ -782,15 +802,31 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
 
           const chunkData = await readChunkAsBase64(file, start, end);
 
+          // Calculate SHA-256 checksum for integrity verification
+          let checksum: string | undefined;
+          try {
+            const chunkBlob = file.slice(start, end);
+            const arrayBuffer = await chunkBlob.arrayBuffer();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+            checksum = Array.from(new Uint8Array(hashBuffer))
+              .map(b => b.toString(16).padStart(2, '0'))
+              .join('');
+          } catch (e) {
+            // If Web Crypto API is not available (e.g., HTTP context), skip checksum
+            console.warn('[ResumableUpload] Checksum calculation not available:', e);
+          }
+
           const attemptStart = Date.now();
           const result = await trpcCall<{
             uploadedChunks: number;
             totalChunks: number;
             uploadedBytes: number;
+            checksumVerified?: boolean;
           }>('resumableUpload.uploadChunk', {
             sessionToken: session.sessionToken,
             chunkIndex,
             chunkData,
+            ...(checksum ? { checksum } : {}),
           }, 'mutation', {
             timeoutMs: adaptive.currentTimeoutMs,
             signal: abortController.signal,
@@ -1020,6 +1056,13 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
       optionsRef.current.onComplete?.(session, completedResult);
       toast.success(`${session.filename} uploaded successfully!`);
 
+      // Send browser notification for background tab
+      const fileSizeMB = (session.fileSize / (1024 * 1024)).toFixed(1);
+      sendBrowserNotification(
+        'Upload Complete',
+        `${session.filename} (${fileSizeMB} MB) uploaded successfully!`
+      );
+
     } catch (error) {
       if (!abortController.signal.aborted) {
         console.error("[ResumableUpload] Upload failed:", error);
@@ -1036,6 +1079,12 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
 
         optionsRef.current.onError?.(session, error instanceof Error ? error : new Error("Upload failed"));
         toast.error(`Failed to upload ${session.filename}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+        // Send browser notification for background tab
+        sendBrowserNotification(
+          'Upload Failed',
+          `${session.filename} failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
       }
     } finally {
       activeUploadsRef.current.delete(session.sessionToken);
@@ -1349,6 +1398,68 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     }
   }, [sessions, uploadChunks]);
 
+  // Pin/unpin upload (set priority)
+  const pinUpload = useCallback((sessionToken: string) => {
+    setSessions(prev => {
+      const updated = prev.map(s =>
+        s.sessionToken === sessionToken
+          ? { ...s, priority: 'high' as const }
+          : s
+      );
+      // Sort: high priority first, then by queueOrder
+      const sorted = sortByPriority(updated);
+      saveSessionsToStorage(sorted);
+      return sorted;
+    });
+    toast.info('Upload pinned to top of queue');
+  }, []);
+
+  const unpinUpload = useCallback((sessionToken: string) => {
+    setSessions(prev => {
+      const updated = prev.map(s =>
+        s.sessionToken === sessionToken
+          ? { ...s, priority: 'normal' as const }
+          : s
+      );
+      saveSessionsToStorage(updated);
+      return updated;
+    });
+    toast.info('Upload unpinned');
+  }, []);
+
+  // Reorder uploads by moving a session to a new index
+  const reorderUploads = useCallback((fromIndex: number, toIndex: number) => {
+    setSessions(prev => {
+      const updated = [...prev];
+      const [moved] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, moved);
+      // Update queueOrder for all sessions
+      const withOrder = updated.map((s, i) => ({ ...s, queueOrder: i }));
+      saveSessionsToStorage(withOrder);
+      return withOrder;
+    });
+  }, []);
+
+  // Request browser notification permission
+  const requestNotificationPermission = useCallback(async () => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      const result = await Notification.requestPermission();
+      return result === 'granted';
+    }
+    return Notification.permission === 'granted';
+  }, []);
+
+  // Send browser notification (for background tab)
+  const sendBrowserNotification = useCallback((title: string, body: string, icon?: string) => {
+    if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState === 'hidden') {
+      try {
+        new Notification(title, { body, icon: icon || '/favicon.ico', tag: 'upload-notification' });
+      } catch (e) {
+        console.warn('[Notification] Failed to send:', e);
+      }
+    }
+  }, []);
+
   // Get active/resumable sessions count
   const activeCount = sessions.filter(s => s.status === "active").length;
   const pausedCount = sessions.filter(s => s.status === "paused").length;
@@ -1381,5 +1492,10 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     setSpeedLimit,
     concurrency,
     setConcurrency,
+    pinUpload,
+    unpinUpload,
+    reorderUploads,
+    requestNotificationPermission,
+    sendBrowserNotification,
   };
 }
