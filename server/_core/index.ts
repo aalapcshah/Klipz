@@ -108,6 +108,19 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+
+    // Auto-retry assembly for any stuck chunked uploads after a 30s delay
+    // This runs fire-and-forget so it doesn't block the server
+    setTimeout(async () => {
+      try {
+        console.log("[StartupAssembly] Scanning for pending chunked uploads that need assembly...");
+        const { assembleAllPendingSessions } = await import("../lib/backgroundAssembly");
+        await assembleAllPendingSessions();
+        console.log("[StartupAssembly] Scan complete");
+      } catch (error) {
+        console.error("[StartupAssembly] Failed to scan for pending assemblies:", error);
+      }
+    }, 30_000); // 30 second delay to let the server fully warm up
   });
 }
 

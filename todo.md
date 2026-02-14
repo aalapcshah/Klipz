@@ -6638,3 +6638,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Update checkFileReady procedure to return progress data (percentage, chunks done/total, phase, startedAt)
 - [x] Update FileProcessingBanner to show progress bar with chunk count, phase labels, and elapsed time
 - [x] Write tests for progress tracking (22 tests passing)
+
+## Auto-Assembly on Server Startup
+- [x] Wire assembleAllPendingSessions to run on server startup with 30s delay
+- [x] Add logging for startup assembly scan ([StartupAssembly] prefix)
+- [x] Ensure it doesn't block server startup (fire-and-forget via setTimeout)
