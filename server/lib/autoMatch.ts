@@ -1,4 +1,5 @@
 import { invokeLLM } from "../_core/llm";
+import { notifyOwner } from "../_core/notification";
 import * as db from "../db";
 
 /**
@@ -9,8 +10,23 @@ export async function runAutoFileMatch(params: {
   fileId: number;
   userId: number;
   minRelevanceScore?: number;
+  source?: "transcription" | "captioning" | "manual";
 }): Promise<void> {
-  const { fileId, userId, minRelevanceScore = 0.3 } = params;
+  const { fileId, userId, source = "manual" } = params;
+
+  // Check user's match settings
+  const userSettings = await db.getMatchSettings(userId);
+  const minRelevanceScore = params.minRelevanceScore ?? userSettings?.minConfidenceThreshold ?? 0.3;
+
+  // Check if auto-match is enabled for this trigger source
+  if (source === "transcription" && userSettings?.autoMatchOnTranscription === false) {
+    console.log(`[AutoMatch] Skipping file ${fileId}: auto-match on transcription disabled by user`);
+    return;
+  }
+  if (source === "captioning" && userSettings?.autoMatchOnCaptioning === false) {
+    console.log(`[AutoMatch] Skipping file ${fileId}: auto-match on captioning disabled by user`);
+    return;
+  }
 
   try {
     // Check if visual captions exist and are completed
@@ -138,6 +154,33 @@ export async function runAutoFileMatch(params: {
     }
 
     console.log(`[AutoMatch] Completed for file ${fileId}: ${savedCount} matches saved`);
+
+    // Send notification if matches were found (respecting user preference)
+    const shouldNotify = userSettings?.notifyOnMatchComplete !== false;
+    if (savedCount > 0 && shouldNotify) {
+      try {
+        const file = await db.getFileById(fileId);
+        const videoName = file?.title || file?.filename || `Video #${fileId}`;
+
+        // Build top matches summary
+        const topMatches = rawMatches
+          .filter((m: any) => m.relevanceScore >= minRelevanceScore)
+          .sort((a: any, b: any) => b.relevanceScore - a.relevanceScore)
+          .slice(0, 3)
+          .map((m: any) => {
+            const matchedFile = candidateFiles[m.fileIndex - 1];
+            return `• ${matchedFile?.title || matchedFile?.filename || "Unknown"} (${Math.round(m.relevanceScore * 100)}%)`;
+          })
+          .join("\n");
+
+        await notifyOwner({
+          title: `[Klipz] File Matching Complete: ${videoName}`,
+          content: `Auto-matching completed for **${videoName}**.\n\n**Results:** ${savedCount} matches found across ${new Set(rawMatches.map((m: any) => m.fileIndex)).size} files.\n\n**Top Matches:**\n${topMatches}\n\nView the matches in the Video Library.`,
+        });
+      } catch (notifError: any) {
+        console.warn(`[AutoMatch] Notification failed for file ${fileId}:`, notifError.message);
+      }
+    }
   } catch (error: any) {
     console.error(`[AutoMatch] Failed for file ${fileId}:`, error.message);
   }

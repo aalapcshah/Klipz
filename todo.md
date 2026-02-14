@@ -6785,3 +6785,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Re-match - Clear existing matches and re-run matching for a video
 - [x] Re-match button in MatchesTimeline header
 - [x] Backend procedure to delete existing matches and regenerate
+
+## Matches Timeline Enhancements V5
+- [x] Match notifications - push notification when auto-match or re-match completes
+- [x] Integrate with existing notifyOwner helper for match completion alerts
+- [x] Include match summary in notification (video name, match count, top matches)
+- [x] Match confidence tuning - settings panel for default minimum confidence threshold
+- [x] Store user preference for min confidence in database or user settings
+- [x] Apply user's confidence threshold to all matching operations
+- [x] Settings UI accessible from the MatchesTimeline header

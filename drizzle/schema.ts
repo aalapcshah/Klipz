@@ -2061,3 +2061,31 @@ export const videoTimelineThumbnails = mysqlTable("video_timeline_thumbnails", {
 
 export type VideoTimelineThumbnail = typeof videoTimelineThumbnails.$inferSelect;
 export type InsertVideoTimelineThumbnail = typeof videoTimelineThumbnails.$inferInsert;
+
+
+// ============= MATCH SETTINGS TABLE =============
+/**
+ * Match Settings - User preferences for file matching operations
+ */
+export const matchSettings = mysqlTable("match_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  
+  // Confidence threshold (0.0 - 1.0)
+  minConfidenceThreshold: float("minConfidenceThreshold").notNull().default(0.3),
+  
+  // Auto-match settings
+  autoMatchOnTranscription: boolean("autoMatchOnTranscription").default(true).notNull(),
+  autoMatchOnCaptioning: boolean("autoMatchOnCaptioning").default(true).notNull(),
+  
+  // Notification settings
+  notifyOnMatchComplete: boolean("notifyOnMatchComplete").default(true).notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  userIdIndex: index("match_settings_user_id_idx").on(table.userId),
+}));
+
+export type MatchSetting = typeof matchSettings.$inferSelect;
+export type InsertMatchSetting = typeof matchSettings.$inferInsert;

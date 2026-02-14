@@ -213,6 +213,7 @@ Generate captions for the entire duration of the video. If the video is short, p
         runAutoFileMatch({
           fileId: input.fileId,
           userId: ctx.user.id,
+          source: "captioning",
         }).catch((err) => {
           console.error(`[GenerateCaptions] Auto-match failed for file ${input.fileId}:`, err.message);
         });
@@ -829,6 +830,7 @@ Focus on: what is shown on screen (text, diagrams, images, UI elements), actions
           runAutoFileMatch({
             fileId: input.fileId,
             userId: ctx.user.id,
+            source: "captioning",
           }).catch((err) => {
             console.error(`[AutoCaption] Auto-match failed for file ${input.fileId}:`, err.message);
           });
@@ -1008,6 +1010,20 @@ Focus on: what is shown on screen (text, diagrams, images, UI elements), actions
         }
       }
 
+      // Send notification after bulk match
+      if (totalMatches > 0) {
+        try {
+          const { notifyOwner } = await import('../_core/notification');
+          const completedCount = results.filter(r => r.status === "completed" && r.matchCount > 0).length;
+          await notifyOwner({
+            title: `[Klipz] Bulk File Matching Complete`,
+            content: `Bulk file matching completed.\n\n**Results:**\n• ${videoFileIds.length} videos processed\n• ${completedCount} videos with matches\n• ${totalMatches} total matches found\n\nView the matches in the Video Library.`,
+          });
+        } catch (notifError: any) {
+          console.warn(`[BulkMatch] Notification failed:`, notifError.message);
+        }
+      }
+
       return {
         processed: videoFileIds.length,
         totalMatches,
@@ -1172,5 +1188,37 @@ Focus on: what is shown on screen (text, diagrams, images, UI elements), actions
         cleared: { visual: deletedVisual, transcript: deletedTranscript },
         status: "matching_started",
       };
+    }),
+
+  /**
+   * Get user's match settings (confidence threshold, auto-match, notifications)
+   */
+  getMatchSettings: protectedProcedure.query(async ({ ctx }) => {
+    const settings = await db.getMatchSettings(ctx.user.id);
+    return (
+      settings || {
+        minConfidenceThreshold: 0.3,
+        autoMatchOnTranscription: true,
+        autoMatchOnCaptioning: true,
+        notifyOnMatchComplete: true,
+      }
+    );
+  }),
+
+  /**
+   * Update user's match settings
+   */
+  updateMatchSettings: protectedProcedure
+    .input(
+      z.object({
+        minConfidenceThreshold: z.number().min(0).max(1).optional(),
+        autoMatchOnTranscription: z.boolean().optional(),
+        autoMatchOnCaptioning: z.boolean().optional(),
+        notifyOnMatchComplete: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const updated = await db.upsertMatchSettings(ctx.user.id, input);
+      return updated;
     }),
 });

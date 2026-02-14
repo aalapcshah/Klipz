@@ -64,6 +64,8 @@ import {
   InsertVisualCaptionFileMatch,
   videoTimelineThumbnails,
   InsertVideoTimelineThumbnail,
+  matchSettings,
+  InsertMatchSetting,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -3812,4 +3814,42 @@ export async function deleteFileSuggestions(videoFileId: number) {
   await db
     .delete(fileSuggestions)
     .where(eq(fileSuggestions.videoFileId, videoFileId));
+}
+
+
+// ============= MATCH SETTINGS QUERIES =============
+
+export async function getMatchSettings(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select()
+    .from(matchSettings)
+    .where(eq(matchSettings.userId, userId))
+    .limit(1);
+  return result[0];
+}
+
+export async function upsertMatchSettings(
+  userId: number,
+  settings: Partial<Omit<InsertMatchSetting, "id" | "userId" | "createdAt" | "updatedAt">>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const existing = await getMatchSettings(userId);
+  if (existing) {
+    await db
+      .update(matchSettings)
+      .set(settings)
+      .where(eq(matchSettings.userId, userId));
+    return { ...existing, ...settings };
+  } else {
+    await db.insert(matchSettings).values({
+      userId,
+      ...settings,
+    });
+    return await getMatchSettings(userId);
+  }
 }

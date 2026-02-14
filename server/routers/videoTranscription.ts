@@ -171,7 +171,7 @@ Detect the language automatically.`,
 
     // Auto-match: fire-and-forget file matching after transcription completes
     if (userId) {
-      runAutoFileMatch({ fileId: file.id, userId }).catch((err) => {
+      runAutoFileMatch({ fileId: file.id, userId, source: "transcription" }).catch((err) => {
         console.error(`[Transcription] Auto-match failed for file ${file.id}:`, err.message);
       });
     }
@@ -303,7 +303,7 @@ async function transcribeWithExtractedAudio(
 
     // Auto-match: fire-and-forget file matching after transcription completes
     if (userId) {
-      runAutoFileMatch({ fileId: file.id, userId }).catch((err) => {
+      runAutoFileMatch({ fileId: file.id, userId, source: "transcription" }).catch((err) => {
         console.error(`[Transcription] Auto-match failed for file ${file.id}:`, err.message);
       });
     }
@@ -485,7 +485,7 @@ export const videoTranscriptionRouter = router({
             });
 
             // Auto-match: fire-and-forget file matching after transcription completes
-            runAutoFileMatch({ fileId: input.fileId, userId: ctx.user.id }).catch((err) => {
+            runAutoFileMatch({ fileId: input.fileId, userId: ctx.user.id, source: "transcription" }).catch((err) => {
               console.error(`[Transcription] Auto-match failed for file ${input.fileId}:`, err.message);
             });
 

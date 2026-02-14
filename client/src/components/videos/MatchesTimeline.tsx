@@ -8,6 +8,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
@@ -35,6 +42,11 @@ import {
   Download,
   RefreshCw,
   Trash2,
+  Settings,
+  ToggleLeft,
+  ToggleRight,
+  Bell,
+  BellOff,
 } from "lucide-react";
 
 function formatTimestamp(seconds: number): string {
@@ -106,6 +118,18 @@ interface MatchesTimelineProps {
   onSeekTo?: (timestamp: number) => void;
   onRematch?: () => void;
   rematchPending?: boolean;
+  matchSettings?: {
+    minConfidenceThreshold: number;
+    autoMatchOnTranscription: boolean;
+    autoMatchOnCaptioning: boolean;
+    notifyOnMatchComplete: boolean;
+  };
+  onUpdateSettings?: (settings: Partial<{
+    minConfidenceThreshold: number;
+    autoMatchOnTranscription: boolean;
+    autoMatchOnCaptioning: boolean;
+    notifyOnMatchComplete: boolean;
+  }>) => void;
 }
 
 /**
@@ -202,6 +226,8 @@ export function MatchesTimeline({
   onSeekTo,
   onRematch,
   rematchPending,
+  matchSettings,
+  onUpdateSettings,
 }: MatchesTimelineProps) {
   const { frames, captureFrame } = useVideoFrameCapture(videoUrl);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
@@ -581,6 +607,96 @@ export function MatchesTimeline({
           </Badge>
         </div>
         <div className="flex items-center gap-2">
+          {/* Settings popover */}
+          {onUpdateSettings && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs gap-1"
+                  title="Match settings"
+                >
+                  <Settings className="h-3 w-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-4" align="end">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                      <Settings className="h-3.5 w-3.5" />
+                      Match Settings
+                    </h4>
+                  </div>
+
+                  {/* Confidence Threshold */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Min Confidence</Label>
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {Math.round((matchSettings?.minConfidenceThreshold ?? 0.3) * 100)}%
+                      </span>
+                    </div>
+                    <Slider
+                      value={[matchSettings?.minConfidenceThreshold ?? 0.3]}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      onValueChange={([val]) => onUpdateSettings({ minConfidenceThreshold: val })}
+                      className="w-full"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Matches below this threshold will be filtered out during matching.
+                    </p>
+                  </div>
+
+                  {/* Auto-match toggles */}
+                  <div className="space-y-3 pt-2 border-t border-border/30">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs">Auto-match on Transcription</Label>
+                        <p className="text-[10px] text-muted-foreground">Run matching after transcription completes</p>
+                      </div>
+                      <Switch
+                        checked={matchSettings?.autoMatchOnTranscription ?? true}
+                        onCheckedChange={(checked) => onUpdateSettings({ autoMatchOnTranscription: checked })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs">Auto-match on Captioning</Label>
+                        <p className="text-[10px] text-muted-foreground">Run matching after captioning completes</p>
+                      </div>
+                      <Switch
+                        checked={matchSettings?.autoMatchOnCaptioning ?? true}
+                        onCheckedChange={(checked) => onUpdateSettings({ autoMatchOnCaptioning: checked })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs flex items-center gap-1">
+                          {matchSettings?.notifyOnMatchComplete !== false ? (
+                            <Bell className="h-3 w-3" />
+                          ) : (
+                            <BellOff className="h-3 w-3" />
+                          )}
+                          Notifications
+                        </Label>
+                        <p className="text-[10px] text-muted-foreground">Notify when matching completes</p>
+                      </div>
+                      <Switch
+                        checked={matchSettings?.notifyOnMatchComplete ?? true}
+                        onCheckedChange={(checked) => onUpdateSettings({ notifyOnMatchComplete: checked })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+
           {/* Export dropdown */}
           <div className="relative group/export">
             <Button
@@ -1442,6 +1558,30 @@ export function MatchesTimelineWithData({
 }) {
   const utils = trpc.useUtils();
 
+  // Fetch user's match settings
+  const { data: matchSettings } =
+    trpc.videoVisualCaptions.getMatchSettings.useQuery();
+
+  const updateSettingsMutation =
+    trpc.videoVisualCaptions.updateMatchSettings.useMutation({
+      onSuccess: () => {
+        utils.videoVisualCaptions.getMatchSettings.invalidate();
+        toast.success("Settings updated");
+      },
+      onError: () => {
+        toast.error("Failed to update settings");
+      },
+    });
+
+  const handleUpdateSettings = (settings: Partial<{
+    minConfidenceThreshold: number;
+    autoMatchOnTranscription: boolean;
+    autoMatchOnCaptioning: boolean;
+    notifyOnMatchComplete: boolean;
+  }>) => {
+    updateSettingsMutation.mutate(settings);
+  };
+
   const { data: fileMatches, isLoading: matchesLoading } =
     trpc.videoVisualCaptions.getFileMatches.useQuery(
       { fileId: fileId! },
@@ -1490,7 +1630,8 @@ export function MatchesTimelineWithData({
     if (!fileId) return;
     setIsRematching(true);
     try {
-      await rematchMutation.mutateAsync({ fileId, minRelevanceScore: 0.3 });
+      const threshold = matchSettings?.minConfidenceThreshold ?? 0.3;
+      await rematchMutation.mutateAsync({ fileId, minRelevanceScore: threshold });
     } finally {
       setIsRematching(false);
     }
@@ -1528,18 +1669,20 @@ export function MatchesTimelineWithData({
     try {
       const promises: Promise<any>[] = [];
       if (hasCaptions) {
+        const threshold = matchSettings?.minConfidenceThreshold ?? 0.3;
         promises.push(
           generateVisualMatchesMutation.mutateAsync({
             fileId,
-            minRelevanceScore: 0.3,
+            minRelevanceScore: threshold,
           })
         );
       }
       if (hasTranscriptData) {
+        const threshold = matchSettings?.minConfidenceThreshold ?? 0.3;
         promises.push(
           generateTranscriptMatchesMutation.mutateAsync({
             fileId,
-            minRelevanceScore: 0.3,
+            minRelevanceScore: threshold,
           })
         );
       }
@@ -1557,6 +1700,16 @@ export function MatchesTimelineWithData({
     }
   };
 
+  // Normalize match settings for the component
+  const normalizedSettings = matchSettings
+    ? {
+        minConfidenceThreshold: matchSettings.minConfidenceThreshold ?? 0.3,
+        autoMatchOnTranscription: matchSettings.autoMatchOnTranscription ?? true,
+        autoMatchOnCaptioning: matchSettings.autoMatchOnCaptioning ?? true,
+        notifyOnMatchComplete: matchSettings.notifyOnMatchComplete ?? true,
+      }
+    : undefined;
+
   return (
     <MatchesTimeline
       videoUrl={videoUrl}
@@ -1571,6 +1724,8 @@ export function MatchesTimelineWithData({
       onSeekTo={onSeekTo}
       onRematch={handleRematch}
       rematchPending={isRematching}
+      matchSettings={normalizedSettings}
+      onUpdateSettings={handleUpdateSettings}
     />
   );
 }
