@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Sparkles, Plus, Database, Brain, Globe, BookOpen } from "lucide-react";
+import { CollapsibleSection } from "./CollapsibleSection";
 import { cn } from "@/lib/utils";
 
 interface SmartTagSuggestionsProps {
@@ -68,32 +69,32 @@ export function SmartTagSuggestions({
   return (
     <Card className={cn("", className)}>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-amber-500" />
-            Smart Tag Suggestions
-          </CardTitle>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleGetSuggestions}
-            disabled={getSuggestions.isPending}
-          >
-            {getSuggestions.isPending ? (
-              <>
-                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-3 w-3 mr-1" />
-                Get Suggestions
-              </>
-            )}
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
+        <CollapsibleSection
+          title="Smart Tag Suggestions"
+          icon={<Sparkles className="h-4 w-4 text-amber-500" />}
+          defaultOpen={false}
+          bare
+          headerActions={
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleGetSuggestions}
+              disabled={getSuggestions.isPending}
+            >
+              {getSuggestions.isPending ? (
+                <>
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  Get Suggestions
+                </>
+              )}
+            </Button>
+          }
+        >
         {!getSuggestions.data ? (
           <p className="text-sm text-muted-foreground text-center py-4">
             Click "Get Suggestions" to analyze your tags with Wikidata, DBpedia, Schema.org, and AI
@@ -168,7 +169,8 @@ export function SmartTagSuggestions({
             AI
           </div>
         </div>
-      </CardContent>
+        </CollapsibleSection>
+      </CardHeader>
     </Card>
   );
 }

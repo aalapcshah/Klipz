@@ -6643,3 +6643,13 @@ Note: The application already has extensive annotation features including voice 
 - [x] Wire assembleAllPendingSessions to run on server startup with 30s delay
 - [x] Add logging for startup assembly scan ([StartupAssembly] prefix)
 - [x] Ensure it doesn't block server startup (fire-and-forget via setTimeout)
+
+## Collapsible Sections in File Detail View
+- [x] Create reusable CollapsibleSection component
+- [x] Make Metadata Comparison section collapsible
+- [x] Make Full AI Analysis section collapsible
+- [x] Make Detected Objects section collapsible
+- [x] Make Tags section collapsible
+- [x] Make Smart Tag Suggestions section collapsible
+- [x] Make Caption Timeline section collapsible
+- [x] Make Visual Descriptions section collapsible

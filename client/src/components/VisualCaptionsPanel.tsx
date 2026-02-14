@@ -30,6 +30,7 @@ import {
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
 import { FileProcessingBanner, useAutoRetry } from "./FileProcessingBanner";
+import { CollapsibleSection } from "./CollapsibleSection";
 
 interface VisualCaptionsPanelProps {
   fileId: number;
@@ -514,74 +515,74 @@ export function VisualCaptionsPanel({
 
   return (
     <div className="space-y-4 max-w-full overflow-x-hidden">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-        <div>
-          <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
-            <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-            Visual Descriptions ({captions.length})
-          </h3>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            AI-generated visual summaries with file matching
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {captionData?.status === "completed" &&
-            (!fileMatches || (fileMatches as FileMatch[]).length === 0) && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleGenerateMatches}
-                disabled={matchingFiles}
-              >
-                {matchingFiles ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    Matching...
-                  </>
-                ) : (
-                  <>
-                    <Link2 className="h-4 w-4 mr-1" />
-                    Match Files
-                  </>
-                )}
-              </Button>
-            )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleExport("srt")}
-            title="Download SRT subtitles"
-          >
-            <Download className="h-4 w-4 mr-1" />
-            SRT
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleExport("vtt")}
-            title="Download VTT subtitles"
-          >
-            <Download className="h-4 w-4 mr-1" />
-            VTT
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleGenerateCaptions}
-            disabled={generating}
-          >
-            {generating ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                Regenerating...
-              </>
-            ) : (
-              "Regenerate"
-            )}
-          </Button>
-        </div>
-      </div>
+      {/* Visual Descriptions - Collapsible */}
+      <CollapsibleSection
+        title={`Visual Descriptions (${captions.length})`}
+        icon={<Eye className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />}
+        defaultOpen={true}
+        bare
+        headerActions={
+          <div className="flex flex-wrap gap-2">
+            {captionData?.status === "completed" &&
+              (!fileMatches || (fileMatches as FileMatch[]).length === 0) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateMatches}
+                  disabled={matchingFiles}
+                >
+                  {matchingFiles ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      Matching...
+                    </>
+                  ) : (
+                    <>
+                      <Link2 className="h-4 w-4 mr-1" />
+                      Match Files
+                    </>
+                  )}
+                </Button>
+              )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleExport("srt")}
+              title="Download SRT subtitles"
+            >
+              <Download className="h-4 w-4 mr-1" />
+              SRT
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleExport("vtt")}
+              title="Download VTT subtitles"
+            >
+              <Download className="h-4 w-4 mr-1" />
+              VTT
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateCaptions}
+              disabled={generating}
+            >
+              {generating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  Regenerating...
+                </>
+              ) : (
+                "Regenerate"
+              )}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-xs sm:text-sm text-muted-foreground mb-3">
+          AI-generated visual summaries with file matching
+        </p>
 
       {/* Active Caption Display - Large prominent display */}
       {activeCaptionIndex >= 0 && (
@@ -767,29 +768,31 @@ export function VisualCaptionsPanel({
 
       {/* Caption Timeline */}
       <div ref={captionListRef}>
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-sm font-semibold flex items-center gap-2">
-            <Brain className="h-4 w-4" />
-            Caption Timeline
-          </h4>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowAllCaptions(!showAllCaptions)}
-          >
-            {showAllCaptions ? (
-              <>
-                <ChevronUp className="h-4 w-4 mr-1" />
-                Collapse
-              </>
-            ) : (
-              <>
-                <ChevronDown className="h-4 w-4 mr-1" />
-                Show All
-              </>
-            )}
-          </Button>
-        </div>
+        <CollapsibleSection
+          title="Caption Timeline"
+          icon={<Brain className="h-4 w-4" />}
+          defaultOpen={true}
+          bare
+          headerActions={
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAllCaptions(!showAllCaptions)}
+            >
+              {showAllCaptions ? (
+                <>
+                  <ChevronUp className="h-4 w-4 mr-1" />
+                  Collapse
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4 mr-1" />
+                  Show All
+                </>
+              )}
+            </Button>
+          }
+        >
 
         <div className="space-y-2">
           {visibleCaptions.map((caption, idx) => {
@@ -980,7 +983,10 @@ export function VisualCaptionsPanel({
             );
           })}
         </div>
+        </CollapsibleSection>
       </div>
+
+      </CollapsibleSection>
 
       {/* Generate file matches CTA if captions exist but no matches */}
       {captionData?.status === "completed" &&

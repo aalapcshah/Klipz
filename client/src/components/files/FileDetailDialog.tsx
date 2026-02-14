@@ -29,6 +29,7 @@ import { VideoPlayerWithAnnotations } from "../VideoPlayerWithAnnotations";
 import { QualityImprovementPanel } from "../QualityImprovementPanel";
 import { ShareDialog } from "../ShareDialog";
 import { SmartTagSuggestions } from "../SmartTagSuggestions";
+import { CollapsibleSection } from "../CollapsibleSection";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
@@ -508,11 +509,13 @@ export function FileDetailDialog({
 
                 {/* Metadata Comparison View */}
                 {file.enrichmentStatus === "completed" && (file.extractedMetadata || file.description || file.title) && (
-                  <div className="border border-border rounded-lg p-4 space-y-3">
-                    <h3 className="font-semibold text-sm flex items-center gap-2">
-                      <GitCompare className="h-4 w-4" />
-                      Metadata Comparison
-                    </h3>
+                  <div className="border border-border rounded-lg p-4">
+                    <CollapsibleSection
+                      title="Metadata Comparison"
+                      icon={<GitCompare className="h-4 w-4" />}
+                      defaultOpen={false}
+                      bare
+                    >
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       {/* Original Metadata Column */}
                       <div className="space-y-2">
@@ -590,27 +593,36 @@ export function FileDetailDialog({
                     <p className="text-xs text-muted-foreground italic">
                       💡 Left shows original file metadata, right shows AI-enriched data
                     </p>
+                    </CollapsibleSection>
                   </div>
                 )}
 
                 {file.aiAnalysis && (
-                  <div className="p-4 bg-muted rounded-lg">
-                    <Label className="text-xs mb-2 block text-muted-foreground">Full AI Analysis</Label>
+                  <CollapsibleSection
+                    title="Full AI Analysis"
+                    icon={<Sparkles className="h-4 w-4 text-primary" />}
+                    defaultOpen={false}
+                    className="p-4 bg-muted rounded-lg"
+                    bare
+                  >
                     <Streamdown>{file.aiAnalysis}</Streamdown>
-                  </div>
+                  </CollapsibleSection>
                 )}
 
                 {file.detectedObjects && file.detectedObjects.length > 0 && (
-                  <div>
-                    <Label className="text-sm">Detected Objects</Label>
-                    <div className="flex flex-wrap gap-2 mt-2">
+                  <CollapsibleSection
+                    title={`Detected Objects (${file.detectedObjects.length})`}
+                    defaultOpen={false}
+                    bare
+                  >
+                    <div className="flex flex-wrap gap-2">
                       {file.detectedObjects.map((obj, idx) => (
                         <Badge key={idx} variant="outline">
                           {obj}
                         </Badge>
                       ))}
                     </div>
-                  </div>
+                  </CollapsibleSection>
                 )}
               </div>
 
@@ -618,17 +630,22 @@ export function FileDetailDialog({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Tags */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold">Tags</Label>
-                  <Button
-                    onClick={() => setIsAddingTag(!isAddingTag)}
-                    size="sm"
-                    variant="outline"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Tag
-                  </Button>
-                </div>
+                <CollapsibleSection
+                  title={`Tags (${file.tags?.length || 0})`}
+                  icon={<TagIcon className="h-4 w-4" />}
+                  defaultOpen={true}
+                  bare
+                  headerActions={
+                    <Button
+                      onClick={() => setIsAddingTag(!isAddingTag)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Tag
+                    </Button>
+                  }
+                >
 
                 {isAddingTag && (
                   <div className="space-y-2">
@@ -786,6 +803,7 @@ export function FileDetailDialog({
                     }}
                   className="mt-4"
                 />
+                </CollapsibleSection>
               </div>
 
               {/* Quality Improvement Panel - Side by Side */}
