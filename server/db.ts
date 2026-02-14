@@ -62,6 +62,8 @@ import {
   InsertVisualCaption,
   visualCaptionFileMatches,
   InsertVisualCaptionFileMatch,
+  videoTimelineThumbnails,
+  InsertVideoTimelineThumbnail,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -3772,4 +3774,33 @@ export async function getCaptionedVideoFileIds(userId: number) {
       )
     );
   return results.map((r) => r.fileId);
+}
+
+// ==========================================
+// Video Timeline Thumbnails
+// ==========================================
+
+export async function createVideoTimelineThumbnail(data: InsertVideoTimelineThumbnail) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(videoTimelineThumbnails).values(data);
+  return result[0].insertId;
+}
+
+export async function getVideoTimelineThumbnails(fileId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db
+    .select()
+    .from(videoTimelineThumbnails)
+    .where(eq(videoTimelineThumbnails.fileId, fileId))
+    .orderBy(videoTimelineThumbnails.timestamp);
+}
+
+export async function deleteVideoTimelineThumbnails(fileId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db
+    .delete(videoTimelineThumbnails)
+    .where(eq(videoTimelineThumbnails.fileId, fileId));
 }

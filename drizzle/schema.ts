@@ -2034,3 +2034,30 @@ export const teamActivitiesRelations = relations(teamActivities, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+/**
+ * Video timeline thumbnails - server-generated frame captures at specific timepoints
+ * Used by the Matches Timeline to show actual video frames instead of client-side canvas captures
+ */
+export const videoTimelineThumbnails = mysqlTable("video_timeline_thumbnails", {
+  id: int("id").autoincrement().primaryKey(),
+  fileId: int("fileId").notNull(), // FK to files (the video file)
+  userId: int("userId").notNull(),
+  
+  // Timepoint
+  timestamp: float("timestamp").notNull(), // seconds into video
+  
+  // Thumbnail data
+  thumbnailUrl: text("thumbnailUrl").notNull(), // S3 URL
+  thumbnailKey: varchar("thumbnailKey", { length: 512 }).notNull(), // S3 key
+  width: int("width").default(320),
+  height: int("height"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  fileIdIdx: index("vtl_file_id_idx").on(table.fileId),
+  fileTimestampIdx: index("vtl_file_timestamp_idx").on(table.fileId, table.timestamp),
+}));
+
+export type VideoTimelineThumbnail = typeof videoTimelineThumbnails.$inferSelect;
+export type InsertVideoTimelineThumbnail = typeof videoTimelineThumbnails.$inferInsert;

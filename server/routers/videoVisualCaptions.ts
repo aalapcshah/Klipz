@@ -6,6 +6,7 @@ import * as db from "../db";
 import { getAutoCaptioningStatus, processScheduledAutoCaptioning } from "../_core/scheduledAutoCaptioning";
 import { getCaptioningErrorMessage } from "../lib/errorMessages";
 import { resolveFileUrl } from "../lib/resolveFileUrl";
+import { generateVideoThumbnail } from "../lib/videoThumbnail";
 
 /**
  * Video Visual Captions Router
@@ -1032,4 +1033,77 @@ Focus on: what is shown on screen (text, diagrams, images, UI elements), actions
     const result = await processScheduledAutoCaptioning();
     return result;
   }),
+
+  /**
+   * Generate timeline thumbnails for a video at each caption timepoint.
+   * Uses FFmpeg to extract frames and stores them in S3.
+   */
+  generateTimelineThumbnails: protectedProcedure
+    .input(z.object({ fileId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const file = await db.getFileById(input.fileId);
+      if (!file) throw new TRPCError({ code: "NOT_FOUND", message: "File not found" });
+      if (file.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!file.mimeType?.startsWith("video/")) throw new TRPCError({ code: "BAD_REQUEST", message: "Not a video" });
+
+      // Get the visual captions to know which timepoints to capture
+      const caption = await db.getVisualCaptionByFileId(input.fileId);
+      if (!caption || caption.status !== "completed") {
+        throw new TRPCError({ code: "NOT_FOUND", message: "No completed captions found" });
+      }
+
+      const captions = (caption.captions as Array<{ timestamp: number }>) || [];
+      if (captions.length === 0) {
+        return { generated: 0, thumbnails: [] };
+      }
+
+      // Get unique timestamps
+      const timestamps = Array.from(new Set(captions.map(c => c.timestamp))).sort((a, b) => a - b);
+
+      // Delete existing thumbnails for this video
+      await db.deleteVideoTimelineThumbnails(input.fileId);
+
+      // Resolve the video URL
+      const origin = ctx.req.headers.origin || (ctx.req.headers.host ? `${ctx.req.protocol || 'https'}://${ctx.req.headers.host}` : undefined);
+      const videoUrl = await resolveFileUrl(file, { origin });
+
+      // Generate thumbnails sequentially (FFmpeg can't parallelize well on same video)
+      const results: Array<{ timestamp: number; url: string; key: string }> = [];
+      for (const ts of timestamps) {
+        try {
+          const result = await generateVideoThumbnail(videoUrl, {
+            userId: ctx.user.id,
+            filename: file.filename,
+            seekTime: ts,
+            width: 320,
+            quality: 5,
+          });
+          if (result) {
+            await db.createVideoTimelineThumbnail({
+              fileId: input.fileId,
+              userId: ctx.user.id,
+              timestamp: ts,
+              thumbnailUrl: result.url,
+              thumbnailKey: result.key,
+              width: 320,
+            });
+            results.push({ timestamp: ts, url: result.url, key: result.key });
+          }
+        } catch (err: any) {
+          console.error(`[TimelineThumbs] Failed at ${ts}s:`, err.message);
+        }
+      }
+
+      return { generated: results.length, total: timestamps.length, thumbnails: results };
+    }),
+
+  /**
+   * Get existing timeline thumbnails for a video
+   */
+  getTimelineThumbnails: protectedProcedure
+    .input(z.object({ fileId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const thumbnails = await db.getVideoTimelineThumbnails(input.fileId);
+      return thumbnails;
+    }),
 });

@@ -1,6 +1,13 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Slider } from "@/components/ui/slider";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
@@ -19,6 +26,12 @@ import {
   List,
   Eye,
   ExternalLink,
+  ArrowUpDown,
+  Filter,
+  X,
+  Camera,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 function formatTimestamp(seconds: number): string {
@@ -74,10 +87,12 @@ interface UniqueMatchedFile {
   allEntities: string[];
   allKeywords: string[];
   reasoning?: string | null;
+  allReasonings: string[];
 }
 
 interface MatchesTimelineProps {
   videoUrl: string;
+  fileId: number | null;
   fileMatches: any[] | undefined;
   fileSuggestions: any[] | undefined;
   matchesLoading: boolean;
@@ -89,6 +104,7 @@ interface MatchesTimelineProps {
 
 /**
  * Captures frames from a video at specific timestamps using an offscreen video element.
+ * Used as fallback when server-side thumbnails are not available.
  */
 function useVideoFrameCapture(videoUrl: string) {
   const captureVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -142,7 +158,6 @@ function useVideoFrameCapture(videoUrl: string) {
       pendingCaptures.current.delete(roundedTs);
       video.removeEventListener("seeked", handleSeeked);
       isProcessing.current = false;
-      // Process next in queue
       setTimeout(() => processQueue(), 50);
     };
 
@@ -165,9 +180,12 @@ function useVideoFrameCapture(videoUrl: string) {
 }
 
 type ViewMode = "timeline" | "grid";
+type SortMode = "confidence" | "matches" | "name";
+type MatchTypeFilter = "all" | "visual" | "transcript";
 
 export function MatchesTimeline({
   videoUrl,
+  fileId,
   fileMatches,
   fileSuggestions,
   matchesLoading,
@@ -179,7 +197,45 @@ export function MatchesTimeline({
   const { frames, captureFrame } = useVideoFrameCapture(videoUrl);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>("timeline");
+  const [previewFile, setPreviewFile] = useState<UniqueMatchedFile | null>(null);
+  // Grid filter/sort state
+  const [sortMode, setSortMode] = useState<SortMode>("confidence");
+  const [matchTypeFilter, setMatchTypeFilter] = useState<MatchTypeFilter>("all");
+  const [minConfidence, setMinConfidence] = useState(0);
+  const [showFilters, setShowFilters] = useState(false);
   const MAX_VISIBLE_MATCHES = 2;
+
+  // Server-side thumbnails
+  const { data: serverThumbnails, isLoading: thumbnailsLoading } =
+    trpc.videoVisualCaptions.getTimelineThumbnails.useQuery(
+      { fileId: fileId! },
+      { enabled: !!fileId }
+    );
+
+  const generateThumbnailsMutation =
+    trpc.videoVisualCaptions.generateTimelineThumbnails.useMutation({
+      onSuccess: (data) => {
+        toast.success(`Generated ${data.generated} of ${data.total} frame thumbnails`);
+      },
+      onError: () => {
+        toast.error("Failed to generate thumbnails");
+      },
+    });
+
+  // Build a map of timestamp -> server thumbnail URL
+  const serverThumbnailMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    if (serverThumbnails) {
+      for (const t of serverThumbnails) {
+        // Round to nearest 0.1 for matching
+        const key = Math.round(t.timestamp * 10) / 10;
+        map[key] = t.thumbnailUrl;
+      }
+    }
+    return map;
+  }, [serverThumbnails]);
+
+  const hasServerThumbnails = serverThumbnails && serverThumbnails.length > 0;
 
   const toggleRowExpand = useCallback((timestamp: number) => {
     setExpandedRows((prev) => {
@@ -194,7 +250,7 @@ export function MatchesTimeline({
     (fileMatches && fileMatches.length > 0) ||
     (fileSuggestions && fileSuggestions.length > 0);
 
-  // Group matches by timepoint (rounded to nearest 5 seconds for grouping)
+  // Group matches by timepoint
   const timelineRows = useMemo(() => {
     const timeMap = new Map<number, TimelineRow>();
 
@@ -275,6 +331,9 @@ export function MatchesTimeline({
               if (!existing.allKeywords.includes(k)) existing.allKeywords.push(k);
             }
           }
+          if (match.reasoning && !existing.allReasonings.includes(match.reasoning)) {
+            existing.allReasonings.push(match.reasoning);
+          }
         } else {
           fileMap.set(match.file.id, {
             file: match.file,
@@ -285,6 +344,7 @@ export function MatchesTimeline({
             allEntities: match.entities ? [...match.entities] : [],
             allKeywords: match.keywords ? [...match.keywords] : [],
             reasoning: match.reasoning,
+            allReasonings: match.reasoning ? [match.reasoning] : [],
           });
         }
       }
@@ -293,12 +353,48 @@ export function MatchesTimeline({
     return Array.from(fileMap.values()).sort((a, b) => b.bestScore - a.bestScore);
   }, [timelineRows]);
 
-  // Capture frames for all timepoints
-  useEffect(() => {
-    for (const row of timelineRows) {
-      captureFrame(row.timestamp);
+  // Filtered and sorted files for grid view
+  const filteredFiles = useMemo(() => {
+    let result = [...uniqueFiles];
+
+    // Filter by match type
+    if (matchTypeFilter !== "all") {
+      result = result.filter((f) => f.types.has(matchTypeFilter));
     }
-  }, [timelineRows, captureFrame]);
+
+    // Filter by minimum confidence
+    if (minConfidence > 0) {
+      result = result.filter((f) => f.bestScore * 100 >= minConfidence);
+    }
+
+    // Sort
+    switch (sortMode) {
+      case "confidence":
+        result.sort((a, b) => b.bestScore - a.bestScore);
+        break;
+      case "matches":
+        result.sort((a, b) => b.matchCount - a.matchCount);
+        break;
+      case "name":
+        result.sort((a, b) =>
+          (a.file.title || a.file.filename).localeCompare(
+            b.file.title || b.file.filename
+          )
+        );
+        break;
+    }
+
+    return result;
+  }, [uniqueFiles, matchTypeFilter, minConfidence, sortMode]);
+
+  // Capture frames for all timepoints (fallback when no server thumbnails)
+  useEffect(() => {
+    if (!hasServerThumbnails) {
+      for (const row of timelineRows) {
+        captureFrame(row.timestamp);
+      }
+    }
+  }, [timelineRows, captureFrame, hasServerThumbnails]);
 
   const handleSeek = useCallback(
     (timestamp: number) => {
@@ -312,6 +408,26 @@ export function MatchesTimeline({
   const totalMatchCount = useMemo(() => {
     return timelineRows.reduce((sum, row) => sum + row.matches.length, 0);
   }, [timelineRows]);
+
+  // Get the frame URL for a timestamp - prefer server thumbnails, fallback to client capture
+  const getFrameUrl = useCallback(
+    (timestamp: number): string | undefined => {
+      const roundedTs = Math.round(timestamp * 10) / 10;
+      // Try server thumbnail first (check nearby timestamps within 3 seconds)
+      if (hasServerThumbnails) {
+        if (serverThumbnailMap[roundedTs]) return serverThumbnailMap[roundedTs];
+        // Try to find closest server thumbnail within 3 seconds
+        for (const key of Object.keys(serverThumbnailMap)) {
+          if (Math.abs(Number(key) - roundedTs) <= 3) {
+            return serverThumbnailMap[Number(key)];
+          }
+        }
+      }
+      // Fallback to client-side capture
+      return frames[roundedTs];
+    },
+    [hasServerThumbnails, serverThumbnailMap, frames]
+  );
 
   if (matchesLoading || suggestionsLoading) {
     return (
@@ -361,31 +477,52 @@ export function MatchesTimeline({
             {totalMatchCount} matches
           </Badge>
         </div>
-        <div className="flex items-center gap-1 bg-muted/50 rounded-md p-0.5">
-          <button
-            onClick={() => setViewMode("timeline")}
-            className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors cursor-pointer ${
-              viewMode === "timeline"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="Timeline View"
-          >
-            <List className="h-3 w-3" />
-            <span>Timeline</span>
-          </button>
-          <button
-            onClick={() => setViewMode("grid")}
-            className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors cursor-pointer ${
-              viewMode === "grid"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="Grid View"
-          >
-            <LayoutGrid className="h-3 w-3" />
-            <span>Grid</span>
-          </button>
+        <div className="flex items-center gap-2">
+          {/* Generate thumbnails button */}
+          {!hasServerThumbnails && fileId && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs gap-1"
+              onClick={() => generateThumbnailsMutation.mutate({ fileId })}
+              disabled={generateThumbnailsMutation.isPending}
+              title="Generate server-side frame thumbnails (higher quality)"
+            >
+              {generateThumbnailsMutation.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Camera className="h-3 w-3" />
+              )}
+              Frames
+            </Button>
+          )}
+          {/* View toggle */}
+          <div className="flex items-center gap-1 bg-muted/50 rounded-md p-0.5">
+            <button
+              onClick={() => setViewMode("timeline")}
+              className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors cursor-pointer ${
+                viewMode === "timeline"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Timeline View"
+            >
+              <List className="h-3 w-3" />
+              <span>Timeline</span>
+            </button>
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors cursor-pointer ${
+                viewMode === "grid"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Grid View"
+            >
+              <LayoutGrid className="h-3 w-3" />
+              <span>Grid</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -393,18 +530,39 @@ export function MatchesTimeline({
       {viewMode === "timeline" ? (
         <TimelineView
           timelineRows={timelineRows}
-          frames={frames}
+          getFrameUrl={getFrameUrl}
           expandedRows={expandedRows}
           toggleRowExpand={toggleRowExpand}
           maxVisibleMatches={MAX_VISIBLE_MATCHES}
           onSeek={handleSeek}
+          onFileClick={(match) => {
+            const entry = uniqueFiles.find((f) => f.file.id === match.file.id);
+            if (entry) setPreviewFile(entry);
+          }}
         />
       ) : (
         <GridView
-          uniqueFiles={uniqueFiles}
+          uniqueFiles={filteredFiles}
+          totalCount={uniqueFiles.length}
           onSeek={handleSeek}
+          onFileClick={setPreviewFile}
+          sortMode={sortMode}
+          setSortMode={setSortMode}
+          matchTypeFilter={matchTypeFilter}
+          setMatchTypeFilter={setMatchTypeFilter}
+          minConfidence={minConfidence}
+          setMinConfidence={setMinConfidence}
+          showFilters={showFilters}
+          setShowFilters={setShowFilters}
         />
       )}
+
+      {/* File Preview Modal */}
+      <FilePreviewModal
+        file={previewFile}
+        onClose={() => setPreviewFile(null)}
+        onSeek={handleSeek}
+      />
     </div>
   );
 }
@@ -414,24 +572,25 @@ export function MatchesTimeline({
  */
 function TimelineView({
   timelineRows,
-  frames,
+  getFrameUrl,
   expandedRows,
   toggleRowExpand,
   maxVisibleMatches,
   onSeek,
+  onFileClick,
 }: {
   timelineRows: TimelineRow[];
-  frames: Record<number, string>;
+  getFrameUrl: (ts: number) => string | undefined;
   expandedRows: Set<number>;
   toggleRowExpand: (ts: number) => void;
   maxVisibleMatches: number;
   onSeek: (ts: number) => void;
+  onFileClick: (match: TimelineRow["matches"][0]) => void;
 }) {
   return (
     <div className="overflow-y-auto flex-1 space-y-3 pr-1" style={{ maxHeight: "500px" }}>
       {timelineRows.map((row) => {
-        const roundedTs = Math.round(row.timestamp * 10) / 10;
-        const frameUrl = frames[roundedTs];
+        const frameUrl = getFrameUrl(row.timestamp);
         const isExpanded = expandedRows.has(row.timestamp);
         const visibleMatches = isExpanded
           ? row.matches
@@ -443,7 +602,7 @@ function TimelineView({
             key={row.timestamp}
             className="flex items-start gap-3 pb-3 border-b border-border/10 last:border-0"
           >
-            {/* Timepoint Label - clickable to seek */}
+            {/* Timepoint Label */}
             <button
               onClick={() => onSeek(row.timestamp)}
               className="flex flex-col items-center pt-1 shrink-0 w-[50px] cursor-pointer group/seek hover:scale-105 transition-transform"
@@ -455,7 +614,7 @@ function TimelineView({
               <Clock className="h-3 w-3 text-muted-foreground group-hover/seek:text-purple-400 mt-0.5 transition-colors" />
             </button>
 
-            {/* Video Frame - clickable to seek */}
+            {/* Video Frame */}
             <button
               onClick={() => onSeek(row.timestamp)}
               className="relative shrink-0 w-[100px] h-[66px] rounded overflow-hidden border border-border/30 cursor-pointer hover:border-purple-400 transition-colors group/frame"
@@ -473,7 +632,6 @@ function TimelineView({
                   <span className="text-[8px]">Frame</span>
                 </div>
               )}
-              {/* Seek overlay */}
               <div className="absolute inset-0 bg-purple-500/0 group-hover/frame:bg-purple-500/20 flex items-center justify-center transition-colors">
                 <Play className="h-5 w-5 text-white opacity-0 group-hover/frame:opacity-80 transition-opacity drop-shadow" />
               </div>
@@ -483,7 +641,11 @@ function TimelineView({
             <div className="flex-1 min-w-0">
               <div className="flex gap-2 flex-wrap items-start">
                 {visibleMatches.map((match, idx) => (
-                  <MatchedFileCard key={`${match.file.id}-${idx}`} match={match} />
+                  <MatchedFileCard
+                    key={`${match.file.id}-${idx}`}
+                    match={match}
+                    onClick={() => onFileClick(match)}
+                  />
                 ))}
               </div>
               {hiddenCount > 0 && !isExpanded && (
@@ -511,35 +673,162 @@ function TimelineView({
 }
 
 /**
- * Grid View - all unique matched files in a card grid (like Files/Videos pages)
+ * Grid View - all unique matched files in a card grid with filter/sort controls
  */
 function GridView({
   uniqueFiles,
+  totalCount,
   onSeek,
+  onFileClick,
+  sortMode,
+  setSortMode,
+  matchTypeFilter,
+  setMatchTypeFilter,
+  minConfidence,
+  setMinConfidence,
+  showFilters,
+  setShowFilters,
 }: {
   uniqueFiles: UniqueMatchedFile[];
+  totalCount: number;
   onSeek: (ts: number) => void;
+  onFileClick: (file: UniqueMatchedFile) => void;
+  sortMode: SortMode;
+  setSortMode: (mode: SortMode) => void;
+  matchTypeFilter: MatchTypeFilter;
+  setMatchTypeFilter: (filter: MatchTypeFilter) => void;
+  minConfidence: number;
+  setMinConfidence: (val: number) => void;
+  showFilters: boolean;
+  setShowFilters: (show: boolean) => void;
 }) {
   return (
-    <div className="overflow-y-auto flex-1 pr-1" style={{ maxHeight: "500px" }}>
-      <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
-        {uniqueFiles.map((entry) => (
-          <GridFileCard key={entry.file.id} entry={entry} onSeek={onSeek} />
-        ))}
+    <div className="flex flex-col flex-1">
+      {/* Filter/Sort Controls */}
+      <div className="flex items-center gap-2 mb-2 shrink-0 flex-wrap">
+        {/* Sort dropdown */}
+        <div className="flex items-center gap-1">
+          <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
+          <select
+            value={sortMode}
+            onChange={(e) => setSortMode(e.target.value as SortMode)}
+            className="text-xs bg-muted/50 border border-border/40 rounded px-1.5 py-0.5 text-foreground cursor-pointer focus:outline-none focus:ring-1 focus:ring-purple-400"
+          >
+            <option value="confidence">Confidence</option>
+            <option value="matches">Match Count</option>
+            <option value="name">Name</option>
+          </select>
+        </div>
+
+        {/* Match type filter */}
+        <div className="flex items-center gap-1">
+          <Filter className="h-3 w-3 text-muted-foreground" />
+          <select
+            value={matchTypeFilter}
+            onChange={(e) => setMatchTypeFilter(e.target.value as MatchTypeFilter)}
+            className="text-xs bg-muted/50 border border-border/40 rounded px-1.5 py-0.5 text-foreground cursor-pointer focus:outline-none focus:ring-1 focus:ring-purple-400"
+          >
+            <option value="all">All Types</option>
+            <option value="visual">Visual Only</option>
+            <option value="transcript">Transcript Only</option>
+          </select>
+        </div>
+
+        {/* Confidence threshold toggle */}
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border cursor-pointer transition-colors ${
+            minConfidence > 0
+              ? "border-purple-400/50 bg-purple-500/20 text-purple-300"
+              : "border-border/40 bg-muted/50 text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {minConfidence > 0 ? `≥${minConfidence}%` : "Min %"}
+          {showFilters ? (
+            <ChevronUp className="h-2.5 w-2.5" />
+          ) : (
+            <ChevronDown className="h-2.5 w-2.5" />
+          )}
+        </button>
+
+        {/* Clear filters */}
+        {(matchTypeFilter !== "all" || minConfidence > 0) && (
+          <button
+            onClick={() => {
+              setMatchTypeFilter("all");
+              setMinConfidence(0);
+              setSortMode("confidence");
+            }}
+            className="flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            <X className="h-2.5 w-2.5" />
+            Clear
+          </button>
+        )}
+
+        {/* Result count */}
+        <span className="text-[10px] text-muted-foreground ml-auto">
+          {uniqueFiles.length === totalCount
+            ? `${totalCount} files`
+            : `${uniqueFiles.length} of ${totalCount}`}
+        </span>
+      </div>
+
+      {/* Confidence slider */}
+      {showFilters && (
+        <div className="flex items-center gap-3 mb-3 px-1 shrink-0">
+          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+            Min confidence:
+          </span>
+          <Slider
+            value={[minConfidence]}
+            onValueChange={([val]) => setMinConfidence(val)}
+            min={0}
+            max={100}
+            step={5}
+            className="flex-1"
+          />
+          <span className="text-xs font-mono text-foreground w-8 text-right">
+            {minConfidence}%
+          </span>
+        </div>
+      )}
+
+      {/* Grid */}
+      <div className="overflow-y-auto flex-1 pr-1" style={{ maxHeight: showFilters ? "430px" : "460px" }}>
+        {uniqueFiles.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <Filter className="h-8 w-8 mb-2 opacity-30" />
+            <p className="text-xs">No files match the current filters</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+            {uniqueFiles.map((entry) => (
+              <GridFileCard
+                key={entry.file.id}
+                entry={entry}
+                onSeek={onSeek}
+                onClick={() => onFileClick(entry)}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 /**
- * Grid file card - shows file thumbnail, metadata, confidence, and timepoints
+ * Grid file card
  */
 function GridFileCard({
   entry,
   onSeek,
+  onClick,
 }: {
   entry: UniqueMatchedFile;
   onSeek: (ts: number) => void;
+  onClick: () => void;
 }) {
   const isImage = entry.file.mimeType?.startsWith("image/");
   const score = Math.round(entry.bestScore * 100);
@@ -547,14 +836,17 @@ function GridFileCard({
   const uniqueTags = Array.from(new Set(tags)).slice(0, 4);
 
   return (
-    <div className="rounded-lg border border-border/40 bg-card/50 overflow-hidden hover:border-purple-400/50 transition-colors group/card">
+    <div
+      className="rounded-lg border border-border/40 bg-card/50 overflow-hidden hover:border-purple-400/50 transition-colors group/card cursor-pointer"
+      onClick={onClick}
+    >
       {/* Thumbnail / Preview */}
       <div className="relative aspect-[4/3] bg-muted/30 overflow-hidden">
         {isImage ? (
           <img
             src={entry.file.url}
             alt={entry.file.filename}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
             loading="lazy"
           />
         ) : (
@@ -620,12 +912,15 @@ function GridFileCard({
           </div>
         )}
 
-        {/* Timepoints - clickable to seek */}
+        {/* Timepoints */}
         <div className="flex gap-1 flex-wrap">
           {entry.timepoints.slice(0, 5).map((ts) => (
             <button
               key={ts}
-              onClick={() => onSeek(ts)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSeek(ts);
+              }}
               className="text-[9px] font-mono px-1 py-0 rounded bg-muted/50 text-muted-foreground hover:bg-purple-500/30 hover:text-purple-300 cursor-pointer transition-colors"
               title={`Seek to ${formatTimestamp(ts)}`}
             >
@@ -638,29 +933,20 @@ function GridFileCard({
             </span>
           )}
         </div>
-
-        {/* View file link */}
-        <a
-          href={entry.file.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
-        >
-          <ExternalLink className="h-2.5 w-2.5" />
-          View file
-        </a>
       </div>
     </div>
   );
 }
 
 /**
- * Individual matched file card for timeline view - compact purple/magenta theme
+ * Individual matched file card for timeline view
  */
 function MatchedFileCard({
   match,
+  onClick,
 }: {
   match: TimelineRow["matches"][0];
+  onClick: () => void;
 }) {
   const isImage = match.file.mimeType?.startsWith("image/");
   const tags = match.entities || match.keywords || [];
@@ -670,6 +956,7 @@ function MatchedFileCard({
     <div
       className="relative w-[150px] h-[110px] rounded-md overflow-hidden border border-purple-500/60 bg-purple-900/60 flex flex-col items-center justify-center text-center p-2 cursor-pointer hover:border-purple-400 transition-colors"
       title={match.reasoning || match.file.description || match.file.filename}
+      onClick={onClick}
     >
       {isImage ? (
         <>
@@ -750,8 +1037,202 @@ function MatchedFileCard({
 }
 
 /**
+ * File Preview Modal - shows full file details, match reasoning, and timepoints
+ */
+function FilePreviewModal({
+  file,
+  onClose,
+  onSeek,
+}: {
+  file: UniqueMatchedFile | null;
+  onClose: () => void;
+  onSeek: (ts: number) => void;
+}) {
+  if (!file) return null;
+
+  const isImage = file.file.mimeType?.startsWith("image/");
+  const isVideo = file.file.mimeType?.startsWith("video/");
+  const isAudio = file.file.mimeType?.startsWith("audio/");
+  const score = Math.round(file.bestScore * 100);
+  const tags = [...file.allEntities, ...file.allKeywords];
+  const uniqueTags = Array.from(new Set(tags));
+
+  return (
+    <Dialog open={!!file} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            {getSmallFileIcon(file.file.mimeType)}
+            <span className="truncate">{file.file.title || file.file.filename}</span>
+            <Badge
+              className={`text-xs px-2 py-0 ml-auto shrink-0 ${
+                score >= 70
+                  ? "bg-green-600/90 text-white"
+                  : score >= 40
+                  ? "bg-yellow-600/90 text-white"
+                  : "bg-red-600/90 text-white"
+              }`}
+            >
+              {score}% match
+            </Badge>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-2">
+          {/* File Preview */}
+          <div className="rounded-lg overflow-hidden border border-border/40 bg-muted/20">
+            {isImage ? (
+              <img
+                src={file.file.url}
+                alt={file.file.filename}
+                className="w-full max-h-[300px] object-contain"
+              />
+            ) : isVideo ? (
+              <video
+                src={file.file.url}
+                controls
+                className="w-full max-h-[300px]"
+              />
+            ) : isAudio ? (
+              <div className="p-6 flex flex-col items-center gap-3">
+                <FileAudio className="h-12 w-12 text-muted-foreground" />
+                <audio src={file.file.url} controls className="w-full" />
+              </div>
+            ) : (
+              <div className="p-8 flex flex-col items-center gap-2 text-muted-foreground">
+                {getFileIcon(file.file.mimeType)}
+                <p className="text-sm">{file.file.mimeType || "Unknown type"}</p>
+              </div>
+            )}
+          </div>
+
+          {/* File Details */}
+          <div className="space-y-3">
+            {/* Filename */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Filename</p>
+              <p className="text-sm">{file.file.filename}</p>
+            </div>
+
+            {/* Description */}
+            {file.file.description && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Description</p>
+                <p className="text-sm">{file.file.description}</p>
+              </div>
+            )}
+
+            {/* Match Stats */}
+            <div className="flex gap-4">
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Confidence</p>
+                <p className="text-sm font-semibold">{score}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Match Count</p>
+                <p className="text-sm font-semibold">{file.matchCount}x</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Match Types</p>
+                <div className="flex gap-1">
+                  {file.types.has("visual") && (
+                    <Badge variant="secondary" className="text-[10px] gap-1">
+                      <Eye className="h-2.5 w-2.5" />
+                      Visual
+                    </Badge>
+                  )}
+                  {file.types.has("transcript") && (
+                    <Badge variant="secondary" className="text-[10px] gap-1">
+                      <FileText className="h-2.5 w-2.5" />
+                      Transcript
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Match Reasoning */}
+            {file.allReasonings.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Match Reasoning</p>
+                <div className="space-y-1.5">
+                  {file.allReasonings.slice(0, 3).map((reason, i) => (
+                    <p
+                      key={i}
+                      className="text-xs bg-muted/30 rounded-md p-2 border border-border/20 leading-relaxed"
+                    >
+                      {reason}
+                    </p>
+                  ))}
+                  {file.allReasonings.length > 3 && (
+                    <p className="text-[10px] text-muted-foreground">
+                      +{file.allReasonings.length - 3} more reasoning{file.allReasonings.length - 3 > 1 ? "s" : ""}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Tags / Entities */}
+            {uniqueTags.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Matched Entities & Keywords</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {uniqueTags.map((tag, i) => (
+                    <Badge
+                      key={i}
+                      variant="outline"
+                      className="text-[10px] bg-purple-500/10 border-purple-500/30 text-purple-300"
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Timepoints */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">
+                Appears at {file.timepoints.length} timepoint{file.timepoints.length > 1 ? "s" : ""}
+              </p>
+              <div className="flex gap-1.5 flex-wrap">
+                {file.timepoints.map((ts) => (
+                  <button
+                    key={ts}
+                    onClick={() => {
+                      onSeek(ts);
+                      onClose();
+                    }}
+                    className="flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-md bg-muted/50 text-foreground hover:bg-purple-500/30 hover:text-purple-300 cursor-pointer transition-colors border border-border/30"
+                    title={`Seek to ${formatTimestamp(ts)}`}
+                  >
+                    <Play className="h-2.5 w-2.5" />
+                    {formatTimestamp(ts)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* View file link */}
+            <a
+              href={file.file.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-purple-400 hover:text-purple-300 transition-colors"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open original file
+            </a>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
  * Self-contained wrapper that fetches match data via tRPC hooks.
- * Use this in VideoList where we can't rely on refs for data.
  */
 export function MatchesTimelineWithData({
   videoId,
@@ -853,6 +1334,7 @@ export function MatchesTimelineWithData({
   return (
     <MatchesTimeline
       videoUrl={videoUrl}
+      fileId={fileId}
       fileMatches={fileMatches}
       fileSuggestions={fileSuggestions}
       matchesLoading={matchesLoading}

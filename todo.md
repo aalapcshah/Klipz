@@ -6761,3 +6761,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Click-to-seek: clicking a timepoint row seeks the video player to that timestamp
 - [x] Toggle between Timeline View and Grid View for matched files
 - [x] Grid View shows all matched files in a card grid layout (like Files/Videos pages)
+
+## Matches Timeline Enhancements V2
+- [x] Server-side thumbnail generation via FFmpeg at each caption timepoint, stored in S3
+- [x] Backend procedure to generate and retrieve video thumbnails for timepoints
+- [x] Update MatchesTimeline to use server-generated thumbnails instead of client-side canvas
+- [x] File preview modal (lightbox) when clicking a matched file card
+- [x] Modal shows full file preview, match reasoning, confidence, all associated timepoints
+- [x] Filter/sort controls in Grid view (match type, confidence sort, min threshold)
