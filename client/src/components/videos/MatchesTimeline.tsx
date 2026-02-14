@@ -32,6 +32,9 @@ import {
   Camera,
   ChevronDown,
   ChevronUp,
+  Download,
+  RefreshCw,
+  Trash2,
 } from "lucide-react";
 
 function formatTimestamp(seconds: number): string {
@@ -93,6 +96,7 @@ interface UniqueMatchedFile {
 interface MatchesTimelineProps {
   videoUrl: string;
   fileId: number | null;
+  videoTitle?: string;
   fileMatches: any[] | undefined;
   fileSuggestions: any[] | undefined;
   matchesLoading: boolean;
@@ -100,6 +104,8 @@ interface MatchesTimelineProps {
   onFindMatches: () => void;
   findMatchesPending: boolean;
   onSeekTo?: (timestamp: number) => void;
+  onRematch?: () => void;
+  rematchPending?: boolean;
 }
 
 /**
@@ -186,6 +192,7 @@ type MatchTypeFilter = "all" | "visual" | "transcript";
 export function MatchesTimeline({
   videoUrl,
   fileId,
+  videoTitle,
   fileMatches,
   fileSuggestions,
   matchesLoading,
@@ -193,6 +200,8 @@ export function MatchesTimeline({
   onFindMatches,
   findMatchesPending,
   onSeekTo,
+  onRematch,
+  rematchPending,
 }: MatchesTimelineProps) {
   const { frames, captureFrame } = useVideoFrameCapture(videoUrl);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
@@ -409,6 +418,100 @@ export function MatchesTimeline({
     return timelineRows.reduce((sum, row) => sum + row.matches.length, 0);
   }, [timelineRows]);
 
+  // Export as CSV
+  const handleExportCSV = useCallback(() => {
+    const rows: string[] = [
+      ["Timepoint", "Timestamp (s)", "Match Type", "File Name", "File Title", "Confidence (%)", "Entities/Keywords", "Reasoning"].join(","),
+    ];
+    for (const row of timelineRows) {
+      for (const match of row.matches) {
+        const tags = match.entities || match.keywords || [];
+        rows.push(
+          [
+            formatTimestamp(row.timestamp),
+            row.timestamp.toFixed(1),
+            match.type,
+            `"${match.file.filename.replace(/"/g, '""')}"`,
+            `"${(match.file.title || "").replace(/"/g, '""')}"`,
+            Math.round(match.relevanceScore * 100).toString(),
+            `"${tags.join("; ")}"`,
+            `"${(match.reasoning || "").replace(/"/g, '""')}"`,
+          ].join(",")
+        );
+      }
+    }
+    const csvContent = rows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `match-report-${videoTitle || "video"}-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success("CSV report downloaded");
+  }, [timelineRows, videoTitle]);
+
+  // Export as formatted text report
+  const handleExportReport = useCallback(() => {
+    const lines: string[] = [
+      `# File Match Report`,
+      `Video: ${videoTitle || "Unknown"}`,
+      `Generated: ${new Date().toLocaleString()}`,
+      `Total Timepoints: ${timelineRows.length}`,
+      `Total Matches: ${totalMatchCount}`,
+      `Unique Files: ${uniqueFiles.length}`,
+      "",
+      "---",
+      "",
+    ];
+
+    // Summary by file
+    lines.push("## Matched Files Summary");
+    lines.push("");
+    for (const uf of uniqueFiles) {
+      const score = Math.round(uf.bestScore * 100);
+      const types = Array.from(uf.types).join(", ");
+      lines.push(`### ${uf.file.title || uf.file.filename}`);
+      lines.push(`- Confidence: ${score}%`);
+      lines.push(`- Match Count: ${uf.matchCount}x`);
+      lines.push(`- Match Types: ${types}`);
+      lines.push(`- Timepoints: ${uf.timepoints.map(formatTimestamp).join(", ")}`);
+      if (uf.allEntities.length > 0) lines.push(`- Entities: ${uf.allEntities.join(", ")}`);
+      if (uf.allKeywords.length > 0) lines.push(`- Keywords: ${uf.allKeywords.join(", ")}`);
+      if (uf.allReasonings.length > 0) {
+        lines.push(`- Reasoning: ${uf.allReasonings[0]}`);
+      }
+      lines.push("");
+    }
+
+    // Timeline detail
+    lines.push("## Timeline Detail");
+    lines.push("");
+    for (const row of timelineRows) {
+      lines.push(`### ${formatTimestamp(row.timestamp)}`);
+      if (row.captionText) lines.push(`Caption: ${row.captionText}`);
+      if (row.transcriptExcerpt) lines.push(`Transcript: ${row.transcriptExcerpt}`);
+      for (const match of row.matches) {
+        const score = Math.round(match.relevanceScore * 100);
+        lines.push(`- [${match.type}] ${match.file.title || match.file.filename} (${score}%)`);
+        if (match.reasoning) lines.push(`  Reasoning: ${match.reasoning}`);
+      }
+      lines.push("");
+    }
+
+    const content = lines.join("\n");
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `match-report-${videoTitle || "video"}-${new Date().toISOString().slice(0, 10)}.md`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success("Report downloaded");
+  }, [timelineRows, uniqueFiles, totalMatchCount, videoTitle]);
+
+  const [showRematchConfirm, setShowRematchConfirm] = useState(false);
+
   // Get the frame URL for a timestamp - prefer server thumbnails, fallback to client capture
   const getFrameUrl = useCallback(
     (timestamp: number): string | undefined => {
@@ -478,6 +581,55 @@ export function MatchesTimeline({
           </Badge>
         </div>
         <div className="flex items-center gap-2">
+          {/* Export dropdown */}
+          <div className="relative group/export">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs gap-1"
+              title="Export match report"
+            >
+              <Download className="h-3 w-3" />
+              Export
+              <ChevronDown className="h-2.5 w-2.5" />
+            </Button>
+            <div className="absolute right-0 top-full mt-1 bg-popover border border-border rounded-md shadow-lg py-1 z-50 hidden group-hover/export:block min-w-[140px]">
+              <button
+                onClick={handleExportCSV}
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 cursor-pointer flex items-center gap-2"
+              >
+                <FileText className="h-3 w-3" />
+                Export as CSV
+              </button>
+              <button
+                onClick={handleExportReport}
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 cursor-pointer flex items-center gap-2"
+              >
+                <Files className="h-3 w-3" />
+                Export as Report
+              </button>
+            </div>
+          </div>
+
+          {/* Re-match button */}
+          {onRematch && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs gap-1 text-orange-400 hover:text-orange-300"
+              onClick={() => setShowRematchConfirm(true)}
+              disabled={rematchPending}
+              title="Clear existing matches and re-run matching"
+            >
+              {rematchPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3 w-3" />
+              )}
+              Re-match
+            </Button>
+          )}
+
           {/* Generate thumbnails button */}
           {!hasServerThumbnails && fileId && (
             <Button
@@ -563,6 +715,47 @@ export function MatchesTimeline({
         onClose={() => setPreviewFile(null)}
         onSeek={handleSeek}
       />
+
+      {/* Re-match Confirmation Dialog */}
+      <Dialog open={showRematchConfirm} onOpenChange={setShowRematchConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <RefreshCw className="h-4 w-4 text-orange-400" />
+              Re-match Files
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <p className="text-sm text-muted-foreground">
+              This will clear all existing matches ({totalMatchCount} matches across {uniqueFiles.length} files) and re-run the matching process from scratch.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              This is useful after uploading new files to your library or if you want to refresh the results.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowRematchConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="default"
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+                onClick={() => {
+                  setShowRematchConfirm(false);
+                  if (onRematch) onRematch();
+                }}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Clear & Re-match
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1238,11 +1431,13 @@ export function MatchesTimelineWithData({
   videoId,
   fileId,
   videoUrl,
+  videoTitle,
   onSeekTo,
 }: {
   videoId: number;
   fileId: number | null;
   videoUrl: string;
+  videoTitle?: string;
   onSeekTo?: (timestamp: number) => void;
 }) {
   const utils = trpc.useUtils();
@@ -1269,6 +1464,37 @@ export function MatchesTimelineWithData({
   );
 
   const [isFinding, setIsFinding] = useState(false);
+  const [isRematching, setIsRematching] = useState(false);
+
+  const rematchMutation = trpc.videoVisualCaptions.rematch.useMutation({
+    onSuccess: () => {
+      if (fileId) {
+        utils.videoVisualCaptions.getFileMatches.invalidate({ fileId });
+        utils.videoTranscription.getFileSuggestions.invalidate({ fileId });
+      }
+      toast.success("Matches cleared. Re-matching in progress...");
+      // Poll for new results after a delay
+      setTimeout(() => {
+        if (fileId) {
+          utils.videoVisualCaptions.getFileMatches.invalidate({ fileId });
+          utils.videoTranscription.getFileSuggestions.invalidate({ fileId });
+        }
+      }, 10000);
+    },
+    onError: () => {
+      toast.error("Failed to re-match. Please try again.");
+    },
+  });
+
+  const handleRematch = async () => {
+    if (!fileId) return;
+    setIsRematching(true);
+    try {
+      await rematchMutation.mutateAsync({ fileId, minRelevanceScore: 0.3 });
+    } finally {
+      setIsRematching(false);
+    }
+  };
 
   const generateVisualMatchesMutation =
     trpc.videoVisualCaptions.generateFileMatches.useMutation({
@@ -1335,6 +1561,7 @@ export function MatchesTimelineWithData({
     <MatchesTimeline
       videoUrl={videoUrl}
       fileId={fileId}
+      videoTitle={videoTitle}
       fileMatches={fileMatches}
       fileSuggestions={fileSuggestions}
       matchesLoading={matchesLoading}
@@ -1342,6 +1569,8 @@ export function MatchesTimelineWithData({
       onFindMatches={handleFindMatches}
       findMatchesPending={isFinding}
       onSeekTo={onSeekTo}
+      onRematch={handleRematch}
+      rematchPending={isRematching}
     />
   );
 }

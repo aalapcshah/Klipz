@@ -1145,9 +1145,10 @@ export function VideoList() {
               {isMatchesExpanded && (
                 <div className="flex-1 min-w-0 border-l border-border/30 pl-6">
                   <MatchesTimelineWithData
-                    videoId={video.id}
-                    fileId={video.fileId}
-                    videoUrl={video.url}
+                     videoId={video.id}
+                     fileId={video.fileId}
+                     videoUrl={video.url}
+                     videoTitle={video.title || video.filename}
                     onSeekTo={(timestamp) => {
                       const videoEl = document.getElementById(`video-player-${video.id}`) as HTMLVideoElement | null;
                       if (videoEl) {

@@ -1123,4 +1123,54 @@ Focus on: what is shown on screen (text, diagrams, images, UI elements), actions
       const thumbnails = await db.getVideoTimelineThumbnails(input.fileId);
       return thumbnails;
     }),
+
+  /**
+   * Delete existing matches and re-run matching for a video.
+   * Clears both visual caption file matches and transcript file suggestions,
+   * then triggers fresh matching.
+   */
+  rematch: protectedProcedure
+    .input(
+      z.object({
+        fileId: z.number(),
+        minRelevanceScore: z.number().min(0).max(1).default(0.3),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const file = await db.getFileById(input.fileId);
+      if (!file) throw new TRPCError({ code: "NOT_FOUND", message: "File not found" });
+      if (file.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+
+      // Delete existing matches
+      let deletedVisual = 0;
+      let deletedTranscript = 0;
+      try {
+        const existingVisual = await db.getVisualCaptionFileMatches(input.fileId);
+        deletedVisual = existingVisual?.length || 0;
+        await db.deleteVisualCaptionFileMatches(input.fileId);
+      } catch (e) {
+        // No visual matches to delete
+      }
+      try {
+        await db.deleteFileSuggestions(input.fileId);
+      } catch (e) {
+        // No transcript suggestions to delete
+      }
+
+      console.log(`[Rematch] Cleared ${deletedVisual} visual + transcript matches for file ${input.fileId}`);
+
+      // Trigger fresh matching in background
+      runAutoFileMatch({
+        fileId: input.fileId,
+        userId: ctx.user.id,
+        minRelevanceScore: input.minRelevanceScore,
+      }).catch((err) => {
+        console.error(`[Rematch] Auto-match failed for file ${input.fileId}:`, err.message);
+      });
+
+      return {
+        cleared: { visual: deletedVisual, transcript: deletedTranscript },
+        status: "matching_started",
+      };
+    }),
 });

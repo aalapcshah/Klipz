@@ -6777,3 +6777,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Auto-match on upload - trigger file matching when transcription/captioning completes
 - [x] Hook into existing transcription and captioning completion handlers
 - [x] Background matching with status notification
+
+## Matches Timeline Enhancements V4
+- [x] Match export - CSV export of matched file timeline data
+- [x] Match export - Markdown report export with formatted timeline report
+- [x] Export button in MatchesTimeline header (both Timeline and Grid views)
+- [x] Re-match - Clear existing matches and re-run matching for a video
+- [x] Re-match button in MatchesTimeline header
+- [x] Backend procedure to delete existing matches and regenerate

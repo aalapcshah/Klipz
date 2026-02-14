@@ -3804,3 +3804,12 @@ export async function deleteVideoTimelineThumbnails(fileId: number) {
     .delete(videoTimelineThumbnails)
     .where(eq(videoTimelineThumbnails.fileId, fileId));
 }
+
+// Delete all file suggestions (transcript matches) for a video
+export async function deleteFileSuggestions(videoFileId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .delete(fileSuggestions)
+    .where(eq(fileSuggestions.videoFileId, videoFileId));
+}
