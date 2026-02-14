@@ -6693,3 +6693,21 @@ Note: The application already has extensive annotation features including voice 
 ## Mobile UI Bug Fixes: Selection Toolbar & Swipe Actions
 - [x] Fix mobile selection toolbar: move "1 selected" to right side, move Delete to left side in both FloatingActionBar and BulkOperationsToolbar
 - [x] Fix swipe action buttons (Enrich/Delete) overlapping file card text by adding z-index layering (z-0 for actions, z-10 for card)
+
+## Bug Fix: Files Stuck at "Finalizing..." During Upload
+- [x] Root cause: 11 sessions stuck in 'finalizing' status with no final file created — sync assembly failed silently
+- [x] Add stale-finalizing detection in listActiveSessions (auto-reset after 5 min)
+- [x] Add stale-finalizing detection in getFinalizeStatus (auto-reset after 5 min)
+- [x] Add retry with exponential backoff (3 attempts) for chunk download from S3
+- [x] Add retry with exponential backoff (3 attempts) for storagePut S3 upload
+- [x] Add 30s timeout on chunk fetch requests
+- [x] Reset 11 stuck sessions in production DB
+
+## Bug Fix: Statistics Shows Only 1000 Files
+- [x] Fixed: Knowledge Graph getStats was using getFilesForUser(limit: 1000) instead of COUNT query
+- [x] Now uses getFilesCountByUserId() for accurate total file count
+
+## Bug Fix: Transcription/Captioning 503 Service Unavailable
+- [x] Added retry with exponential backoff (3 attempts, 2s/4s/8s delays) for 502/503/429 errors in invokeLLM
+- [x] Added retry with exponential backoff for Whisper API in voiceTranscription.ts
+- [x] Error messages now distinguish between transient and permanent failures

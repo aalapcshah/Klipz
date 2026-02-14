@@ -1,0 +1,8 @@
+{
+  "query": "SELECT \n  s.id, s.session_token, s.filename, s.status, s.file_size,\n  s.assembly_phase, s.assembly_progress, s.assembly_total_chunks,\n  s.assembly_started_at,\n  s.final_file_key, s.final_file_url,\n  (SELECT COUNT(*) FROM resumable_upload_chunks c WHERE c.session_id = s.id) as chunk_count,\n  (SELECT c.storage_key FROM resumable_upload_chunks c WHERE c.session_id = s.id LIMIT 1) as sample_chunk_key\nFROM resumable_upload_sessions s\nWHERE s.status = 'completed' AND (s.assembly_phase IS NULL OR s.assembly_phase NOT IN ('complete'))\nORDER BY s.id DESC\nLIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT \n  s.id, s.session_token, s.filename, s.status, s.file_size,\n  s.assembly_phase, s.assembly_progress, s.assembly_total_chunks,\n  s.assembly_started_at,\n  s.final_file_key, s.final_file_url,\n  (SELECT COUNT(*) FROM resumable_upload_chunks c WHERE c.session_id = s.id) as chunk_count,\n  (SELECT c.storage_key FROM resumable_upload_chunks c WHERE c.session_id = s.id LIMIT 1) as sample_chunk_key\nFROM resumable_upload_sessions s\nWHERE s.status = 'completed' AND (s.assembly_phase IS NULL OR s.assembly_phase NOT IN ('complete'))\nORDER BY s.id DESC\nLIMIT 10;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 's.assembly_phase' in 'where clause'"
+  ]
+}

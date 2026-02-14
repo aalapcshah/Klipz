@@ -467,11 +467,27 @@ export const resumableUploadRouter = router({
         try {
           const chunkBuffers: Buffer[] = [];
           for (const chunk of chunks) {
-            const { url } = await storageGet(chunk.storageKey);
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`Failed to fetch chunk ${chunk.chunkIndex}`);
-            const arrayBuffer = await response.arrayBuffer();
-            chunkBuffers.push(Buffer.from(arrayBuffer));
+            // Retry chunk download up to 3 times with exponential backoff
+            let lastError: Error | null = null;
+            for (let attempt = 0; attempt < 3; attempt++) {
+              try {
+                const { url } = await storageGet(chunk.storageKey);
+                const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+                if (!response.ok) throw new Error(`HTTP ${response.status} fetching chunk ${chunk.chunkIndex}`);
+                const arrayBuffer = await response.arrayBuffer();
+                chunkBuffers.push(Buffer.from(arrayBuffer));
+                lastError = null;
+                break;
+              } catch (err) {
+                lastError = err instanceof Error ? err : new Error(String(err));
+                if (attempt < 2) {
+                  const delay = Math.pow(2, attempt) * 1000; // 1s, 2s
+                  console.warn(`[ResumableUpload] Chunk ${chunk.chunkIndex} fetch attempt ${attempt + 1} failed, retrying in ${delay}ms:`, lastError.message);
+                  await new Promise(r => setTimeout(r, delay));
+                }
+              }
+            }
+            if (lastError) throw new Error(`Failed to fetch chunk ${chunk.chunkIndex} after 3 attempts: ${lastError.message}`);
           }
           const completeFile = Buffer.concat(chunkBuffers);
 
@@ -480,8 +496,20 @@ export const resumableUploadRouter = router({
           const folder = session.uploadType === 'video' ? 'videos' : 'files';
           const finalFileKey = `user-${ctx.user.id}/${folder}/${timestamp}-${randomSuffix}-${session.filename}`;
 
-          const result = await storagePut(finalFileKey, completeFile, session.mimeType);
-          const finalUrl = result.url;
+          // Retry S3 upload up to 3 times
+          let result: { url: string; key: string };
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              result = await storagePut(finalFileKey, completeFile, session.mimeType);
+              break;
+            } catch (err) {
+              if (attempt === 2) throw err;
+              const delay = Math.pow(2, attempt) * 1000;
+              console.warn(`[ResumableUpload] storagePut attempt ${attempt + 1} failed, retrying in ${delay}ms`);
+              await new Promise(r => setTimeout(r, delay));
+            }
+          }
+          const finalUrl = result!.url;
 
           // Create file record
           const metadata = session.metadata as { title?: string; description?: string; collectionId?: number; tags?: string[] } || {};
@@ -634,6 +662,21 @@ export const resumableUploadRouter = router({
       }
 
       if (session.status === 'finalizing') {
+        // Check if stuck in finalizing for more than 5 minutes
+        const STALE_FINALIZING_MS = 5 * 60 * 1000;
+        const lastActivity = session.lastActivityAt ? new Date(session.lastActivityAt).getTime() : 0;
+        if (Date.now() - lastActivity > STALE_FINALIZING_MS) {
+          // Auto-recover: reset to active so client can retry
+          console.log(`[ResumableUpload] getFinalizeStatus: auto-recovering stale session ${input.sessionToken}`);
+          await drizzle
+            .update(resumableUploadSessions)
+            .set({ status: 'active', lastActivityAt: new Date() })
+            .where(eq(resumableUploadSessions.id, session.id));
+          return {
+            status: 'failed' as const,
+            message: "Assembly timed out. Please retry.",
+          };
+        }
         return {
           status: 'finalizing' as const,
           message: "File assembly in progress...",
@@ -755,6 +798,35 @@ export const resumableUploadRouter = router({
     const activeSessions = sessions.filter(s => 
       s.status === 'finalizing' || new Date(s.expiresAt) > now
     );
+
+    // Auto-recover sessions stuck in 'finalizing' for more than 5 minutes
+    // These are sessions where the server crashed or timed out during assembly
+    const STALE_FINALIZING_MS = 5 * 60 * 1000; // 5 minutes
+    const staleSessions = activeSessions.filter(
+      s => s.status === 'finalizing' && s.lastActivityAt && 
+        (now.getTime() - new Date(s.lastActivityAt).getTime()) > STALE_FINALIZING_MS
+    );
+    
+    if (staleSessions.length > 0) {
+      console.log(`[ResumableUpload] Auto-recovering ${staleSessions.length} stale finalizing sessions`);
+      const staleTokens = staleSessions.map(s => s.sessionToken);
+      // Reset stale finalizing sessions to 'active' so client can retry
+      await drizzle
+        .update(resumableUploadSessions)
+        .set({ status: 'active', lastActivityAt: now })
+        .where(
+          and(
+            eq(resumableUploadSessions.userId, ctx.user.id),
+            sql`${resumableUploadSessions.sessionToken} IN (${sql.join(staleTokens.map(t => sql`${t}`), sql`, `)})`
+          )
+        );
+      // Update the in-memory list to reflect the reset
+      for (const s of activeSessions) {
+        if (staleTokens.includes(s.sessionToken)) {
+          (s as any).status = 'active';
+        }
+      }
+    }
     
     return activeSessions;
   }),

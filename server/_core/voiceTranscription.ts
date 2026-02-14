@@ -172,26 +172,74 @@ export async function transcribeAudio(
       baseUrl
     ).toString();
 
-    const response = await fetch(fullUrl, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${ENV.forgeApiKey}`,
-        "Accept-Encoding": "identity",
-      },
-      body: formData,
-    });
+    // Retry transient errors (429, 502, 503, 504) with exponential backoff
+    const RETRYABLE_CODES = new Set([429, 502, 503, 504]);
+    const MAX_WHISPER_RETRIES = 3;
+    let whisperResponse: WhisperResponse | null = null;
+    let lastWhisperError: string | null = null;
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "");
+    for (let attempt = 0; attempt <= MAX_WHISPER_RETRIES; attempt++) {
+      try {
+        const response = await fetch(fullUrl, {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${ENV.forgeApiKey}`,
+            "Accept-Encoding": "identity",
+          },
+          body: formData,
+        });
+
+        if (response.ok) {
+          whisperResponse = await response.json() as WhisperResponse;
+          break;
+        }
+
+        const errorText = await response.text().catch(() => "");
+
+        if (RETRYABLE_CODES.has(response.status) && attempt < MAX_WHISPER_RETRIES) {
+          const delay = 2000 * Math.pow(2, attempt) + Math.random() * 1000;
+          console.warn(
+            `[Whisper] Transient error ${response.status} (attempt ${attempt + 1}/${MAX_WHISPER_RETRIES + 1}), ` +
+            `retrying in ${(delay / 1000).toFixed(1)}s`
+          );
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+
+        lastWhisperError = `${response.status} ${response.statusText}${errorText ? `: ${errorText}` : ""}`;
+        break;
+      } catch (fetchErr: any) {
+        if (attempt < MAX_WHISPER_RETRIES) {
+          const delay = 2000 * Math.pow(2, attempt) + Math.random() * 1000;
+          console.warn(
+            `[Whisper] Network error (attempt ${attempt + 1}/${MAX_WHISPER_RETRIES + 1}), ` +
+            `retrying in ${(delay / 1000).toFixed(1)}s: ${fetchErr.message}`
+          );
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        lastWhisperError = fetchErr.message;
+        break;
+      }
+    }
+
+    if (!whisperResponse && lastWhisperError) {
       return {
         error: "Transcription service request failed",
         code: "TRANSCRIPTION_FAILED",
-        details: `${response.status} ${response.statusText}${errorText ? `: ${errorText}` : ""}`
+        details: lastWhisperError,
+      };
+    }
+
+    if (!whisperResponse) {
+      return {
+        error: "Transcription service request failed",
+        code: "TRANSCRIPTION_FAILED",
+        details: "No response after retries",
       };
     }
 
     // Step 5: Parse and return the transcription result
-    const whisperResponse = await response.json() as WhisperResponse;
     
     // Validate response structure
     if (!whisperResponse.text || typeof whisperResponse.text !== 'string') {

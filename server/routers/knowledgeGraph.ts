@@ -418,7 +418,10 @@ export const knowledgeGraphRouter = router({
     .query(async ({ ctx }) => {
       const tags = await getAllTags(ctx.user.id);
       const tagRelationships = await getTagRelationships(ctx.user.id);
-      const files = await getFilesForUser(ctx.user.id, { limit: 1000 });
+      
+      // Use COUNT query instead of fetching all files (was limited to 1000)
+      const { getFilesCountByUserId } = await import("../db");
+      const totalFiles = await getFilesCountByUserId(ctx.user.id);
       
       // Count unique sources
       const sources = new Set<string>();
@@ -426,7 +429,7 @@ export const knowledgeGraphRouter = router({
       
       return {
         totalTags: tags.length,
-        totalFiles: files.length,
+        totalFiles,
         totalRelationships: tagRelationships.length,
         totalSources: sources.size,
         sourceCounts: {

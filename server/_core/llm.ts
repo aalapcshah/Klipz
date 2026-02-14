@@ -265,6 +265,23 @@ const normalizeResponseFormat = ({
   };
 };
 
+/**
+ * Transient HTTP status codes that should trigger automatic retry.
+ * 429 = Rate Limited, 502 = Bad Gateway, 503 = Service Unavailable, 504 = Gateway Timeout
+ */
+const RETRYABLE_STATUS_CODES = new Set([429, 502, 503, 504]);
+
+/**
+ * Maximum number of retry attempts for transient errors.
+ */
+const MAX_RETRIES = 3;
+
+/**
+ * Base delay in milliseconds for exponential backoff.
+ * Actual delay: BASE_RETRY_DELAY * 2^(attempt-1) + jitter
+ */
+const BASE_RETRY_DELAY = 2000;
+
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   assertApiKey();
 
@@ -312,21 +329,72 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.response_format = normalizedResponseFormat;
   }
 
-  const response = await fetch(resolveApiUrl(), {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  const apiUrl = resolveApiUrl();
+  const headers = {
+    "content-type": "application/json",
+    authorization: `Bearer ${ENV.forgeApiKey}`,
+  };
+  const body = JSON.stringify(payload);
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
-    );
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers,
+        body,
+      });
+
+      if (response.ok) {
+        return (await response.json()) as InvokeResult;
+      }
+
+      const errorText = await response.text();
+      const statusCode = response.status;
+
+      // If the error is retryable and we have attempts left, retry with backoff
+      if (RETRYABLE_STATUS_CODES.has(statusCode) && attempt < MAX_RETRIES) {
+        // Check for Retry-After header (in seconds)
+        const retryAfter = response.headers.get("retry-after");
+        let delay: number;
+
+        if (retryAfter && !isNaN(Number(retryAfter))) {
+          delay = Number(retryAfter) * 1000;
+        } else {
+          // Exponential backoff with jitter
+          delay = BASE_RETRY_DELAY * Math.pow(2, attempt) + Math.random() * 1000;
+        }
+
+        console.warn(
+          `[LLM] Transient error ${statusCode} (attempt ${attempt + 1}/${MAX_RETRIES + 1}), ` +
+          `retrying in ${(delay / 1000).toFixed(1)}s: ${errorText.substring(0, 200)}`
+        );
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      // Non-retryable error or exhausted retries
+      lastError = new Error(
+        `LLM invoke failed: ${statusCode} ${response.statusText} – ${errorText}`
+      );
+      break;
+    } catch (fetchError: any) {
+      // Network errors (ECONNRESET, ETIMEDOUT, etc.) are also retryable
+      if (attempt < MAX_RETRIES) {
+        const delay = BASE_RETRY_DELAY * Math.pow(2, attempt) + Math.random() * 1000;
+        console.warn(
+          `[LLM] Network error (attempt ${attempt + 1}/${MAX_RETRIES + 1}), ` +
+          `retrying in ${(delay / 1000).toFixed(1)}s: ${fetchError.message}`
+        );
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      lastError = new Error(`LLM invoke failed after ${MAX_RETRIES + 1} attempts: ${fetchError.message}`);
+      break;
+    }
   }
 
-  return (await response.json()) as InvokeResult;
+  throw lastError || new Error("LLM invoke failed: unknown error");
 }

@@ -1,0 +1,175 @@
+{
+  "query": "SELECT id, sessionToken, filename, fileSize, assemblyPhase, assemblyProgress, assemblyTotalChunks, finalFileUrl IS NOT NULL as hasFinalUrl, (SELECT COUNT(*) FROM resumable_upload_chunks c WHERE c.sessionId = resumable_upload_sessions.id) as chunkCount FROM resumable_upload_sessions WHERE status = 'completed' AND (assemblyPhase IS NULL OR assemblyPhase NOT IN ('complete')) ORDER BY id DESC LIMIT 15;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, sessionToken, filename, fileSize, assemblyPhase, assemblyProgress, assemblyTotalChunks, finalFileUrl IS NOT NULL as hasFinalUrl, (SELECT COUNT(*) FROM resumable_upload_chunks c WHERE c.sessionId = resumable_upload_sessions.id) as chunkCount FROM resumable_upload_sessions WHERE status = 'completed' AND (assemblyPhase IS NULL OR assemblyPhase NOT IN ('complete')) ORDER BY id DESC LIMIT 15;",
+  "rows": [
+    {
+      "id": "241802",
+      "sessionToken": "i054pnx-h0g6zbU_Qm2voKGevZPENB3b",
+      "filename": "#1SAT_Average_2025_2025-01.jpg",
+      "fileSize": "275268",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "assemblyTotalChunks": "0",
+      "hasFinalUrl": "1",
+      "chunkCount": "1"
+    },
+    {
+      "id": "241800",
+      "sessionToken": "WYJC8FBTBHlm3jOAxUPdld1Vj8HnxYjY",
+      "filename": "Influencer Media Pricing 2025_08_24.jpg",
+      "fileSize": "239020",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "assemblyTotalChunks": "0",
+      "hasFinalUrl": "1",
+      "chunkCount": "1"
+    },
+    {
+      "id": "241799",
+      "sessionToken": "eeVDYiPW7nGUxW3m6f2Hup2AX3jnxnhE",
+      "filename": "Patient Warming Devices Study.jpg",
+      "fileSize": "115578",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "assemblyTotalChunks": "0",
+      "hasFinalUrl": "1",
+      "chunkCount": "1"
+    },
+    {
+      "id": "241798",
+      "sessionToken": "0dzQuOlUc9g54QJF2yJ4uyAJjj_v-O-g",
+      "filename": "Anesthesia_Chair_Salaries_2022-05-27.jpg.jpg",
+      "fileSize": "327053",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "assemblyTotalChunks": "0",
+      "hasFinalUrl": "1",
+      "chunkCount": "1"
+    },
+    {
+      "id": "241797",
+      "sessionToken": "Ta2HLXFRVqMAmAoB4dkwLu0Ao5fl3Q_g",
+      "filename": "Wealth_News_Elon_Musk_2021-01-07.jpg.jpg",
+      "fileSize": "305435",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "assemblyTotalChunks": "0",
+      "hasFinalUrl": "1",
+      "chunkCount": "1"
+    },
+    {
+      "id": "241796",
+      "sessionToken": "Julz0vRXZTZnvstcgZGlNkhqbjgKZ4Id",
+      "filename": "Delinquency Trends by Loan Type 2025_02_16.jpg",
+      "fileSize": "79642",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "assemblyTotalChunks": "0",
+      "hasFinalUrl": "1",
+      "chunkCount": "1"
+    },
+    {
+      "id": "241795",
+      "sessionToken": "MNAF9jU14p9s-k4oTB3A0Vplcp-YRIDA",
+      "filename": "wRVU Reimbursement 2 2025_07_30.jpg",
+      "fileSize": "285985",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "assemblyTotalChunks": "0",
+      "hasFinalUrl": "1",
+      "chunkCount": "1"
+    },
+    {
+      "id": "241794",
+      "sessionToken": "V8CN65cUTUh83wArB3Wdh-UqvMwJXXRV",
+      "filename": "Annual Trends Gender Gap_2025_08_18.jpg",
+      "fileSize": "265996",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "assemblyTotalChunks": "0",
+      "hasFinalUrl": "1",
+      "chunkCount": "1"
+    },
+    {
+      "id": "241793",
+      "sessionToken": "RYGaPcyv343vrr9e56iyRSTyxsOKYBbQ",
+      "filename": "UCI MOR Turnover Process 2024-12-22.jpg",
+      "fileSize": "1126142",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "assemblyTotalChunks": "0",
+      "hasFinalUrl": "1",
+      "chunkCount": "1"
+    },
+    {
+      "id": "241792",
+      "sessionToken": "03Ui-lAGaIpBjTxAE1qc7IOOjSAdfLi4",
+      "filename": "Dr. Nurse Mama Show Advertisement 2024-12-22.jpg",
+      "fileSize": "108887",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "assemblyTotalChunks": "0",
+      "hasFinalUrl": "1",
+      "chunkCount": "1"
+    },
+    {
+      "id": "241791",
+      "sessionToken": "9znGMMzVbTrZIrxjFQ32RFMthTyDbG_y",
+      "filename": "650k Income and 80k Savings 2025-01-14.jpg",
+      "fileSize": "114455",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "assemblyTotalChunks": "0",
+      "hasFinalUrl": "1",
+      "chunkCount": "1"
+    },
+    {
+      "id": "241790",
+      "sessionToken": "LwhGUsaPtL1k_uJSaZL-xqveqYYWZp_h",
+      "filename": "Graduation Cap Game of Loans 2019-04-16.jpg",
+      "fileSize": "34212",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "assemblyTotalChunks": "0",
+      "hasFinalUrl": "1",
+      "chunkCount": "1"
+    },
+    {
+      "id": "241789",
+      "sessionToken": "syR0Pesojc-fJF1ya6odIpa-NnRRF3ke",
+      "filename": "Anesthesia Industry Outlook 2025-02-26.jpg",
+      "fileSize": "518666",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "assemblyTotalChunks": "0",
+      "hasFinalUrl": "1",
+      "chunkCount": "1"
+    },
+    {
+      "id": "241788",
+      "sessionToken": "ND37cGYTGEUQ4yDvI0LK_6DNkindJlbM",
+      "filename": "Medical_Pay_Gap_2023.jpg",
+      "fileSize": "148302",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "assemblyTotalChunks": "0",
+      "hasFinalUrl": "1",
+      "chunkCount": "1"
+    },
+    {
+      "id": "241787",
+      "sessionToken": "DtgjBcdnTDKOQBlLP3fJtgi7jrPp4Wed",
+      "filename": "Bridge_Collapse_Alert_2024-03-27.jpg.jpg",
+      "fileSize": "229873",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "assemblyTotalChunks": "0",
+      "hasFinalUrl": "1",
+      "chunkCount": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tsessionToken\tfilename\tfileSize\tassemblyPhase\tassemblyProgress\tassemblyTotalChunks\thasFinalUrl\tchunkCount\n241802\ti054pnx-h0g6zbU_Qm2voKGevZPENB3b\t#1SAT_Average_2025_2025-01.jpg\t275268\tidle\t0\t0\t1\t1\n241800\tWYJC8FBTBHlm3jOAxUPdld1Vj8HnxYjY\tInfluencer Media Pricing 2025_08_24.jpg\t239020\tidle\t0\t0\t1\t1\n241799\teeVDYiPW7nGUxW3m6f2Hup2AX3jnxnhE\tPatient Warming Devices Study.jpg\t115578\tidle\t0\t0\t1\t1\n241798\t0dzQuOlUc9g54QJF2yJ4uyAJjj_v-O-g\tAnesthesia_Chair_Salaries_2022-05-27.jpg.jpg\t327053\tidle\t0\t0\t1\t1\n241797\tTa2HLXFRVqMAmAoB4dkwLu0Ao5fl3Q_g\tWealth_News_Elon_Musk_2021-01-07.jpg.jpg\t305435\tidle\t0\t0\t1\t1\n241796\tJulz0vRXZTZnvstcgZGlNkhqbjgKZ4Id\tDelinquency Trends by Loan Type 2025_02_16.jpg\t79642\tidle\t0\t0\t1\t1\n241795\tMNAF9jU14p9s-k4oTB3A0Vplcp-YRIDA\twRVU Reimbursement 2 2025_07_30.jpg\t285985\tidle\t0\t0\t1\t1\n241794\tV8CN65cUTUh83wArB3Wdh-UqvMwJXXRV\tAnnual Trends Gender Gap_2025_08_18.jpg\t265996\tidle\t0\t0\t1\t1\n241793\tRYGaPcyv343vrr9e56iyRSTyxsOKYBbQ\tUCI MOR Turnover Process 2024-12-22.jpg\t1126142\tidle\t0\t0\t1\t1\n241792\t03Ui-lAGaIpBjTxAE1qc7IOOjSAdfLi4\tDr. Nurse Mama Show Advertisement 2024-12-22.jpg\t108887\tidle\t0\t0\t1\t1\n241791\t9znGMMzVbTrZIrxjFQ32RFMthTyDbG_y\t650k Income and 80k Savings 2025-01-14.jpg\t114455\tidle\t0\t0\t1\t1\n241790\tLwhGUsaPtL1k_uJSaZL-xqveqYYWZp_h\tGraduation Cap Game of Loans 2019-04-16.jpg\t34212\tidle\t0\t0\t1\t1\n241789\tsyR0Pesojc-fJF1ya6odIpa-NnRRF3ke\tAnesthesia Industry Outlook 2025-02-26.jpg\t518666\tidle\t0\t0\t1\t1\n241788\tND37cGYTGEUQ4yDvI0LK_6DNkindJlbM\tMedical_Pay_Gap_2023.jpg\t148302\tidle\t0\t0\t1\t1\n241787\tDtgjBcdnTDKOQBlLP3fJtgi7jrPp4Wed\tBridge_Collapse_Alert_2024-03-27.jpg.jpg\t229873\tidle\t0\t0\t1\t1\n",
+  "stderr": "",
+  "execution_time_ms": 60
+}

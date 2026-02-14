@@ -1,0 +1,142 @@
+{
+  "query": "SELECT sessionToken, filename, ROUND(fileSize/1024/1024, 1) as sizeMB, status, assemblyPhase, assemblyProgress, finalFileKey IS NOT NULL as hasFileKey, finalFileUrl IS NOT NULL as hasFileUrl, lastActivityAt, completedAt FROM resumable_upload_sessions WHERE status = 'finalizing' ORDER BY lastActivityAt DESC LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT sessionToken, filename, ROUND(fileSize/1024/1024, 1) as sizeMB, status, assemblyPhase, assemblyProgress, finalFileKey IS NOT NULL as hasFileKey, finalFileUrl IS NOT NULL as hasFileUrl, lastActivityAt, completedAt FROM resumable_upload_sessions WHERE status = 'finalizing' ORDER BY lastActivityAt DESC LIMIT 20;",
+  "rows": [
+    {
+      "sessionToken": "NMmLmAKK9C6WubktRhVAuoLDpzQqF0Am",
+      "filename": "Herbal Bleeding Risks Pre-Surgery.jpg",
+      "sizeMB": "0.2",
+      "status": "finalizing",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "hasFileKey": "0",
+      "hasFileUrl": "0",
+      "lastActivityAt": "2026-02-14 08:26:08",
+      "completedAt": "NULL"
+    },
+    {
+      "sessionToken": "IaknDW9qfb5HtOd72YoUlOizhZqkVKn3",
+      "filename": "Kennedy Medicare Medicaid Hearing 2025_01_30.jpg",
+      "sizeMB": "0.5",
+      "status": "finalizing",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "hasFileKey": "0",
+      "hasFileUrl": "0",
+      "lastActivityAt": "2026-02-14 08:26:08",
+      "completedAt": "NULL"
+    },
+    {
+      "sessionToken": "Aie2Bve2ctkN3x-_msMKZpgCS-1t2JIz",
+      "filename": "ASC Medicare Reimbursement Advocacy 2025_03_02.jpg",
+      "sizeMB": "0.4",
+      "status": "finalizing",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "hasFileKey": "0",
+      "hasFileUrl": "0",
+      "lastActivityAt": "2026-02-14 08:11:20",
+      "completedAt": "NULL"
+    },
+    {
+      "sessionToken": "6GTCDkmjoIgvaGd-Hd2i9nsF-He2ymqe",
+      "filename": "How_Has_U.S_Spending_On_Healthcare.jpg",
+      "sizeMB": "0.2",
+      "status": "finalizing",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "hasFileKey": "0",
+      "hasFileUrl": "0",
+      "lastActivityAt": "2026-02-14 08:06:27",
+      "completedAt": "NULL"
+    },
+    {
+      "sessionToken": "1_rmcYi0EMIPQSL1LGS_MC5lEKaxCVQM",
+      "filename": "Client Reporting Policy.jpg",
+      "sizeMB": "0.3",
+      "status": "finalizing",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "hasFileKey": "0",
+      "hasFileUrl": "0",
+      "lastActivityAt": "2026-02-14 08:06:04",
+      "completedAt": "NULL"
+    },
+    {
+      "sessionToken": "X8uVHDczrUBJYEscrwxVdD2r7dfGAmJM",
+      "filename": "OR Manager Timeout 2019-09-01.jpg",
+      "sizeMB": "3.4",
+      "status": "finalizing",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "hasFileKey": "0",
+      "hasFileUrl": "0",
+      "lastActivityAt": "2026-02-14 08:05:02",
+      "completedAt": "NULL"
+    },
+    {
+      "sessionToken": "lyXyin1CS4KYPBkVfpHOIv1FnEBJt43V",
+      "filename": "Sevoflurane Bottle 2023-12-07.jpg",
+      "sizeMB": "0.7",
+      "status": "finalizing",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "hasFileKey": "0",
+      "hasFileUrl": "0",
+      "lastActivityAt": "2026-02-14 08:04:28",
+      "completedAt": "NULL"
+    },
+    {
+      "sessionToken": "m6YAp-ueVC8KHUYG-taJtdYH5VXe7Lea",
+      "filename": "Bidenomics Price Inflation 2024.jpg",
+      "sizeMB": "0.2",
+      "status": "finalizing",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "hasFileKey": "0",
+      "hasFileUrl": "0",
+      "lastActivityAt": "2026-02-14 08:02:19",
+      "completedAt": "NULL"
+    },
+    {
+      "sessionToken": "m03fvMtrgzPhfBV3U5xFumMEWm2f5bfX",
+      "filename": "Unsubscribe_Notification 2018-07-03.jpg",
+      "sizeMB": "3.1",
+      "status": "finalizing",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "hasFileKey": "0",
+      "hasFileUrl": "0",
+      "lastActivityAt": "2026-02-14 08:01:44",
+      "completedAt": "NULL"
+    },
+    {
+      "sessionToken": "9QKx1ak671lbyh5X3scH1md0TreX-za2",
+      "filename": "Anesthesia Req EastLA 2020-03-06.jpg",
+      "sizeMB": "8.0",
+      "status": "finalizing",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "hasFileKey": "0",
+      "hasFileUrl": "0",
+      "lastActivityAt": "2026-02-14 08:01:34",
+      "completedAt": "NULL"
+    },
+    {
+      "sessionToken": "7XyUXnDGFgMcJcjYZag7JOkoeFx8N2WC",
+      "filename": "Privacy Practices Acknowledgment 2025_03_31.jpg",
+      "sizeMB": "0.8",
+      "status": "finalizing",
+      "assemblyPhase": "idle",
+      "assemblyProgress": "0",
+      "hasFileKey": "0",
+      "hasFileUrl": "0",
+      "lastActivityAt": "2026-02-14 07:53:36",
+      "completedAt": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "sessionToken\tfilename\tsizeMB\tstatus\tassemblyPhase\tassemblyProgress\thasFileKey\thasFileUrl\tlastActivityAt\tcompletedAt\nNMmLmAKK9C6WubktRhVAuoLDpzQqF0Am\tHerbal Bleeding Risks Pre-Surgery.jpg\t0.2\tfinalizing\tidle\t0\t0\t0\t2026-02-14 08:26:08\tNULL\nIaknDW9qfb5HtOd72YoUlOizhZqkVKn3\tKennedy Medicare Medicaid Hearing 2025_01_30.jpg\t0.5\tfinalizing\tidle\t0\t0\t0\t2026-02-14 08:26:08\tNULL\nAie2Bve2ctkN3x-_msMKZpgCS-1t2JIz\tASC Medicare Reimbursement Advocacy 2025_03_02.jpg\t0.4\tfinalizing\tidle\t0\t0\t0\t2026-02-14 08:11:20\tNULL\n6GTCDkmjoIgvaGd-Hd2i9nsF-He2ymqe\tHow_Has_U.S_Spending_On_Healthcare.jpg\t0.2\tfinalizing\tidle\t0\t0\t0\t2026-02-14 08:06:27\tNULL\n1_rmcYi0EMIPQSL1LGS_MC5lEKaxCVQM\tClient Reporting Policy.jpg\t0.3\tfinalizing\tidle\t0\t0\t0\t2026-02-14 08:06:04\tNULL\nX8uVHDczrUBJYEscrwxVdD2r7dfGAmJM\tOR Manager Timeout 2019-09-01.jpg\t3.4\tfinalizing\tidle\t0\t0\t0\t2026-02-14 08:05:02\tNULL\nlyXyin1CS4KYPBkVfpHOIv1FnEBJt43V\tSevoflurane Bottle 2023-12-07.jpg\t0.7\tfinalizing\tidle\t0\t0\t0\t2026-02-14 08:04:28\tNULL\nm6YAp-ueVC8KHUYG-taJtdYH5VXe7Lea\tBidenomics Price Inflation 2024.jpg\t0.2\tfinalizing\tidle\t0\t0\t0\t2026-02-14 08:02:19\tNULL\nm03fvMtrgzPhfBV3U5xFumMEWm2f5bfX\tUnsubscribe_Notification 2018-07-03.jpg\t3.1\tfinalizing\tidle\t0\t0\t0\t2026-02-14 08:01:44\tNULL\n9QKx1ak671lbyh5X3scH1md0TreX-za2\tAnesthesia Req EastLA 2020-03-06.jpg\t8.0\tfinalizing\tidle\t0\t0\t0\t2026-02-14 08:01:34\tNULL\n7XyUXnDGFgMcJcjYZag7JOkoeFx8N2WC\tPrivacy Practices Acknowledgment 2025_03_31.jpg\t0.8\tfinalizing\tidle\t0\t0\t0\t2026-02-14 07:53:36\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 57
+}
