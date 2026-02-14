@@ -196,6 +196,10 @@ Generate captions for the entire duration of the video. If the video is short, p
           console.warn(`[VisualCaptions] LLM returned 0 captions for file ${input.fileId}`);
         }
 
+        // Sort captions by timestamp ascending to ensure correct chronological order
+        // (LLM may return them in arbitrary order)
+        captions.sort((a: any, b: any) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+
         // Update the visual caption record
         await db.updateVisualCaption(captionId, {
           captions: captions,
@@ -250,6 +254,11 @@ Generate captions for the entire duration of the video. If the video is short, p
           code: "FORBIDDEN",
           message: "You do not have permission to view these captions",
         });
+      }
+
+      // Sort captions by timestamp ascending for correct chronological display
+      if (caption.captions && Array.isArray(caption.captions)) {
+        (caption.captions as any[]).sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
       }
 
       return caption;

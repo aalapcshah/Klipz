@@ -77,15 +77,19 @@ function compressVideoFFmpeg(
   outputPath: string,
   quality: CompressionQuality,
   duration: number,
+  hasAudio: boolean,
   onProgress: (percent: number) => void
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const preset = COMPRESSION_PRESETS[quality];
 
-    // Build FFmpeg args - audio is always preserved
+    // Build FFmpeg args
     const args = [
       "-i",
       inputPath,
+      // Map all streams explicitly to prevent dropping
+      "-map", "0:v:0",
+      // Video encoding
       "-c:v",
       "libx264",
       "-crf",
@@ -95,24 +99,31 @@ function compressVideoFFmpeg(
       "-b:v",
       preset.videoBitrate,
       // Scale down if larger than max resolution, maintaining aspect ratio
+      // Note: In spawn (no shell), commas don't need escaping
       "-vf",
-      `scale=min(${preset.maxWidth}\\,iw):min(${preset.maxHeight}\\,ih):force_original_aspect_ratio=decrease`,
-      // Audio: always re-encode to AAC to ensure compatibility
-      "-c:a",
-      "aac",
-      "-b:a",
-      preset.audioBitrate,
-      // Ensure compatibility
-      "-movflags",
-      "+faststart",
+      `scale='min(${preset.maxWidth},iw)':'min(${preset.maxHeight},ih)':force_original_aspect_ratio=decrease`,
       "-pix_fmt",
       "yuv420p",
-      // Progress output
+    ];
+
+    // Add audio mapping and encoding if source has audio
+    if (hasAudio) {
+      args.push(
+        "-map", "0:a:0",
+        "-c:a", "aac",
+        "-b:a", preset.audioBitrate,
+      );
+    }
+
+    // Add output options
+    args.push(
+      "-movflags",
+      "+faststart",
       "-progress",
       "pipe:1",
-      "-y", // Overwrite output
+      "-y",
       outputPath,
-    ];
+    );
 
     console.log(
       `[VideoCompression] Starting FFmpeg: ffmpeg ${args.join(" ")}`
@@ -165,6 +176,32 @@ function compressVideoFFmpeg(
     ffmpeg.on("error", (err) => {
       reject(new Error(`Failed to start FFmpeg: ${err.message}`));
     });
+  });
+}
+
+/**
+ * Check if a video file has an audio stream
+ */
+function hasAudioStream(filePath: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const ffprobe = spawn("ffprobe", [
+      "-v", "quiet",
+      "-select_streams", "a",
+      "-show_entries", "stream=codec_type",
+      "-of", "csv=p=0",
+      filePath,
+    ]);
+
+    let stdout = "";
+    ffprobe.stdout?.on("data", (data: Buffer) => {
+      stdout += data.toString();
+    });
+
+    ffprobe.on("close", (code) => {
+      resolve(code === 0 && stdout.trim().includes("audio"));
+    });
+
+    ffprobe.on("error", () => resolve(false));
   });
 }
 
@@ -605,9 +642,10 @@ async function runCompressionJob(
       `[VideoCompression] Downloaded ${inputStats.size} bytes to ${inputPath}`
     );
 
-    // Step 2: Get duration for progress tracking
+    // Step 2: Get duration and check for audio
     const duration = await getVideoDuration(inputPath);
-    console.log(`[VideoCompression] Video duration: ${duration}s`);
+    const audioPresent = await hasAudioStream(inputPath);
+    console.log(`[VideoCompression] Video duration: ${duration}s, has audio: ${audioPresent}`);
 
     // Step 3: Compress
     activeJobs.set(fileId, {
@@ -621,7 +659,8 @@ async function runCompressionJob(
       outputPath,
       quality,
       duration,
-      (percent) => {
+      audioPresent,
+      (percent: number) => {
         activeJobs.set(fileId, {
           status: "compressing",
           progress: percent,

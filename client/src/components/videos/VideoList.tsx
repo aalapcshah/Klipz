@@ -46,6 +46,7 @@ import { VideoTagManager } from "./VideoTagManager";
 import { ShareDialog } from "../ShareDialog";
 import { VideoCompressionButton } from "../VideoCompressionButton";
 import { VideoCardDetails, type VideoCardDetailsHandle } from "./VideoCardDetails";
+import { MatchesTimelineWithData } from "./MatchesTimeline";
 import {
   Dialog,
   DialogContent,
@@ -90,6 +91,7 @@ export function VideoList() {
   const [tagFilterMode, setTagFilterMode] = useState<'AND' | 'OR'>('OR');
   const [playingVideoIds, setPlayingVideoIds] = useState<Set<number>>(new Set());
   const [shareVideo, setShareVideo] = useState<{ id: number; title: string } | null>(null);
+  const [expandedMatchesVideoId, setExpandedMatchesVideoId] = useState<number | null>(null);
   
   // Refs for VideoCardDetails to access Find Matches
   const videoCardDetailsRefs = useRef<Map<number, VideoCardDetailsHandle>>(new Map());
@@ -781,8 +783,12 @@ export function VideoList() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {videos.map((video) => (
-          <Card key={video.id} className="relative p-4 space-y-3 group" data-video-id={video.id}>
+        {videos.map((video) => {
+          const isMatchesExpanded = expandedMatchesVideoId === video.id;
+          return (
+          <Card key={video.id} className={`relative p-4 group ${isMatchesExpanded ? 'col-span-1 md:col-span-2 lg:col-span-3' : 'space-y-3'}`} data-video-id={video.id}>
+            <div className={isMatchesExpanded ? 'flex gap-6 items-start' : ''}>
+              <div className={isMatchesExpanded ? 'w-full max-w-md shrink-0 space-y-3' : 'space-y-3'}>
             {/* Selection Checkbox */}
             <div className="absolute top-2 left-2 z-10">
               <input
@@ -1072,12 +1078,35 @@ export function VideoList() {
                 videoId={video.id}
                 fileId={video.fileId}
                 hasTranscript={!!video.transcript}
+                onExpandedSectionChange={(section) => {
+                  if (section === 'matches') {
+                    setExpandedMatchesVideoId(video.id);
+                  } else {
+                    if (expandedMatchesVideoId === video.id) {
+                      setExpandedMatchesVideoId(null);
+                    }
+                  }
+                }}
               />
             </div>
 
+              </div>
+
+              {/* Timeline panel when matches expanded */}
+              {isMatchesExpanded && (
+                <div className="flex-1 min-w-0 border-l border-border/30 pl-6">
+                  <MatchesTimelineWithData
+                    videoId={video.id}
+                    fileId={video.fileId}
+                    videoUrl={video.url}
+                  />
+                </div>
+              )}
+            </div>
 
           </Card>
-        ))}
+        );
+        })}
       </div>
 
       {/* Pagination Controls */}

@@ -1,0 +1,19 @@
+{
+  "query": "SELECT id, url, filename, duration, SUBSTRING(url, 1, 80) as url_prefix, transcodeStatus, SUBSTRING(transcodedUrl, 1, 80) as transcoded_prefix FROM videos WHERE userId = 1 ORDER BY id DESC LIMIT 5",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT id, url, filename, duration, SUBSTRING(url, 1, 80) as url_prefix, transcodeStatus, SUBSTRING(transcodedUrl, 1, 80) as transcoded_prefix FROM videos WHERE userId = 1 ORDER BY id DESC LIMIT 5",
+  "rows": [
+    {
+      "id": "990126",
+      "url": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/1771059487825-vdr9c2-Video 0 - Steward HealthCare Revised_compressed.webm",
+      "filename": "Video 0 - Steward HealthCare Revised_compressed.webm",
+      "duration": "0",
+      "url_prefix": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/",
+      "transcodeStatus": "pending",
+      "transcoded_prefix": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\turl\tfilename\tduration\turl_prefix\ttranscodeStatus\ttranscoded_prefix\n990126\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/1771059487825-vdr9c2-Video 0 - Steward HealthCare Revised_compressed.webm\tVideo 0 - Steward HealthCare Revised_compressed.webm\t0\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/\tpending\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 122
+}

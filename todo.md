@@ -6711,3 +6711,47 @@ Note: The application already has extensive annotation features including voice 
 - [x] Added retry with exponential backoff (3 attempts, 2s/4s/8s delays) for 502/503/429 errors in invokeLLM
 - [x] Added retry with exponential backoff for Whisper API in voiceTranscription.ts
 - [x] Error messages now distinguish between transient and permanent failures
+
+## Bug Fix: Caption Timestamps Going Backwards
+- [ ] Captions show timestamps going from 0:58 to 0:01 instead of sequential order
+- [ ] Fix caption timestamp ordering/sorting logic
+
+## Bug Fix: Compressed Video Has No Audio
+- [ ] Video compression is stripping the audio track
+- [ ] Fix FFmpeg compression command to preserve audio
+
+## Bug Fix: Video Player Black Screen on Maximize
+- [ ] Thumbnail plays fine but full player shows black screen at 0:00.0
+- [ ] Time bar doesn't move when clicking play
+- [ ] Investigate video URL/source issue in the full player view
+
+## Bug Fix: Find Matches Not Finding Files
+- [x] User confirmed Find Matches is working correctly - no fix needed
+
+## Feature: Redesign Matches Tab with Timeline Visual Layout
+- [ ] Create timeline-based layout to the right of the video player when Matches tab is active
+- [ ] Each row shows: Timepoint label | Video Frame thumbnail | Matched File 1 | Matched File 2
+- [ ] Use the empty black space to the right of the video for the timeline grid
+- [ ] Show matched files with confidence scores and metadata tags
+- [ ] Video frames should be actual frame captures from the video at each timepoint
+
+## Bug Fix: Video Player Black Screen on Maximize
+- [ ] Fix video player showing black screen when clicking to maximize/annotate
+- [ ] Investigate WebM transcoding not completing (transcodeStatus: pending)
+- [ ] Add better format detection and fallback handling in video player
+
+## Bug Fix: Compressed Video No Audio
+- [ ] Fix FFmpeg scale filter escaping that may strip audio
+- [ ] Add audio stream detection before compression
+- [ ] Preserve audio when present, skip audio encoding when absent
+
+## Matches Timeline Layout in Video Library
+- [x] Create MatchesTimeline component with horizontal timeline rows
+- [x] Add MatchesTimelineWithData wrapper for self-contained data fetching
+- [x] Integrate timeline into VideoList - card spans full width when Matches expanded
+- [x] Show Timepoint label, Video Frame capture, and Matched File cards per row
+- [x] Limit visible matches to 2 per timepoint with expand/collapse
+- [x] Add scrollable container for timeline panel (max-height 500px)
+- [x] Add "File Match Timeline" header with timepoint count badge
+- [x] Fix React hooks ordering (useState/useCallback before early returns)
+- [x] Add onExpandedSectionChange callback to VideoCardDetails

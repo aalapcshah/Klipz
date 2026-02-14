@@ -22,6 +22,8 @@ export interface VideoCardDetailsHandle {
   handleFindMatches: () => void;
   isFindingMatches: boolean;
   canFindMatches: boolean;
+  getMatchData: () => { fileMatches: any[] | undefined; fileSuggestions: any[] | undefined; matchesLoading: boolean; suggestionsLoading: boolean };
+  expandedSection: "transcript" | "captions" | "matches" | null;
 }
 
 interface VideoCardDetailsProps {
@@ -29,6 +31,7 @@ interface VideoCardDetailsProps {
   fileId: number | null;
   hasTranscript: boolean;
   videoRef?: HTMLVideoElement | null;
+  onExpandedSectionChange?: (section: "transcript" | "captions" | "matches" | null) => void;
 }
 
 function formatTimestamp(seconds: number): string {
@@ -37,7 +40,7 @@ function formatTimestamp(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDetailsProps>(function VideoCardDetails({ videoId, fileId, hasTranscript, videoRef }, ref) {
+export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDetailsProps>(function VideoCardDetails({ videoId, fileId, hasTranscript, videoRef, onExpandedSectionChange }, ref) {
   const [expandedSection, setExpandedSection] = useState<"transcript" | "captions" | "matches" | null>(null);
 
   const utils = trpc.useUtils();
@@ -107,7 +110,9 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
     handleFindMatches,
     isFindingMatches,
     canFindMatches,
-  }), [isFindingMatches, canFindMatches]);
+    getMatchData: () => ({ fileMatches, fileSuggestions, matchesLoading, suggestionsLoading }),
+    expandedSection,
+  }), [isFindingMatches, canFindMatches, fileMatches, fileSuggestions, matchesLoading, suggestionsLoading, expandedSection]);
 
   // Retry mutations for failed transcriptions/captions
   const retryTranscriptMutation = trpc.videoTranscription.transcribeVideo.useMutation({
@@ -174,6 +179,7 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
       if (successCount > 0) {
         toast.success("File matching complete! Check the Matched Files section.");
         setExpandedSection("matches");
+        onExpandedSectionChange?.("matches");
       } else {
         toast.error("File matching failed. Please try again.");
       }
@@ -216,16 +222,20 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
       handleRetryTranscript();
       // Also expand the section to show progress
       setExpandedSection("transcript");
+      onExpandedSectionChange?.("transcript");
       return;
     }
     if (section === "captions" && captions?.status === "failed" && !retryCaptionMutation.isPending) {
       handleRetryCaptions();
       // Also expand the section to show progress
       setExpandedSection("captions");
+      onExpandedSectionChange?.("captions");
       return;
     }
 
-    setExpandedSection(expandedSection === section ? null : section);
+    const newSection = expandedSection === section ? null : section;
+    setExpandedSection(newSection);
+    onExpandedSectionChange?.(newSection);
   };
 
   if (!fileId) {
