@@ -193,6 +193,10 @@ export const videoTranscripts = mysqlTable("video_transcripts", {
   // Processing status
   status: mysqlEnum("status", ["pending", "processing", "completed", "failed"]).default("pending").notNull(),
   
+  // Transcription progress tracking
+  transcriptionPhase: varchar("transcriptionPhase", { length: 50 }), // extracting_audio | transcribing_whisper | transcribing_llm | processing_results
+  transcriptionMethod: varchar("transcriptionMethod", { length: 20 }), // whisper | llm | whisper_extracted
+  
   // Error tracking
   errorMessage: text("errorMessage"),
   

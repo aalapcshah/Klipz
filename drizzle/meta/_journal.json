@@ -540,6 +540,13 @@
       "when": 1771039564628,
       "tag": "0076_skinny_lilandra",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "5",
+      "when": 1771053337199,
+      "tag": "0077_wonderful_sasquatch",
+      "breakpoints": true
     }
   ]
 }

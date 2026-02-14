@@ -8,6 +8,44 @@ import { videoTranscripts, fileSuggestions, files } from "../../drizzle/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getTranscriptionErrorMessage } from "../lib/errorMessages";
 import { resolveFileUrl } from "../lib/resolveFileUrl";
+import { extractAudioFromVideo, cleanupAudioFile, getTranscriptionStrategy } from "../services/audioExtraction";
+import { storagePut } from "../storage";
+import { promises as fs } from "fs";
+
+/**
+ * Helper to update transcription phase in the database.
+ * This allows the UI to poll and show real-time progress.
+ */
+async function updateTranscriptionPhase(
+  transcriptId: number,
+  phase: string,
+  method?: string
+) {
+  try {
+    const updates: Record<string, any> = { transcriptionPhase: phase };
+    if (method) updates.transcriptionMethod = method;
+    await db.updateVideoTranscript(transcriptId, updates);
+  } catch (err) {
+    console.warn(`[Transcription] Failed to update phase for transcript ${transcriptId}:`, err);
+  }
+}
+
+/**
+ * Build word timestamps from transcript segments.
+ */
+function buildWordTimestamps(segments: Array<{ text: string; start: number; end: number }>) {
+  return segments.flatMap((segment) => {
+    const words = (segment.text || "").trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return [];
+    const duration = segment.end - segment.start;
+    const timePerWord = duration / words.length;
+    return words.map((word: string, index: number) => ({
+      word,
+      start: segment.start + index * timePerWord,
+      end: segment.start + (index + 1) * timePerWord,
+    }));
+  });
+}
 
 /**
  * LLM-based transcription fallback for large video files that exceed Whisper's 16MB limit.
@@ -20,6 +58,7 @@ async function transcribeWithLLM(
 ) {
   try {
     console.log(`[Transcription] Using LLM fallback for file ${file.id}`);
+    await updateTranscriptionPhase(transcriptId, "transcribing_llm", "llm");
 
     // Resolve relative streaming URLs to publicly accessible S3 URLs
     const accessibleUrl = await resolveFileUrl(file, { origin });
@@ -110,22 +149,12 @@ Detect the language automatically.`,
       throw new Error("Failed to parse LLM transcription response as JSON");
     }
 
+    await updateTranscriptionPhase(transcriptId, "processing_results");
+
     const segments = result.segments || [];
     const fullText = result.fullText || segments.map((s: any) => s.text).join(" ");
     const language = result.language || "en";
-
-    // Build word timestamps from segments
-    const wordTimestamps = segments.flatMap((segment: any) => {
-      const words = (segment.text || "").trim().split(/\s+/).filter(Boolean);
-      if (words.length === 0) return [];
-      const duration = segment.end - segment.start;
-      const timePerWord = duration / words.length;
-      return words.map((word: string, index: number) => ({
-        word,
-        start: segment.start + index * timePerWord,
-        end: segment.start + (index + 1) * timePerWord,
-      }));
-    });
+    const wordTimestamps = buildWordTimestamps(segments);
 
     await db.updateVideoTranscript(transcriptId, {
       fullText,
@@ -134,6 +163,8 @@ Detect the language automatically.`,
       language,
       confidence: 85, // LLM transcription is slightly less precise than Whisper
       status: "completed",
+      transcriptionPhase: "completed",
+      transcriptionMethod: "llm",
     });
 
     return {
@@ -147,6 +178,138 @@ Detect the language automatically.`,
       },
     };
   } catch (error: any) {
+    const userMessage = getTranscriptionErrorMessage(error.message);
+    await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: userMessage,
+    });
+  }
+}
+
+/**
+ * Transcribe using Whisper with an extracted audio file.
+ * Extracts the audio track from the video, uploads it to S3, then sends to Whisper.
+ */
+async function transcribeWithExtractedAudio(
+  file: { id: number; url: string; fileKey: string; mimeType?: string | null; fileSize?: number | null },
+  transcriptId: number,
+  origin?: string
+) {
+  let audioPath: string | null = null;
+
+  try {
+    // Phase 1: Extract audio
+    await updateTranscriptionPhase(transcriptId, "extracting_audio", "whisper_extracted");
+
+    const accessibleUrl = await resolveFileUrl(file, { origin });
+    console.log(`[Transcription] Extracting audio from file ${file.id} (${((file.fileSize || 0) / 1024 / 1024).toFixed(1)}MB)`);
+
+    const extractResult = await extractAudioFromVideo(accessibleUrl, {
+      timeoutSeconds: 180, // 3 minutes max for extraction
+      onProgress: (msg) => console.log(`[Transcription] File ${file.id}: ${msg}`),
+    });
+
+    if ("error" in extractResult) {
+      console.log(`[Transcription] Audio extraction failed for file ${file.id}: ${extractResult.error}`);
+      // Fall back to LLM if extraction fails
+      console.log(`[Transcription] Falling back to LLM for file ${file.id}`);
+      return await transcribeWithLLM(file, transcriptId, origin);
+    }
+
+    audioPath = extractResult.audioPath;
+    const audioSizeMB = extractResult.audioSizeBytes / (1024 * 1024);
+    console.log(`[Transcription] Audio extracted: ${audioSizeMB.toFixed(2)}MB (from ${((file.fileSize || 0) / 1024 / 1024).toFixed(1)}MB video)`);
+
+    // Check if extracted audio is small enough for Whisper
+    if (audioSizeMB > 16) {
+      console.log(`[Transcription] Extracted audio is ${audioSizeMB.toFixed(1)}MB (>16MB), falling back to LLM`);
+      await cleanupAudioFile(audioPath);
+      return await transcribeWithLLM(file, transcriptId, origin);
+    }
+
+    // Phase 2: Upload extracted audio to S3 for Whisper
+    await updateTranscriptionPhase(transcriptId, "uploading_audio");
+    const audioBuffer = await fs.readFile(audioPath);
+    const audioKey = `temp-audio/${file.id}-${Date.now()}.mp3`;
+    const { url: audioUrl } = await storagePut(audioKey, audioBuffer, "audio/mpeg");
+    console.log(`[Transcription] Uploaded extracted audio to: ${audioUrl.substring(0, 80)}...`);
+
+    // Phase 3: Transcribe with Whisper
+    await updateTranscriptionPhase(transcriptId, "transcribing_whisper");
+    const result = await transcribeAudio({
+      audioUrl,
+      language: "en",
+    });
+
+    // Clean up temp audio file
+    await cleanupAudioFile(audioPath);
+    audioPath = null;
+
+    // Check for Whisper errors
+    if ("error" in result) {
+      if (result.code === "FILE_TOO_LARGE") {
+        console.log(`[Transcription] Whisper still rejected extracted audio (${result.details}), falling back to LLM`);
+        return await transcribeWithLLM(file, transcriptId, origin);
+      }
+      const userMessage = getTranscriptionErrorMessage(result.error, result.code);
+      await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: userMessage,
+      });
+    }
+
+    // Phase 4: Process results
+    await updateTranscriptionPhase(transcriptId, "processing_results");
+
+    const wordTimestamps = result.segments.flatMap((segment) => {
+      const words = segment.text.trim().split(/\s+/);
+      const duration = segment.end - segment.start;
+      const timePerWord = duration / words.length;
+      return words.map((word, index) => ({
+        word,
+        start: segment.start + index * timePerWord,
+        end: segment.start + (index + 1) * timePerWord,
+      }));
+    });
+
+    const segments = result.segments.map((seg) => ({
+      text: seg.text,
+      start: seg.start,
+      end: seg.end,
+    }));
+
+    await db.updateVideoTranscript(transcriptId, {
+      fullText: result.text,
+      wordTimestamps,
+      segments,
+      language: result.language,
+      confidence: 93, // Slightly lower than direct Whisper due to audio re-encoding
+      status: "completed",
+      transcriptionPhase: "completed",
+      transcriptionMethod: "whisper_extracted",
+    });
+
+    return {
+      transcriptId,
+      status: "completed",
+      transcript: {
+        id: transcriptId,
+        fullText: result.text,
+        segments,
+        language: result.language,
+      },
+    };
+  } catch (error: any) {
+    // Clean up temp file on error
+    if (audioPath) {
+      await cleanupAudioFile(audioPath);
+    }
+
+    if (error instanceof TRPCError) {
+      throw error;
+    }
     const userMessage = getTranscriptionErrorMessage(error.message);
     await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
     throw new TRPCError({
@@ -245,73 +408,90 @@ export const videoTranscriptionRouter = router({
         const accessibleUrl = await resolveFileUrl(file, { origin });
         console.log(`[Transcription] Resolved URL for file ${input.fileId}: ${accessibleUrl.substring(0, 80)}...`);
 
-        // Check file size — skip Whisper entirely for files >16MB
-        const fileSizeMB = file.fileSize ? file.fileSize / (1024 * 1024) : 0;
-        if (fileSizeMB > 16) {
-          console.log(`[Transcription] File ${input.fileId} is ${fileSizeMB.toFixed(1)}MB (>16MB), skipping Whisper, using LLM directly`);
-          return await transcribeWithLLM(file, transcriptId, origin);
-        }
+        // Determine transcription strategy based on file size
+        const strategy = getTranscriptionStrategy(file.fileSize);
+        console.log(`[Transcription] Strategy for file ${input.fileId}: ${strategy.method} — ${strategy.reason}`);
 
-        // Try Whisper first (for files <=16MB)
-        const result = await transcribeAudio({
-          audioUrl: accessibleUrl,
-          language: "en",
-        });
+        switch (strategy.method) {
+          case "whisper_direct": {
+            // Small files: use Whisper directly
+            await updateTranscriptionPhase(transcriptId, "transcribing_whisper", "whisper");
 
-        // Check for transcription errors
-        if ("error" in result) {
-          // If file is too large for Whisper, fall back to LLM transcription
-          if (result.code === "FILE_TOO_LARGE") {
-            console.log(`[Transcription] File ${input.fileId} too large for Whisper (${result.details}), falling back to LLM transcription`);
+            const result = await transcribeAudio({
+              audioUrl: accessibleUrl,
+              language: "en",
+            });
+
+            // Check for transcription errors
+            if ("error" in result) {
+              if (result.code === "FILE_TOO_LARGE") {
+                console.log(`[Transcription] File ${input.fileId} too large for Whisper (${result.details}), trying audio extraction`);
+                return await transcribeWithExtractedAudio(file, transcriptId, origin);
+              }
+              const userMessage = getTranscriptionErrorMessage(result.error, result.code);
+              await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
+              throw new TRPCError({
+                code: "INTERNAL_SERVER_ERROR",
+                message: userMessage,
+              });
+            }
+
+            // Process Whisper results
+            await updateTranscriptionPhase(transcriptId, "processing_results");
+
+            const wordTimestamps = result.segments.flatMap((segment) => {
+              const words = segment.text.trim().split(/\s+/);
+              const duration = segment.end - segment.start;
+              const timePerWord = duration / words.length;
+              return words.map((word, index) => ({
+                word,
+                start: segment.start + index * timePerWord,
+                end: segment.start + (index + 1) * timePerWord,
+              }));
+            });
+
+            const segments = result.segments.map((seg) => ({
+              text: seg.text,
+              start: seg.start,
+              end: seg.end,
+            }));
+
+            await db.updateVideoTranscript(transcriptId, {
+              fullText: result.text,
+              wordTimestamps,
+              segments,
+              language: result.language,
+              confidence: 95,
+              status: "completed",
+              transcriptionPhase: "completed",
+              transcriptionMethod: "whisper",
+            });
+
+            return {
+              transcriptId,
+              status: "completed",
+              transcript: {
+                id: transcriptId,
+                fullText: result.text,
+                segments,
+                language: result.language,
+              },
+            };
+          }
+
+          case "extract_then_whisper": {
+            // Medium files (16-100MB): extract audio, then try Whisper
+            return await transcribeWithExtractedAudio(file, transcriptId, origin);
+          }
+
+          case "llm_direct": {
+            // Large files (>100MB): go directly to LLM
             return await transcribeWithLLM(file, transcriptId, origin);
           }
-          const userMessage = getTranscriptionErrorMessage(result.error, result.code);
-          await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: userMessage,
-          });
+
+          default:
+            throw new Error(`Unknown transcription strategy: ${strategy.method}`);
         }
-
-        // Extract word-level timestamps and segments
-        const wordTimestamps = result.segments.flatMap((segment) => {
-          const words = segment.text.trim().split(/\s+/);
-          const duration = segment.end - segment.start;
-          const timePerWord = duration / words.length;
-
-          return words.map((word, index) => ({
-            word,
-            start: segment.start + index * timePerWord,
-            end: segment.start + (index + 1) * timePerWord,
-          }));
-        });
-
-        const segments = result.segments.map((seg) => ({
-          text: seg.text,
-          start: seg.start,
-          end: seg.end,
-        }));
-
-        // Update transcript with results
-        await db.updateVideoTranscript(transcriptId, {
-          fullText: result.text,
-          wordTimestamps,
-          segments,
-          language: result.language,
-          confidence: 95,
-          status: "completed",
-        });
-
-        return {
-          transcriptId,
-          status: "completed",
-          transcript: {
-            id: transcriptId,
-            fullText: result.text,
-            segments,
-            language: result.language,
-          },
-        };
       } catch (error: any) {
         // If this is already a TRPCError (from the error handling above or transcribeWithLLM),
         // re-throw it directly to avoid double-wrapping the error message

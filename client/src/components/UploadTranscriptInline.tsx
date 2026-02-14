@@ -10,11 +10,39 @@ import {
   FileIcon,
   Image as ImageIcon,
   Video,
+  Music,
+  Mic,
+  Brain,
+  CheckCircle2,
 } from "lucide-react";
 import { TranscriptWithTimestamps } from "./TranscriptWithTimestamps";
 
 interface UploadTranscriptInlineProps {
   fileId: number;
+}
+
+/**
+ * Get a human-readable label and icon for the current transcription phase.
+ */
+function getPhaseInfo(phase: string | null | undefined, method: string | null | undefined) {
+  switch (phase) {
+    case "extracting_audio":
+      return { label: "Extracting audio track...", icon: Music, color: "text-blue-400" };
+    case "uploading_audio":
+      return { label: "Uploading audio for analysis...", icon: Music, color: "text-blue-400" };
+    case "transcribing_whisper":
+      return { label: "Transcribing with Whisper AI...", icon: Mic, color: "text-emerald-400" };
+    case "transcribing_llm":
+      return { label: "Transcribing with AI vision...", icon: Brain, color: "text-purple-400" };
+    case "processing_results":
+      return { label: "Processing transcript...", icon: CheckCircle2, color: "text-amber-400" };
+    default:
+      // Fallback based on method
+      if (method === "whisper") return { label: "Transcribing with Whisper AI...", icon: Mic, color: "text-emerald-400" };
+      if (method === "llm") return { label: "Transcribing with AI vision...", icon: Brain, color: "text-purple-400" };
+      if (method === "whisper_extracted") return { label: "Extracting and transcribing audio...", icon: Music, color: "text-blue-400" };
+      return { label: "Transcribing speech...", icon: Loader2, color: "text-amber-500" };
+  }
 }
 
 export function UploadTranscriptInline({ fileId }: UploadTranscriptInlineProps) {
@@ -27,7 +55,7 @@ export function UploadTranscriptInline({ fileId }: UploadTranscriptInlineProps) 
         refetchInterval: (query) => {
           const data = query.state.data;
           if (!data) return 3000;
-          if (data.status === "processing") return 3000;
+          if (data.status === "processing") return 2000; // Poll faster during processing
           return false;
         },
       }
@@ -76,12 +104,27 @@ export function UploadTranscriptInline({ fileId }: UploadTranscriptInlineProps) 
     );
   }
 
-  // Transcript is processing
+  // Transcript is processing — show phase-specific progress
   if (transcript && transcript.status === "processing") {
+    const phase = (transcript as any).transcriptionPhase as string | null;
+    const method = (transcript as any).transcriptionMethod as string | null;
+    const phaseInfo = getPhaseInfo(phase, method);
+    const PhaseIcon = phaseInfo.icon;
+
     return (
-      <div className="mt-2 flex items-center gap-2 text-xs text-amber-500">
-        <Loader2 className="h-3 w-3 animate-spin" />
-        <span>Transcribing speech...</span>
+      <div className="mt-2 space-y-1">
+        <div className={`flex items-center gap-2 text-xs ${phaseInfo.color}`}>
+          <PhaseIcon className="h-3 w-3 animate-spin" />
+          <span>{phaseInfo.label}</span>
+        </div>
+        {/* Show estimated time based on method */}
+        {method && (
+          <div className="text-[10px] text-muted-foreground pl-5">
+            {method === "llm" && "This may take 1-3 minutes for large videos"}
+            {method === "whisper" && "Usually completes in under 30 seconds"}
+            {method === "whisper_extracted" && "Extracting audio first for better quality (~1-2 min)"}
+          </div>
+        )}
       </div>
     );
   }
@@ -95,6 +138,9 @@ export function UploadTranscriptInline({ fileId }: UploadTranscriptInlineProps) 
   const fullText = transcript.fullText || "";
   const hasSuggestions = suggestions && suggestions.length > 0;
 
+  // Show transcription method badge if available
+  const method = (transcript as any).transcriptionMethod as string | null;
+
   return (
     <div className="mt-3 space-y-2">
       {/* Transcript with timestamps and keyword highlighting */}
@@ -106,6 +152,15 @@ export function UploadTranscriptInline({ fileId }: UploadTranscriptInlineProps) 
         compact={true}
         maxVisibleSegments={3}
       />
+
+      {/* Show method badge */}
+      {method && (
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          {method === "whisper" && <><Mic className="h-2.5 w-2.5" /> Whisper AI</>}
+          {method === "whisper_extracted" && <><Music className="h-2.5 w-2.5" /> Whisper AI (extracted audio)</>}
+          {method === "llm" && <><Brain className="h-2.5 w-2.5" /> AI Vision</>}
+        </div>
+      )}
 
       {/* File Suggestions Section */}
       {suggestionsLoading && (

@@ -6675,3 +6675,17 @@ Note: The application already has extensive annotation features including voice 
 - [x] Skip Whisper entirely for files >16MB using fileSize from DB, go directly to LLM fallback
 - [x] Add stale-processing detection (>10 min auto-reset) for stuck transcripts
 - [x] Write 19 tests for large file transcription path (all passing)
+
+## Transcription Progress Indicator
+- [x] Add transcription phase tracking to video_transcripts table (phase: extracting_audio | transcribing_whisper | transcribing_llm | processing_results)
+- [x] Update transcribeVideo to write phase updates to DB during transcription
+- [x] Show "Transcribing with AI..." status in UI with phase-specific messages
+- [x] Show estimated time remaining based on file size and transcription method
+- [x] Poll for transcription status updates in the UI (2s polling during processing)
+
+## Audio Extraction for Medium Files (16-100MB)
+- [x] Add FFmpeg audio extraction function to extract audio track from video (64kbps mono MP3)
+- [x] For files 16-100MB: extract audio → if audio <16MB, use Whisper; else use LLM
+- [x] For files >100MB: skip extraction, go directly to LLM fallback
+- [x] Clean up temporary audio files after transcription
+- [x] Write 25 tests for audio extraction and transcription path selection

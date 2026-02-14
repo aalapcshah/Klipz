@@ -72,7 +72,17 @@ export function FileSuggestions({ fileId, onJumpToTimestamp, videoTitle }: FileS
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
 
   const { data: transcript, refetch: refetchTranscript } =
-    trpc.videoTranscription.getTranscript.useQuery({ fileId });
+    trpc.videoTranscription.getTranscript.useQuery(
+      { fileId },
+      {
+        refetchInterval: (query) => {
+          const data = query.state.data;
+          if (!data) return transcribing ? 2000 : false;
+          if (data.status === "processing") return 2000;
+          return false;
+        },
+      }
+    );
 
   const {
     data: suggestions,
@@ -93,9 +103,34 @@ export function FileSuggestions({ fileId, onJumpToTimestamp, videoTitle }: FileS
     onError: (error) => {
       setTranscriptionError(error.message);
       toast.error(error.message);
+      refetchTranscript();
       setTranscribing(false);
     },
   });
+
+  // Get phase-specific message for the transcription progress
+  const getTranscriptionPhaseMessage = () => {
+    if (!transcript || transcript.status !== "processing") return null;
+    const phase = (transcript as any).transcriptionPhase as string | null;
+    const method = (transcript as any).transcriptionMethod as string | null;
+    switch (phase) {
+      case "extracting_audio":
+        return { text: "Extracting audio track from video...", estimate: "~30-60 seconds" };
+      case "uploading_audio":
+        return { text: "Uploading extracted audio...", estimate: "~10 seconds" };
+      case "transcribing_whisper":
+        return { text: "Transcribing with Whisper AI...", estimate: "~15-30 seconds" };
+      case "transcribing_llm":
+        return { text: "Transcribing with AI vision...", estimate: "~1-3 minutes" };
+      case "processing_results":
+        return { text: "Processing transcript results...", estimate: "Almost done" };
+      default:
+        if (method === "whisper") return { text: "Transcribing with Whisper AI...", estimate: "~15-30 seconds" };
+        if (method === "llm") return { text: "Transcribing with AI vision...", estimate: "~1-3 minutes" };
+        if (method === "whisper_extracted") return { text: "Extracting audio for transcription...", estimate: "~1-2 minutes" };
+        return { text: "Transcribing...", estimate: "" };
+    }
+  };
 
   // Auto-retry logic for transcription failures
   const handleRetryTranscription = useCallback(() => {
@@ -268,6 +303,19 @@ export function FileSuggestions({ fileId, onJumpToTimestamp, videoTitle }: FileS
                 </>
               )}
             </Button>
+            {/* Phase-specific progress indicator */}
+            {transcribing && (() => {
+              const phaseMsg = getTranscriptionPhaseMessage();
+              if (!phaseMsg) return null;
+              return (
+                <div className="text-xs text-muted-foreground mt-2 space-y-1">
+                  <p className="text-primary font-medium">{phaseMsg.text}</p>
+                  {phaseMsg.estimate && (
+                    <p className="text-[10px]">Estimated time: {phaseMsg.estimate}</p>
+                  )}
+                </div>
+              );
+            })()}
             {transcriptionError && (
               <div className="text-sm text-red-400 mt-2">
                 <p>{transcriptionError}</p>
