@@ -521,6 +521,7 @@ export function VisualCaptionsPanel({
         icon={<Eye className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />}
         defaultOpen={true}
         bare
+        storageKey="video-detail-visual-descriptions"
         headerActions={
           <div className="flex flex-wrap gap-2">
             {captionData?.status === "completed" &&
@@ -773,6 +774,7 @@ export function VisualCaptionsPanel({
           icon={<Brain className="h-4 w-4" />}
           defaultOpen={true}
           bare
+          storageKey="video-detail-caption-timeline"
           headerActions={
             <Button
               variant="ghost"

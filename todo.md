@@ -6653,3 +6653,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Make Smart Tag Suggestions section collapsible
 - [x] Make Caption Timeline section collapsible
 - [x] Make Visual Descriptions section collapsible
+
+## Persist Collapsible Section State
+- [x] Add optional storageKey prop to CollapsibleSection component
+- [x] Persist open/closed state to localStorage when storageKey is provided
+- [x] Apply storageKey to all 7 collapsible sections across FileDetailDialog, SmartTagSuggestions, VisualCaptionsPanel

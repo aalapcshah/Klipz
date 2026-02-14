@@ -1,7 +1,21 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const STORAGE_PREFIX = "collapsible-section:";
+
+function getStoredState(key: string | undefined, fallback: boolean): boolean {
+  if (!key) return fallback;
+  try {
+    const stored = localStorage.getItem(STORAGE_PREFIX + key);
+    if (stored === "true") return true;
+    if (stored === "false") return false;
+  } catch {
+    // localStorage unavailable (SSR, private browsing quota, etc.)
+  }
+  return fallback;
+}
 
 interface CollapsibleSectionProps {
   title: React.ReactNode;
@@ -14,6 +28,8 @@ interface CollapsibleSectionProps {
   headerActions?: React.ReactNode;
   /** If true, the section border/wrapper is omitted — just the toggle header + content */
   bare?: boolean;
+  /** When provided, the open/closed state is persisted to localStorage under this key */
+  storageKey?: string;
 }
 
 export function CollapsibleSection({
@@ -25,8 +41,26 @@ export function CollapsibleSection({
   headerClassName,
   headerActions,
   bare = false,
+  storageKey,
 }: CollapsibleSectionProps) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpenRaw] = useState(() => getStoredState(storageKey, defaultOpen));
+
+  const setOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      setOpenRaw((prev) => {
+        const value = typeof next === "function" ? next(prev) : next;
+        if (storageKey) {
+          try {
+            localStorage.setItem(STORAGE_PREFIX + storageKey, String(value));
+          } catch {
+            // quota exceeded or unavailable
+          }
+        }
+        return value;
+      });
+    },
+    [storageKey],
+  );
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className={className}>

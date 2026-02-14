@@ -74,6 +74,7 @@ export function SmartTagSuggestions({
           icon={<Sparkles className="h-4 w-4 text-amber-500" />}
           defaultOpen={false}
           bare
+          storageKey="file-detail-smart-tag-suggestions"
           headerActions={
             <Button
               size="sm"

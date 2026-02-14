@@ -515,6 +515,7 @@ export function FileDetailDialog({
                       icon={<GitCompare className="h-4 w-4" />}
                       defaultOpen={false}
                       bare
+                      storageKey="file-detail-metadata-comparison"
                     >
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       {/* Original Metadata Column */}
@@ -604,6 +605,7 @@ export function FileDetailDialog({
                     defaultOpen={false}
                     className="p-4 bg-muted rounded-lg"
                     bare
+                    storageKey="file-detail-ai-analysis"
                   >
                     <Streamdown>{file.aiAnalysis}</Streamdown>
                   </CollapsibleSection>
@@ -614,6 +616,7 @@ export function FileDetailDialog({
                     title={`Detected Objects (${file.detectedObjects.length})`}
                     defaultOpen={false}
                     bare
+                    storageKey="file-detail-detected-objects"
                   >
                     <div className="flex flex-wrap gap-2">
                       {file.detectedObjects.map((obj, idx) => (
@@ -635,6 +638,7 @@ export function FileDetailDialog({
                   icon={<TagIcon className="h-4 w-4" />}
                   defaultOpen={true}
                   bare
+                  storageKey="file-detail-tags"
                   headerActions={
                     <Button
                       onClick={() => setIsAddingTag(!isAddingTag)}
