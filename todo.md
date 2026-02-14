@@ -6658,3 +6658,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add optional storageKey prop to CollapsibleSection component
 - [x] Persist open/closed state to localStorage when storageKey is provided
 - [x] Apply storageKey to all 7 collapsible sections across FileDetailDialog, SmartTagSuggestions, VisualCaptionsPanel
+
+## Tab-Based Tool Switching & More Collapsible Sections
+- [x] Convert 8 tool sections (Chapters, Loop, Highlights, Export, Speed, Effects, Audio, Green Screen) to tab-based switching
+- [x] Remove IntersectionObserver scroll-based highlighting, replaced with click-based tab selection
+- [x] Update keyboard shortcuts 1-8 to toggle tool panels
+- [x] Update mobile floating action buttons to use tab switching
+- [x] Make File Information + Title/Description collapsible (default collapsed)
+- [x] Make Version History collapsible (default collapsed)
+- [x] Fix Video Effects collapsible button (chevron stopPropagation was preventing toggle)

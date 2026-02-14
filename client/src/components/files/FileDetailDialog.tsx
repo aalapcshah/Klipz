@@ -345,8 +345,12 @@ export function FileDetailDialog({
               })()}
 
               {/* File Metadata */}
+              <CollapsibleSection
+                title="File Information"
+                defaultOpen={false}
+                storageKey="file-detail-file-info"
+              >
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                <h3 className="font-semibold text-sm mb-3">File Information</h3>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <span className="text-muted-foreground">Filename:</span>
@@ -471,6 +475,7 @@ export function FileDetailDialog({
                   </div>
                 )}
               </div>
+              </CollapsibleSection>
 
               {/* AI Enrichment */}
               <div className="space-y-3">
@@ -903,7 +908,12 @@ export function FileDetailDialog({
 
               
               {/* Version History Section */}
-              <div className="mt-8 border-t pt-6">
+              <CollapsibleSection
+                title="Version History"
+                defaultOpen={false}
+                storageKey="file-detail-version-history"
+              >
+              <div className="mt-4">
                 <FileVersionHistory 
                   fileId={fileId!} 
                   onVersionRestored={() => {
@@ -911,6 +921,7 @@ export function FileDetailDialog({
                   }}
                 />
               </div>
+              </CollapsibleSection>
             </div>
             </div>
           </>

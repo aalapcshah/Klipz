@@ -384,7 +384,7 @@ export function VideoEffectsLibrary({
               <RotateCcw className="h-3 w-3 mr-1" />
               Reset
             </Button>
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); setIsSectionOpen(!isSectionOpen); }}>
             {isSectionOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </Button>
         </div>

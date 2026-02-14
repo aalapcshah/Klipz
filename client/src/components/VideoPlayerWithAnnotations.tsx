@@ -83,24 +83,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
     { id: 'green-screen-section', icon: Paintbrush, label: 'Green Screen', color: 'text-emerald-400', key: '8' },
   ], []);
 
-  // IntersectionObserver for active section highlighting
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setActiveToolSection(entry.target.id);
-          }
-        }
-      },
-      { threshold: 0.3, rootMargin: '-80px 0px -50% 0px' }
-    );
-    toolSections.forEach(({ id }) => {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
-    });
-    return () => observer.disconnect();
-  }, [toolSections]);
+  // Tab-based switching is click-driven, no IntersectionObserver needed
 
   // Keyboard shortcuts (1-8) to jump to tool sections
   useEffect(() => {
@@ -113,7 +96,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
         const section = toolSections[parseInt(key) - 1];
         if (section) {
           e.preventDefault();
-          document.getElementById(section.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setActiveToolSection(prev => prev === section.id ? null : section.id);
         }
       }
     };
@@ -1192,7 +1175,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
                   className="h-12 w-12 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700 text-white p-0"
                   onClick={() => {
                     setShowMobileTools(false);
-                    document.getElementById('loop-region-section')?.scrollIntoView({ behavior: 'smooth' });
+                    setActiveToolSection(prev => prev === 'loop-region-section' ? null : 'loop-region-section');
                   }}
                   title="Loop Region"
                 >
@@ -1203,7 +1186,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
                   className="h-12 w-12 rounded-full shadow-lg bg-amber-600 hover:bg-amber-700 text-white p-0"
                   onClick={() => {
                     setShowMobileTools(false);
-                    document.getElementById('auto-highlight-section')?.scrollIntoView({ behavior: 'smooth' });
+                    setActiveToolSection(prev => prev === 'auto-highlight-section' ? null : 'auto-highlight-section');
                   }}
                   title="Auto Highlights"
                 >
@@ -1214,7 +1197,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
                   className="h-12 w-12 rounded-full shadow-lg bg-teal-600 hover:bg-teal-700 text-white p-0"
                   onClick={() => {
                     setShowMobileTools(false);
-                    document.getElementById('export-section')?.scrollIntoView({ behavior: 'smooth' });
+                    setActiveToolSection(prev => prev === 'export-section' ? null : 'export-section');
                   }}
                   title="Export"
                 >
@@ -1225,7 +1208,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
                   className="h-12 w-12 rounded-full shadow-lg bg-orange-600 hover:bg-orange-700 text-white p-0"
                   onClick={() => {
                     setShowMobileTools(false);
-                    document.getElementById('speed-ramping-section')?.scrollIntoView({ behavior: 'smooth' });
+                    setActiveToolSection(prev => prev === 'speed-ramping-section' ? null : 'speed-ramping-section');
                   }}
                   title="Speed Ramping"
                 >
@@ -1236,7 +1219,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
                   className="h-12 w-12 rounded-full shadow-lg bg-purple-600 hover:bg-purple-700 text-white p-0"
                   onClick={() => {
                     setShowMobileTools(false);
-                    document.getElementById('effects-section')?.scrollIntoView({ behavior: 'smooth' });
+                    setActiveToolSection(prev => prev === 'effects-section' ? null : 'effects-section');
                   }}
                   title="Video Effects"
                 >
@@ -1247,7 +1230,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
                   className="h-12 w-12 rounded-full shadow-lg bg-cyan-600 hover:bg-cyan-700 text-white p-0"
                   onClick={() => {
                     setShowMobileTools(false);
-                    document.getElementById('audio-mixer-section')?.scrollIntoView({ behavior: 'smooth' });
+                    setActiveToolSection(prev => prev === 'audio-mixer-section' ? null : 'audio-mixer-section');
                   }}
                   title="Audio Mixer"
                 >
@@ -1258,7 +1241,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
                   className="h-12 w-12 rounded-full shadow-lg bg-emerald-600 hover:bg-emerald-700 text-white p-0"
                   onClick={() => {
                     setShowMobileTools(false);
-                    document.getElementById('green-screen-section')?.scrollIntoView({ behavior: 'smooth' });
+                    setActiveToolSection(prev => prev === 'green-screen-section' ? null : 'green-screen-section');
                   }}
                   title="Green Screen"
                 >
@@ -1982,7 +1965,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
                     : 'hover:bg-accent/50'
                 }`}
                 onClick={() => {
-                  document.getElementById(tool.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  setActiveToolSection(prev => prev === tool.id ? null : tool.id);
                 }}
                 title={`${tool.label} (${tool.key})`}
               >
@@ -1995,97 +1978,90 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
         </div>
       </Card>
 
-      {/* Video Chapters Section */}
-      <div id="chapters-section">
-      <VideoChapters
-        fileId={fileId}
-        currentTime={currentTime}
-        onSeek={(time) => {
-          if (videoRef.current) {
-            videoRef.current.currentTime = time;
-          }
-        }}
-      />
-      </div>
+      {/* Tool Panels — only the active one is rendered */}
+      {activeToolSection === 'chapters-section' && (
+        <VideoChapters
+          fileId={fileId}
+          currentTime={currentTime}
+          onSeek={(time) => {
+            if (videoRef.current) {
+              videoRef.current.currentTime = time;
+            }
+          }}
+        />
+      )}
 
-      {/* Video Loop Region */}
-      <div id="loop-region-section">
-      <VideoLoopRegion
-        videoRef={videoRef}
-        duration={duration}
-        currentTime={currentTime}
-        onSeek={(time) => {
-          if (videoRef.current) {
-            videoRef.current.currentTime = time;
-          }
-        }}
-      />
-      </div>
+      {activeToolSection === 'loop-region-section' && (
+        <VideoLoopRegion
+          videoRef={videoRef}
+          duration={duration}
+          currentTime={currentTime}
+          onSeek={(time) => {
+            if (videoRef.current) {
+              videoRef.current.currentTime = time;
+            }
+          }}
+        />
+      )}
 
-      {/* Auto-Highlight Detection */}
-      <div id="auto-highlight-section">
-      <AutoHighlightDetection
-        videoRef={videoRef}
-        duration={duration}
-        currentTime={currentTime}
-        onSeek={(time) => {
-          if (videoRef.current) {
-            videoRef.current.currentTime = time;
-          }
-        }}
-        onHighlightsChange={useCallback((h: Highlight[]) => setDetectedHighlights(h), [])}
-      />
-      </div>
+      {activeToolSection === 'auto-highlight-section' && (
+        <AutoHighlightDetection
+          videoRef={videoRef}
+          duration={duration}
+          currentTime={currentTime}
+          onSeek={(time) => {
+            if (videoRef.current) {
+              videoRef.current.currentTime = time;
+            }
+          }}
+          onHighlightsChange={useCallback((h: Highlight[]) => setDetectedHighlights(h), [])}
+        />
+      )}
 
-      {/* Bookmark/Chapter Export */}
-      <div id="export-section">
-      <BookmarkChapterExport
-        fileId={fileId}
-        videoTitle={`Video_${fileId}`}
-      />
-      </div>
+      {activeToolSection === 'export-section' && (
+        <BookmarkChapterExport
+          fileId={fileId}
+          videoTitle={`Video_${fileId}`}
+        />
+      )}
 
-      {/* Video Speed Ramping */}
-      <div id="speed-ramping-section">
-      <VideoSpeedRamping
-        videoRef={videoRef}
-        duration={duration}
-        currentTime={currentTime}
-        onTimeUpdate={(time: number) => {
-          if (videoRef.current) {
-            videoRef.current.currentTime = time;
-            setCurrentTime(time);
-          }
-        }}
-      />
-      </div>
+      {activeToolSection === 'speed-ramping-section' && (
+        <VideoSpeedRamping
+          videoRef={videoRef}
+          duration={duration}
+          currentTime={currentTime}
+          onTimeUpdate={(time: number) => {
+            if (videoRef.current) {
+              videoRef.current.currentTime = time;
+              setCurrentTime(time);
+            }
+          }}
+        />
+      )}
 
-      {/* Video Effects Library */}
-      <div id="effects-section">
-      <VideoEffectsLibrary
-        videoRef={videoRef}
-        onEffectsChange={(effects) => {
-        }}
-      />
-      </div>
+      {activeToolSection === 'effects-section' && (
+        <VideoEffectsLibrary
+          videoRef={videoRef}
+          onEffectsChange={(effects) => {
+          }}
+        />
+      )}
 
-      {/* Multi-Track Audio Mixer */}
-      <div id="audio-mixer-section">
-      <MultiTrackAudioMixer
-        onTracksChange={(tracks) => {
-        }}
-      />
-      </div>
+      {activeToolSection === 'audio-mixer-section' && (
+        <MultiTrackAudioMixer
+          onTracksChange={(tracks) => {
+          }}
+        />
+      )}
 
-      {/* Green Screen / Chroma Key */}
-      <div id="green-screen-section">
-      <GreenScreenChromaKey
-        videoRef={videoRef}
-        canvasRef={drawingCanvasRef}
-        onSettingsChange={(settings) => {
-        }}
-      />
-      </div>
+      {activeToolSection === 'green-screen-section' && (
+        <GreenScreenChromaKey
+          videoRef={videoRef}
+          canvasRef={drawingCanvasRef}
+          onSettingsChange={(settings) => {
+          }}
+        />
+      )}
 
       {/* File Suggestions Section */}
       <FileSuggestions
