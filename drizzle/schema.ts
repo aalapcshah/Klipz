@@ -1681,6 +1681,12 @@ export const resumableUploadSessions = mysqlTable("resumable_upload_sessions", {
   // Device tracking for cross-device resume
   deviceInfo: varchar("deviceInfo", { length: 255 }),
   
+  // Assembly progress tracking (updated during background assembly)
+  assemblyProgress: int("assemblyProgress").default(0), // Number of chunks downloaded so far
+  assemblyTotalChunks: int("assemblyTotalChunks").default(0), // Total chunks to download
+  assemblyPhase: mysqlEnum("assemblyPhase", ["idle", "downloading", "uploading", "generating_thumbnail", "complete", "failed"]).default("idle"),
+  assemblyStartedAt: timestamp("assemblyStartedAt"),
+  
   // Session status
   status: mysqlEnum("status", ["active", "paused", "finalizing", "completed", "failed", "expired"]).default("active").notNull(),
   errorMessage: text("errorMessage"),

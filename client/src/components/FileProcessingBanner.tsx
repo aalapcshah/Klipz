@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
-import { Loader2, CheckCircle2, RefreshCw, Image, HardDrive } from "lucide-react";
+import { Loader2, CheckCircle2, RefreshCw, Image, HardDrive, Upload, Sparkles } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 
 interface FileProcessingBannerProps {
@@ -12,15 +13,37 @@ interface FileProcessingBannerProps {
   showActions?: boolean;
 }
 
+/** Human-readable labels for assembly phases */
+const PHASE_LABELS: Record<string, string> = {
+  idle: "Waiting to start",
+  downloading: "Downloading chunks",
+  uploading: "Uploading to storage",
+  generating_thumbnail: "Generating thumbnail",
+  complete: "Complete",
+  failed: "Failed",
+};
+
+/** Format elapsed time as "Xm Ys" */
+function formatElapsed(startedAtMs: number | null): string {
+  if (!startedAtMs) return "";
+  const elapsed = Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = elapsed % 60;
+  if (minutes === 0) return `${seconds}s`;
+  return `${minutes}m ${seconds}s`;
+}
+
 /**
  * Shows a processing indicator when a file hasn't been fully assembled
  * to S3 after a chunked upload. The file is still accessible via streaming
  * URL, but assembly to S3 enables faster access and thumbnails.
  * 
+ * Displays real-time progress: phase, chunk count, percentage, and elapsed time.
  * Also provides "Retry Assembly" and "Generate Thumbnail" actions.
  */
 export function FileProcessingBanner({ fileId, onReady, showActions = true }: FileProcessingBannerProps) {
   const [wasStreaming, setWasStreaming] = useState(false);
+  const [elapsedTick, setElapsedTick] = useState(0);
 
   const { data, isLoading, refetch } = trpc.files.checkFileReady.useQuery(
     { fileId },
@@ -29,17 +52,23 @@ export function FileProcessingBanner({ fileId, onReady, showActions = true }: Fi
         const result = query.state.data;
         if (!result || result.assembled) return false;
         // Poll more frequently when assembly is in progress
-        if (result.assembling) return 10000; // 10s during active assembly
+        if (result.assembling) return 5000; // 5s during active assembly
         return 20000; // 20s when idle/waiting
       },
-      staleTime: 5000,
+      staleTime: 3000,
     }
   );
+
+  // Tick every second to update elapsed time display
+  useEffect(() => {
+    if (!data?.assembling) return;
+    const timer = setInterval(() => setElapsedTick(t => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, [data?.assembling]);
 
   const retryAssembly = trpc.files.retryAssembly.useMutation({
     onSuccess: (result) => {
       toast.success("Assembly Triggered", { description: result.message });
-      // Start polling more frequently
       setTimeout(() => refetch(), 3000);
     },
     onError: (error) => {
@@ -66,38 +95,84 @@ export function FileProcessingBanner({ fileId, onReady, showActions = true }: Fi
     }
   }, [data, wasStreaming, onReady]);
 
+  // Compute elapsed time string (re-computed on each tick)
+  const elapsed = useMemo(() => {
+    void elapsedTick; // dependency for re-computation
+    return formatElapsed(data?.assemblyStartedAt ?? null);
+  }, [data?.assemblyStartedAt, elapsedTick]);
+
   if (isLoading) return null;
 
   // File is accessible via streaming but not yet assembled to S3
   if (data && !data.assembled && data.status === "streaming") {
     const isAssembling = data.assembling;
     const sizeMB = data.fileSizeMB;
+    const phase = data.assemblyPhase ?? "idle";
+    const progress = data.assemblyProgress ?? 0;
+    const totalChunks = data.assemblyTotalChunks ?? 0;
+    const progressPct = data.assemblyProgressPct ?? 0;
+
+    // Choose icon based on phase
+    const PhaseIcon = phase === "uploading" ? Upload
+      : phase === "generating_thumbnail" ? Sparkles
+      : isAssembling ? Loader2
+      : HardDrive;
 
     return (
       <Alert className="border-amber-500/30 bg-amber-500/10 mb-4">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
-            {isAssembling ? (
-              <Loader2 className="h-5 w-5 animate-spin text-amber-500 flex-shrink-0" />
-            ) : (
-              <HardDrive className="h-5 w-5 text-amber-500 flex-shrink-0" />
-            )}
-            <AlertDescription className="text-amber-200">
+            <PhaseIcon className={`h-5 w-5 text-amber-500 flex-shrink-0 ${isAssembling ? "animate-spin" : ""}`} />
+            <AlertDescription className="text-amber-200 flex-1">
               {isAssembling ? (
                 <>
-                  <span className="font-medium">Assembly in progress{sizeMB ? ` (${sizeMB}MB)` : ""}.</span>{" "}
-                  Your file is being assembled to permanent storage. This may take several minutes for large files.
-                  AI features are still available via the streaming URL.
+                  <span className="font-medium">
+                    {PHASE_LABELS[phase] || "Processing"}{sizeMB ? ` (${sizeMB}MB)` : ""}
+                  </span>
+                  {phase === "downloading" && totalChunks > 0 && (
+                    <span className="text-amber-300/80">
+                      {" "}— {progress}/{totalChunks} chunks ({progressPct}%)
+                    </span>
+                  )}
+                  {phase === "uploading" && (
+                    <span className="text-amber-300/80"> — Uploading assembled file to permanent storage</span>
+                  )}
+                  {phase === "generating_thumbnail" && (
+                    <span className="text-amber-300/80"> — Almost done!</span>
+                  )}
+                  {elapsed && (
+                    <span className="text-amber-300/60 text-xs ml-2">({elapsed} elapsed)</span>
+                  )}
                 </>
               ) : (
                 <>
                   <span className="font-medium">File needs assembly{sizeMB ? ` (${sizeMB}MB)` : ""}.</span>{" "}
-                  Your file is accessible but hasn't been assembled to permanent storage yet.
-                  Click "Retry Assembly" to start the process. AI features are available via the streaming URL.
+                  {phase === "failed" ? (
+                    <span className="text-red-300">Previous assembly attempt failed. Click "Retry Assembly" to try again.</span>
+                  ) : (
+                    <span>Your file is accessible but hasn't been assembled to permanent storage yet. Click "Retry Assembly" to start.</span>
+                  )}
                 </>
               )}
             </AlertDescription>
           </div>
+
+          {/* Progress bar during downloading phase */}
+          {isAssembling && phase === "downloading" && totalChunks > 0 && (
+            <div className="ml-8 mr-4">
+              <Progress value={progressPct} className="h-1.5 bg-amber-500/20" />
+            </div>
+          )}
+
+          {/* Indeterminate progress for uploading/thumbnail phases */}
+          {isAssembling && (phase === "uploading" || phase === "generating_thumbnail") && (
+            <div className="ml-8 mr-4">
+              <div className="h-1.5 bg-amber-500/20 rounded-full overflow-hidden">
+                <div className="h-full bg-amber-500/60 rounded-full animate-pulse" style={{ width: "100%" }} />
+              </div>
+            </div>
+          )}
+
           {showActions && (
             <div className="flex items-center gap-2 ml-8">
               <Button

@@ -6631,3 +6631,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add progress tracking for assembly of large files (speed, elapsed time, chunk progress)
 - [x] Improve error handling and logging for assembly failures (chunk retry 3x, upload retry 2x)
 - [x] Write tests for the new streaming assembly approach (21 tests passing)
+
+## Assembly Progress Tracking in UI
+- [x] Add assembly progress fields to resumableUploadSessions table (assemblyProgress, assemblyTotalChunks, assemblyPhase, assemblyStartedAt)
+- [x] Update backgroundAssembly to write chunk progress to DB every 5 chunks during assembly
+- [x] Update checkFileReady procedure to return progress data (percentage, chunks done/total, phase, startedAt)
+- [x] Update FileProcessingBanner to show progress bar with chunk count, phase labels, and elapsed time
+- [x] Write tests for progress tracking (22 tests passing)

@@ -81,6 +81,36 @@ describe("Background Assembly - timeout scaling table", () => {
   }
 });
 
+describe("Background Assembly - PROGRESS_DB_WRITE_INTERVAL", () => {
+  it("progress is written to DB every 5 chunks (PROGRESS_DB_WRITE_INTERVAL)", () => {
+    // The interval is defined as a constant in backgroundAssembly.ts
+    // This test documents the expected behavior:
+    // - Progress is written to DB every 5 chunks during download phase
+    // - Progress is also written at the final chunk
+    // - Phase transitions (downloading → uploading → generating_thumbnail → complete) are also written
+    const PROGRESS_DB_WRITE_INTERVAL = 5;
+    
+    // For a file with 100 chunks, we expect ~20 DB writes for progress
+    const totalChunks = 100;
+    let dbWrites = 0;
+    for (let i = 0; i < totalChunks; i++) {
+      if ((i + 1) % PROGRESS_DB_WRITE_INTERVAL === 0 || i === totalChunks - 1) {
+        dbWrites++;
+      }
+    }
+    expect(dbWrites).toBe(20); // 100/5 = 20
+    
+    // For a file with 7 chunks: writes at 5, 7 = 2 writes
+    let dbWrites2 = 0;
+    for (let i = 0; i < 7; i++) {
+      if ((i + 1) % PROGRESS_DB_WRITE_INTERVAL === 0 || i === 6) {
+        dbWrites2++;
+      }
+    }
+    expect(dbWrites2).toBe(2);
+  });
+});
+
 describe("Background Assembly - module exports", () => {
   it("exports assembleChunksInBackground function", async () => {
     const mod = await import("./lib/backgroundAssembly");

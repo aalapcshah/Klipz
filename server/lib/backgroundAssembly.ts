@@ -17,6 +17,12 @@
  *   Uses spawn (non-blocking) instead of execSync to avoid blocking the event loop
  *   Timeout scales: 10 minutes base + 5 minutes per 100MB over 200MB
  * - Files >2GB: skipped (streaming endpoint continues to serve)
+ * 
+ * Progress tracking:
+ * - assemblyPhase: idle → downloading → uploading → generating_thumbnail → complete/failed
+ * - assemblyProgress / assemblyTotalChunks: chunk-level progress during download phase
+ * - assemblyStartedAt: timestamp when assembly began
+ * - All progress is written to the resumableUploadSessions table for UI polling
  */
 
 import { getDb } from "../db";
@@ -41,6 +47,9 @@ const activeAssemblies = new Set<string>();
 const MAX_ASSEMBLY_SIZE = 2 * 1024 * 1024 * 1024;
 const MEMORY_UPLOAD_LIMIT = 200 * 1024 * 1024; // 200MB
 
+// How often to write progress to DB (every N chunks)
+const PROGRESS_DB_WRITE_INTERVAL = 5;
+
 /**
  * Calculate dynamic timeout based on file size.
  * Base: 600s (10 min) for files up to 200MB
@@ -62,6 +71,31 @@ function calculateTimeout(fileSizeBytes: number): number {
   const timeout = BASE_TIMEOUT + (excess100MBChunks * EXTRA_PER_100MB);
   
   return Math.min(timeout, MAX_TIMEOUT);
+}
+
+/**
+ * Update assembly progress in the database.
+ * Non-throwing — logs errors but doesn't interrupt assembly.
+ */
+async function updateAssemblyProgress(
+  sessionId: number,
+  update: {
+    assemblyPhase?: "idle" | "downloading" | "uploading" | "generating_thumbnail" | "complete" | "failed";
+    assemblyProgress?: number;
+    assemblyTotalChunks?: number;
+    assemblyStartedAt?: Date;
+  },
+): Promise<void> {
+  try {
+    const drizzle = await getDb();
+    if (!drizzle) return;
+    await drizzle
+      .update(resumableUploadSessions)
+      .set(update)
+      .where(eq(resumableUploadSessions.id, sessionId));
+  } catch (err) {
+    console.warn(`[BackgroundAssembly] Failed to update progress for session ${sessionId}:`, err);
+  }
 }
 
 /**
@@ -93,7 +127,6 @@ function storagePutViaCurl(
       "-H", `Authorization: Bearer ${ENV.forgeApiKey}`,
       "-F", `file=@${filePath};type=${contentType};filename=${fileName}`,
       "--max-time", String(timeoutSeconds),
-      // Show progress to stderr for large files
       "--progress-bar",
     ], {
       stdio: ["pipe", "pipe", "pipe"],
@@ -109,15 +142,13 @@ function storagePutViaCurl(
 
     curlProcess.stderr.on("data", (data: Buffer) => {
       stderr += data.toString();
-      // Log progress periodically (curl progress bar goes to stderr)
       const now = Date.now();
-      if (now - lastProgressLog > 30000) { // Every 30 seconds
+      if (now - lastProgressLog > 30000) {
         lastProgressLog = now;
         onProgress?.(`Upload in progress... (${sizeMB}MB file)`);
       }
     });
 
-    // Set a Node.js-level timeout as safety net (timeout + 60s buffer)
     const nodeTimeout = setTimeout(() => {
       curlProcess.kill("SIGTERM");
       reject(new Error(
@@ -165,6 +196,7 @@ function storagePutViaCurl(
 /**
  * Assemble chunks into a single S3 file in the background.
  * This function is fire-and-forget — it logs errors but doesn't throw.
+ * Progress is written to the database for UI polling.
  */
 export async function assembleChunksInBackground(
   sessionToken: string,
@@ -206,13 +238,20 @@ export async function assembleChunksInBackground(
       return;
     }
 
+    // Initialize progress tracking in DB
+    await updateAssemblyProgress(sessionId, {
+      assemblyPhase: "downloading",
+      assemblyProgress: 0,
+      assemblyTotalChunks: chunks.length,
+      assemblyStartedAt: new Date(),
+    });
+
     // Create a temporary file to assemble chunks
     const tmpDir = os.tmpdir();
     const tmpFile = path.join(tmpDir, `assembly-${sessionToken}-${Date.now()}`);
     const writeStream = fs.createWriteStream(tmpFile);
 
     let totalBytesWritten = 0;
-    let failedChunks = 0;
 
     try {
       // Download and write chunks one at a time to minimize memory usage
@@ -237,10 +276,8 @@ export async function assembleChunksInBackground(
               `[BackgroundAssembly] ${sessionToken}: Chunk ${i} download attempt ${attempt}/3 failed: ${chunkError.message}`
             );
             if (attempt === 3) {
-              failedChunks++;
               throw new Error(`Failed to download chunk ${i} after 3 attempts: ${chunkError.message}`);
             }
-            // Wait before retry: 2s, 5s, 10s
             await new Promise(r => setTimeout(r, attempt * 2500));
           }
         }
@@ -261,6 +298,13 @@ export async function assembleChunksInBackground(
         });
 
         totalBytesWritten += chunkBuffer.length;
+
+        // Update progress in DB periodically (every PROGRESS_DB_WRITE_INTERVAL chunks or at the end)
+        if ((i + 1) % PROGRESS_DB_WRITE_INTERVAL === 0 || i === chunks.length - 1) {
+          await updateAssemblyProgress(sessionId, {
+            assemblyProgress: i + 1,
+          });
+        }
 
         // Log progress every 20 chunks or at the end
         if ((i + 1) % 20 === 0 || i === chunks.length - 1) {
@@ -294,8 +338,12 @@ export async function assembleChunksInBackground(
           `exceeding ${MAX_ASSEMBLY_SIZE / 1024 / 1024}MB limit. Skipping S3 upload — ` +
           `streaming endpoint will continue to serve this file.`
         );
+        await updateAssemblyProgress(sessionId, { assemblyPhase: "failed" });
         return;
       }
+
+      // Phase: Uploading
+      await updateAssemblyProgress(sessionId, { assemblyPhase: "uploading" });
 
       const timestamp = Date.now();
       const randomSuffix = Math.random().toString(36).substring(2, 8);
@@ -312,18 +360,15 @@ export async function assembleChunksInBackground(
       const uploadStartTime = Date.now();
 
       if (totalBytesWritten <= MEMORY_UPLOAD_LIMIT) {
-        // Small files: use in-memory storagePut
         const assembledBuffer = fs.readFileSync(tmpFile);
         const result = await storagePut(finalFileKey, assembledBuffer, mimeType);
         finalUrl = result.url;
       } else {
-        // Large files: use non-blocking curl with dynamic timeout
         console.log(
           `[BackgroundAssembly] ${sessionToken}: Using streaming curl upload ` +
           `(${(totalBytesWritten / 1024 / 1024).toFixed(1)}MB, timeout: ${timeoutSec}s)...`
         );
         
-        // Retry the upload up to 2 times for large files
         let lastError: Error | null = null;
         for (let attempt = 1; attempt <= 2; attempt++) {
           try {
@@ -374,7 +419,6 @@ export async function assembleChunksInBackground(
       }
 
       // Update the session with the final S3 URL
-      // This makes the streaming endpoint redirect to S3 instead of streaming chunks
       await drizzle
         .update(resumableUploadSessions)
         .set({
@@ -383,8 +427,9 @@ export async function assembleChunksInBackground(
         })
         .where(eq(resumableUploadSessions.id, sessionId));
 
-      // Generate video thumbnail if this is a video file
+      // Phase: Generating thumbnail (for video files)
       if (mimeType.startsWith('video/')) {
+        await updateAssemblyProgress(sessionId, { assemblyPhase: "generating_thumbnail" });
         try {
           const thumbnail = await generateVideoThumbnail(finalUrl!, {
             userId,
@@ -409,6 +454,9 @@ export async function assembleChunksInBackground(
           console.warn(`[BackgroundAssembly] ${sessionToken}: Thumbnail generation failed (non-fatal):`, thumbError);
         }
       }
+
+      // Phase: Complete
+      await updateAssemblyProgress(sessionId, { assemblyPhase: "complete" });
 
       const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(
@@ -447,6 +495,8 @@ export async function assembleChunksInBackground(
   } catch (error) {
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.error(`[BackgroundAssembly] ❌ ${sessionToken}: Assembly failed after ${elapsed}s:`, error);
+    // Mark as failed in DB
+    await updateAssemblyProgress(sessionId, { assemblyPhase: "failed" });
     // Don't throw — this is a background job. The streaming endpoint still works as fallback.
   } finally {
     activeAssemblies.delete(sessionToken);
@@ -503,7 +553,6 @@ export async function assembleAllPendingSessions(): Promise<void> {
         .limit(1);
 
       if (fileRecord) {
-        // Check for video record
         const [videoRecord] = await drizzle
           .select({ id: videos.id })
           .from(videos)

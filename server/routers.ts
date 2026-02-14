@@ -699,14 +699,47 @@ export const appRouter = router({
         const hasThumbnail = !!file.thumbnailUrl;
 
         if (isStreaming || isChunkedKey) {
-          // Check if assembly is currently in progress
+          // Check if assembly is currently in progress (in-memory check)
           const { isAssemblyInProgress } = await import("./lib/backgroundAssembly");
           const sessionToken = file.url.replace("/api/files/stream/", "");
           const assembling = isAssemblyInProgress(sessionToken);
           const sizeMB = (file.fileSize / 1024 / 1024).toFixed(0);
 
-          // File is accessible via streaming URL but not yet assembled to S3
-          // Transcription/captioning can still proceed using the streaming URL
+          // Query assembly progress from the database
+          let assemblyProgress = 0;
+          let assemblyTotalChunks = 0;
+          let assemblyPhase: string = "idle";
+          let assemblyStartedAt: Date | null = null;
+
+          try {
+            const drizzle = await getDb();
+            if (drizzle) {
+              const [session] = await drizzle
+                .select({
+                  assemblyProgress: resumableUploadSessions.assemblyProgress,
+                  assemblyTotalChunks: resumableUploadSessions.assemblyTotalChunks,
+                  assemblyPhase: resumableUploadSessions.assemblyPhase,
+                  assemblyStartedAt: resumableUploadSessions.assemblyStartedAt,
+                })
+                .from(resumableUploadSessions)
+                .where(eq(resumableUploadSessions.sessionToken, sessionToken))
+                .limit(1);
+
+              if (session) {
+                assemblyProgress = session.assemblyProgress ?? 0;
+                assemblyTotalChunks = session.assemblyTotalChunks ?? 0;
+                assemblyPhase = session.assemblyPhase ?? "idle";
+                assemblyStartedAt = session.assemblyStartedAt;
+              }
+            }
+          } catch (err) {
+            // Non-fatal: progress data is optional
+          }
+
+          const progressPct = assemblyTotalChunks > 0
+            ? Math.round((assemblyProgress / assemblyTotalChunks) * 100)
+            : 0;
+
           return {
             ready: true,
             status: "streaming" as const,
@@ -714,6 +747,11 @@ export const appRouter = router({
             assembling,
             hasThumbnail,
             fileSizeMB: Number(sizeMB),
+            assemblyPhase,
+            assemblyProgress,
+            assemblyTotalChunks,
+            assemblyProgressPct: progressPct,
+            assemblyStartedAt: assemblyStartedAt?.getTime() ?? null,
             message: assembling
               ? `Assembly is in progress for this ${sizeMB}MB file. Please wait for it to complete.`
               : `File is accessible but hasn't been fully assembled to storage. AI features will work but may be slower for very large files.`,
