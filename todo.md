@@ -6755,3 +6755,9 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add "File Match Timeline" header with timepoint count badge
 - [x] Fix React hooks ordering (useState/useCallback before early returns)
 - [x] Add onExpandedSectionChange callback to VideoCardDetails
+
+## Matches Timeline Enhancements
+- [x] Real video frame captures at each timepoint (canvas-based thumbnail extraction)
+- [x] Click-to-seek: clicking a timepoint row seeks the video player to that timestamp
+- [x] Toggle between Timeline View and Grid View for matched files
+- [x] Grid View shows all matched files in a card grid layout (like Files/Videos pages)

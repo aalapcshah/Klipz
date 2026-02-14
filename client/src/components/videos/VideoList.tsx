@@ -806,6 +806,7 @@ export function VideoList() {
             >
               {/* Always show video element with native controls */}
               <video
+                id={`video-player-${video.id}`}
                 src={video.url}
                 className="w-full h-full object-contain"
                 controls
@@ -1099,6 +1100,13 @@ export function VideoList() {
                     videoId={video.id}
                     fileId={video.fileId}
                     videoUrl={video.url}
+                    onSeekTo={(timestamp) => {
+                      const videoEl = document.getElementById(`video-player-${video.id}`) as HTMLVideoElement | null;
+                      if (videoEl) {
+                        videoEl.currentTime = timestamp;
+                        videoEl.play().catch(() => {});
+                      }
+                    }}
                   />
                 </div>
               )}
