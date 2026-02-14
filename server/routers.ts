@@ -60,6 +60,7 @@ import { z } from "zod";
 import * as db from "./db";
 import { storagePut } from "./storage";
 import { invokeLLM } from "./_core/llm";
+import { resolveFileUrl } from "./lib/resolveFileUrl";
 import { transcribeAudio } from "./_core/voiceTranscription";
 import { nanoid } from "nanoid";
 import { exportVideoWithAnnotations, batchExportVideosWithAnnotations } from "./videoExport";
@@ -682,6 +683,30 @@ export const appRouter = router({
         return { ...file, tags, knowledgeEdges };
       }),
 
+    // Check if a file is ready for processing (assembly complete)
+    checkFileReady: protectedProcedure
+      .input(z.object({ fileId: z.number() }))
+      .query(async ({ input, ctx }) => {
+        const file = await db.getFileById(input.fileId);
+        if (!file || file.userId !== ctx.user.id) {
+          return { ready: false, status: "not_found" as const };
+        }
+
+        // Check if the file URL is still a streaming URL (assembly in progress)
+        const isStreaming = file.url.startsWith("/api/files/stream/");
+        const isChunkedKey = file.fileKey.startsWith("chunked/");
+
+        if (isStreaming || isChunkedKey) {
+          return {
+            ready: false,
+            status: "assembling" as const,
+            message: "File is still being assembled after upload. This usually takes a few minutes for large files.",
+          };
+        }
+
+        return { ready: true, status: "ready" as const };
+      }),
+
     // Upload file metadata (actual file upload happens client-side to S3)
     create: protectedProcedure
       .input(
@@ -1113,28 +1138,35 @@ export const appRouter = router({
         await db.updateFile(input.id, { enrichmentStatus: "processing" });
         
         try {
-          // Call AI to analyze the file
+          // Get the origin from the request for URL resolution
+          const origin = ctx.req.headers.origin || (ctx.req.headers.host ? `${ctx.req.protocol || 'https'}://${ctx.req.headers.host}` : undefined);
+
+          // Resolve the file URL to a publicly accessible URL
+          const accessibleUrl = await resolveFileUrl(file, { origin });
+          console.log(`[Enrich] Resolved URL for file ${input.id}: ${accessibleUrl.substring(0, 80)}...`);
+
+          // Call AI to analyze the file with actual content
           let aiAnalysis = "";
           
-          // Only analyze images with vision API
           if (file.mimeType.startsWith("image/")) {
+            // Analyze images with vision API using the actual image
             const response = await invokeLLM({
               messages: [
                 {
                   role: "system",
-                  content: "You are an AI assistant that analyzes media files and extracts metadata. Provide detailed descriptions, identify objects, and extract any visible text.",
+                  content: "You are an expert AI assistant that performs deep visual analysis of images. Examine the image carefully and provide: 1) A detailed description of what you see, 2) All objects, people, text, and elements visible, 3) Colors, composition, and style, 4) Any text visible in the image (OCR), 5) Context and likely purpose of the image. Be thorough and specific — do NOT just guess from the filename.",
                 },
                 {
                   role: "user",
                   content: [
                     {
                       type: "text",
-                      text: `Analyze this file: ${file.filename}. User description: ${file.description || "None"}. Voice transcript: ${file.voiceTranscript || "None"}`,
+                      text: `Perform a deep analysis of this image. Filename: ${file.filename}. User description: ${file.description || "None"}. Voice transcript: ${file.voiceTranscript || "None"}. Analyze the ACTUAL visual content, not just the filename.`,
                     },
                     {
                       type: "image_url",
                       image_url: {
-                        url: file.url,
+                        url: accessibleUrl,
                       },
                     },
                   ],
@@ -1143,17 +1175,73 @@ export const appRouter = router({
             });
             const content = response.choices[0]?.message?.content;
             aiAnalysis = typeof content === 'string' ? content : "";
-          } else {
-            // For non-images, use text-based analysis
+          } else if (file.mimeType.startsWith("video/")) {
+            // Analyze videos with vision API using the actual video file
             const response = await invokeLLM({
               messages: [
                 {
                   role: "system",
-                  content: "You are an AI assistant that analyzes media files and extracts metadata. Provide detailed descriptions and identify key topics.",
+                  content: "You are an expert AI assistant that performs deep visual and audio analysis of videos. Watch the video carefully and provide: 1) A detailed description of what happens in the video, 2) Key scenes and visual elements, 3) Any spoken words or audio content, 4) People, objects, and locations visible, 5) Text overlays or on-screen text, 6) The overall topic, purpose, and context of the video. Be thorough and specific — do NOT just guess from the filename.",
                 },
                 {
                   role: "user",
-                  content: `Analyze this file: ${file.filename}. Type: ${file.mimeType}. User description: ${file.description || "None"}. Voice transcript: ${file.voiceTranscript || "None"}`,
+                  content: [
+                    {
+                      type: "file_url" as const,
+                      file_url: {
+                        url: accessibleUrl,
+                        mime_type: (file.mimeType || "video/mp4") as any,
+                      },
+                    },
+                    {
+                      type: "text" as const,
+                      text: `Perform a deep analysis of this video. Filename: ${file.filename}. User description: ${file.description || "None"}. Voice transcript: ${file.voiceTranscript || "None"}. Analyze the ACTUAL video content — watch it carefully and describe what you see and hear. Do NOT just guess from the filename.`,
+                    },
+                  ],
+                },
+              ],
+            });
+            const content = response.choices[0]?.message?.content;
+            aiAnalysis = typeof content === 'string' ? content : "";
+          } else if (file.mimeType.startsWith("audio/")) {
+            // Analyze audio files with the LLM
+            const response = await invokeLLM({
+              messages: [
+                {
+                  role: "system",
+                  content: "You are an expert AI assistant that performs deep analysis of audio files. Listen carefully and provide: 1) A detailed description of the audio content, 2) Any spoken words (transcription), 3) Music, sound effects, or ambient sounds, 4) The overall topic, purpose, and context. Be thorough and specific.",
+                },
+                {
+                  role: "user",
+                  content: [
+                    {
+                      type: "file_url" as const,
+                      file_url: {
+                        url: accessibleUrl,
+                        mime_type: (file.mimeType || "audio/mpeg") as any,
+                      },
+                    },
+                    {
+                      type: "text" as const,
+                      text: `Perform a deep analysis of this audio file. Filename: ${file.filename}. User description: ${file.description || "None"}. Analyze the ACTUAL audio content. Do NOT just guess from the filename.`,
+                    },
+                  ],
+                },
+              ],
+            });
+            const content = response.choices[0]?.message?.content;
+            aiAnalysis = typeof content === 'string' ? content : "";
+          } else {
+            // For other file types, use text-based analysis with whatever context we have
+            const response = await invokeLLM({
+              messages: [
+                {
+                  role: "system",
+                  content: "You are an AI assistant that analyzes files and extracts metadata. Provide detailed descriptions and identify key topics based on available information.",
+                },
+                {
+                  role: "user",
+                  content: `Analyze this file: ${file.filename}. Type: ${file.mimeType}. User description: ${file.description || "None"}. Voice transcript: ${file.voiceTranscript || "None"}. Provide a detailed analysis based on available context.`,
                 },
               ],
             });
@@ -3074,33 +3162,40 @@ For each suggestion, provide:
         let successCount = 0;
         let failedCount = 0;
         
-        // Process each file with AI enrichment
+        // Get the origin from the request for URL resolution
+        const origin = ctx.req.headers.origin || (ctx.req.headers.host ? `${ctx.req.protocol || 'https'}://${ctx.req.headers.host}` : undefined);
+
+        // Process each file with AI enrichment using actual file content
         for (const file of validFiles) {
           try {
             // Update status to processing
             await db.updateFile(file.id, { enrichmentStatus: "processing" });
             
+            // Resolve the file URL to a publicly accessible URL
+            const accessibleUrl = await resolveFileUrl(file, { origin });
+            console.log(`[BatchEnrich] Resolved URL for file ${file.id}: ${accessibleUrl.substring(0, 80)}...`);
+            
             let aiAnalysis = "";
             
-            // Only analyze images with vision API
             if (file.mimeType.startsWith("image/")) {
+              // Deep analysis of images with actual image content
               const response = await invokeLLM({
                 messages: [
                   {
                     role: "system",
-                    content: "You are an AI assistant that analyzes media files and extracts metadata. Provide detailed descriptions, identify objects, and extract any visible text.",
+                    content: "You are an expert AI assistant that performs deep visual analysis of images. Examine the image carefully and provide: 1) A detailed description of what you see, 2) All objects, people, text, and elements visible, 3) Colors, composition, and style, 4) Any text visible in the image (OCR), 5) Context and likely purpose of the image. Be thorough and specific \u2014 do NOT just guess from the filename.",
                   },
                   {
                     role: "user",
                     content: [
                       {
                         type: "text",
-                        text: `Analyze this file: ${file.filename}. User description: ${file.description || "None"}. Voice transcript: ${file.voiceTranscript || "None"}`,
+                        text: `Perform a deep analysis of this image. Filename: ${file.filename}. User description: ${file.description || "None"}. Analyze the ACTUAL visual content.`,
                       },
                       {
                         type: "image_url",
                         image_url: {
-                          url: file.url,
+                          url: accessibleUrl,
                         },
                       },
                     ],
@@ -3109,13 +3204,69 @@ For each suggestion, provide:
               });
               const content = response.choices[0]?.message?.content;
               aiAnalysis = typeof content === 'string' ? content : "";
-            } else {
-              // For non-images, use text-based analysis
+            } else if (file.mimeType.startsWith("video/")) {
+              // Deep analysis of videos with actual video content
               const response = await invokeLLM({
                 messages: [
                   {
                     role: "system",
-                    content: "You are an AI assistant that analyzes media files and extracts metadata. Provide detailed descriptions and identify key topics.",
+                    content: "You are an expert AI assistant that performs deep visual and audio analysis of videos. Watch the video carefully and provide: 1) A detailed description of what happens, 2) Key scenes and visual elements, 3) Any spoken words or audio content, 4) People, objects, and locations visible, 5) The overall topic and context. Be thorough \u2014 do NOT just guess from the filename.",
+                  },
+                  {
+                    role: "user",
+                    content: [
+                      {
+                        type: "file_url" as const,
+                        file_url: {
+                          url: accessibleUrl,
+                          mime_type: (file.mimeType || "video/mp4") as any,
+                        },
+                      },
+                      {
+                        type: "text" as const,
+                        text: `Perform a deep analysis of this video. Filename: ${file.filename}. Analyze the ACTUAL video content. Do NOT just guess from the filename.`,
+                      },
+                    ],
+                  },
+                ],
+              });
+              const content = response.choices[0]?.message?.content;
+              aiAnalysis = typeof content === 'string' ? content : "";
+            } else if (file.mimeType.startsWith("audio/")) {
+              // Deep analysis of audio with actual audio content
+              const response = await invokeLLM({
+                messages: [
+                  {
+                    role: "system",
+                    content: "You are an expert AI assistant that performs deep analysis of audio files. Listen carefully and provide a detailed description of the audio content.",
+                  },
+                  {
+                    role: "user",
+                    content: [
+                      {
+                        type: "file_url" as const,
+                        file_url: {
+                          url: accessibleUrl,
+                          mime_type: (file.mimeType || "audio/mpeg") as any,
+                        },
+                      },
+                      {
+                        type: "text" as const,
+                        text: `Perform a deep analysis of this audio. Filename: ${file.filename}. Analyze the ACTUAL audio content.`,
+                      },
+                    ],
+                  },
+                ],
+              });
+              const content = response.choices[0]?.message?.content;
+              aiAnalysis = typeof content === 'string' ? content : "";
+            } else {
+              // For other file types, use text-based analysis
+              const response = await invokeLLM({
+                messages: [
+                  {
+                    role: "system",
+                    content: "You are an AI assistant that analyzes files and extracts metadata. Provide detailed descriptions and identify key topics.",
                   },
                   {
                     role: "user",

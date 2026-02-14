@@ -2,12 +2,17 @@ import { getDb } from "../db";
 import { files, enrichmentJobs } from "../../drizzle/schema";
 import { eq, and, inArray, sql, isNull, or } from "drizzle-orm";
 import { invokeLLM } from "./llm";
+import { resolveFileUrl } from "../lib/resolveFileUrl";
 
 const BATCH_SIZE = 5; // Process 5 files at a time
 const MAX_RETRIES = 3;
 
 /**
- * Enrich a single file with AI-generated metadata
+ * Enrich a single file with AI-generated metadata using deep content analysis.
+ * For images: uses vision API to analyze actual visual content
+ * For videos: uses file_url to analyze actual video content
+ * For audio: uses file_url to analyze actual audio content
+ * Falls back to text-based analysis only for unsupported file types.
  */
 async function enrichSingleFile(fileId: number, userId: number): Promise<{ success: boolean; error?: string }> {
   try {
@@ -29,44 +34,128 @@ async function enrichSingleFile(fileId: number, userId: number): Promise<{ succe
       .set({ enrichmentStatus: "processing" })
       .where(eq(files.id, fileId));
 
-    // Call LLM for enrichment
-    const prompt = `Analyze this file and provide a detailed description:
-    - Filename: ${file.filename}
-    - Type: ${file.mimeType}
-    - Current title: ${file.title || "None"}
-    - Current description: ${file.description || "None"}
-    
-    Provide:
-    1. A concise title (max 100 chars)
-    2. A detailed description (2-3 sentences)
-    3. Up to 10 relevant keywords/tags
-    
-    Format your response as JSON:
-    {
-      "title": "...",
-      "description": "...",
-      "keywords": ["...", "..."]
-    }`;
-
-    const response = await invokeLLM({
-      messages: [
-        { role: "system", content: "You are a helpful assistant that analyzes files and provides metadata." },
-        { role: "user", content: prompt },
-      ],
-    });
-
-    const messageContent = response.choices[0]?.message?.content;
-    const content = typeof messageContent === 'string' ? messageContent : '';
-    
-    // Parse the response
-    let enrichmentData: { title?: string; description?: string; keywords?: string[] } = {};
+    // Resolve the file URL to a publicly accessible URL
+    let accessibleUrl: string;
     try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      accessibleUrl = await resolveFileUrl(file);
+      console.log(`[BackgroundEnrichment] Resolved URL for file ${fileId}: ${accessibleUrl.substring(0, 80)}...`);
+    } catch (urlError) {
+      console.error(`[BackgroundEnrichment] Failed to resolve URL for file ${fileId}:`, urlError);
+      // Fall back to the raw URL
+      accessibleUrl = file.url;
+    }
+
+    let aiAnalysis = "";
+    let enrichmentData: { title?: string; description?: string; keywords?: string[] } = {};
+
+    const jsonResponseInstruction = `\n\nIMPORTANT: Format your response as JSON:\n{\n  "title": "A concise title (max 100 chars)",\n  "description": "A detailed 2-3 sentence description based on your analysis of the ACTUAL content",\n  "keywords": ["keyword1", "keyword2", ...up to 10 relevant keywords]\n}`;
+
+    if (file.mimeType.startsWith("image/")) {
+      // Deep analysis of images with actual image content
+      const response = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert AI assistant that performs deep visual analysis of images. Examine the image carefully and describe what you actually see. Do NOT just guess from the filename.",
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "image_url",
+                image_url: {
+                  url: accessibleUrl,
+                },
+              },
+              {
+                type: "text",
+                text: `Analyze this image deeply. Filename: ${file.filename}. Describe what you ACTUALLY see in the image — objects, people, text, colors, composition, context, and purpose. Do NOT just guess from the filename.${jsonResponseInstruction}`,
+              },
+            ],
+          },
+        ],
+      });
+      const content = response.choices[0]?.message?.content;
+      aiAnalysis = typeof content === 'string' ? content : '';
+    } else if (file.mimeType.startsWith("video/")) {
+      // Deep analysis of videos with actual video content
+      const response = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert AI assistant that performs deep visual and audio analysis of videos. Watch the video carefully and describe what you actually see and hear. Do NOT just guess from the filename.",
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "file_url" as const,
+                file_url: {
+                  url: accessibleUrl,
+                  mime_type: (file.mimeType || "video/mp4") as any,
+                },
+              },
+              {
+                type: "text" as const,
+                text: `Analyze this video deeply. Filename: ${file.filename}. Watch the video and describe what ACTUALLY happens — scenes, people, actions, spoken words, locations, objects, and the overall topic. Do NOT just guess from the filename.${jsonResponseInstruction}`,
+              },
+            ],
+          },
+        ],
+      });
+      const content = response.choices[0]?.message?.content;
+      aiAnalysis = typeof content === 'string' ? content : '';
+    } else if (file.mimeType.startsWith("audio/")) {
+      // Deep analysis of audio with actual audio content
+      const response = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert AI assistant that performs deep analysis of audio files. Listen carefully and describe what you actually hear. Do NOT just guess from the filename.",
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "file_url" as const,
+                file_url: {
+                  url: accessibleUrl,
+                  mime_type: (file.mimeType || "audio/mpeg") as any,
+                },
+              },
+              {
+                type: "text" as const,
+                text: `Analyze this audio file deeply. Filename: ${file.filename}. Listen and describe what you ACTUALLY hear — speech, music, sounds, topics discussed, and context. Do NOT just guess from the filename.${jsonResponseInstruction}`,
+              },
+            ],
+          },
+        ],
+      });
+      const content = response.choices[0]?.message?.content;
+      aiAnalysis = typeof content === 'string' ? content : '';
+    } else {
+      // For other file types, use text-based analysis with available context
+      const response = await invokeLLM({
+        messages: [
+          { role: "system", content: "You are an AI assistant that analyzes files and provides metadata based on available information." },
+          {
+            role: "user",
+            content: `Analyze this file based on available context:\n- Filename: ${file.filename}\n- Type: ${file.mimeType}\n- Current title: ${file.title || "None"}\n- Current description: ${file.description || "None"}\n\nProvide analysis based on what you can infer.${jsonResponseInstruction}`,
+          },
+        ],
+      });
+      const content = response.choices[0]?.message?.content;
+      aiAnalysis = typeof content === 'string' ? content : '';
+    }
+
+    // Parse the JSON response
+    try {
+      const jsonMatch = aiAnalysis.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         enrichmentData = JSON.parse(jsonMatch[0]);
       }
     } catch {
-      enrichmentData = { description: content };
+      enrichmentData = { description: aiAnalysis };
     }
 
     // Update the file with enrichment data
@@ -75,7 +164,7 @@ async function enrichSingleFile(fileId: number, userId: number): Promise<{ succe
       .set({
         enrichmentStatus: "completed",
         enrichedAt: new Date(),
-        aiAnalysis: enrichmentData.description || content,
+        aiAnalysis: enrichmentData.description || aiAnalysis,
         extractedKeywords: enrichmentData.keywords || [],
         qualityScore: 75,
       })

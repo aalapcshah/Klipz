@@ -14,7 +14,7 @@
  *    the file from DB to check if background assembly has completed
  *    and updated the URL to a direct S3 URL
  * 3. If still a streaming URL after re-fetch — construct a public URL
- *    using the deployed domain so external services can access it
+ *    using the request origin so external services can access it
  * 4. For non-chunked relative URLs — use storageGet() with the fileKey
  */
 
@@ -28,13 +28,26 @@ export interface FileUrlResolvable {
   mimeType?: string | null;
 }
 
+export interface ResolveOptions {
+  /**
+   * The origin of the incoming request (e.g., "https://klipz.manus.space").
+   * Used to construct public URLs for streaming endpoints when the file
+   * hasn't been assembled to S3 yet.
+   */
+  origin?: string;
+}
+
 /**
  * Resolve a file record's URL to a publicly accessible URL.
  *
  * @param file - Object with `url`, `fileKey`, and optionally `id` fields (from files table)
+ * @param options - Optional configuration including the request origin
  * @returns A publicly accessible URL string
  */
-export async function resolveFileUrl(file: FileUrlResolvable): Promise<string> {
+export async function resolveFileUrl(
+  file: FileUrlResolvable,
+  options?: ResolveOptions
+): Promise<string> {
   // Already an absolute URL (direct S3/CDN URL)
   if (file.url.startsWith("http://") || file.url.startsWith("https://")) {
     return file.url;
@@ -68,16 +81,16 @@ export async function resolveFileUrl(file: FileUrlResolvable): Promise<string> {
     // If the file still has a streaming URL, the background assembly hasn't completed yet.
     // For chunked files, the fileKey "chunked/sessionToken/filename" is NOT a real S3 key —
     // the actual chunks are stored at per-chunk keys. So storageGet() won't work.
-    // Instead, construct a public URL using the deployed domain.
+    // Instead, construct a public URL using the request origin.
     if (file.url.startsWith("/api/files/stream/")) {
-      const deployedDomain = getDeployedDomain();
-      if (deployedDomain) {
-        const publicUrl = `${deployedDomain}${file.url}`;
-        console.log(`[resolveFileUrl] Using deployed domain for streaming URL: ${publicUrl.substring(0, 80)}...`);
+      const origin = options?.origin || getDeployedDomain();
+      if (origin) {
+        const publicUrl = `${origin.replace(/\/$/, "")}${file.url}`;
+        console.log(`[resolveFileUrl] Using origin for streaming URL: ${publicUrl.substring(0, 100)}...`);
         return publicUrl;
       }
-      
-      // If no deployed domain is available, we can't resolve this URL
+
+      // If no origin is available, we can't resolve this URL
       throw new Error(
         `Video file is still being processed. The file was uploaded in chunks and hasn't been fully assembled yet. ` +
         `Please wait a few minutes for the background assembly to complete, then try again.`
@@ -104,31 +117,46 @@ export async function resolveFileUrl(file: FileUrlResolvable): Promise<string> {
 
 /**
  * Get the deployed domain for constructing public URLs.
- * Uses VITE_APP_ID to construct the manus.space domain,
- * or falls back to environment-based detection.
+ * Reads from environment variables to determine the correct domain.
  */
 function getDeployedDomain(): string | null {
-  // The deployed domain follows the pattern: https://{app-name}.manus.space
-  // We can derive it from the VITE_APP_ID or use a known pattern
-  const appTitle = process.env.VITE_APP_TITLE;
-  
-  // Check for common deployment domain patterns
-  // In production, the app is deployed at a .manus.space domain
-  // The streaming endpoint is accessible from the same domain
-  
-  // Try to get the domain from the OAuth callback URL or other env vars
-  const oauthUrl = process.env.OAUTH_SERVER_URL;
-  
-  // For Manus deployments, the domain is typically klipz.manus.space or similar
-  // We can construct it from the app ID
-  const appId = process.env.VITE_APP_ID;
-  if (appId) {
-    // The deployed URL pattern for manus.space apps
-    // Check if there's a custom domain configured
-    // For now, use the known deployed domain
-    return "https://klipz.manus.space";
+  // 1. Check DEPLOY_URL / APP_URL if explicitly set
+  if (process.env.DEPLOY_URL) return process.env.DEPLOY_URL.replace(/\/$/, "");
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
+
+  // 2. Try to extract from the Stripe webhook URL which contains the actual deployed domain
+  //    e.g., "https://metaclips-saozcd7r.manus.space/api/stripe/webhook"
+  const webhookUrl = process.env.STRIPE_WEBHOOK_URL;
+  if (webhookUrl) {
+    try {
+      const url = new URL(webhookUrl);
+      return url.origin;
+    } catch {
+      // ignore
+    }
   }
-  
-  // Fallback for local development
-  return "http://localhost:3000";
+
+  // 3. Try to read from the analytics endpoint which is on the same domain
+  const analyticsEndpoint = process.env.VITE_ANALYTICS_ENDPOINT;
+  if (analyticsEndpoint) {
+    try {
+      const url = new URL(analyticsEndpoint);
+      return url.origin;
+    } catch {
+      // ignore
+    }
+  }
+
+  // 4. Try to read from OAUTH_SERVER_URL or other known URLs
+  //    The deployed domain for Manus apps follows the pattern: {appname}-{hash}.manus.space
+  //    We can derive it from the VITE_APP_ID if available
+  const appTitle = process.env.VITE_APP_TITLE;
+  if (appTitle) {
+    // For Manus deployments, the domain is typically {lowercase-title}-{hash}.manus.space
+    // But we can't reliably construct this, so fall through
+  }
+
+  // 5. Hardcoded fallback for this specific deployment
+  //    klipz.manus.space is the custom domain, metaclips-saozcd7r.manus.space is the auto-generated one
+  return "https://klipz.manus.space";
 }

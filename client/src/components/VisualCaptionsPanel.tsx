@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
+import { FileProcessingBanner, useAutoRetry } from "./FileProcessingBanner";
 
 interface VisualCaptionsPanelProps {
   fileId: number;
@@ -73,6 +74,7 @@ export function VisualCaptionsPanel({
 }: VisualCaptionsPanelProps) {
   const [generating, setGenerating] = useState(false);
   const [matchingFiles, setMatchingFiles] = useState(false);
+  const [captionError, setCaptionError] = useState<string | null>(null);
   const [expandedCaption, setExpandedCaption] = useState<number | null>(null);
   const [showAllCaptions, setShowAllCaptions] = useState(false);
   const [editingCaption, setEditingCaption] = useState<number | null>(null);
@@ -108,14 +110,30 @@ export function VisualCaptionsPanel({
         toast.success(
           `Generated ${data.captionCount} visual captions`
         );
+        setCaptionError(null);
         refetchCaptions();
         setGenerating(false);
       },
       onError: (error) => {
-        toast.error(`Caption generation failed: ${error.message}`);
+        setCaptionError(error.message);
+        toast.error(error.message);
         setGenerating(false);
       },
     });
+
+  // Auto-retry logic for caption generation failures
+  const handleRetryCaptions = useCallback(() => {
+    setGenerating(true);
+    setCaptionError(null);
+    generateCaptionsMutation.mutate({ fileId, intervalSeconds: 5 });
+  }, [fileId, generateCaptionsMutation]);
+
+  const captionAutoRetry = useAutoRetry({
+    errorMessage: captionError,
+    onRetry: handleRetryCaptions,
+    maxRetries: 3,
+    retryDelaySeconds: 30,
+  });
 
   // Generate file matches mutation
   const generateMatchesMutation =
@@ -359,44 +377,70 @@ export function VisualCaptionsPanel({
   // Initial state: no captions yet
   if (!captionData && !captionsLoading) {
     return (
-      <Card className="p-4 sm:p-6 max-w-full overflow-x-hidden">
-        <div className="text-center space-y-4">
-          <div className="flex justify-center">
-            <Eye className="h-10 w-10 sm:h-12 sm:w-12 text-primary" />
-          </div>
-          <div>
-            <h3 className="text-base sm:text-lg font-semibold mb-2">
-              Visual Descriptions & File Matching
-            </h3>
-            <p className="text-xs sm:text-sm text-muted-foreground mb-4">
-              Analyze the video visually using AI to generate descriptive
-              summaries at regular intervals. The system will extract entities and
-              match them against your uploaded files with relevance scores.
-            </p>
-            <p className="text-xs text-muted-foreground/70 mb-4">
-              Ideal for videos without audio, screen recordings, presentations,
-              and visual content.
-            </p>
-          </div>
-          <Button
-            onClick={handleGenerateCaptions}
-            disabled={generating}
-            className="w-full sm:w-auto min-h-[44px]"
-          >
-            {generating ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Analyzing Video...
-              </>
-            ) : (
-              <>
-                <Eye className="h-4 w-4 mr-2" />
-                Generate Visual Descriptions
-              </>
+      <div className="space-y-3">
+        <FileProcessingBanner fileId={fileId} onReady={() => refetchCaptions()} />
+        <Card className="p-4 sm:p-6 max-w-full overflow-x-hidden">
+          <div className="text-center space-y-4">
+            <div className="flex justify-center">
+              <Eye className="h-10 w-10 sm:h-12 sm:w-12 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold mb-2">
+                Visual Descriptions & File Matching
+              </h3>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-4">
+                Analyze the video visually using AI to generate descriptive
+                summaries at regular intervals. The system will extract entities and
+                match them against your uploaded files with relevance scores.
+              </p>
+              <p className="text-xs text-muted-foreground/70 mb-4">
+                Ideal for videos without audio, screen recordings, presentations,
+                and visual content.
+              </p>
+            </div>
+            <Button
+              onClick={handleGenerateCaptions}
+              disabled={generating}
+              className="w-full sm:w-auto min-h-[44px]"
+            >
+              {generating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Analyzing Video...
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Generate Visual Descriptions
+                </>
+              )}
+            </Button>
+            {captionError && (
+              <div className="text-sm text-red-400 mt-2">
+                <p>{captionError}</p>
+                {captionAutoRetry.isAutoRetrying && (
+                  <p className="flex items-center justify-center gap-2 mt-2 text-amber-400">
+                    <Clock className="h-4 w-4" />
+                    Auto-retrying in {captionAutoRetry.countdown}s
+                    (attempt {captionAutoRetry.retryCount + 1}/{captionAutoRetry.maxRetries})
+                  </p>
+                )}
+                {!captionAutoRetry.isAutoRetrying && !captionAutoRetry.canAutoRetry && captionAutoRetry.retryCount > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={handleRetryCaptions}
+                    disabled={generating}
+                  >
+                    Retry Manually
+                  </Button>
+                )}
+              </div>
             )}
-          </Button>
-        </div>
-      </Card>
+          </div>
+        </Card>
+      </div>
     );
   }
 
@@ -428,23 +472,33 @@ export function VisualCaptionsPanel({
   // Failed state
   if (captionData?.status === "failed") {
     return (
-      <Card className="p-6">
-        <div className="text-center space-y-4">
-          <p className="text-sm text-destructive">
-            Caption generation failed: {captionData.errorMessage}
-          </p>
-          <Button onClick={handleGenerateCaptions} disabled={generating}>
-            {generating ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Retrying...
-              </>
-            ) : (
-              "Retry"
+      <div className="space-y-3">
+        <FileProcessingBanner fileId={fileId} onReady={() => refetchCaptions()} />
+        <Card className="p-6">
+          <div className="text-center space-y-4">
+            <p className="text-sm text-destructive">
+              {captionData.errorMessage}
+            </p>
+            {captionAutoRetry.isAutoRetrying && (
+              <p className="flex items-center justify-center gap-2 text-amber-400 text-sm">
+                <Clock className="h-4 w-4" />
+                Auto-retrying in {captionAutoRetry.countdown}s
+                (attempt {captionAutoRetry.retryCount + 1}/{captionAutoRetry.maxRetries})
+              </p>
             )}
-          </Button>
-        </div>
-      </Card>
+            <Button onClick={handleRetryCaptions} disabled={generating}>
+              {generating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Retrying...
+                </>
+              ) : (
+                "Retry"
+              )}
+            </Button>
+          </div>
+        </Card>
+      </div>
     );
   }
 

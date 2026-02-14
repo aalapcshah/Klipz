@@ -6585,3 +6585,31 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix error message deduplication in getCaptioningErrorMessage
 - [x] Fix TRPCError re-thrown without double-wrapping in catch block
 - [x] 22 new tests passing for all fixes
+
+## Processing Status Indicator on Video Detail Page
+- [ ] Add assembly status check to video detail pag## Processing Status Indicator
+- [x] Show visual indicator when file is still being assembled from chunks (FileProcessingBanner component)
+- [x] Disable Transcribe/Caption buttons while file is processing
+- [x] Auto-poll for assembly completion and enable buttons when ready (5s polling interval)
+- [x] Show estimated time or progress if available
+
+## Automatic Retry for Transcription/Captioning
+- [x] Detect "still being processed" errors in transcription (useAutoRetry hook)
+- [x] Detect "still being processed" errors in captioning (useAutoRetry hook)
+- [x] Automatically retry after 30 seconds when file is still assembling
+- [x] Show retry countdown in the UI
+- [x] Limit max auto-retries to 3 to prevent infinite loops
+
+## CRITICAL: Fix Video Processing Errors (MP4 files failing)
+- [x] "Video format not supported" error on MP4 files uploaded via chunked upload
+  - Root cause: getCaptioningErrorMessage matched generic 'format' in error messages
+  - Fix: Only match specific format errors (unsupported media type, unsupported codec, etc.)
+- [x] resolveFileUrl deployed domain fallback not working correctly for chunked files
+  - Fix: Accept origin from request context, re-fetch file from DB, fallback to klipz.manus.space
+- [x] Transcribe/Caption UI sections not displaying properly after errors
+  - Fix: Added FileProcessingBanner, improved error display, auto-retry with countdown
+- [x] AI enrichment only using filename instead of deep video analysis
+  - Fix: Now sends actual file content (image_url/file_url) to LLM for deep analysis
+  - Videos analyzed via file_url, images via image_url, audio via file_url
+- [x] Ensure the streaming URL can be accessed by external services (LLM, Whisper)
+  - Fix: resolveFileUrl now constructs full public URL using deployed domain

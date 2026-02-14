@@ -1,4 +1,4 @@
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, useCallback, Fragment } from "react";
 import { triggerHaptic } from "@/lib/haptics";
 import { trpc } from "@/lib/trpc";
 import { Card } from "@/components/ui/card";
@@ -15,9 +15,11 @@ import {
   Sparkles,
   Loader2,
   Play,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { TranscriptWithTimestamps } from "./TranscriptWithTimestamps";
+import { FileProcessingBanner, useAutoRetry } from "./FileProcessingBanner";
 
 interface FileSuggestionsProps {
   fileId: number;
@@ -67,6 +69,7 @@ export function FileSuggestions({ fileId, onJumpToTimestamp, videoTitle }: FileS
   const [showTranscript, setShowTranscript] = useState(false);
   const [swipeStart, setSwipeStart] = useState<{ x: number; id: number } | null>(null);
   const [swipeOffset, setSwipeOffset] = useState<{ id: number; offset: number } | null>(null);
+  const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
 
   const { data: transcript, refetch: refetchTranscript } =
     trpc.videoTranscription.getTranscript.useQuery({ fileId });
@@ -83,13 +86,29 @@ export function FileSuggestions({ fileId, onJumpToTimestamp, videoTitle }: FileS
   const transcribeMutation = trpc.videoTranscription.transcribeVideo.useMutation({
     onSuccess: () => {
       toast.success("Video transcribed successfully");
+      setTranscriptionError(null);
       refetchTranscript();
       setTranscribing(false);
     },
     onError: (error) => {
-      toast.error(`Transcription failed: ${error.message}`);
+      setTranscriptionError(error.message);
+      toast.error(error.message);
       setTranscribing(false);
     },
+  });
+
+  // Auto-retry logic for transcription failures
+  const handleRetryTranscription = useCallback(() => {
+    setTranscribing(true);
+    setTranscriptionError(null);
+    transcribeMutation.mutate({ fileId });
+  }, [fileId, transcribeMutation]);
+
+  const transcriptionAutoRetry = useAutoRetry({
+    errorMessage: transcriptionError,
+    onRetry: handleRetryTranscription,
+    maxRetries: 3,
+    retryDelaySeconds: 30,
   });
 
   const generateSuggestionsMutation =
@@ -217,38 +236,64 @@ export function FileSuggestions({ fileId, onJumpToTimestamp, videoTitle }: FileS
   // Show initial setup if no transcript
   if (!transcript) {
     return (
-      <Card className="p-4 sm:p-6 max-w-full overflow-x-hidden">
-        <div className="text-center space-y-4">
-          <div className="flex justify-center">
-            <Sparkles className="h-10 w-10 sm:h-12 sm:w-12 text-primary" />
-          </div>
-          <div>
-            <h3 className="text-base sm:text-lg font-semibold mb-2">Intelligent File Suggestions</h3>
-            <p className="text-xs sm:text-sm text-muted-foreground mb-4">
-              Transcribe your video to get AI-powered file recommendations based on what you're
-              saying. The system will analyze your speech and suggest relevant files from your
-              library at specific timestamps.
-            </p>
-          </div>
-          <Button
-            onClick={handleTranscribe}
-            disabled={transcribing}
-            className="w-full sm:w-auto min-h-[44px]"
-          >
-            {transcribing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Transcribing...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Start Transcription
-              </>
+      <div className="space-y-3">
+        <FileProcessingBanner fileId={fileId} onReady={() => refetchTranscript()} />
+        <Card className="p-4 sm:p-6 max-w-full overflow-x-hidden">
+          <div className="text-center space-y-4">
+            <div className="flex justify-center">
+              <Sparkles className="h-10 w-10 sm:h-12 sm:w-12 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold mb-2">Intelligent File Suggestions</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-4">
+                Transcribe your video to get AI-powered file recommendations based on what you're
+                saying. The system will analyze your speech and suggest relevant files from your
+                library at specific timestamps.
+              </p>
+            </div>
+            <Button
+              onClick={handleTranscribe}
+              disabled={transcribing}
+              className="w-full sm:w-auto min-h-[44px]"
+            >
+              {transcribing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Transcribing...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Start Transcription
+                </>
+              )}
+            </Button>
+            {transcriptionError && (
+              <div className="text-sm text-red-400 mt-2">
+                <p>{transcriptionError}</p>
+                {transcriptionAutoRetry.isAutoRetrying && (
+                  <p className="flex items-center justify-center gap-2 mt-2 text-amber-400">
+                    <Clock className="h-4 w-4" />
+                    Auto-retrying in {transcriptionAutoRetry.countdown}s
+                    (attempt {transcriptionAutoRetry.retryCount + 1}/{transcriptionAutoRetry.maxRetries})
+                  </p>
+                )}
+                {!transcriptionAutoRetry.isAutoRetrying && !transcriptionAutoRetry.canAutoRetry && transcriptionAutoRetry.retryCount > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={handleRetryTranscription}
+                    disabled={transcribing}
+                  >
+                    Retry Manually
+                  </Button>
+                )}
+              </div>
             )}
-          </Button>
-        </div>
-      </Card>
+          </div>
+        </Card>
+      </div>
     );
   }
 

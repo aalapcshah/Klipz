@@ -74,8 +74,12 @@ export const videoVisualCaptionsRouter = router({
       }
 
       try {
+        // Get the origin from the request for URL resolution
+        const origin = ctx.req.headers.origin || (ctx.req.headers.host ? `${ctx.req.protocol || 'https'}://${ctx.req.headers.host}` : undefined);
+        console.log(`[VisualCaptions] Request origin: ${origin}`);
+
         // Resolve relative streaming URLs to publicly accessible S3 URLs
-        const accessibleUrl = await resolveFileUrl(file);
+        const accessibleUrl = await resolveFileUrl(file, { origin });
         console.log(`[VisualCaptions] Resolved URL for file ${input.fileId}: ${accessibleUrl.substring(0, 80)}...`);
 
         // Send the video to LLM vision API for analysis
@@ -108,7 +112,7 @@ Generate captions for the entire duration of the video. If the video is short, p
               type: "file_url" as const,
               file_url: {
                 url: accessibleUrl,
-                mime_type: (file.mimeType || "video/mp4") as "video/mp4",
+                mime_type: (file.mimeType || "video/mp4") as any,
               },
                 },
                 {
@@ -706,11 +710,14 @@ For each relevant match, provide the file index, the timestamp it matches, relev
         });
       }
 
+      // Get origin before the async block (ctx is only available synchronously)
+      const origin = ctx.req.headers.origin || (ctx.req.headers.host ? `${ctx.req.protocol || 'https'}://${ctx.req.headers.host}` : undefined);
+
       // Fire-and-forget: run captioning in background
       (async () => {
         try {
           // Resolve relative streaming URLs to publicly accessible S3 URLs
-          const accessibleUrl = await resolveFileUrl(file);
+          const accessibleUrl = await resolveFileUrl(file, { origin });
           console.log(`[AutoCaption] Resolved URL for file ${input.fileId}: ${accessibleUrl.substring(0, 80)}...`);
 
           const response = await invokeLLM({
@@ -733,7 +740,7 @@ Focus on: what is shown on screen (text, diagrams, images, UI elements), actions
                     type: "file_url" as const,
                     file_url: {
                       url: accessibleUrl,
-                      mime_type: (file.mimeType || "video/mp4") as "video/mp4",
+                      mime_type: (file.mimeType || "video/mp4") as any,
                     },
                   },
                   {

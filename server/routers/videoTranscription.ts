@@ -15,13 +15,14 @@ import { resolveFileUrl } from "../lib/resolveFileUrl";
  */
 async function transcribeWithLLM(
   file: { id: number; url: string; fileKey: string; mimeType?: string | null },
-  transcriptId: number
+  transcriptId: number,
+  origin?: string
 ) {
   try {
     console.log(`[Transcription] Using LLM fallback for file ${file.id}`);
 
     // Resolve relative streaming URLs to publicly accessible S3 URLs
-    const accessibleUrl = await resolveFileUrl(file);
+    const accessibleUrl = await resolveFileUrl(file, { origin });
     console.log(`[Transcription] Resolved URL for LLM: ${accessibleUrl.substring(0, 80)}...`);
 
     const response = await invokeLLM({
@@ -219,8 +220,12 @@ export const videoTranscriptionRouter = router({
       await db.updateVideoTranscriptStatus(transcriptId, "processing");
 
       try {
+        // Get the origin from the request for URL resolution
+        const origin = ctx.req.headers.origin || (ctx.req.headers.host ? `${ctx.req.protocol || 'https'}://${ctx.req.headers.host}` : undefined);
+        console.log(`[Transcription] Request origin: ${origin}`);
+
         // Resolve relative streaming URLs to publicly accessible S3 URLs
-        const accessibleUrl = await resolveFileUrl(file);
+        const accessibleUrl = await resolveFileUrl(file, { origin });
         console.log(`[Transcription] Resolved URL for file ${input.fileId}: ${accessibleUrl.substring(0, 80)}...`);
 
         // Try Whisper first
@@ -234,7 +239,7 @@ export const videoTranscriptionRouter = router({
           // If file is too large for Whisper, fall back to LLM transcription
           if (result.code === "FILE_TOO_LARGE") {
             console.log(`[Transcription] File ${input.fileId} too large for Whisper (${result.details}), falling back to LLM transcription`);
-            return await transcribeWithLLM(file, transcriptId);
+            return await transcribeWithLLM(file, transcriptId, origin);
           }
           const userMessage = getTranscriptionErrorMessage(result.error, result.code);
           await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
