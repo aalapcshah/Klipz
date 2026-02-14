@@ -12,7 +12,6 @@ import {
   FileJson,
   Sparkles,
   MoreHorizontal,
-  ChevronUp,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -52,23 +51,29 @@ export function FloatingActionBar({
   onClose,
 }: FloatingActionBarProps) {
   const allSelected = selectedCount === totalCount && totalCount > 0;
-  const [isExpanded, setIsExpanded] = useState(false);
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 duration-300 w-[calc(100%-2rem)] max-w-2xl">
       <div className="bg-card border border-border rounded-xl shadow-2xl overflow-hidden">
         {/* Main toolbar row */}
-        <div className="p-2 md:p-3 flex items-center gap-2 md:gap-3">
-          {/* Selection count */}
-          <div className="flex items-center gap-1 px-2 md:px-3 py-1 bg-primary/10 rounded-lg">
-            <span className="font-bold text-sm md:text-base text-primary">{selectedCount}</span>
-            <span className="text-xs md:text-sm text-muted-foreground hidden sm:inline">
-              {selectedCount === 1 ? "file" : "files"}
-            </span>
-          </div>
+        <div className="p-2 md:p-3 flex items-center gap-1.5 md:gap-3">
+          {/* Delete button - moved to left side on mobile */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+            className="h-8 px-2 md:px-3 gap-1 text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+            title="Delete"
+          >
+            <Trash2 className="h-4 w-4" />
+            <span className="hidden sm:inline text-xs">Delete</span>
+          </Button>
 
-          {/* Primary actions - always visible */}
-          <div className="flex items-center gap-1 flex-1">
+          {/* Divider */}
+          <div className="h-6 w-px bg-border flex-shrink-0 hidden md:block" />
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-1 flex-1 min-w-0">
             <Button
               variant="ghost"
               size="sm"
@@ -100,17 +105,6 @@ export function FloatingActionBar({
             >
               <Sparkles className="h-4 w-4" />
               <span className="hidden sm:inline text-xs">Enrich</span>
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onDelete}
-              className="h-8 px-2 md:px-3 gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
-              title="Delete"
-            >
-              <Trash2 className="h-4 w-4" />
-              <span className="hidden sm:inline text-xs">Delete</span>
             </Button>
 
             {/* More actions dropdown - mobile */}
@@ -211,6 +205,14 @@ export function FloatingActionBar({
                 )}
               </Button>
             </div>
+          </div>
+
+          {/* Selection count - moved to right side */}
+          <div className="flex items-center gap-1 px-2 md:px-3 py-1 bg-primary/10 rounded-lg flex-shrink-0">
+            <span className="font-bold text-sm md:text-base text-primary">{selectedCount}</span>
+            <span className="text-xs md:text-sm text-muted-foreground hidden sm:inline">
+              {selectedCount === 1 ? "file" : "files"}
+            </span>
           </div>
 
           {/* Close button */}

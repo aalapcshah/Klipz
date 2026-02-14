@@ -312,17 +312,17 @@ export function BulkOperationsToolbar({
       <>
         <div className="fixed bottom-4 left-2 right-2 z-50">
           <div className="bg-card border border-border rounded-lg shadow-lg p-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium">{selectedFileIds.length} selected</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onClearSelection}
-                className="h-6 w-6 p-0"
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
+            {/* Delete button - moved to left side */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDeleteDialog(true)}
+              disabled={isProcessing}
+              className="h-7 px-2 text-xs text-destructive border-destructive/50 hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
+            >
+              <Trash2 className="h-3 w-3 mr-1" />
+              Delete
+            </Button>
 
             <div className="flex items-center gap-1">
               {/* Primary action: Enrich with AI */}
@@ -335,18 +335,6 @@ export function BulkOperationsToolbar({
               >
                 <Sparkles className="h-3 w-3 mr-1" />
                 Enrich
-              </Button>
-
-              {/* Delete button - always visible next to Enrich */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowDeleteDialog(true)}
-                disabled={isProcessing}
-                className="h-7 px-2 text-xs text-destructive border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
-              >
-                <Trash2 className="h-3 w-3 mr-1" />
-                Delete
               </Button>
 
               {/* Secondary actions in dropdown */}
@@ -385,6 +373,19 @@ export function BulkOperationsToolbar({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            </div>
+
+            {/* Selection count - moved to right side */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <span className="text-xs font-medium">{selectedFileIds.length} selected</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClearSelection}
+                className="h-6 w-6 p-0"
+              >
+                <X className="h-3 w-3" />
+              </Button>
             </div>
           </div>
         </div>

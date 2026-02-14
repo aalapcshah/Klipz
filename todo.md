@@ -6689,3 +6689,7 @@ Note: The application already has extensive annotation features including voice 
 - [x] For files >100MB: skip extraction, go directly to LLM fallback
 - [x] Clean up temporary audio files after transcription
 - [x] Write 25 tests for audio extraction and transcription path selection
+
+## Mobile UI Bug Fixes: Selection Toolbar & Swipe Actions
+- [x] Fix mobile selection toolbar: move "1 selected" to right side, move Delete to left side in both FloatingActionBar and BulkOperationsToolbar
+- [x] Fix swipe action buttons (Enrich/Delete) overlapping file card text by adding z-index layering (z-0 for actions, z-10 for card)

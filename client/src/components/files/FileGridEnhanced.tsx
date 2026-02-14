@@ -1820,10 +1820,10 @@ export default function FileGridEnhanced({
                     setIsDraggingForReorder(false);
                   }}
                 >
-                  {/* Swipe action buttons - revealed on swipe left */}
+                  {/* Swipe action buttons - revealed on swipe left (z-0 so card slides over them) */}
                   <div 
                     data-swipe-actions
-                    className="absolute right-0 top-0 bottom-0 w-40 flex md:hidden rounded-r-lg overflow-hidden"
+                    className="absolute right-0 top-0 bottom-0 w-40 flex md:hidden rounded-r-lg overflow-hidden z-0"
                     style={{ opacity: isSwipedFile ? 1 : 0, pointerEvents: isSwipedFile && swipeOffset > 40 ? 'auto' : 'none' }}
                   >
                     <button
@@ -1842,7 +1842,7 @@ export default function FileGridEnhanced({
                     </button>
                   </div>
                   <Card
-                    className={`group p-2 md:p-3 hover:border-primary/50 transition-colors cursor-grab active:cursor-grabbing relative ${
+                    className={`group p-2 md:p-3 hover:border-primary/50 transition-colors cursor-grab active:cursor-grabbing relative z-10 ${
                       draggedFileId === file.id ? "opacity-50" : ""
                     } ${isSelectionMode && selectedFilesSet.has(file.id) ? "ring-1 md:ring-2 ring-primary bg-primary/5 md:bg-primary/10" : ""} ${
                       isSelectionMode && isSwipeSelectingRef.current ? "transition-all duration-100" : ""
