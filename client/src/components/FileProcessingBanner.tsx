@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
-import { Loader2, CheckCircle2, AlertCircle, RefreshCw, Image } from "lucide-react";
+import { Loader2, CheckCircle2, RefreshCw, Image, HardDrive } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -22,15 +22,15 @@ interface FileProcessingBannerProps {
 export function FileProcessingBanner({ fileId, onReady, showActions = true }: FileProcessingBannerProps) {
   const [wasStreaming, setWasStreaming] = useState(false);
 
-
   const { data, isLoading, refetch } = trpc.files.checkFileReady.useQuery(
     { fileId },
     {
       refetchInterval: (query) => {
         const result = query.state.data;
-        // Poll every 15 seconds while not assembled
-        if (result && !result.assembled) return 15000;
-        return false;
+        if (!result || result.assembled) return false;
+        // Poll more frequently when assembly is in progress
+        if (result.assembling) return 10000; // 10s during active assembly
+        return 20000; // 20s when idle/waiting
       },
       staleTime: 5000,
     }
@@ -40,7 +40,7 @@ export function FileProcessingBanner({ fileId, onReady, showActions = true }: Fi
     onSuccess: (result) => {
       toast.success("Assembly Triggered", { description: result.message });
       // Start polling more frequently
-      setTimeout(() => refetch(), 5000);
+      setTimeout(() => refetch(), 3000);
     },
     onError: (error) => {
       toast.error("Assembly Failed", { description: error.message });
@@ -70,15 +70,32 @@ export function FileProcessingBanner({ fileId, onReady, showActions = true }: Fi
 
   // File is accessible via streaming but not yet assembled to S3
   if (data && !data.assembled && data.status === "streaming") {
+    const isAssembling = data.assembling;
+    const sizeMB = data.fileSizeMB;
+
     return (
       <Alert className="border-amber-500/30 bg-amber-500/10 mb-4">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
-            <Loader2 className="h-5 w-5 animate-spin text-amber-500 flex-shrink-0" />
+            {isAssembling ? (
+              <Loader2 className="h-5 w-5 animate-spin text-amber-500 flex-shrink-0" />
+            ) : (
+              <HardDrive className="h-5 w-5 text-amber-500 flex-shrink-0" />
+            )}
             <AlertDescription className="text-amber-200">
-              <span className="font-medium">File is being optimized.</span>{" "}
-              Your file is accessible but still being assembled for optimal performance.
-              AI features (transcription, captioning) are available and will use the streaming URL.
+              {isAssembling ? (
+                <>
+                  <span className="font-medium">Assembly in progress{sizeMB ? ` (${sizeMB}MB)` : ""}.</span>{" "}
+                  Your file is being assembled to permanent storage. This may take several minutes for large files.
+                  AI features are still available via the streaming URL.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium">File needs assembly{sizeMB ? ` (${sizeMB}MB)` : ""}.</span>{" "}
+                  Your file is accessible but hasn't been assembled to permanent storage yet.
+                  Click "Retry Assembly" to start the process. AI features are available via the streaming URL.
+                </>
+              )}
             </AlertDescription>
           </div>
           {showActions && (
@@ -88,14 +105,14 @@ export function FileProcessingBanner({ fileId, onReady, showActions = true }: Fi
                 variant="outline"
                 className="h-7 text-xs border-amber-500/30 text-amber-300 hover:bg-amber-500/20"
                 onClick={() => retryAssembly.mutate({ fileId })}
-                disabled={retryAssembly.isPending}
+                disabled={retryAssembly.isPending || isAssembling}
               >
                 {retryAssembly.isPending ? (
                   <Loader2 className="h-3 w-3 animate-spin mr-1" />
                 ) : (
                   <RefreshCw className="h-3 w-3 mr-1" />
                 )}
-                Retry Assembly
+                {isAssembling ? "Assembly Running..." : "Retry Assembly"}
               </Button>
               {!data.hasThumbnail && (
                 <Button

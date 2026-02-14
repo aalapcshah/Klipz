@@ -11,11 +11,12 @@
  * The streaming endpoint (/api/files/stream/:sessionToken) checks finalFileUrl
  * and redirects to S3 when available, so the transition is seamless.
  * 
- * Memory management: Chunks are downloaded one at a time to a temp file on disk,
- * then the assembled file is uploaded to S3. For files up to ~200MB this works
- * with a single storagePut call. For larger files, the assembly is still attempted
- * but may fail if the storage proxy has a body size limit — in that case the
- * streaming endpoint continues to serve as fallback.
+ * Assembly strategy:
+ * - Files ≤200MB: in-memory storagePut (fast, simple)
+ * - Files 200MB–2GB: streaming curl upload with dynamic timeout based on file size
+ *   Uses spawn (non-blocking) instead of execSync to avoid blocking the event loop
+ *   Timeout scales: 10 minutes base + 5 minutes per 100MB over 200MB
+ * - Files >2GB: skipped (streaming endpoint continues to serve)
  */
 
 import { getDb } from "../db";
@@ -26,7 +27,7 @@ import { eq, and } from "drizzle-orm";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { execSync } from "child_process";
+import { spawn } from "child_process";
 import { generateVideoThumbnail } from "./videoThumbnail";
 import { ENV } from "../_core/env";
 import { sendActivityEmail } from "../_core/activityEmailNotifications";
@@ -41,27 +42,124 @@ const MAX_ASSEMBLY_SIZE = 2 * 1024 * 1024 * 1024;
 const MEMORY_UPLOAD_LIMIT = 200 * 1024 * 1024; // 200MB
 
 /**
- * Upload a file from disk to S3 using curl (streams from disk, avoids OOM for large files).
+ * Calculate dynamic timeout based on file size.
+ * Base: 600s (10 min) for files up to 200MB
+ * Scale: +300s (5 min) per additional 100MB
+ * Example: 700MB file → 600 + (500/100)*300 = 600 + 1500 = 2100s (35 min)
+ * Cap: 3600s (1 hour)
  */
-function storagePutViaCurl(key: string, filePath: string, contentType: string): string {
-  const normalizedKey = key.replace(/^\/+/, "");
-  const baseUrl = ENV.forgeApiUrl.replace(/\/+$/, "");
-  const uploadUrl = `${baseUrl}/v1/storage/upload?path=${encodeURIComponent(normalizedKey)}`;
-  const fileName = normalizedKey.split("/").pop() || "file";
-
-  const result = execSync(
-    `curl -s -X POST "${uploadUrl}" ` +
-    `-H "Authorization: Bearer ${ENV.forgeApiKey}" ` +
-    `-F "file=@${filePath};type=${contentType};filename=${fileName}" ` +
-    `--max-time 600`,
-    { maxBuffer: 10 * 1024 * 1024, timeout: 600000 }
-  );
-
-  const parsed = JSON.parse(result.toString());
-  if (!parsed.url) {
-    throw new Error(`storagePutViaCurl: No URL in response: ${result.toString().substring(0, 200)}`);
+function calculateTimeout(fileSizeBytes: number): number {
+  const BASE_TIMEOUT = 600; // 10 minutes
+  const EXTRA_PER_100MB = 300; // 5 minutes per 100MB over threshold
+  const MAX_TIMEOUT = 3600; // 1 hour cap
+  
+  if (fileSizeBytes <= MEMORY_UPLOAD_LIMIT) {
+    return BASE_TIMEOUT;
   }
-  return parsed.url;
+  
+  const excessBytes = fileSizeBytes - MEMORY_UPLOAD_LIMIT;
+  const excess100MBChunks = Math.ceil(excessBytes / (100 * 1024 * 1024));
+  const timeout = BASE_TIMEOUT + (excess100MBChunks * EXTRA_PER_100MB);
+  
+  return Math.min(timeout, MAX_TIMEOUT);
+}
+
+/**
+ * Upload a file from disk to S3 using curl (streams from disk, avoids OOM for large files).
+ * Uses spawn (non-blocking) instead of execSync to avoid blocking the event loop.
+ * Dynamic timeout based on file size.
+ */
+function storagePutViaCurl(
+  key: string,
+  filePath: string,
+  contentType: string,
+  fileSizeBytes: number,
+  onProgress?: (message: string) => void,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const normalizedKey = key.replace(/^\/+/, "");
+    const baseUrl = ENV.forgeApiUrl.replace(/\/+$/, "");
+    const uploadUrl = `${baseUrl}/v1/storage/upload?path=${encodeURIComponent(normalizedKey)}`;
+    const fileName = normalizedKey.split("/").pop() || "file";
+    const timeoutSeconds = calculateTimeout(fileSizeBytes);
+    const sizeMB = (fileSizeBytes / 1024 / 1024).toFixed(1);
+
+    onProgress?.(`Starting curl upload of ${sizeMB}MB with ${timeoutSeconds}s timeout...`);
+
+    const curlProcess = spawn("curl", [
+      "-s",
+      "-X", "POST",
+      uploadUrl,
+      "-H", `Authorization: Bearer ${ENV.forgeApiKey}`,
+      "-F", `file=@${filePath};type=${contentType};filename=${fileName}`,
+      "--max-time", String(timeoutSeconds),
+      // Show progress to stderr for large files
+      "--progress-bar",
+    ], {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let lastProgressLog = Date.now();
+
+    curlProcess.stdout.on("data", (data: Buffer) => {
+      stdout += data.toString();
+    });
+
+    curlProcess.stderr.on("data", (data: Buffer) => {
+      stderr += data.toString();
+      // Log progress periodically (curl progress bar goes to stderr)
+      const now = Date.now();
+      if (now - lastProgressLog > 30000) { // Every 30 seconds
+        lastProgressLog = now;
+        onProgress?.(`Upload in progress... (${sizeMB}MB file)`);
+      }
+    });
+
+    // Set a Node.js-level timeout as safety net (timeout + 60s buffer)
+    const nodeTimeout = setTimeout(() => {
+      curlProcess.kill("SIGTERM");
+      reject(new Error(
+        `storagePutViaCurl: Node.js safety timeout after ${timeoutSeconds + 60}s ` +
+        `for ${sizeMB}MB file. curl stderr: ${stderr.substring(0, 500)}`
+      ));
+    }, (timeoutSeconds + 60) * 1000);
+
+    curlProcess.on("close", (code) => {
+      clearTimeout(nodeTimeout);
+
+      if (code !== 0) {
+        reject(new Error(
+          `storagePutViaCurl: curl exited with code ${code} for ${sizeMB}MB file. ` +
+          `stderr: ${stderr.substring(0, 500)}`
+        ));
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(stdout.trim());
+        if (!parsed.url) {
+          reject(new Error(
+            `storagePutViaCurl: No URL in response: ${stdout.substring(0, 200)}`
+          ));
+          return;
+        }
+        onProgress?.(`Upload complete for ${sizeMB}MB file`);
+        resolve(parsed.url);
+      } catch (parseError) {
+        reject(new Error(
+          `storagePutViaCurl: Failed to parse response for ${sizeMB}MB file. ` +
+          `stdout: ${stdout.substring(0, 200)}, stderr: ${stderr.substring(0, 200)}`
+        ));
+      }
+    });
+
+    curlProcess.on("error", (err) => {
+      clearTimeout(nodeTimeout);
+      reject(new Error(`storagePutViaCurl: spawn error: ${err.message}`));
+    });
+  });
 }
 
 /**
@@ -114,22 +212,45 @@ export async function assembleChunksInBackground(
     const writeStream = fs.createWriteStream(tmpFile);
 
     let totalBytesWritten = 0;
+    let failedChunks = 0;
 
     try {
       // Download and write chunks one at a time to minimize memory usage
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
-        const { url } = await storageGet(chunk.storageKey);
-        const response = await fetch(url);
         
-        if (!response.ok) {
-          throw new Error(`Failed to fetch chunk ${i}: HTTP ${response.status}`);
+        // Retry each chunk download up to 3 times
+        let chunkBuffer: Buffer | null = null;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            const { url } = await storageGet(chunk.storageKey);
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status} ${response.statusText}`);
+            }
+
+            chunkBuffer = Buffer.from(await response.arrayBuffer());
+            break; // Success
+          } catch (chunkError: any) {
+            console.warn(
+              `[BackgroundAssembly] ${sessionToken}: Chunk ${i} download attempt ${attempt}/3 failed: ${chunkError.message}`
+            );
+            if (attempt === 3) {
+              failedChunks++;
+              throw new Error(`Failed to download chunk ${i} after 3 attempts: ${chunkError.message}`);
+            }
+            // Wait before retry: 2s, 5s, 10s
+            await new Promise(r => setTimeout(r, attempt * 2500));
+          }
         }
 
-        const buffer = Buffer.from(await response.arrayBuffer());
-        
+        if (!chunkBuffer) {
+          throw new Error(`Chunk ${i} buffer is null after retries`);
+        }
+
         await new Promise<void>((resolve, reject) => {
-          const canContinue = writeStream.write(buffer, (err) => {
+          const canContinue = writeStream.write(chunkBuffer!, (err) => {
             if (err) reject(err);
           });
           if (!canContinue) {
@@ -139,12 +260,18 @@ export async function assembleChunksInBackground(
           }
         });
 
-        totalBytesWritten += buffer.length;
+        totalBytesWritten += chunkBuffer.length;
 
-        // Log progress every 20 chunks
+        // Log progress every 20 chunks or at the end
         if ((i + 1) % 20 === 0 || i === chunks.length - 1) {
           const progressPct = ((i + 1) / chunks.length * 100).toFixed(1);
-          console.log(`[BackgroundAssembly] ${sessionToken}: ${progressPct}% (${i + 1}/${chunks.length} chunks, ${(totalBytesWritten / 1024 / 1024).toFixed(1)}MB)`);
+          const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(0);
+          const speedMBps = totalBytesWritten / 1024 / 1024 / (Number(elapsedSec) || 1);
+          console.log(
+            `[BackgroundAssembly] ${sessionToken}: ${progressPct}% ` +
+            `(${i + 1}/${chunks.length} chunks, ${(totalBytesWritten / 1024 / 1024).toFixed(1)}MB, ` +
+            `${elapsedSec}s elapsed, ${speedMBps.toFixed(1)}MB/s)`
+          );
         }
       }
 
@@ -154,11 +281,19 @@ export async function assembleChunksInBackground(
         writeStream.on("error", reject);
       });
 
-      console.log(`[BackgroundAssembly] ${sessionToken}: All chunks written to temp file (${(totalBytesWritten / 1024 / 1024).toFixed(1)}MB)`);
+      const downloadElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(
+        `[BackgroundAssembly] ${sessionToken}: All ${chunks.length} chunks written to temp file ` +
+        `(${(totalBytesWritten / 1024 / 1024).toFixed(1)}MB) in ${downloadElapsed}s`
+      );
 
       // Check if the file is too large to assemble
       if (totalBytesWritten > MAX_ASSEMBLY_SIZE) {
-        console.warn(`[BackgroundAssembly] ${sessionToken}: File is ${(totalBytesWritten / 1024 / 1024).toFixed(1)}MB, exceeding ${MAX_ASSEMBLY_SIZE / 1024 / 1024}MB limit. Skipping S3 upload — streaming endpoint will continue to serve this file.`);
+        console.warn(
+          `[BackgroundAssembly] ${sessionToken}: File is ${(totalBytesWritten / 1024 / 1024).toFixed(1)}MB, ` +
+          `exceeding ${MAX_ASSEMBLY_SIZE / 1024 / 1024}MB limit. Skipping S3 upload — ` +
+          `streaming endpoint will continue to serve this file.`
+        );
         return;
       }
 
@@ -166,10 +301,15 @@ export async function assembleChunksInBackground(
       const randomSuffix = Math.random().toString(36).substring(2, 8);
       const folder = uploadType === 'video' ? 'videos' : 'files';
       const finalFileKey = `user-${userId}/${folder}/${timestamp}-${randomSuffix}-${filename}`;
+      const timeoutSec = calculateTimeout(totalBytesWritten);
 
-      console.log(`[BackgroundAssembly] ${sessionToken}: Uploading assembled file to S3 as ${finalFileKey} (${(totalBytesWritten / 1024 / 1024).toFixed(1)}MB)...`);
+      console.log(
+        `[BackgroundAssembly] ${sessionToken}: Uploading assembled file to S3 as ${finalFileKey} ` +
+        `(${(totalBytesWritten / 1024 / 1024).toFixed(1)}MB, timeout: ${timeoutSec}s)...`
+      );
 
       let finalUrl: string;
+      const uploadStartTime = Date.now();
 
       if (totalBytesWritten <= MEMORY_UPLOAD_LIMIT) {
         // Small files: use in-memory storagePut
@@ -177,24 +317,59 @@ export async function assembleChunksInBackground(
         const result = await storagePut(finalFileKey, assembledBuffer, mimeType);
         finalUrl = result.url;
       } else {
-        // Large files: use curl to stream from disk (avoids OOM)
-        console.log(`[BackgroundAssembly] ${sessionToken}: Using curl for large file upload...`);
-        finalUrl = storagePutViaCurl(finalFileKey, tmpFile, mimeType);
+        // Large files: use non-blocking curl with dynamic timeout
+        console.log(
+          `[BackgroundAssembly] ${sessionToken}: Using streaming curl upload ` +
+          `(${(totalBytesWritten / 1024 / 1024).toFixed(1)}MB, timeout: ${timeoutSec}s)...`
+        );
+        
+        // Retry the upload up to 2 times for large files
+        let lastError: Error | null = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            finalUrl = await storagePutViaCurl(
+              finalFileKey,
+              tmpFile,
+              mimeType,
+              totalBytesWritten,
+              (msg) => console.log(`[BackgroundAssembly] ${sessionToken}: ${msg}`),
+            );
+            lastError = null;
+            break;
+          } catch (uploadError: any) {
+            lastError = uploadError;
+            console.warn(
+              `[BackgroundAssembly] ${sessionToken}: Upload attempt ${attempt}/2 failed: ${uploadError.message}`
+            );
+            if (attempt < 2) {
+              console.log(`[BackgroundAssembly] ${sessionToken}: Waiting 10s before retry...`);
+              await new Promise(r => setTimeout(r, 10000));
+            }
+          }
+        }
+
+        if (lastError) {
+          throw lastError;
+        }
       }
 
-      console.log(`[BackgroundAssembly] ${sessionToken}: S3 upload complete. URL: ${finalUrl.substring(0, 80)}...`);
+      const uploadElapsed = ((Date.now() - uploadStartTime) / 1000).toFixed(1);
+      console.log(
+        `[BackgroundAssembly] ${sessionToken}: S3 upload complete in ${uploadElapsed}s. ` +
+        `URL: ${finalUrl!.substring(0, 80)}...`
+      );
 
       // Update the file record with the direct S3 URL
       await db.updateFile(fileId, {
         fileKey: finalFileKey,
-        url: finalUrl,
+        url: finalUrl!,
       });
 
       // Update the video record if it exists
       if (videoId) {
         await db.updateVideo(videoId, {
           fileKey: finalFileKey,
-          url: finalUrl,
+          url: finalUrl!,
         });
       }
 
@@ -204,14 +379,14 @@ export async function assembleChunksInBackground(
         .update(resumableUploadSessions)
         .set({
           finalFileKey,
-          finalFileUrl: finalUrl,
+          finalFileUrl: finalUrl!,
         })
         .where(eq(resumableUploadSessions.id, sessionId));
 
       // Generate video thumbnail if this is a video file
       if (mimeType.startsWith('video/')) {
         try {
-          const thumbnail = await generateVideoThumbnail(finalUrl, {
+          const thumbnail = await generateVideoThumbnail(finalUrl!, {
             userId,
             filename,
             seekTime: 1,
@@ -235,8 +410,11 @@ export async function assembleChunksInBackground(
         }
       }
 
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`[BackgroundAssembly] ✅ ${sessionToken}: Assembly complete in ${elapsed}s. File ${fileId} now served from S3 directly.`);
+      const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(
+        `[BackgroundAssembly] ✅ ${sessionToken}: Assembly complete in ${totalElapsed}s. ` +
+        `File ${fileId} now served from S3 directly.`
+      );
 
       // Send "processing complete" notification to the user
       try {
@@ -245,8 +423,8 @@ export async function assembleChunksInBackground(
           userId,
           activityType: "upload",
           title: `File Processing Complete: ${filename}`,
-          content: `Your file "${filename}" (${sizeMB} MB) has finished processing and is now ready for transcription, captioning, and AI analysis. Processing took ${elapsed} seconds.`,
-          details: `File size: ${sizeMB} MB, Processing time: ${elapsed}s`,
+          content: `Your file "${filename}" (${sizeMB} MB) has finished processing and is now ready for transcription, captioning, and AI analysis. Processing took ${totalElapsed} seconds.`,
+          details: `File size: ${sizeMB} MB, Processing time: ${totalElapsed}s, Chunks: ${chunks.length}`,
           fileId,
           fileName: filename,
         });
@@ -281,6 +459,11 @@ export async function assembleChunksInBackground(
 export function isAssemblyInProgress(sessionToken: string): boolean {
   return activeAssemblies.has(sessionToken);
 }
+
+/**
+ * Get the calculated timeout for a given file size (exported for testing).
+ */
+export { calculateTimeout };
 
 /**
  * Scan for any completed upload sessions that still use streaming URLs

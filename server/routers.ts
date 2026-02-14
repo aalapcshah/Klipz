@@ -699,14 +699,24 @@ export const appRouter = router({
         const hasThumbnail = !!file.thumbnailUrl;
 
         if (isStreaming || isChunkedKey) {
+          // Check if assembly is currently in progress
+          const { isAssemblyInProgress } = await import("./lib/backgroundAssembly");
+          const sessionToken = file.url.replace("/api/files/stream/", "");
+          const assembling = isAssemblyInProgress(sessionToken);
+          const sizeMB = (file.fileSize / 1024 / 1024).toFixed(0);
+
           // File is accessible via streaming URL but not yet assembled to S3
           // Transcription/captioning can still proceed using the streaming URL
           return {
             ready: true,
             status: "streaming" as const,
             assembled: false,
+            assembling,
             hasThumbnail,
-            message: "File is accessible but hasn't been fully assembled to storage. AI features will work but may be slower for very large files.",
+            fileSizeMB: Number(sizeMB),
+            message: assembling
+              ? `Assembly is in progress for this ${sizeMB}MB file. Please wait for it to complete.`
+              : `File is accessible but hasn't been fully assembled to storage. AI features will work but may be slower for very large files.`,
           };
         }
 
@@ -748,9 +758,20 @@ export const appRouter = router({
         // Look up the video record if it exists
         const [video] = await drizzle.select().from(videos).where(eq(videos.fileId, file.id));
 
+        // Check if assembly is already in progress
+        const { assembleChunksInBackground, isAssemblyInProgress, calculateTimeout } = await import("./lib/backgroundAssembly");
+        if (isAssemblyInProgress(sessionToken)) {
+          return { success: true, message: "Assembly is already in progress. Please wait for it to complete." };
+        }
+
+        // Calculate estimated time based on file size
+        const fileSizeBytes = Number(session.fileSize) || file.fileSize;
+        const estimatedTimeout = calculateTimeout(fileSizeBytes);
+        const sizeMB = (fileSizeBytes / 1024 / 1024).toFixed(0);
+        const estMinutes = Math.ceil(estimatedTimeout / 60);
+
         // Trigger background assembly with all required parameters
         try {
-          const { assembleChunksInBackground } = await import("./lib/backgroundAssembly");
           assembleChunksInBackground(
             sessionToken,
             session.id,
@@ -761,7 +782,10 @@ export const appRouter = router({
             file.mimeType,
             session.uploadType || "chunked"
           );
-          return { success: true, message: "Assembly has been re-triggered. This may take a few minutes for large files." };
+          return {
+            success: true,
+            message: `Assembly re-triggered for ${sizeMB}MB file. Estimated time: up to ${estMinutes} minutes. You'll be notified when complete.`,
+          };
         } catch (error: any) {
           throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Failed to trigger assembly: ${error.message}` });
         }

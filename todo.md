@@ -6623,3 +6623,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix errorMessages tests to match new default message prefixes
 - [x] Fix transcription-captioning-fix tests to match new error message format
 - [x] All 47 tests passing in resolveFileUrl, errorMessages, and transcription-captioning-fix test files
+
+## Large File Assembly Improvements (>500MB)
+- [x] Analyze current assembly timeout bottleneck (600s curl upload limit)
+- [x] Implement streaming-based assembly using non-blocking spawn instead of execSync curl
+- [x] Scale timeout dynamically based on file size (600s base + 300s per 100MB, cap 3600s)
+- [x] Add progress tracking for assembly of large files (speed, elapsed time, chunk progress)
+- [x] Improve error handling and logging for assembly failures (chunk retry 3x, upload retry 2x)
+- [x] Write tests for the new streaming assembly approach (21 tests passing)
