@@ -26,6 +26,7 @@ import {
   Shrink,
   ArrowDown,
   HardDrive,
+  Sparkles,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -179,6 +180,8 @@ export function VideoList() {
   const [batchCompressQuality, setBatchCompressQuality] = useState<'high' | 'medium' | 'low'>('medium');
   const [batchCompressing, setBatchCompressing] = useState(false);
   const batchCompressMutation = trpc.videoCompression.batchCompress.useMutation();
+  const bulkFileMatchMutation = trpc.videoVisualCaptions.bulkFileMatch.useMutation();
+  const [batchMatching, setBatchMatching] = useState(false);
   
   // Tag management
   const { data: allTags = [] } = trpc.videoTags.list.useQuery();
@@ -375,6 +378,38 @@ export function VideoList() {
       }
     }
     toast.success("Batch transcription complete");
+  };
+
+  const handleBatchMatch = async () => {
+    setBatchMatching(true);
+    toast.info("Finding matches across all captioned videos... This may take a few minutes.");
+
+    try {
+      const result = await bulkFileMatchMutation.mutateAsync({
+        minRelevanceScore: 0.3,
+      });
+
+      // Invalidate match queries for all processed videos
+      for (const r of result.results) {
+        if (r.status === "completed" || r.status === "skipped") {
+          trpcUtils.videoVisualCaptions.getFileMatches.invalidate({ fileId: r.fileId });
+        }
+      }
+
+      const completedCount = result.results.filter(r => r.status === "completed").length;
+      const skippedCount = result.results.filter(r => r.status === "skipped").length;
+      const failedCount = result.results.filter(r => r.status === "failed").length;
+
+      toast.success(
+        `Batch matching complete: ${result.totalMatches} matches found across ${completedCount} video(s)` +
+        (skippedCount > 0 ? `, ${skippedCount} skipped` : "") +
+        (failedCount > 0 ? `, ${failedCount} failed` : "")
+      );
+    } catch (error: any) {
+      toast.error("Batch matching failed", { description: error.message });
+    } finally {
+      setBatchMatching(false);
+    }
   };
 
   const handleDelete = async (videoId: number) => {
@@ -750,6 +785,19 @@ export function VideoList() {
                   <Captions className="h-4 w-4 mr-2" />
                 )}
                 Caption All
+              </Button>
+              <Button
+                size="sm"
+                variant="default"
+                onClick={handleBatchMatch}
+                disabled={batchMatching || bulkFileMatchMutation.isPending}
+              >
+                {batchMatching ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                Match All
               </Button>
               <Button
                 size="sm"

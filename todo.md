@@ -6769,3 +6769,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] File preview modal (lightbox) when clicking a matched file card
 - [x] Modal shows full file preview, match reasoning, confidence, all associated timepoints
 - [x] Filter/sort controls in Grid view (match type, confidence sort, min threshold)
+
+## Matches Timeline Enhancements V3
+- [x] Batch match generation - "Find All Matches" button in Video Library toolbar
+- [x] Backend procedure to run matching across all videos with captions/transcripts
+- [x] Progress tracking for batch match generation
+- [x] Auto-match on upload - trigger file matching when transcription/captioning completes
+- [x] Hook into existing transcription and captioning completion handlers
+- [x] Background matching with status notification

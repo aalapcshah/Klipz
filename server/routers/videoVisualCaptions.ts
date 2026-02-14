@@ -7,6 +7,7 @@ import { getAutoCaptioningStatus, processScheduledAutoCaptioning } from "../_cor
 import { getCaptioningErrorMessage } from "../lib/errorMessages";
 import { resolveFileUrl } from "../lib/resolveFileUrl";
 import { generateVideoThumbnail } from "../lib/videoThumbnail";
+import { runAutoFileMatch } from "../lib/autoMatch";
 
 /**
  * Video Visual Captions Router
@@ -206,6 +207,14 @@ Generate captions for the entire duration of the video. If the video is short, p
           captions: captions,
           totalFramesAnalyzed: captions.length,
           status: "completed",
+        });
+
+        // Auto-match: fire-and-forget file matching after captioning completes
+        runAutoFileMatch({
+          fileId: input.fileId,
+          userId: ctx.user.id,
+        }).catch((err) => {
+          console.error(`[GenerateCaptions] Auto-match failed for file ${input.fileId}:`, err.message);
         });
 
         return {
@@ -815,6 +824,14 @@ Focus on: what is shown on screen (text, diagrams, images, UI elements), actions
           });
 
           console.log(`[AutoCaption] Completed captioning for file ${input.fileId}: ${captions.length} captions`);
+
+          // Auto-match: fire-and-forget file matching after captioning completes
+          runAutoFileMatch({
+            fileId: input.fileId,
+            userId: ctx.user.id,
+          }).catch((err) => {
+            console.error(`[AutoCaption] Auto-match failed for file ${input.fileId}:`, err.message);
+          });
         } catch (error: any) {
           console.error(`[AutoCaption] Failed for file ${input.fileId}:`, error.message);
           await db.updateVisualCaption(captionId, {

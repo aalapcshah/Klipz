@@ -11,6 +11,7 @@ import { resolveFileUrl } from "../lib/resolveFileUrl";
 import { extractAudioFromVideo, cleanupAudioFile, getTranscriptionStrategy } from "../services/audioExtraction";
 import { storagePut } from "../storage";
 import { promises as fs } from "fs";
+import { runAutoFileMatch } from "../lib/autoMatch";
 
 /**
  * Helper to update transcription phase in the database.
@@ -54,7 +55,8 @@ function buildWordTimestamps(segments: Array<{ text: string; start: number; end:
 async function transcribeWithLLM(
   file: { id: number; url: string; fileKey: string; mimeType?: string | null },
   transcriptId: number,
-  origin?: string
+  origin?: string,
+  userId?: number
 ) {
   try {
     console.log(`[Transcription] Using LLM fallback for file ${file.id}`);
@@ -167,6 +169,13 @@ Detect the language automatically.`,
       transcriptionMethod: "llm",
     });
 
+    // Auto-match: fire-and-forget file matching after transcription completes
+    if (userId) {
+      runAutoFileMatch({ fileId: file.id, userId }).catch((err) => {
+        console.error(`[Transcription] Auto-match failed for file ${file.id}:`, err.message);
+      });
+    }
+
     return {
       transcriptId,
       status: "completed",
@@ -194,7 +203,8 @@ Detect the language automatically.`,
 async function transcribeWithExtractedAudio(
   file: { id: number; url: string; fileKey: string; mimeType?: string | null; fileSize?: number | null },
   transcriptId: number,
-  origin?: string
+  origin?: string,
+  userId?: number
 ) {
   let audioPath: string | null = null;
 
@@ -214,7 +224,7 @@ async function transcribeWithExtractedAudio(
       console.log(`[Transcription] Audio extraction failed for file ${file.id}: ${extractResult.error}`);
       // Fall back to LLM if extraction fails
       console.log(`[Transcription] Falling back to LLM for file ${file.id}`);
-      return await transcribeWithLLM(file, transcriptId, origin);
+      return await transcribeWithLLM(file, transcriptId, origin, userId);
     }
 
     audioPath = extractResult.audioPath;
@@ -225,7 +235,7 @@ async function transcribeWithExtractedAudio(
     if (audioSizeMB > 16) {
       console.log(`[Transcription] Extracted audio is ${audioSizeMB.toFixed(1)}MB (>16MB), falling back to LLM`);
       await cleanupAudioFile(audioPath);
-      return await transcribeWithLLM(file, transcriptId, origin);
+      return await transcribeWithLLM(file, transcriptId, origin, userId);
     }
 
     // Phase 2: Upload extracted audio to S3 for Whisper
@@ -250,7 +260,7 @@ async function transcribeWithExtractedAudio(
     if ("error" in result) {
       if (result.code === "FILE_TOO_LARGE") {
         console.log(`[Transcription] Whisper still rejected extracted audio (${result.details}), falling back to LLM`);
-        return await transcribeWithLLM(file, transcriptId, origin);
+        return await transcribeWithLLM(file, transcriptId, origin, userId);
       }
       const userMessage = getTranscriptionErrorMessage(result.error, result.code);
       await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
@@ -290,6 +300,13 @@ async function transcribeWithExtractedAudio(
       transcriptionPhase: "completed",
       transcriptionMethod: "whisper_extracted",
     });
+
+    // Auto-match: fire-and-forget file matching after transcription completes
+    if (userId) {
+      runAutoFileMatch({ fileId: file.id, userId }).catch((err) => {
+        console.error(`[Transcription] Auto-match failed for file ${file.id}:`, err.message);
+      });
+    }
 
     return {
       transcriptId,
@@ -426,7 +443,7 @@ export const videoTranscriptionRouter = router({
             if ("error" in result) {
               if (result.code === "FILE_TOO_LARGE") {
                 console.log(`[Transcription] File ${input.fileId} too large for Whisper (${result.details}), trying audio extraction`);
-                return await transcribeWithExtractedAudio(file, transcriptId, origin);
+                return await transcribeWithExtractedAudio(file, transcriptId, origin, ctx.user.id);
               }
               const userMessage = getTranscriptionErrorMessage(result.error, result.code);
               await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
@@ -467,6 +484,11 @@ export const videoTranscriptionRouter = router({
               transcriptionMethod: "whisper",
             });
 
+            // Auto-match: fire-and-forget file matching after transcription completes
+            runAutoFileMatch({ fileId: input.fileId, userId: ctx.user.id }).catch((err) => {
+              console.error(`[Transcription] Auto-match failed for file ${input.fileId}:`, err.message);
+            });
+
             return {
               transcriptId,
               status: "completed",
@@ -481,12 +503,12 @@ export const videoTranscriptionRouter = router({
 
           case "extract_then_whisper": {
             // Medium files (16-100MB): extract audio, then try Whisper
-            return await transcribeWithExtractedAudio(file, transcriptId, origin);
+            return await transcribeWithExtractedAudio(file, transcriptId, origin, ctx.user.id);
           }
 
           case "llm_direct": {
             // Large files (>100MB): go directly to LLM
-            return await transcribeWithLLM(file, transcriptId, origin);
+            return await transcribeWithLLM(file, transcriptId, origin, ctx.user.id);
           }
 
           default:
