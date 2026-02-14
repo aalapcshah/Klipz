@@ -6568,3 +6568,20 @@ Note: The application already has extensive annotation features including voice 
 - [x] Root cause: server sync (listActiveSessions query) was overwriting live speed/eta data with 0
 - [x] Fix: preserve speed, eta, progress, networkQuality for active sessions during server sync merge
 - [x] Added staleTime: 30s to prevent GlobalUploadProgress polling from triggering frequent resets
+
+## Bug Fix: Transcription "Failed to download audio file" Error
+- [x] Investigate why transcription fails with "Failed to download audio file"
+- [x] Root cause: chunked/ fileKey is not a real S3 key, storageGet returns 404
+- [x] Fix resolveFileUrl to re-fetch file from DB to check if assembly completed
+- [x] Fix resolveFileUrl to fallback to deployed domain streaming URL
+- [x] Fix error message nesting (TRPCError re-thrown without double-wrapping)
+- [x] Fix error messages to avoid nested "Transcription failed:" prefixes
+- [x] Add clear error messages for "still being processed" and "failed to download" cases
+
+## Bug Fix: Visual Captioning "Video format not supported" Error
+- [x] Investigate why visual captioning fails with format not supported error
+- [x] Root cause: mime_type hardcoded to "video/mp4" regardless of actual file format
+- [x] Fix: use file.mimeType with fallback to "video/mp4" in both captioning procedures
+- [x] Fix error message deduplication in getCaptioningErrorMessage
+- [x] Fix TRPCError re-thrown without double-wrapping in catch block
+- [x] 22 new tests passing for all fixes

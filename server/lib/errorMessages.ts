@@ -8,7 +8,14 @@
  * Maps raw transcription error messages to user-friendly descriptions.
  */
 export function getTranscriptionErrorMessage(rawError: string, errorCode?: string): string {
-  const lower = rawError.toLowerCase();
+  // Strip any existing "Transcription failed:" prefix to avoid nesting
+  let cleanError = rawError;
+  while (cleanError.startsWith("Transcription failed: ")) {
+    cleanError = cleanError.replace("Transcription failed: ", "");
+  }
+  // Also strip trailing retry messages to avoid duplication
+  cleanError = cleanError.replace(/\.?\s*You can retry by clicking the Transcript button\.?\s*$/g, "").trim();
+  const lower = cleanError.toLowerCase();
 
   // File format / codec issues
   if (lower.includes("unsupported") || lower.includes("codec") || lower.includes("format")) {
@@ -45,15 +52,31 @@ export function getTranscriptionErrorMessage(rawError: string, errorCode?: strin
     return "An unexpected server error occurred during transcription. Please try again. If the problem persists, the video file may be corrupted.";
   }
 
+  // File still being assembled (chunked upload not yet complete)
+  if (lower.includes("still being processed") || lower.includes("hasn't been fully assembled") || lower.includes("background assembly")) {
+    return "This video is still being processed after upload. Please wait a few minutes and try again.";
+  }
+
+  // Failed to download / access the file
+  if (lower.includes("failed to download") || lower.includes("failed to fetch") || lower.includes("cannot resolve file url")) {
+    return "Could not access the video file for transcription. The file may still be processing after upload. Please wait a minute and try again.";
+  }
+
   // Default: include the original error but with a user-friendly prefix
-  return `Transcription failed: ${rawError}. You can retry by clicking the Transcript button.`;
+  return `Transcription failed: ${cleanError}. You can retry by clicking the Transcript button.`;
 }
 
 /**
  * Maps raw captioning error messages to user-friendly descriptions.
  */
 export function getCaptioningErrorMessage(rawError: string): string {
-  const lower = rawError.toLowerCase();
+  // Strip any existing prefix to avoid nesting
+  let cleanError = rawError;
+  while (cleanError.startsWith("Visual captioning failed: ") || cleanError.startsWith("Caption generation failed: ")) {
+    cleanError = cleanError.replace("Visual captioning failed: ", "").replace("Caption generation failed: ", "");
+  }
+  cleanError = cleanError.trim();
+  const lower = cleanError.toLowerCase();
 
   // File format issues
   if (lower.includes("unsupported") || lower.includes("format")) {
@@ -85,6 +108,16 @@ export function getCaptioningErrorMessage(rawError: string): string {
     return "The captioning service is temporarily busy. Please wait a minute and try again.";
   }
 
+  // File still being assembled (chunked upload not yet complete)
+  if (lower.includes("still being processed") || lower.includes("hasn't been fully assembled") || lower.includes("background assembly")) {
+    return "This video is still being processed after upload. Please wait a few minutes and try again.";
+  }
+
+  // Failed to download / access the file
+  if (lower.includes("failed to download") || lower.includes("failed to fetch") || lower.includes("cannot resolve file url")) {
+    return "Could not access the video file for captioning. The file may still be processing after upload. Please wait a minute and try again.";
+  }
+
   // Default
-  return `Visual captioning failed: ${rawError}. You can retry by clicking the Captions button.`;
+  return `Caption generation failed: ${cleanError}. You can retry by clicking the Captions button.`;
 }

@@ -284,6 +284,11 @@ export const videoTranscriptionRouter = router({
           },
         };
       } catch (error: any) {
+        // If this is already a TRPCError (from the error handling above or transcribeWithLLM),
+        // re-throw it directly to avoid double-wrapping the error message
+        if (error instanceof TRPCError) {
+          throw error;
+        }
         const userMessage = getTranscriptionErrorMessage(error.message);
         await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
         throw new TRPCError({

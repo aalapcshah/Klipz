@@ -108,7 +108,7 @@ Generate captions for the entire duration of the video. If the video is short, p
               type: "file_url" as const,
               file_url: {
                 url: accessibleUrl,
-                mime_type: "video/mp4" as const,
+                mime_type: (file.mimeType || "video/mp4") as "video/mp4",
               },
                 },
                 {
@@ -208,6 +208,14 @@ Generate captions for the entire duration of the video. If the video is short, p
           captions,
         };
       } catch (error: any) {
+        // If this is already a TRPCError, re-throw to avoid double-wrapping
+        if (error instanceof TRPCError) {
+          await db.updateVisualCaption(captionId, {
+            status: "failed",
+            errorMessage: error.message,
+          });
+          throw error;
+        }
         const userMessage = getCaptioningErrorMessage(error.message);
         await db.updateVisualCaption(captionId, {
           status: "failed",
@@ -725,7 +733,7 @@ Focus on: what is shown on screen (text, diagrams, images, UI elements), actions
                     type: "file_url" as const,
                     file_url: {
                       url: accessibleUrl,
-                      mime_type: "video/mp4" as const,
+                      mime_type: (file.mimeType || "video/mp4") as "video/mp4",
                     },
                   },
                   {
