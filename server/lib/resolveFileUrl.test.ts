@@ -5,6 +5,11 @@ vi.mock("../storage", () => ({
   storageGet: vi.fn(),
 }));
 
+// Mock the db module
+vi.mock("../db", () => ({
+  getFileById: vi.fn(),
+}));
+
 import { resolveFileUrl } from "./resolveFileUrl";
 import { storageGet } from "../storage";
 
@@ -35,9 +40,22 @@ describe("resolveFileUrl", () => {
     expect(mockedStorageGet).not.toHaveBeenCalled();
   });
 
-  it("resolves relative streaming URLs via storageGet", async () => {
+  it("resolves streaming URLs with non-chunked fileKey via deployed domain (streaming path takes priority)", async () => {
     const file = {
       url: "/api/files/stream/utRpvq4Z-IZC9JOsLTbRsmsE9hCcUCwp",
+      fileKey: "user-123/video-abc.mp4",
+    };
+
+    // Streaming URLs take priority over storageGet — the code constructs a public URL
+    // using the deployed domain rather than trying storageGet
+    const result = await resolveFileUrl(file);
+    expect(result).toContain("/api/files/stream/utRpvq4Z-IZC9JOsLTbRsmsE9hCcUCwp");
+    expect(result).toMatch(/^https?:\/\//);
+  });
+
+  it("resolves non-streaming relative URLs via storageGet", async () => {
+    const file = {
+      url: "/some/relative/path",
       fileKey: "user-123/video-abc.mp4",
     };
     mockedStorageGet.mockResolvedValue({
@@ -50,41 +68,50 @@ describe("resolveFileUrl", () => {
     expect(mockedStorageGet).toHaveBeenCalledWith("user-123/video-abc.mp4");
   });
 
-  it("throws if storageGet fails and no fallback is available", async () => {
+  it("falls back to deployed domain URL when storageGet fails for non-chunked fileKey", async () => {
     const file = {
       url: "/api/files/stream/some-token",
       fileKey: "user-123/video.mp4",
     };
     mockedStorageGet.mockRejectedValue(new Error("S3 error"));
 
-    await expect(resolveFileUrl(file)).rejects.toThrow(
-      "Cannot resolve file URL to a publicly accessible address"
-    );
+    // Should fall back to deployed domain URL instead of throwing
+    const result = await resolveFileUrl(file);
+    expect(result).toContain("/api/files/stream/some-token");
+    expect(result).toMatch(/^https?:\/\//);
   });
 
-  it("throws if storageGet returns a non-http URL", async () => {
+  it("constructs public URL for chunked fileKey using deployed domain", async () => {
     const file = {
       url: "/api/files/stream/some-token",
-      fileKey: "user-123/video.mp4",
+      fileKey: "chunked/some-token/video.mp4",
     };
-    mockedStorageGet.mockResolvedValue({
-      key: "user-123/video.mp4",
-      url: "",
-    });
 
-    await expect(resolveFileUrl(file)).rejects.toThrow(
-      "Cannot resolve file URL to a publicly accessible address"
-    );
+    // Chunked files should use deployed domain directly (no storageGet)
+    const result = await resolveFileUrl(file);
+    expect(result).toContain("/api/files/stream/some-token");
+    expect(result).toMatch(/^https?:\/\//);
   });
 
-  it("throws if fileKey is empty and URL is relative", async () => {
+  it("uses origin when provided for streaming URLs", async () => {
+    const file = {
+      url: "/api/files/stream/some-token",
+      fileKey: "chunked/some-token/video.mp4",
+    };
+
+    const result = await resolveFileUrl(file, { origin: "https://my-app.example.com" });
+    expect(result).toBe("https://my-app.example.com/api/files/stream/some-token");
+  });
+
+  it("handles empty fileKey with streaming URL by using deployed domain", async () => {
     const file = {
       url: "/api/files/stream/some-token",
       fileKey: "",
     };
 
-    await expect(resolveFileUrl(file)).rejects.toThrow(
-      "Cannot resolve file URL to a publicly accessible address"
-    );
+    // Should fall back to deployed domain URL
+    const result = await resolveFileUrl(file);
+    expect(result).toContain("/api/files/stream/some-token");
+    expect(result).toMatch(/^https?:\/\//);
   });
 });

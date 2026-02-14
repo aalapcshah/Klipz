@@ -64,8 +64,9 @@ import { resolveFileUrl } from "./lib/resolveFileUrl";
 import { transcribeAudio } from "./_core/voiceTranscription";
 import { nanoid } from "nanoid";
 import { exportVideoWithAnnotations, batchExportVideosWithAnnotations } from "./videoExport";
-import { voiceAnnotations, visualAnnotations, files, videoTranscripts, visualCaptions } from "../drizzle/schema";
+import { voiceAnnotations, visualAnnotations, files, videos, videoTranscripts, visualCaptions, resumableUploadSessions } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
+import { getDb } from "./db";
 
 export const appRouter = router({
   adminControl: adminControlRouter,
@@ -689,22 +690,128 @@ export const appRouter = router({
       .query(async ({ input, ctx }) => {
         const file = await db.getFileById(input.fileId);
         if (!file || file.userId !== ctx.user.id) {
-          return { ready: false, status: "not_found" as const };
+          return { ready: true, status: "not_found" as const, assembled: false, hasThumbnail: false };
         }
 
-        // Check if the file URL is still a streaming URL (assembly in progress)
+        // Check if the file URL is still a streaming URL (assembly hasn't completed)
         const isStreaming = file.url.startsWith("/api/files/stream/");
         const isChunkedKey = file.fileKey.startsWith("chunked/");
+        const hasThumbnail = !!file.thumbnailUrl;
 
         if (isStreaming || isChunkedKey) {
+          // File is accessible via streaming URL but not yet assembled to S3
+          // Transcription/captioning can still proceed using the streaming URL
           return {
-            ready: false,
-            status: "assembling" as const,
-            message: "File is still being assembled after upload. This usually takes a few minutes for large files.",
+            ready: true,
+            status: "streaming" as const,
+            assembled: false,
+            hasThumbnail,
+            message: "File is accessible but hasn't been fully assembled to storage. AI features will work but may be slower for very large files.",
           };
         }
 
-        return { ready: true, status: "ready" as const };
+        return { ready: true, status: "ready" as const, assembled: true, hasThumbnail };
+      }),
+
+    // Retry background assembly for a file that failed to assemble
+    retryAssembly: protectedProcedure
+      .input(z.object({ fileId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const file = await db.getFileById(input.fileId);
+        if (!file || file.userId !== ctx.user.id) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "File not found" });
+        }
+
+        // Only retry for files that still have streaming URLs
+        if (!file.url.startsWith("/api/files/stream/") && !file.fileKey.startsWith("chunked/")) {
+          return { success: true, message: "File is already assembled" };
+        }
+
+        // Extract session token from the streaming URL
+        const sessionToken = file.url.replace("/api/files/stream/", "");
+        if (!sessionToken) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot determine upload session for this file" });
+        }
+
+        // Look up the upload session to get all required parameters
+        const drizzle = await getDb();
+        if (!drizzle) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+        }
+        const [session] = await drizzle.select().from(resumableUploadSessions)
+          .where(eq(resumableUploadSessions.sessionToken, sessionToken));
+
+        if (!session) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Upload session not found. The file may need to be re-uploaded." });
+        }
+
+        // Look up the video record if it exists
+        const [video] = await drizzle.select().from(videos).where(eq(videos.fileId, file.id));
+
+        // Trigger background assembly with all required parameters
+        try {
+          const { assembleChunksInBackground } = await import("./lib/backgroundAssembly");
+          assembleChunksInBackground(
+            sessionToken,
+            session.id,
+            ctx.user.id,
+            file.id,
+            video?.id,
+            file.filename,
+            file.mimeType,
+            session.uploadType || "chunked"
+          );
+          return { success: true, message: "Assembly has been re-triggered. This may take a few minutes for large files." };
+        } catch (error: any) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Failed to trigger assembly: ${error.message}` });
+        }
+      }),
+
+    // Generate or regenerate thumbnail for a video file
+    generateThumbnail: protectedProcedure
+      .input(z.object({ fileId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const file = await db.getFileById(input.fileId);
+        if (!file || file.userId !== ctx.user.id) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "File not found" });
+        }
+
+        if (!file.mimeType.startsWith("video/")) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Thumbnail generation is only available for video files" });
+        }
+
+        // Resolve the file URL to a publicly accessible URL
+        const { resolveFileUrl } = await import("./lib/resolveFileUrl");
+        const origin = ctx.req?.headers?.origin || ctx.req?.headers?.referer?.replace(/\/[^/]*$/, "") || undefined;
+        const videoUrl = await resolveFileUrl(file, { origin });
+
+        // Generate thumbnail
+        const { generateVideoThumbnail } = await import("./lib/videoThumbnail");
+        const result = await generateVideoThumbnail(videoUrl, {
+          userId: ctx.user.id,
+          filename: file.filename,
+          seekTime: 2,
+          width: 640,
+          quality: 5,
+        });
+
+        if (!result) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to generate thumbnail. The video may still be processing or the format may not be supported." });
+        }
+
+        // Update the file record with the thumbnail URL
+        const drizzle = await getDb();
+        if (drizzle) {
+          await drizzle.update(files).set({ thumbnailUrl: result.url }).where(eq(files.id, file.id));
+
+          // Also update the video record if it exists
+          const [video] = await drizzle.select().from(videos).where(eq(videos.fileId, file.id));
+          if (video) {
+            await drizzle.update(videos).set({ thumbnailUrl: result.url }).where(eq(videos.id, video.id));
+          }
+        }
+
+        return { success: true, thumbnailUrl: result.url };
       }),
 
     // Upload file metadata (actual file upload happens client-side to S3)

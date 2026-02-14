@@ -6613,3 +6613,13 @@ Note: The application already has extensive annotation features including voice 
   - Videos analyzed via file_url, images via image_url, audio via file_url
 - [x] Ensure the streaming URL can be accessed by external services (LLM, Whisper)
   - Fix: resolveFileUrl now constructs full public URL using deployed domain
+## Retry Assembly & Generate Thumbnail for Stuck Files
+- [x] Add checkFileReady procedure returning assembled, hasThumbnail, status fields
+- [x] Add retryAssembly procedure to re-trigger background assembly for stuck files
+- [x] Add generateThumbnail procedure to generate thumbnails from streaming URLs
+- [x] Build FileProcessingBanner component with Retry Assembly and Generate Thumbnail buttons
+- [x] Integrate FileProcessingBanner into FileSuggestions and VisualCaptionsPanel
+- [x] Fix resolveFileUrl tests to match new behavior (streaming URLs return public URLs)
+- [x] Fix errorMessages tests to match new default message prefixes
+- [x] Fix transcription-captioning-fix tests to match new error message format
+- [x] All 47 tests passing in resolveFileUrl, errorMessages, and transcription-captioning-fix test files

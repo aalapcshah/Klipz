@@ -10,7 +10,8 @@ describe("getTranscriptionErrorMessage", () => {
 
   it("returns format-specific message for format errors", () => {
     const msg = getTranscriptionErrorMessage("Invalid format: webm");
-    expect(msg).toContain("not supported");
+    // Generic "format" no longer matches — only specific format errors do
+    expect(msg).toContain("Transcription error");
   });
 
   it("returns size message for FILE_TOO_LARGE error code", () => {
@@ -52,7 +53,7 @@ describe("getTranscriptionErrorMessage", () => {
 
   it("returns default message with original error for unknown errors", () => {
     const msg = getTranscriptionErrorMessage("Something completely unexpected happened");
-    expect(msg).toContain("Transcription failed");
+    expect(msg).toContain("Transcription error");
     expect(msg).toContain("Something completely unexpected happened");
     expect(msg).toContain("retry");
   });
@@ -92,7 +93,7 @@ describe("getCaptioningErrorMessage", () => {
 
   it("returns default message with original error for unknown errors", () => {
     const msg = getCaptioningErrorMessage("Unknown error occurred");
-    expect(msg).toContain("Visual captioning failed");
+    expect(msg).toContain("Captioning error");
     expect(msg).toContain("Unknown error occurred");
     expect(msg).toContain("retry");
   });

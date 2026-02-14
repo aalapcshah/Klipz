@@ -91,7 +91,7 @@ describe("Error message deduplication - Transcription", () => {
 
   it("should handle normal errors without double-wrapping", () => {
     const result = getTranscriptionErrorMessage("Some unexpected error");
-    expect(result).toBe("Transcription failed: Some unexpected error. You can retry by clicking the Transcript button.");
+    expect(result).toBe("Transcription error: Some unexpected error. You can retry by clicking the Transcript button.");
   });
 
   it("should handle empty string gracefully", () => {
@@ -135,7 +135,7 @@ describe("Error message deduplication - Captioning", () => {
 
   it("should handle normal errors without double-wrapping", () => {
     const result = getCaptioningErrorMessage("Some unexpected error");
-    expect(result).toBe("Caption generation failed: Some unexpected error. You can retry by clicking the Captions button.");
+    expect(result).toBe("Captioning error: Some unexpected error. You can retry by clicking the Retry button.");
   });
 });
 

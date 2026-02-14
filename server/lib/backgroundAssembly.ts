@@ -29,6 +29,7 @@ import * as os from "os";
 import { execSync } from "child_process";
 import { generateVideoThumbnail } from "./videoThumbnail";
 import { ENV } from "../_core/env";
+import { sendActivityEmail } from "../_core/activityEmailNotifications";
 
 // Track active assembly jobs to prevent duplicates
 const activeAssemblies = new Set<string>();
@@ -236,6 +237,23 @@ export async function assembleChunksInBackground(
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`[BackgroundAssembly] ✅ ${sessionToken}: Assembly complete in ${elapsed}s. File ${fileId} now served from S3 directly.`);
+
+      // Send "processing complete" notification to the user
+      try {
+        const sizeMB = (totalBytesWritten / 1024 / 1024).toFixed(1);
+        await sendActivityEmail({
+          userId,
+          activityType: "upload",
+          title: `File Processing Complete: ${filename}`,
+          content: `Your file "${filename}" (${sizeMB} MB) has finished processing and is now ready for transcription, captioning, and AI analysis. Processing took ${elapsed} seconds.`,
+          details: `File size: ${sizeMB} MB, Processing time: ${elapsed}s`,
+          fileId,
+          fileName: filename,
+        });
+        console.log(`[BackgroundAssembly] ${sessionToken}: Processing complete notification sent to user ${userId}`);
+      } catch (notifError) {
+        console.warn(`[BackgroundAssembly] ${sessionToken}: Failed to send processing complete notification (non-fatal):`, notifError);
+      }
 
     } finally {
       // Clean up temp file
