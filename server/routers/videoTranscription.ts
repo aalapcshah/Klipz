@@ -206,6 +206,23 @@ export const videoTranscriptionRouter = router({
         };
       }
 
+      // If existing transcript is stuck in "processing" for >10 minutes, reset it
+      if (existing && existing.status === "processing") {
+        const updatedAt = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+        const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+        if (updatedAt < tenMinutesAgo) {
+          console.log(`[Transcription] Resetting stale processing transcript ${existing.id} (last updated: ${new Date(updatedAt).toISOString()})`);
+          await db.updateVideoTranscriptStatus(existing.id, "failed", "Previous transcription attempt timed out. Retrying...");
+        } else {
+          // Still actively processing — don't start a new one
+          return {
+            transcriptId: existing.id,
+            status: "processing",
+            transcript: existing,
+          };
+        }
+      }
+
       // Create or update transcript record with pending status
       const transcriptId = existing
         ? existing.id
@@ -228,7 +245,14 @@ export const videoTranscriptionRouter = router({
         const accessibleUrl = await resolveFileUrl(file, { origin });
         console.log(`[Transcription] Resolved URL for file ${input.fileId}: ${accessibleUrl.substring(0, 80)}...`);
 
-        // Try Whisper first
+        // Check file size — skip Whisper entirely for files >16MB
+        const fileSizeMB = file.fileSize ? file.fileSize / (1024 * 1024) : 0;
+        if (fileSizeMB > 16) {
+          console.log(`[Transcription] File ${input.fileId} is ${fileSizeMB.toFixed(1)}MB (>16MB), skipping Whisper, using LLM directly`);
+          return await transcribeWithLLM(file, transcriptId, origin);
+        }
+
+        // Try Whisper first (for files <=16MB)
         const result = await transcribeAudio({
           audioUrl: accessibleUrl,
           language: "en",

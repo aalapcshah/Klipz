@@ -1,0 +1,40 @@
+{
+  "query": "SELECT f.id, f.title, f.fileSize, f.mimeType, LEFT(f.url, 100) as url_prefix, LEFT(f.fileKey, 100) as fileKey_prefix,\n       vt.id as transcript_id, vt.status as transcript_status, LEFT(vt.errorMessage, 200) as errorMsg, vt.updatedAt as transcript_updated\nFROM files f \nLEFT JOIN video_transcripts vt ON vt.fileId = f.id\nWHERE f.id = 1770203\\G",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT f.id, f.title, f.fileSize, f.mimeType, LEFT(f.url, 100) as url_prefix, LEFT(f.fileKey, 100) as fileKey_prefix,\n       vt.id as transcript_id, vt.status as transcript_status, LEFT(vt.errorMessage, 200) as errorMsg, vt.updatedAt as transcript_updated\nFROM files f \nLEFT JOIN video_transcripts vt ON vt.fileId = f.id\nWHERE f.id = 1770203\\G",
+  "rows": [
+    {
+      "*************************** 1. row ***************************": "                id: 1770203"
+    },
+    {
+      "*************************** 1. row ***************************": "             title: Video 0 - Steward HealthCare Revisedd"
+    },
+    {
+      "*************************** 1. row ***************************": "          fileSize: 309186340"
+    },
+    {
+      "*************************** 1. row ***************************": "          mimeType: video/mp4"
+    },
+    {
+      "*************************** 1. row ***************************": "        url_prefix: https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/177104"
+    },
+    {
+      "*************************** 1. row ***************************": "    fileKey_prefix: user-1/videos/1771040484529-h8kug3-Video 0 - Steward HealthCare Revised.mp4"
+    },
+    {
+      "*************************** 1. row ***************************": "     transcript_id: 240003"
+    },
+    {
+      "*************************** 1. row ***************************": " transcript_status: failed"
+    },
+    {
+      "*************************** 1. row ***************************": "          errorMsg: Previous transcription attempt timed out. Please retry."
+    },
+    {
+      "*************************** 1. row ***************************": "transcript_updated: 2026-02-14 06:49:49"
+    }
+  ],
+  "messages": [],
+  "stdout": "*************************** 1. row ***************************\n                id: 1770203\n             title: Video 0 - Steward HealthCare Revisedd\n          fileSize: 309186340\n          mimeType: video/mp4\n        url_prefix: https://d2xsxph8kpxj0f.cloudfront.net/310519663292476273/SaoZcd7riW2zyxorRaqL7d/user-1/videos/177104\n    fileKey_prefix: user-1/videos/1771040484529-h8kug3-Video 0 - Steward HealthCare Revised.mp4\n     transcript_id: 240003\n transcript_status: failed\n          errorMsg: Previous transcription attempt timed out. Please retry.\ntranscript_updated: 2026-02-14 06:49:49\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

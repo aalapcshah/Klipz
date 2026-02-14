@@ -6667,3 +6667,11 @@ Note: The application already has extensive annotation features including voice 
 - [x] Make File Information + Title/Description collapsible (default collapsed)
 - [x] Make Version History collapsible (default collapsed)
 - [x] Fix Video Effects collapsible button (chevron stopPropagation was preventing toggle)
+
+## Bug Fixes: Highlights Crash & Transcription Failure
+- [x] Fix React error #310 crash when clicking Highlights tab (conditional hook call from tab-based switching)
+- [x] Investigate and fix transcription failure/stuck for video
+- [x] Add HEAD request pre-check in voiceTranscription to avoid downloading 300MB+ files
+- [x] Skip Whisper entirely for files >16MB using fileSize from DB, go directly to LLM fallback
+- [x] Add stale-processing detection (>10 min auto-reset) for stuck transcripts
+- [x] Write 19 tests for large file transcription path (all passing)

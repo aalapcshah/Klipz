@@ -90,10 +90,30 @@ export async function transcribeAudio(
       };
     }
 
-    // Step 2: Download audio from URL
+    // Step 2: Check file size with HEAD request first to avoid downloading large files
     let audioBuffer: Buffer;
     let mimeType: string;
     try {
+      // Pre-check file size with HEAD request to avoid downloading 300MB+ files
+      try {
+        const headResponse = await fetch(options.audioUrl, { method: 'HEAD' });
+        if (headResponse.ok) {
+          const contentLength = headResponse.headers.get('content-length');
+          if (contentLength) {
+            const sizeMB = parseInt(contentLength, 10) / (1024 * 1024);
+            if (sizeMB > 16) {
+              return {
+                error: "Audio file exceeds maximum size limit",
+                code: "FILE_TOO_LARGE",
+                details: `File size is ${sizeMB.toFixed(2)}MB, maximum allowed is 16MB`
+              };
+            }
+          }
+        }
+      } catch {
+        // HEAD request failed — proceed with GET and check size after download
+      }
+
       const response = await fetch(options.audioUrl);
       if (!response.ok) {
         return {

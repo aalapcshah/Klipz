@@ -68,6 +68,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
   
   // Auto-detected highlights for timeline markers
   const [detectedHighlights, setDetectedHighlights] = useState<Highlight[]>([]);
+  const handleHighlightsChange = useCallback((h: Highlight[]) => setDetectedHighlights(h), []);
 
   // Quick Tools active section tracking via IntersectionObserver
   const [activeToolSection, setActiveToolSection] = useState<string | null>(null);
@@ -2014,7 +2015,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
               videoRef.current.currentTime = time;
             }
           }}
-          onHighlightsChange={useCallback((h: Highlight[]) => setDetectedHighlights(h), [])}
+          onHighlightsChange={handleHighlightsChange}
         />
       )}
 
