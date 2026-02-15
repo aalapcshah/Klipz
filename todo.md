@@ -7005,3 +7005,7 @@ Note: The application already has extensive annotation features including voice 
 ## UI Change: Make Batch Action Toolbar More Compact
 - [x] Remove "X selected" label from the batch action toolbar to make it smaller
 - [x] Move the selected count to the Select All / Clear area below the toolbar
+
+## UI Change: Move Retry Failed Button to Batch Toolbar
+- [x] Move "Retry Failed" button from Selection Controls area down to the batch action toolbar
+- [x] Rename "Retry Failed (N)" to "Retry (N)" — remove the word "Failed"

@@ -581,22 +581,7 @@ export default function FilesView() {
                 </Button>
               )}
               
-              {/* Retry Failed - shows when there are failed enrichments */}
-              {enrichmentCounts && enrichmentCounts.failed > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs px-2 md:h-8 md:text-sm md:px-3 border-red-500 text-red-500 hover:bg-red-500/10"
-                  disabled={retryFailedMutation.isPending}
-                  onClick={() => retryFailedMutation.mutate()}
-                >
-                  {retryFailedMutation.isPending ? (
-                    <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Retrying...</>
-                  ) : (
-                    <><RefreshCw className="w-3 h-3 mr-1" /> Retry Failed ({enrichmentCounts.failed})</>
-                  )}
-                </Button>
-              )}
+
               
               {/* Enrichment Progress Indicator */}
               {enrichmentJobStatus && enrichmentJobStatus.status === 'processing' && (

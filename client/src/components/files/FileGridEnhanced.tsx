@@ -34,6 +34,7 @@ import {
   Mic,
   FileAudio,
   Subtitles,
+  RefreshCw,
 } from "lucide-react";
 import {
   Collapsible,
@@ -244,6 +245,18 @@ export default function FileGridEnhanced({
       setCreateCollectionDialogOpen(false);
       setNewCollectionName("");
       setNewCollectionColor("#6366f1");
+    },
+  });
+
+  const { data: enrichmentCounts } = trpc.files.enrichmentCounts.useQuery();
+  const retryFailedMutation = trpc.enrichmentJobs.retryFailed.useMutation({
+    onSuccess: (result) => {
+      utils.files.list.invalidate();
+      utils.files.enrichmentCounts.invalidate();
+      toast.success(`Retrying ${result.retried} failed file(s)`);
+    },
+    onError: () => {
+      toast.error("Failed to retry enrichment");
     },
   });
 
@@ -1518,7 +1531,26 @@ export default function FileGridEnhanced({
                     <span className="sm:hidden">Collection</span>
                   </Button>
 
-                  {/* 10. Delete (red) */}
+                  {/* 10. Retry */}
+                  {enrichmentCounts && enrichmentCounts.failed > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => retryFailedMutation.mutate()}
+                      disabled={retryFailedMutation.isPending}
+                      className="h-6 px-1.5 text-[10px] md:h-8 md:px-3 md:text-sm gap-1 border-red-500 text-red-500 hover:bg-red-500/10 hover:text-red-500"
+                    >
+                      {retryFailedMutation.isPending ? (
+                        <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3 w-3 md:h-4 md:w-4" />
+                      )}
+                      <span className="hidden sm:inline">Retry ({enrichmentCounts.failed})</span>
+                      <span className="sm:hidden">Retry ({enrichmentCounts.failed})</span>
+                    </Button>
+                  )}
+
+                  {/* 11. Delete (red) */}
                   <Button
                     variant="outline"
                     size="sm"
