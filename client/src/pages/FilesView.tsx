@@ -16,6 +16,7 @@ import { StorageCleanupWizard } from "@/components/StorageCleanupWizard";
 import { UsageOverviewCompact } from "@/components/UsageOverviewCompact";
 import { CameraCapture } from "@/components/CameraCapture";
 import { FilesFAB } from "@/components/FloatingActionButton";
+import { ScrollToTopButton } from "@/components/ScrollToTopButton";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { GestureTutorial } from "@/components/GestureTutorial";
 import { VoiceCommands, useFileCommands } from "@/components/VoiceCommands";
@@ -807,6 +808,9 @@ export default function FilesView() {
             utils.files.list.invalidate();
           }}
         />
+
+        {/* Scroll to Top Button for Mobile */}
+        <ScrollToTopButton />
 
         {/* Floating Action Button for Mobile */}
         <FilesFAB

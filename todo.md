@@ -7029,3 +7029,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Make the search bar sticky on mobile so it stays visible when scrolling through files
 - [x] Ensure it doesn't overlap with other sticky elements (header, bottom nav)
 - [x] Add proper z-index and background to prevent content showing through
+
+## UI Feature: Floating Scroll-to-Top Button
+- [x] Add a floating button that appears after scrolling down
+- [x] Smooth scroll back to top on click
+- [x] Position it so it doesn't overlap with the FAB (+) button or bottom nav (left-4, FAB is right-4)
