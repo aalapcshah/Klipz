@@ -1008,6 +1008,17 @@ export const appRouter = router({
                   })
                   .catch((err) => console.error(`[AutoVideoDetect] Transcode error:`, err));
               }
+
+              // Auto-trigger HLS transcoding
+              if (url!.startsWith('http')) {
+                const { queueAutoHls } = await import('./lib/autoHls');
+                queueAutoHls(videoId, url!, {
+                  sourceWidth: width || null,
+                  sourceHeight: height || null,
+                  filename: input.filename,
+                  userId: ctx.user.id,
+                });
+              }
             } catch (err) {
               console.error('[AutoVideoDetect] Failed to auto-create video entry:', err);
             }
@@ -2217,6 +2228,20 @@ export const appRouter = router({
               });
           }).catch((err) => {
             console.error('[AutoTranscode] Failed to load transcode module:', err);
+          });
+        }
+
+        // Auto-trigger HLS transcoding for adaptive bitrate streaming
+        if (input.url.startsWith('http')) {
+          import('./lib/autoHls').then(({ queueAutoHls }) => {
+            queueAutoHls(videoId, input.url, {
+              sourceWidth: null,
+              sourceHeight: null,
+              filename: input.filename,
+              userId: ctx.user.id,
+            });
+          }).catch((err) => {
+            console.error('[AutoHLS] Failed to queue HLS:', err);
           });
         }
 

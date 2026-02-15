@@ -6846,3 +6846,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Handle FFprobe errors gracefully (fallback to duration=0)
 - [x] Run FFprobe asynchronously to not block upload response
 - [x] Updated existing routers.ts auto-detect to use new FFprobe module
+
+## Auto-Trigger HLS on Upload
+- [x] Create a shared helper function to queue HLS transcoding for a video (server/lib/autoHls.ts)
+- [x] Auto-trigger HLS after video upload via resumable upload (sync finalize)
+- [x] Auto-trigger HLS after video upload via background assembly (large files)
+- [x] Auto-trigger HLS after video auto-detection from Files upload
+- [x] Auto-trigger HLS after direct video creation in routers.ts
+- [x] Ensure no duplicate HLS jobs are triggered for the same video (pendingHlsJobs Set)
+- [x] Write tests for auto-trigger behavior (9 tests passing)

@@ -558,6 +558,18 @@ export const resumableUploadRouter = router({
                     console.log(`[ResumableUpload] FFprobe metadata for video ${videoId}: ${meta.duration}s, ${meta.width}x${meta.height}`);
                   }
                 }
+                // Auto-trigger HLS after FFprobe completes (so we have resolution data)
+                if (videoId && finalUrl.startsWith('http')) {
+                  import('../lib/autoHls').then(({ queueAutoHls }) => {
+                    queueAutoHls(videoId!, finalUrl, {
+                      sourceWidth: meta?.width,
+                      sourceHeight: meta?.height,
+                      filename: session.filename,
+                      userId: ctx.user.id,
+                      delay: 2000, // Short delay since FFprobe already ran
+                    });
+                  }).catch(err => console.error(`[ResumableUpload] Auto-HLS queue error:`, err));
+                }
               }).catch(err => console.error(`[ResumableUpload] FFprobe failed for video ${videoId}:`, err));
             });
           }

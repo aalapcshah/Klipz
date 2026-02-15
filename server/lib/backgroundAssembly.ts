@@ -356,7 +356,7 @@ export async function assembleChunksInBackground(
         `(${(totalBytesWritten / 1024 / 1024).toFixed(1)}MB, timeout: ${timeoutSec}s)...`
       );
 
-      let finalUrl: string;
+      let finalUrl: string = '';
       const uploadStartTime = Date.now();
 
       if (totalBytesWritten <= MEMORY_UPLOAD_LIMIT) {
@@ -475,6 +475,25 @@ export async function assembleChunksInBackground(
           }
         } catch (thumbError) {
           console.warn(`[BackgroundAssembly] ${sessionToken}: Thumbnail generation failed (non-fatal):`, thumbError);
+        }
+      }
+
+      // Phase: Auto-trigger HLS transcoding for video files
+      if (mimeType.startsWith('video/') && videoId && finalUrl && finalUrl.startsWith('http')) {
+        try {
+          const { queueAutoHls } = await import('./autoHls');
+          // Get latest video metadata (FFprobe may have updated width/height above)
+          const latestVideo = await db.getVideoById(videoId);
+          queueAutoHls(videoId, finalUrl, {
+            sourceWidth: (latestVideo as any)?.width || null,
+            sourceHeight: (latestVideo as any)?.height || null,
+            filename,
+            userId,
+            delay: 2000, // Short delay since FFprobe already ran
+          });
+          console.log(`[BackgroundAssembly] ${sessionToken}: Auto-HLS queued for video ${videoId}`);
+        } catch (hlsErr) {
+          console.warn(`[BackgroundAssembly] ${sessionToken}: Auto-HLS queue failed (non-fatal):`, hlsErr);
         }
       }
 
