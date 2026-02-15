@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getTranscriptionStrategy } from "./services/audioExtraction";
+import { getTranscriptionStrategy, getExtractionTimeout } from "./services/audioExtraction";
 
 describe("Audio Extraction & Transcription Strategy", () => {
   describe("getTranscriptionStrategy", () => {
@@ -19,7 +19,6 @@ describe("Audio Extraction & Transcription Strategy", () => {
       const result = getTranscriptionStrategy(50 * 1024 * 1024); // 50MB
       expect(result.method).toBe("extract_then_whisper");
       expect(result.reason).toContain("50.0MB");
-      expect(result.reason).toContain("16-100MB");
     });
 
     it("should use extract_then_whisper for files just over 16MB", () => {
@@ -32,27 +31,27 @@ describe("Audio Extraction & Transcription Strategy", () => {
       expect(result.method).toBe("extract_then_whisper");
     });
 
-    it("should use llm_direct for files > 100MB", () => {
+    it("should use extract_then_whisper for files > 100MB (no more llm_direct)", () => {
       const result = getTranscriptionStrategy(200 * 1024 * 1024); // 200MB
-      expect(result.method).toBe("llm_direct");
-      expect(result.reason).toContain(">100MB");
+      expect(result.method).toBe("extract_then_whisper");
+      expect(result.reason).toContain(">16MB");
     });
 
-    it("should use llm_direct for the 295MB test video", () => {
+    it("should use extract_then_whisper for the 295MB test video", () => {
       const result = getTranscriptionStrategy(309186340); // 294.86MB
-      expect(result.method).toBe("llm_direct");
+      expect(result.method).toBe("extract_then_whisper");
       expect(result.reason).toContain("294.9MB");
     });
 
-    it("should use whisper_direct for null file size", () => {
+    it("should use extract_then_whisper for null file size", () => {
       const result = getTranscriptionStrategy(null);
-      expect(result.method).toBe("whisper_direct");
+      expect(result.method).toBe("extract_then_whisper");
       expect(result.reason).toContain("unknown");
     });
 
-    it("should use whisper_direct for zero file size", () => {
+    it("should use extract_then_whisper for zero file size", () => {
       const result = getTranscriptionStrategy(0);
-      expect(result.method).toBe("whisper_direct");
+      expect(result.method).toBe("extract_then_whisper");
       expect(result.reason).toContain("unknown");
     });
 
@@ -61,9 +60,14 @@ describe("Audio Extraction & Transcription Strategy", () => {
       expect(result.method).toBe("whisper_direct");
     });
 
-    it("should use llm_direct for very large files (1GB+)", () => {
+    it("should use extract_then_whisper for very large files (1GB+)", () => {
       const result = getTranscriptionStrategy(1024 * 1024 * 1024); // 1GB
-      expect(result.method).toBe("llm_direct");
+      expect(result.method).toBe("extract_then_whisper");
+    });
+
+    it("should use extract_then_whisper for 10GB files", () => {
+      const result = getTranscriptionStrategy(10 * 1024 * 1024 * 1024); // 10GB
+      expect(result.method).toBe("extract_then_whisper");
     });
   });
 
@@ -88,20 +92,6 @@ describe("Audio Extraction & Transcription Strategy", () => {
         "extracting_audio",
         "uploading_audio",
         "transcribing_whisper",
-        "processing_results",
-        "completed",
-      ];
-      // Verify each phase comes after the previous one in the phases array
-      for (let i = 1; i < expectedOrder.length; i++) {
-        const prevIdx = phases.indexOf(expectedOrder[i - 1]);
-        const currIdx = phases.indexOf(expectedOrder[i]);
-        expect(currIdx).toBeGreaterThan(prevIdx);
-      }
-    });
-
-    it("should have correct phase order for llm_direct", () => {
-      const expectedOrder = [
-        "transcribing_llm",
         "processing_results",
         "completed",
       ];
@@ -146,14 +136,13 @@ describe("Audio Extraction & Transcription Strategy", () => {
       expect(strategy.method).toBe("extract_then_whisper");
     });
 
-    it("llm method should be for large files", () => {
+    it("extract_then_whisper should be used for large files too", () => {
       const strategy = getTranscriptionStrategy(200 * 1024 * 1024); // 200MB
-      expect(strategy.method).toBe("llm_direct");
+      expect(strategy.method).toBe("extract_then_whisper");
     });
   });
 
   describe("Phase display messages", () => {
-    // Test the phase-to-message mapping logic used in the UI
     const phaseMessages: Record<string, { label: string; hasEstimate: boolean }> = {
       extracting_audio: { label: "Extracting audio", hasEstimate: true },
       uploading_audio: { label: "Uploading", hasEstimate: true },
@@ -180,7 +169,7 @@ describe("Audio Extraction & Transcription Strategy", () => {
     it("should handle boundary at exactly 16MB", () => {
       const exactly16MB = 16 * 1024 * 1024;
       const result = getTranscriptionStrategy(exactly16MB);
-      expect(result.method).toBe("whisper_direct"); // 16MB is within Whisper limit
+      expect(result.method).toBe("whisper_direct");
     });
 
     it("should handle boundary just over 16MB", () => {
@@ -192,13 +181,33 @@ describe("Audio Extraction & Transcription Strategy", () => {
     it("should handle boundary at exactly 100MB", () => {
       const exactly100MB = 100 * 1024 * 1024;
       const result = getTranscriptionStrategy(exactly100MB);
-      expect(result.method).toBe("extract_then_whisper"); // 100MB is within extraction range
+      expect(result.method).toBe("extract_then_whisper");
     });
 
     it("should handle boundary just over 100MB", () => {
       const justOver100MB = 100 * 1024 * 1024 + 1;
       const result = getTranscriptionStrategy(justOver100MB);
-      expect(result.method).toBe("llm_direct");
+      expect(result.method).toBe("extract_then_whisper"); // No more llm_direct
+    });
+  });
+
+  describe("getExtractionTimeout", () => {
+    it("should return default timeout for null", () => {
+      expect(getExtractionTimeout(null)).toBe(300);
+    });
+
+    it("should return minimum 180s for small files", () => {
+      expect(getExtractionTimeout(10 * 1024 * 1024)).toBe(180);
+    });
+
+    it("should scale with file size", () => {
+      const timeout10GB = getExtractionTimeout(10 * 1024 * 1024 * 1024);
+      expect(timeout10GB).toBeGreaterThanOrEqual(1800);
+    });
+
+    it("should cap at 3600s", () => {
+      const timeout100GB = getExtractionTimeout(100 * 1024 * 1024 * 1024);
+      expect(timeout100GB).toBeLessThanOrEqual(3600);
     });
   });
 });

@@ -5,8 +5,13 @@ import { invokeLLM } from "./llm";
 import { notifyOwner } from "./notification";
 import * as db from "../db";
 import { resolveFileUrl } from "../lib/resolveFileUrl";
+import { extractFramesFromVideo, uploadFramesToS3, cleanupFrames, type ExtractedFrame } from "../services/frameExtraction";
+import { storagePut } from "../storage";
 
 const BATCH_SIZE = 3; // Process 3 videos at a time to avoid overloading LLM API
+
+// Videos larger than 20MB should use frame extraction instead of sending the full video
+const FRAME_EXTRACTION_THRESHOLD_BYTES = 20 * 1024 * 1024;
 
 /**
  * Find all video files that don't have visual captions yet.
@@ -14,7 +19,7 @@ const BATCH_SIZE = 3; // Process 3 videos at a time to avoid overloading LLM API
  * We cross-reference with visual_captions table to find uncaptioned ones.
  */
 async function getUncaptionedVideoFiles(): Promise<
-  Array<{ id: number; userId: number; url: string; fileKey: string; filename: string }>
+  Array<{ id: number; userId: number; url: string; fileKey: string; filename: string; fileSize: number | null }>
 > {
   const drizzle = await getDb();
   if (!drizzle) return [];
@@ -42,6 +47,7 @@ async function getUncaptionedVideoFiles(): Promise<
       url: files.url,
       fileKey: files.fileKey,
       filename: files.filename,
+      fileSize: files.fileSize,
     })
     .from(files)
     .where(
@@ -57,14 +63,228 @@ async function getUncaptionedVideoFiles(): Promise<
 }
 
 /**
- * Caption a single video file using the LLM vision API.
- * This is the same logic as the autoCaptionVideo endpoint but runs without user context.
+ * Caption a video using frame extraction — extract key frames with FFmpeg,
+ * upload them to S3, then send the images to the LLM vision API.
+ * This works for videos of any size.
+ */
+async function captionViaFrameExtraction(
+  fileId: number,
+  captionId: number,
+  accessibleUrl: string,
+  intervalSeconds: number = 5
+): Promise<{ captions: any[]; videoSummary: string }> {
+  console.log(`[ScheduledAutoCaptioning] Using frame extraction for file ${fileId}`);
+
+  const extractResult = await extractFramesFromVideo(accessibleUrl, {
+    intervalSeconds,
+    maxFrames: 60, // Cap at 60 frames to avoid overwhelming the LLM
+    quality: 5, // JPEG quality (lower = better)
+  });
+
+  if ("error" in extractResult) {
+    throw new Error(`Frame extraction failed: ${extractResult.error}`);
+  }
+
+  if (extractResult.frames.length === 0) {
+    throw new Error("No frames could be extracted from the video");
+  }
+
+  console.log(`[ScheduledAutoCaptioning] Extracted ${extractResult.frames.length} frames for file ${fileId}`);
+
+  // Upload frames to S3 for LLM access
+  let frameUrls: Array<{ timestamp: number; url: string }> = [];
+  try {
+    frameUrls = await uploadFramesToS3(extractResult.frames, fileId);
+  } finally {
+    // Always clean up local frame files
+    await cleanupFrames(extractResult.outputDir);
+  }
+
+  // Build LLM message with frame images
+  const imageContent: Array<any> = [];
+  for (const frame of frameUrls) {
+    imageContent.push({
+      type: "text" as const,
+      text: `Frame at ${frame.timestamp.toFixed(1)}s:`,
+    });
+    imageContent.push({
+      type: "image_url" as const,
+      image_url: {
+        url: frame.url,
+        detail: "low" as const,
+      },
+    });
+  }
+
+  imageContent.push({
+    type: "text" as const,
+    text: `These are ${frameUrls.length} frames extracted from a video at ${intervalSeconds}-second intervals. For each frame, provide a detailed visual caption describing what is shown. Also provide an overall video summary.`,
+  });
+
+  const response = await invokeLLM({
+    messages: [
+      {
+        role: "system",
+        content: `You are an expert video analyst. You will be shown frames extracted from a video at regular intervals. For each frame, generate a detailed caption describing the visual content.
+
+For each frame, provide:
+1. The timestamp (use the timestamp provided with each frame)
+2. A descriptive caption of what is visually happening
+3. Key entities/topics extracted from the visual content
+4. A confidence score (0.0-1.0)
+
+Focus on: what is shown on screen (text, diagrams, images, UI elements), actions being performed, objects, any visible text, scene changes, and people.`,
+      },
+      {
+        role: "user",
+        content: imageContent,
+      },
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "visual_captions",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            captions: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  timestamp: { type: "number" },
+                  caption: { type: "string" },
+                  entities: { type: "array", items: { type: "string" } },
+                  confidence: { type: "number" },
+                },
+                required: ["timestamp", "caption", "entities", "confidence"],
+                additionalProperties: false,
+              },
+            },
+            videoDurationEstimate: { type: "number" },
+            videoSummary: { type: "string" },
+          },
+          required: ["captions", "videoDurationEstimate", "videoSummary"],
+          additionalProperties: false,
+        },
+      },
+    },
+  });
+
+  if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
+    throw new Error("LLM returned an empty or invalid response for frame-based captioning");
+  }
+
+  const content = response.choices[0].message.content;
+  const contentStr = typeof content === "string" ? content : JSON.stringify(content);
+  if (!contentStr) throw new Error("No content in LLM response");
+
+  const result = JSON.parse(contentStr);
+  return {
+    captions: result.captions || [],
+    videoSummary: result.videoSummary || "",
+  };
+}
+
+/**
+ * Caption a video by sending the full video file directly to the LLM.
+ * Only suitable for small videos (<20MB).
+ */
+async function captionViaDirectLLM(
+  fileId: number,
+  accessibleUrl: string
+): Promise<{ captions: any[]; videoSummary: string }> {
+  console.log(`[ScheduledAutoCaptioning] Using direct LLM for file ${fileId}`);
+
+  const response = await invokeLLM({
+    messages: [
+      {
+        role: "system",
+        content: `You are an expert video analyst. Analyze the visual content and generate detailed captions at regular time intervals (approximately every 5 seconds).
+
+For each timepoint, provide:
+1. A descriptive caption of what is visually happening
+2. Key entities/topics extracted from the visual content
+3. A confidence score (0.0-1.0)
+
+Focus on: what is shown on screen (text, diagrams, images, UI elements), actions being performed, objects, any visible text, scene changes, and people.`,
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "file_url" as const,
+            file_url: {
+              url: accessibleUrl,
+              mime_type: "video/mp4" as const,
+            },
+          },
+          {
+            type: "text" as const,
+            text: "Analyze this video and generate visual captions at approximately 5-second intervals. Return a JSON response with the captions array.",
+          },
+        ],
+      },
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "visual_captions",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            captions: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  timestamp: { type: "number" },
+                  caption: { type: "string" },
+                  entities: { type: "array", items: { type: "string" } },
+                  confidence: { type: "number" },
+                },
+                required: ["timestamp", "caption", "entities", "confidence"],
+                additionalProperties: false,
+              },
+            },
+            videoDurationEstimate: { type: "number" },
+            videoSummary: { type: "string" },
+          },
+          required: ["captions", "videoDurationEstimate", "videoSummary"],
+          additionalProperties: false,
+        },
+      },
+    },
+  });
+
+  if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
+    throw new Error("LLM returned an empty or invalid response. The video may be too large or in an unsupported format.");
+  }
+
+  const content = response.choices[0].message.content;
+  const contentStr = typeof content === "string" ? content : JSON.stringify(content);
+  if (!contentStr) throw new Error("No content in LLM response");
+
+  const result = JSON.parse(contentStr);
+  return {
+    captions: result.captions || [],
+    videoSummary: result.videoSummary || "",
+  };
+}
+
+/**
+ * Caption a single video file using the best strategy based on file size.
+ * Small files (<20MB) are sent directly to the LLM.
+ * Larger files use frame extraction + image-based captioning.
  */
 async function captionSingleVideo(
   fileId: number,
   userId: number,
   url: string,
-  fileKey: string
+  fileKey: string,
+  fileSize: number | null
 ): Promise<{ success: boolean; captionCount: number; error?: string }> {
   try {
     // Check if captions already exist
@@ -94,85 +314,37 @@ async function captionSingleVideo(
     const accessibleUrl = await resolveFileUrl({ url, fileKey });
     console.log(`[ScheduledAutoCaptioning] Resolved URL for file ${fileId}: ${accessibleUrl.substring(0, 80)}...`);
 
-    // Send video to LLM vision API
-    const response = await invokeLLM({
-      messages: [
-        {
-          role: "system",
-          content: `You are an expert video analyst. Analyze the visual content and generate detailed captions at regular time intervals (approximately every 5 seconds).
+    // Choose strategy based on file size
+    const fileSizeBytes = fileSize || 0;
+    let captionResult: { captions: any[]; videoSummary: string };
 
-For each timepoint, provide:
-1. A descriptive caption of what is visually happening
-2. Key entities/topics extracted from the visual content
-3. A confidence score (0.0-1.0)
-
-Focus on: what is shown on screen (text, diagrams, images, UI elements), actions being performed, objects, any visible text, scene changes, and people.`,
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "file_url" as const,
-              file_url: {
-                url: accessibleUrl,
-                mime_type: "video/mp4" as const,
-              },
-            },
-            {
-              type: "text" as const,
-              text: "Analyze this video and generate visual captions at approximately 5-second intervals. Return a JSON response with the captions array.",
-            },
-          ],
-        },
-      ],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "visual_captions",
-          strict: true,
-          schema: {
-            type: "object",
-            properties: {
-              captions: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    timestamp: { type: "number" },
-                    caption: { type: "string" },
-                    entities: { type: "array", items: { type: "string" } },
-                    confidence: { type: "number" },
-                  },
-                  required: ["timestamp", "caption", "entities", "confidence"],
-                  additionalProperties: false,
-                },
-              },
-              videoDurationEstimate: { type: "number" },
-              videoSummary: { type: "string" },
-            },
-            required: ["captions", "videoDurationEstimate", "videoSummary"],
-            additionalProperties: false,
-          },
-        },
-      },
-    });
-
-    if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
-      throw new Error("LLM returned an empty or invalid response. The video may be too large or in an unsupported format.");
+    if (fileSizeBytes > FRAME_EXTRACTION_THRESHOLD_BYTES || fileSizeBytes === 0) {
+      // Large file or unknown size: use frame extraction
+      // (unknown size defaults to frame extraction to be safe)
+      try {
+        captionResult = await captionViaFrameExtraction(fileId, captionId, accessibleUrl);
+      } catch (frameError: any) {
+        console.warn(`[ScheduledAutoCaptioning] Frame extraction failed for file ${fileId}: ${frameError.message}`);
+        // If frame extraction fails and file is small enough, try direct LLM
+        if (fileSizeBytes > 0 && fileSizeBytes <= FRAME_EXTRACTION_THRESHOLD_BYTES * 2) {
+          console.log(`[ScheduledAutoCaptioning] Falling back to direct LLM for file ${fileId}`);
+          captionResult = await captionViaDirectLLM(fileId, accessibleUrl);
+        } else {
+          throw frameError;
+        }
+      }
+    } else {
+      // Small file: try direct LLM first, fall back to frame extraction
+      try {
+        captionResult = await captionViaDirectLLM(fileId, accessibleUrl);
+      } catch (directError: any) {
+        console.warn(`[ScheduledAutoCaptioning] Direct LLM failed for file ${fileId}: ${directError.message}`);
+        console.log(`[ScheduledAutoCaptioning] Falling back to frame extraction for file ${fileId}`);
+        captionResult = await captionViaFrameExtraction(fileId, captionId, accessibleUrl);
+      }
     }
 
-    const content = response.choices[0].message.content;
-    const contentStr =
-      typeof content === "string" ? content : JSON.stringify(content);
-    if (!contentStr) throw new Error("No content in LLM response");
-
-    let result: any;
-    try {
-      result = JSON.parse(contentStr);
-    } catch (parseError) {
-      throw new Error(`Failed to parse LLM caption response as JSON`);
-    }
-    const captions = result.captions || [];
+    const captions = captionResult.captions;
 
     await db.updateVisualCaption(captionId, {
       captions,
@@ -241,7 +413,8 @@ export async function processScheduledAutoCaptioning(): Promise<{
         video.id,
         video.userId,
         video.url,
-        video.fileKey
+        video.fileKey,
+        video.fileSize
       );
 
       if (captionResult.success) {

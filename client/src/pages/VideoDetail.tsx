@@ -71,18 +71,47 @@ export default function VideoDetail() {
   const [showSubtitles, setShowSubtitles] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
 
-  // Fetch video data - auto-poll while transcoding is in progress
+  // Track previous HLS status to detect transitions
+  const [prevHlsStatus, setPrevHlsStatus] = useState<string | null>(null);
+
+  // Fetch video data - auto-poll while any transcoding is in progress
   const { data: videoData, isLoading, refetch } = trpc.videos.get.useQuery(
     { id: videoId! },
     {
       enabled: !!videoId && isAuthenticated,
       refetchInterval: (query) => {
         const data = query.state.data as any;
-        // Poll every 5s while transcoding is in progress
-        return data?.filename?.endsWith('.webm') && !data?.transcodedUrl && data?.transcodeStatus !== 'failed' ? 5000 : false;
+        // Poll every 5s while MP4 transcoding is in progress
+        const mp4InProgress = data?.filename?.endsWith('.webm') && !data?.transcodedUrl && data?.transcodeStatus !== 'failed';
+        // Poll every 5s while HLS transcoding is in progress
+        const hlsInProgress = data?.hlsStatus === 'processing' || data?.hlsStatus === 'pending';
+        return (mp4InProgress || hlsInProgress) ? 5000 : false;
       },
     }
   );
+
+  // Show toast notifications when HLS transcoding status changes
+  useEffect(() => {
+    const currentHlsStatus = (videoData as any)?.hlsStatus;
+    if (prevHlsStatus && currentHlsStatus && prevHlsStatus !== currentHlsStatus) {
+      if (currentHlsStatus === 'completed' && (prevHlsStatus === 'processing' || prevHlsStatus === 'pending')) {
+        toast.success('HLS adaptive streaming is now ready!', {
+          description: 'The video player will automatically use adaptive quality.',
+          duration: 5000,
+        });
+      } else if (currentHlsStatus === 'failed' && prevHlsStatus === 'processing') {
+        toast.error('HLS transcoding failed', {
+          description: 'Click the retry button to try again.',
+          duration: 5000,
+        });
+      } else if (currentHlsStatus === 'processing' && prevHlsStatus === 'pending') {
+        toast.info('HLS transcoding is now processing...', { duration: 3000 });
+      }
+    }
+    if (currentHlsStatus) {
+      setPrevHlsStatus(currentHlsStatus);
+    }
+  }, [(videoData as any)?.hlsStatus]);
 
   // Fetch transcript
   const { data: transcript, isLoading: transcriptLoading } = trpc.videoTranscription.getTranscript.useQuery(
@@ -471,8 +500,9 @@ export default function VideoDetail() {
                 </Button>
               )}
               {((videoData as any).hlsStatus === "processing" || (videoData as any).hlsStatus === "pending") && (
-                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 gap-1">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Generating HLS...
+                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 gap-1 animate-pulse">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {(videoData as any).hlsStatus === "pending" ? "HLS Queued..." : "Generating HLS..."}
                 </Badge>
               )}
               {(videoData as any).hlsStatus === "completed" && (videoData as any).hlsUrl && (

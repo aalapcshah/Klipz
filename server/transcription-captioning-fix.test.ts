@@ -168,3 +168,164 @@ describe("Mime type handling for visual captioning", () => {
     expect(resolvedMimeType).toBe("video/mp4");
   });
 });
+
+// ===== Audio Chunking Service Tests =====
+describe("Audio Chunking Service", () => {
+  it("should export splitAudioIntoChunks function", async () => {
+    const mod = await import("./services/audioChunking");
+    expect(typeof mod.splitAudioIntoChunks).toBe("function");
+  });
+
+  it("should export transcribeChunkedAudio function", async () => {
+    const mod = await import("./services/audioChunking");
+    expect(typeof mod.transcribeChunkedAudio).toBe("function");
+  });
+
+  it("should export cleanupChunks function", async () => {
+    const mod = await import("./services/audioChunking");
+    expect(typeof mod.cleanupChunks).toBe("function");
+  });
+
+  it("should export getExtractionTimeout function", async () => {
+    const mod = await import("./services/audioExtraction");
+    expect(typeof mod.getExtractionTimeout).toBe("function");
+  });
+
+  it("getExtractionTimeout should scale with file size", async () => {
+    const { getExtractionTimeout } = await import("./services/audioExtraction");
+    
+    const smallTimeout = getExtractionTimeout(10 * 1024 * 1024); // 10MB
+    expect(smallTimeout).toBeGreaterThanOrEqual(180);
+    
+    const mediumTimeout = getExtractionTimeout(1024 * 1024 * 1024); // 1GB
+    expect(mediumTimeout).toBeGreaterThanOrEqual(180);
+    
+    const largeTimeout = getExtractionTimeout(10 * 1024 * 1024 * 1024); // 10GB
+    expect(largeTimeout).toBeGreaterThanOrEqual(1800); // 10GB should get at least 30 min
+    
+    const defaultTimeout = getExtractionTimeout(null);
+    expect(defaultTimeout).toBeGreaterThanOrEqual(180);
+  });
+});
+
+// ===== Frame Extraction Service Tests =====
+describe("Frame Extraction Service", () => {
+  it("should export extractFramesFromVideo function", async () => {
+    const mod = await import("./services/frameExtraction");
+    expect(typeof mod.extractFramesFromVideo).toBe("function");
+  });
+
+  it("should export uploadFramesToS3 function", async () => {
+    const mod = await import("./services/frameExtraction");
+    expect(typeof mod.uploadFramesToS3).toBe("function");
+  });
+
+  it("should export cleanupFrames function", async () => {
+    const mod = await import("./services/frameExtraction");
+    expect(typeof mod.cleanupFrames).toBe("function");
+  });
+
+  it("should export getCaptioningStrategy function", async () => {
+    const mod = await import("./services/frameExtraction");
+    expect(typeof mod.getCaptioningStrategy).toBe("function");
+  });
+
+  it("getCaptioningStrategy should recommend frame_extraction for large files", async () => {
+    const { getCaptioningStrategy } = await import("./services/frameExtraction");
+    
+    const largeStrategy = getCaptioningStrategy(100 * 1024 * 1024);
+    expect(largeStrategy.method).toBe("frame_extraction");
+    
+    const veryLargeStrategy = getCaptioningStrategy(1024 * 1024 * 1024);
+    expect(veryLargeStrategy.method).toBe("frame_extraction");
+    
+    const unknownStrategy = getCaptioningStrategy(null);
+    expect(unknownStrategy.method).toBe("frame_extraction");
+  });
+
+  it("getCaptioningStrategy should recommend llm_direct for small files", async () => {
+    const { getCaptioningStrategy } = await import("./services/frameExtraction");
+    
+    const smallStrategy = getCaptioningStrategy(5 * 1024 * 1024);
+    expect(smallStrategy.method).toBe("llm_direct");
+  });
+});
+
+// ===== Audio Extraction Strategy Tests =====
+describe("Audio Extraction Strategy - Large File Support", () => {
+  it("should use extract_then_whisper for large files (not llm_direct)", async () => {
+    const { getTranscriptionStrategy } = await import("./services/audioExtraction");
+    
+    // 500MB: should extract audio, not use LLM
+    const strategy500 = getTranscriptionStrategy(500 * 1024 * 1024);
+    expect(strategy500.method).toBe("extract_then_whisper");
+    
+    // 5GB: should still extract audio
+    const strategy5G = getTranscriptionStrategy(5 * 1024 * 1024 * 1024);
+    expect(strategy5G.method).toBe("extract_then_whisper");
+    
+    // 10GB: should still extract audio
+    const strategy10G = getTranscriptionStrategy(10 * 1024 * 1024 * 1024);
+    expect(strategy10G.method).toBe("extract_then_whisper");
+  });
+
+  it("should use extract_then_whisper for null/unknown file size", async () => {
+    const { getTranscriptionStrategy } = await import("./services/audioExtraction");
+    
+    const strategy = getTranscriptionStrategy(null);
+    expect(strategy.method).toBe("extract_then_whisper");
+  });
+});
+
+// ===== Scheduled Auto-Captioning Tests =====
+describe("Scheduled Auto-Captioning with Frame Extraction", () => {
+  it("should export processScheduledAutoCaptioning function", async () => {
+    const mod = await import("./_core/scheduledAutoCaptioning");
+    expect(typeof mod.processScheduledAutoCaptioning).toBe("function");
+  });
+
+  it("should export getAutoCaptioningStatus function", async () => {
+    const mod = await import("./_core/scheduledAutoCaptioning");
+    expect(typeof mod.getAutoCaptioningStatus).toBe("function");
+  });
+});
+
+// ===== Integration: Strategy → Pipeline =====
+describe("Large File Pipeline Integration", () => {
+  it("large files should go through extract_then_whisper which can chunk", async () => {
+    const { getTranscriptionStrategy } = await import("./services/audioExtraction");
+    const { getExtractionTimeout } = await import("./services/audioExtraction");
+    
+    const fileSize = 10 * 1024 * 1024 * 1024; // 10GB
+    const strategy = getTranscriptionStrategy(fileSize);
+    const timeout = getExtractionTimeout(fileSize);
+    
+    expect(strategy.method).toBe("extract_then_whisper");
+    expect(timeout).toBeGreaterThanOrEqual(600);
+  });
+
+  it("captioning pipeline should use frame extraction for large files", async () => {
+    const { getCaptioningStrategy } = await import("./services/frameExtraction");
+    
+    const strategy = getCaptioningStrategy(500 * 1024 * 1024);
+    expect(strategy.method).toBe("frame_extraction");
+    expect(strategy.reason).toBeTruthy();
+  });
+
+  it("10GB file should have sufficient timeout and correct strategy", async () => {
+    const { getTranscriptionStrategy } = await import("./services/audioExtraction");
+    const { getExtractionTimeout } = await import("./services/audioExtraction");
+    const { getCaptioningStrategy } = await import("./services/frameExtraction");
+    
+    const fileSize = 10 * 1024 * 1024 * 1024; // 10GB
+    
+    const transcriptionStrategy = getTranscriptionStrategy(fileSize);
+    expect(transcriptionStrategy.method).toBe("extract_then_whisper");
+    
+    const captioningStrategy = getCaptioningStrategy(fileSize);
+    expect(captioningStrategy.method).toBe("frame_extraction");
+    
+    const timeout = getExtractionTimeout(fileSize);
+    expect(timeout).toBeGreaterThanOrEqual(1800); // At least 30 minutes for 10GB
+  });
+});

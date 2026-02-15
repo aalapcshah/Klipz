@@ -8,7 +8,8 @@ import { videoTranscripts, fileSuggestions, files } from "../../drizzle/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getTranscriptionErrorMessage } from "../lib/errorMessages";
 import { resolveFileUrl } from "../lib/resolveFileUrl";
-import { extractAudioFromVideo, cleanupAudioFile, getTranscriptionStrategy } from "../services/audioExtraction";
+import { extractAudioFromVideo, cleanupAudioFile, getTranscriptionStrategy, getExtractionTimeout } from "../services/audioExtraction";
+import { splitAudioIntoChunks, transcribeChunkedAudio, cleanupChunks } from "../services/audioChunking";
 import { storagePut } from "../storage";
 import { promises as fs } from "fs";
 import { runAutoFileMatch } from "../lib/autoMatch";
@@ -213,10 +214,12 @@ async function transcribeWithExtractedAudio(
     await updateTranscriptionPhase(transcriptId, "extracting_audio", "whisper_extracted");
 
     const accessibleUrl = await resolveFileUrl(file, { origin });
-    console.log(`[Transcription] Extracting audio from file ${file.id} (${((file.fileSize || 0) / 1024 / 1024).toFixed(1)}MB)`);
+    const fileSizeMB = (file.fileSize || 0) / 1024 / 1024;
+    const extractionTimeout = getExtractionTimeout(file.fileSize ?? null);
+    console.log(`[Transcription] Extracting audio from file ${file.id} (${fileSizeMB.toFixed(1)}MB, timeout: ${extractionTimeout}s)`);
 
     const extractResult = await extractAudioFromVideo(accessibleUrl, {
-      timeoutSeconds: 180, // 3 minutes max for extraction
+      timeoutSeconds: extractionTimeout,
       onProgress: (msg) => console.log(`[Transcription] File ${file.id}: ${msg}`),
     });
 
@@ -231,14 +234,65 @@ async function transcribeWithExtractedAudio(
     const audioSizeMB = extractResult.audioSizeBytes / (1024 * 1024);
     console.log(`[Transcription] Audio extracted: ${audioSizeMB.toFixed(2)}MB (from ${((file.fileSize || 0) / 1024 / 1024).toFixed(1)}MB video)`);
 
-    // Check if extracted audio is small enough for Whisper
+    // Check if extracted audio is small enough for Whisper directly
     if (audioSizeMB > 16) {
-      console.log(`[Transcription] Extracted audio is ${audioSizeMB.toFixed(1)}MB (>16MB), falling back to LLM`);
-      await cleanupAudioFile(audioPath);
-      return await transcribeWithLLM(file, transcriptId, origin, userId);
+      // Audio too large for single Whisper call — use chunked transcription
+      console.log(`[Transcription] Extracted audio is ${audioSizeMB.toFixed(1)}MB (>16MB), using chunked transcription`);
+      await updateTranscriptionPhase(transcriptId, "chunking_audio", "whisper_chunked");
+
+      try {
+        const chunks = await splitAudioIntoChunks(audioPath);
+        console.log(`[Transcription] Split audio into ${chunks.length} chunks for file ${file.id}`);
+
+        await updateTranscriptionPhase(transcriptId, "transcribing_chunks");
+        const chunkedResult = await transcribeChunkedAudio(chunks);
+
+        // Clean up
+        await cleanupChunks(chunks);
+        await cleanupAudioFile(audioPath);
+        audioPath = null;
+
+        await updateTranscriptionPhase(transcriptId, "processing_results");
+
+        await db.updateVideoTranscript(transcriptId, {
+          fullText: chunkedResult.fullText,
+          wordTimestamps: chunkedResult.wordTimestamps,
+          segments: chunkedResult.segments,
+          language: chunkedResult.language,
+          confidence: chunkedResult.confidence,
+          status: "completed",
+          transcriptionPhase: "completed",
+          transcriptionMethod: "whisper_chunked",
+        });
+
+        // Auto-match: fire-and-forget file matching after transcription completes
+        if (userId) {
+          runAutoFileMatch({ fileId: file.id, userId, source: "transcription" }).catch((err) => {
+            console.error(`[Transcription] Auto-match failed for file ${file.id}:`, err.message);
+          });
+        }
+
+        return {
+          transcriptId,
+          status: "completed",
+          transcript: {
+            id: transcriptId,
+            fullText: chunkedResult.fullText,
+            segments: chunkedResult.segments,
+            language: chunkedResult.language,
+          },
+        };
+      } catch (chunkError: any) {
+        console.error(`[Transcription] Chunked transcription failed for file ${file.id}:`, chunkError.message);
+        // Last resort: try LLM (may fail for very large files but worth trying)
+        console.log(`[Transcription] Falling back to LLM for file ${file.id}`);
+        if (audioPath) await cleanupAudioFile(audioPath);
+        audioPath = null;
+        return await transcribeWithLLM(file, transcriptId, origin, userId);
+      }
     }
 
-    // Phase 2: Upload extracted audio to S3 for Whisper
+    // Phase 2: Upload extracted audio to S3 for Whisper (audio <= 16MB)
     await updateTranscriptionPhase(transcriptId, "uploading_audio");
     const audioBuffer = await fs.readFile(audioPath);
     const audioKey = `temp-audio/${file.id}-${Date.now()}.mp3`;
@@ -259,8 +313,7 @@ async function transcribeWithExtractedAudio(
     // Check for Whisper errors
     if ("error" in result) {
       if (result.code === "FILE_TOO_LARGE") {
-        console.log(`[Transcription] Whisper still rejected extracted audio (${result.details}), falling back to LLM`);
-        return await transcribeWithLLM(file, transcriptId, origin, userId);
+        console.log(`[Transcription] Whisper still rejected extracted audio (${result.details}), this shouldn't happen for <=16MB`);
       }
       const userMessage = getTranscriptionErrorMessage(result.error, result.code);
       await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
@@ -504,11 +557,6 @@ export const videoTranscriptionRouter = router({
           case "extract_then_whisper": {
             // Medium files (16-100MB): extract audio, then try Whisper
             return await transcribeWithExtractedAudio(file, transcriptId, origin, ctx.user.id);
-          }
-
-          case "llm_direct": {
-            // Large files (>100MB): go directly to LLM
-            return await transcribeWithLLM(file, transcriptId, origin, ctx.user.id);
           }
 
           default:

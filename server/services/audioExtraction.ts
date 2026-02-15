@@ -201,12 +201,12 @@ export async function cleanupAudioFile(audioPath: string): Promise<void> {
  * @returns The recommended transcription strategy
  */
 export function getTranscriptionStrategy(fileSizeBytes: number | null): {
-  method: "whisper_direct" | "extract_then_whisper" | "llm_direct";
+  method: "whisper_direct" | "extract_then_whisper";
   reason: string;
 } {
   if (!fileSizeBytes || fileSizeBytes === 0) {
-    // Unknown size — try Whisper directly, it will fail fast if too large
-    return { method: "whisper_direct", reason: "File size unknown, trying Whisper first" };
+    // Unknown size — try audio extraction to be safe
+    return { method: "extract_then_whisper", reason: "File size unknown, extracting audio first" };
   }
 
   const sizeMB = fileSizeBytes / (1024 * 1024);
@@ -215,9 +215,18 @@ export function getTranscriptionStrategy(fileSizeBytes: number | null): {
     return { method: "whisper_direct", reason: `File is ${sizeMB.toFixed(1)}MB (≤16MB), using Whisper directly` };
   }
 
-  if (sizeMB <= 100) {
-    return { method: "extract_then_whisper", reason: `File is ${sizeMB.toFixed(1)}MB (16-100MB), extracting audio first` };
-  }
+  // For ALL files >16MB (up to 10GB), extract audio first then chunk if needed
+  return { method: "extract_then_whisper", reason: `File is ${sizeMB.toFixed(1)}MB (>16MB), extracting audio first (will chunk if needed)` };
+}
 
-  return { method: "llm_direct", reason: `File is ${sizeMB.toFixed(1)}MB (>100MB), using LLM directly` };
+/**
+ * Calculate appropriate FFmpeg timeout based on file size.
+ * Larger files need more time to download and process.
+ */
+export function getExtractionTimeout(fileSizeBytes: number | null): number {
+  if (!fileSizeBytes || fileSizeBytes === 0) return 300; // 5 min default
+  const sizeMB = fileSizeBytes / (1024 * 1024);
+  const sizeGB = sizeMB / 1024;
+  // ~3 minutes per GB, minimum 3 minutes, maximum 60 minutes
+  return Math.max(180, Math.min(3600, Math.round(sizeGB * 180)));
 }

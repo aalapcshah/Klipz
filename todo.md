@@ -6855,3 +6855,26 @@ Note: The application already has extensive annotation features including voice 
 - [x] Auto-trigger HLS after direct video creation in routers.ts
 - [x] Ensure no duplicate HLS jobs are triggered for the same video (pendingHlsJobs Set)
 - [x] Write tests for auto-trigger behavior (9 tests passing)
+
+## Transcoding Progress Polling
+- [ ] Add refetchInterval to video query when HLS status is processing/pending
+- [ ] Show animated progress indicator during HLS transcoding
+- [ ] Auto-stop polling when HLS status reaches completed/failed
+- [ ] Show success toast when transcoding completes
+- [ ] Update HLS badge to reflect real-time status changes
+- [ ] Write tests for polling behavior
+
+## BUG FIX: Transcription and Captioning Fail for Large Videos (up to 10GB)
+- [x] Create FFmpeg frame extraction service for captioning large videos (server/services/frameExtraction.ts)
+- [x] Fix captioning to extract frames and send images to LLM instead of full video
+- [x] Fix transcription to use audio chunking for large extracted audio (>16MB)
+- [x] Remove llm_direct strategy — all files >16MB now use extract_then_whisper with chunking
+- [x] Update scheduled auto-captioning to use frame extraction
+- [x] Increase audio extraction timeout: scales with file size (3min/GB, max 60min)
+- [x] Create audio chunking service (server/services/audioChunking.ts)
+- [x] All 1458 tests passing
+
+## BUG FIX: Video List Layout Regression
+- [x] Investigated — layout is intact, the timeline/matches grid only appears when transcription/captioning succeeds
+- [x] Root cause was transcription/captioning failures preventing matches from being generated
+- [x] Fixed by the transcription/captioning fixes above

@@ -8,6 +8,254 @@ import { getCaptioningErrorMessage } from "../lib/errorMessages";
 import { resolveFileUrl } from "../lib/resolveFileUrl";
 import { generateVideoThumbnail } from "../lib/videoThumbnail";
 import { runAutoFileMatch } from "../lib/autoMatch";
+import { extractFramesFromVideo, uploadFramesToS3, cleanupFrames, getCaptioningStrategy } from "../services/frameExtraction";
+import { promises as fs } from "fs";
+
+/**
+ * Caption a video by extracting frames with FFmpeg and sending them as images to the LLM.
+ * Handles videos of any size (up to 10GB+) because FFmpeg streams the video.
+ */
+async function captionViaFrameExtraction(
+  videoUrl: string,
+  fileId: number,
+  intervalSeconds: number,
+  fileSize: number | null
+): Promise<{ captions: any[]; videoDurationEstimate: number; videoSummary: string }> {
+  // Calculate timeout based on file size (larger files need more time to download/process)
+  const sizeMB = (fileSize || 0) / (1024 * 1024);
+  const timeoutSeconds = Math.max(300, Math.min(1800, Math.round(sizeMB / 10) * 60)); // 5min to 30min
+  console.log(`[VisualCaptions] Frame extraction timeout: ${timeoutSeconds}s for ${sizeMB.toFixed(0)}MB file`);
+
+  const extractResult = await extractFramesFromVideo(videoUrl, {
+    intervalSeconds,
+    maxFrames: 120, // Up to 10 minutes of video at 5s intervals
+    quality: 5,
+    maxWidth: 1280,
+    timeoutSeconds,
+    onProgress: (msg) => console.log(`[VisualCaptions] File ${fileId}: ${msg}`),
+  });
+
+  if ("error" in extractResult) {
+    throw new Error(`Frame extraction failed: ${extractResult.error}. ${extractResult.details || ""}`);
+  }
+
+  const { frames, videoDuration, outputDir } = extractResult;
+  console.log(`[VisualCaptions] Extracted ${frames.length} frames from ${Math.round(videoDuration)}s video`);
+
+  try {
+    // Upload frames to S3 so the LLM can access them
+    console.log(`[VisualCaptions] Uploading ${frames.length} frames to S3...`);
+    const uploadedFrames = await uploadFramesToS3(frames, fileId);
+    console.log(`[VisualCaptions] Uploaded ${uploadedFrames.length} frames to S3`);
+
+    // Process frames in batches to avoid hitting LLM context limits
+    // Each batch gets ~20 frames (covers ~100s of video at 5s intervals)
+    const BATCH_SIZE = 20;
+    const allCaptions: any[] = [];
+    let videoSummary = "";
+
+    for (let batchStart = 0; batchStart < uploadedFrames.length; batchStart += BATCH_SIZE) {
+      const batch = uploadedFrames.slice(batchStart, batchStart + BATCH_SIZE);
+      const batchNum = Math.floor(batchStart / BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(uploadedFrames.length / BATCH_SIZE);
+      console.log(`[VisualCaptions] Processing batch ${batchNum}/${totalBatches} (${batch.length} frames)`);
+
+      // Build the message content with all frame images
+      const imageContent: any[] = batch.map((frame) => ({
+        type: "image_url" as const,
+        image_url: {
+          url: frame.url,
+          detail: "low" as const, // Use low detail to reduce token usage
+        },
+      }));
+
+      const frameTimestamps = batch.map((f) => `${Math.round(f.timestamp)}s`).join(", ");
+
+      const response = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert video analyst. You will be given ${batch.length} frames extracted from a video at regular intervals.
+The frames are from timestamps: ${frameTimestamps}.
+The total video duration is approximately ${Math.round(videoDuration)} seconds.
+${batchStart > 0 ? `This is batch ${batchNum} of ${totalBatches}. Continue captioning from where the previous batch left off.` : ""}
+
+For each frame, provide:
+1. The timestamp (in seconds) matching the frame
+2. A detailed caption describing what is visually happening
+3. Key entities/topics extracted from the visual content
+4. A confidence score (0.0-1.0)
+
+Focus on: what is shown on screen (text, diagrams, charts, images, UI elements), actions being performed, objects, visible text, scene changes, and people.`,
+          },
+          {
+            role: "user",
+            content: [
+              ...imageContent,
+              {
+                type: "text" as const,
+                text: `These are ${batch.length} frames extracted at ${intervalSeconds}-second intervals from timestamps ${frameTimestamps}. Analyze each frame and generate a caption. Return JSON.`,
+              },
+            ],
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "frame_captions",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                captions: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      timestamp: { type: "number", description: "Time in seconds" },
+                      caption: { type: "string", description: "Detailed visual description" },
+                      entities: { type: "array", items: { type: "string" }, description: "Key entities" },
+                      confidence: { type: "number", description: "Confidence 0.0-1.0" },
+                    },
+                    required: ["timestamp", "caption", "entities", "confidence"],
+                    additionalProperties: false,
+                  },
+                },
+                batchSummary: {
+                  type: "string",
+                  description: "Brief summary of what happens in this batch of frames",
+                },
+              },
+              required: ["captions", "batchSummary"],
+              additionalProperties: false,
+            },
+          },
+        },
+      });
+
+      if (!response?.choices?.[0]?.message?.content) {
+        console.warn(`[VisualCaptions] Empty LLM response for batch ${batchNum}, skipping`);
+        continue;
+      }
+
+      const content = response.choices[0].message.content;
+      const contentStr = typeof content === "string" ? content : JSON.stringify(content);
+
+      try {
+        const batchResult = JSON.parse(contentStr);
+        if (batchResult.captions) {
+          allCaptions.push(...batchResult.captions);
+        }
+        if (batchResult.batchSummary) {
+          videoSummary += (videoSummary ? " " : "") + batchResult.batchSummary;
+        }
+      } catch {
+        console.warn(`[VisualCaptions] Failed to parse batch ${batchNum} response, skipping`);
+      }
+    }
+
+    return {
+      captions: allCaptions,
+      videoDurationEstimate: videoDuration,
+      videoSummary: videoSummary || "Video analyzed via frame extraction",
+    };
+  } finally {
+    // Always clean up temp frames
+    await cleanupFrames(outputDir);
+  }
+}
+
+/**
+ * Caption a video by sending it directly to the LLM vision API.
+ * Only suitable for small videos (under ~20MB).
+ */
+async function captionViaDirectLLM(
+  videoUrl: string,
+  mimeType: string,
+  intervalSeconds: number
+): Promise<{ captions: any[]; videoDurationEstimate: number; videoSummary: string }> {
+  const response = await invokeLLM({
+    messages: [
+      {
+        role: "system",
+        content: `You are an expert video analyst. You will be given a video file. Analyze the visual content and generate detailed captions at regular time intervals (approximately every ${intervalSeconds} seconds).
+
+For each timepoint, provide:
+1. A descriptive caption of what is visually happening (objects, actions, text on screen, scenes, people, etc.)
+2. Key entities/topics extracted from the visual content (nouns, concepts, named entities)
+3. A confidence score (0.0-1.0) for how confident you are in the caption
+
+Focus on:
+- What is shown on screen (text, diagrams, charts, images, UI elements)
+- Actions being performed
+- Objects and their relationships
+- Any text visible in the video (titles, labels, captions)
+- Scene changes and transitions
+- People and their activities
+
+Generate captions for the entire duration of the video. If the video is short, provide captions at smaller intervals.`,
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "file_url" as const,
+            file_url: {
+              url: videoUrl,
+              mime_type: mimeType as any,
+            },
+          },
+          {
+            type: "text" as const,
+            text: `Analyze this video and generate visual captions at approximately ${intervalSeconds}-second intervals. Return a JSON response with the captions array.`,
+          },
+        ],
+      },
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "visual_captions",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            captions: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  timestamp: { type: "number", description: "Time in seconds from the start of the video" },
+                  caption: { type: "string", description: "Detailed description of what is visually happening" },
+                  entities: { type: "array", items: { type: "string" }, description: "Key entities" },
+                  confidence: { type: "number", description: "Confidence score 0.0-1.0" },
+                },
+                required: ["timestamp", "caption", "entities", "confidence"],
+                additionalProperties: false,
+              },
+            },
+            videoDurationEstimate: { type: "number", description: "Estimated total duration in seconds" },
+            videoSummary: { type: "string", description: "Brief overall summary of the video content" },
+          },
+          required: ["captions", "videoDurationEstimate", "videoSummary"],
+          additionalProperties: false,
+        },
+      },
+    },
+  });
+
+  if (!response?.choices?.[0]?.message?.content) {
+    throw new Error("LLM returned an empty or invalid response. The video may be too large or in an unsupported format.");
+  }
+
+  const content = response.choices[0].message.content;
+  const contentStr = typeof content === "string" ? content : JSON.stringify(content);
+  if (!contentStr) {
+    throw new Error("No content in LLM response.");
+  }
+
+  return JSON.parse(contentStr);
+}
 
 /**
  * Video Visual Captions Router
@@ -84,113 +332,27 @@ export const videoVisualCaptionsRouter = router({
         const accessibleUrl = await resolveFileUrl(file, { origin });
         console.log(`[VisualCaptions] Resolved URL for file ${input.fileId}: ${accessibleUrl.substring(0, 80)}...`);
 
-        // Send the video to LLM vision API for analysis
-        // The LLM can process video content directly via file_url
-        const response = await invokeLLM({
-          messages: [
-            {
-              role: "system",
-              content: `You are an expert video analyst. You will be given a video file. Analyze the visual content and generate detailed captions at regular time intervals (approximately every ${input.intervalSeconds} seconds).
-
-For each timepoint, provide:
-1. A descriptive caption of what is visually happening (objects, actions, text on screen, scenes, people, etc.)
-2. Key entities/topics extracted from the visual content (nouns, concepts, named entities)
-3. A confidence score (0.0-1.0) for how confident you are in the caption
-
-Focus on:
-- What is shown on screen (text, diagrams, charts, images, UI elements)
-- Actions being performed
-- Objects and their relationships
-- Any text visible in the video (titles, labels, captions)
-- Scene changes and transitions
-- People and their activities
-
-Generate captions for the entire duration of the video. If the video is short, provide captions at smaller intervals.`,
-            },
-            {
-              role: "user",
-              content: [
-                {
-              type: "file_url" as const,
-              file_url: {
-                url: accessibleUrl,
-                mime_type: (file.mimeType || "video/mp4") as any,
-              },
-                },
-                {
-                  type: "text" as const,
-                  text: `Analyze this video and generate visual captions at approximately ${input.intervalSeconds}-second intervals. Return a JSON response with the captions array.`,
-                },
-              ],
-            },
-          ],
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: "visual_captions",
-              strict: true,
-              schema: {
-                type: "object",
-                properties: {
-                  captions: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        timestamp: {
-                          type: "number",
-                          description: "Time in seconds from the start of the video",
-                        },
-                        caption: {
-                          type: "string",
-                          description: "Detailed description of what is visually happening at this timepoint",
-                        },
-                        entities: {
-                          type: "array",
-                          items: { type: "string" },
-                          description: "Key entities, topics, and concepts extracted from the visual content",
-                        },
-                        confidence: {
-                          type: "number",
-                          description: "Confidence score 0.0-1.0",
-                        },
-                      },
-                      required: ["timestamp", "caption", "entities", "confidence"],
-                      additionalProperties: false,
-                    },
-                  },
-                  videoDurationEstimate: {
-                    type: "number",
-                    description: "Estimated total duration of the video in seconds",
-                  },
-                  videoSummary: {
-                    type: "string",
-                    description: "Brief overall summary of the video content",
-                  },
-                },
-                required: ["captions", "videoDurationEstimate", "videoSummary"],
-                additionalProperties: false,
-              },
-            },
-          },
-        });
-
-        if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
-          throw new Error("LLM returned an empty or invalid response. The video may be too large or in an unsupported format for visual analysis.");
-        }
-
-        const content = response.choices[0].message.content;
-        const contentStr = typeof content === "string" ? content : JSON.stringify(content);
-
-        if (!contentStr) {
-          throw new Error("No content in LLM response. The video may be too large or in an unsupported format.");
-        }
+        // Determine captioning strategy based on file size
+        const strategy = getCaptioningStrategy(file.fileSize);
+        console.log(`[VisualCaptions] Strategy for file ${input.fileId}: ${strategy.method} — ${strategy.reason}`);
 
         let result: any;
-        try {
-          result = JSON.parse(contentStr);
-        } catch (parseError) {
-          throw new Error(`Failed to parse LLM response as JSON: ${contentStr.substring(0, 200)}`);
+
+        if (strategy.method === "frame_extraction") {
+          // FRAME EXTRACTION: Extract frames with FFmpeg, upload to S3, send images to LLM
+          result = await captionViaFrameExtraction(
+            accessibleUrl,
+            input.fileId,
+            input.intervalSeconds,
+            file.fileSize
+          );
+        } else {
+          // LLM DIRECT: Send the video directly to LLM vision API (small files only)
+          result = await captionViaDirectLLM(
+            accessibleUrl,
+            file.mimeType || "video/mp4",
+            input.intervalSeconds
+          );
         }
 
         const captions = result.captions || [];
@@ -199,7 +361,6 @@ Generate captions for the entire duration of the video. If the video is short, p
         }
 
         // Sort captions by timestamp ascending to ensure correct chronological order
-        // (LLM may return them in arbitrary order)
         captions.sort((a: any, b: any) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
 
         // Update the visual caption record
