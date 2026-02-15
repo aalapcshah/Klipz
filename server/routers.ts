@@ -960,19 +960,21 @@ export const appRouter = router({
           // Auto-create Video Library entry for uploaded video files
           (async () => {
             try {
-              // Extract video duration using FFprobe
+              // Extract video metadata using FFprobe (duration, resolution)
               let duration = 0;
+              let width: number | undefined;
+              let height: number | undefined;
               try {
-                const { exec } = await import('child_process');
-                const { promisify } = await import('util');
-                const execAsync = promisify(exec);
-                const { stdout } = await execAsync(
-                  `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${url}"`,
-                  { timeout: 30000 }
-                );
-                duration = Math.round(parseFloat(stdout.trim()) || 0);
+                const { extractVideoMetadata } = await import('./lib/ffprobe');
+                const meta = await extractVideoMetadata(url!);
+                if (meta) {
+                  duration = meta.duration;
+                  width = meta.width || undefined;
+                  height = meta.height || undefined;
+                  console.log(`[AutoVideoDetect] FFprobe: ${duration}s, ${meta.width}x${meta.height}, codec=${meta.codec}`);
+                }
               } catch (probeErr) {
-                console.error('[AutoVideoDetect] FFprobe failed, using 0 duration:', probeErr);
+                console.error('[AutoVideoDetect] FFprobe failed, using defaults:', probeErr);
               }
               
               const videoId = await db.createVideo({
@@ -982,11 +984,13 @@ export const appRouter = router({
                 url: url!,
                 filename: input.filename,
                 duration,
+                width,
+                height,
                 title: input.title || input.filename.replace(/\.[^.]+$/, ''),
                 description: input.description,
                 exportStatus: 'draft',
               });
-              console.log(`[AutoVideoDetect] Created video ${videoId} from file ${fileId} (${input.filename})`);
+              console.log(`[AutoVideoDetect] Created video ${videoId} from file ${fileId} (${input.filename}, ${duration}s, ${width}x${height})`);
               
               // Auto-transcode WebM to MP4 for cross-browser compatibility
               if (input.mimeType === 'video/webm') {
@@ -2091,7 +2095,7 @@ export const appRouter = router({
                 // If resolution fails, use original URL as fallback
               }
             }
-            return { ...video, url: resolvedUrl, transcodedUrl: resolvedTranscodedUrl };
+            return { ...video, url: resolvedUrl, transcodedUrl: resolvedTranscodedUrl, hlsUrl: (video as any).hlsUrl || null, hlsStatus: (video as any).hlsStatus || 'none' };
           })
         );
         
@@ -2143,7 +2147,14 @@ export const appRouter = router({
         
         const annotations = await db.getAnnotationsByVideoId(input.id);
         
-        return { ...video, url: resolvedUrl, transcodedUrl: resolvedTranscodedUrl, annotations };
+        return { 
+          ...video, 
+          url: resolvedUrl, 
+          transcodedUrl: resolvedTranscodedUrl, 
+          hlsUrl: video.hlsUrl || null,
+          hlsStatus: video.hlsStatus || 'none',
+          annotations,
+        };
       }),
 
     // Create video
@@ -2363,6 +2374,81 @@ export const appRouter = router({
           await db.updateVideo(input.videoId, { transcodeStatus: "failed" } as any);
           throw error;
         }
+      }),
+
+    // Request HLS adaptive bitrate transcoding for a video
+    requestHls: protectedProcedure
+      .input(z.object({ videoId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const video = await db.getVideoById(input.videoId);
+        if (!video || video.userId !== ctx.user.id) {
+          throw new Error("Video not found");
+        }
+
+        // Skip if already completed
+        if (video.hlsStatus === "completed" && video.hlsUrl) {
+          return {
+            success: true,
+            hlsUrl: video.hlsUrl,
+            alreadyTranscoded: true,
+          };
+        }
+
+        // Skip if already processing
+        if (video.hlsStatus === "processing") {
+          return {
+            success: false,
+            error: "HLS transcoding already in progress",
+            alreadyTranscoded: false,
+          };
+        }
+
+        // Need a valid S3 URL (not a streaming URL)
+        const sourceUrl = video.transcodedUrl || video.url;
+        if (!sourceUrl.startsWith('http')) {
+          throw new Error("Video must be fully uploaded to S3 before HLS transcoding. Please wait for upload processing to complete.");
+        }
+
+        // Mark as pending and kick off in background
+        await db.updateVideo(input.videoId, { hlsStatus: "pending" } as any);
+
+        // Fire and forget — transcoding happens in background
+        import('./lib/hlsTranscode').then(({ transcodeToHls }) => {
+          transcodeToHls(sourceUrl, input.videoId, {
+            sourceWidth: video.width,
+            sourceHeight: video.height,
+            filename: video.filename,
+            userId: ctx.user.id,
+          }).then(result => {
+            if (result.success) {
+              console.log(`[HLS] Video ${input.videoId} HLS transcoding completed`);
+            } else {
+              console.error(`[HLS] Video ${input.videoId} HLS transcoding failed:`, result.error);
+            }
+          }).catch(err => {
+            console.error(`[HLS] Video ${input.videoId} HLS transcoding error:`, err);
+            db.updateVideo(input.videoId, { hlsStatus: "failed" } as any).catch(() => {});
+          });
+        });
+
+        return {
+          success: true,
+          alreadyTranscoded: false,
+        };
+      }),
+
+    // Get HLS status for a video
+    getHlsStatus: protectedProcedure
+      .input(z.object({ videoId: z.number() }))
+      .query(async ({ input, ctx }) => {
+        const video = await db.getVideoById(input.videoId);
+        if (!video || video.userId !== ctx.user.id) {
+          throw new Error("Video not found");
+        }
+        return {
+          status: video.hlsStatus || "none",
+          hlsUrl: video.hlsUrl || null,
+        };
       }),
   }),
 

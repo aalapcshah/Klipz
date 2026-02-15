@@ -544,6 +544,22 @@ export const resumableUploadRouter = router({
             if (session.uploadType !== 'video') {
               console.log(`[ResumableUpload] Auto-detected video file from Files upload: ${session.filename} → video ID ${videoId}`);
             }
+
+            // Extract video metadata (duration, resolution) via FFprobe in the background
+            import('../lib/ffprobe').then(({ extractVideoMetadata }) => {
+              extractVideoMetadata(finalUrl).then(async (meta) => {
+                if (meta && videoId) {
+                  const updates: any = {};
+                  if (meta.duration > 0) updates.duration = meta.duration;
+                  if (meta.width) updates.width = meta.width;
+                  if (meta.height) updates.height = meta.height;
+                  if (Object.keys(updates).length > 0) {
+                    await db.updateVideo(videoId, updates);
+                    console.log(`[ResumableUpload] FFprobe metadata for video ${videoId}: ${meta.duration}s, ${meta.width}x${meta.height}`);
+                  }
+                }
+              }).catch(err => console.error(`[ResumableUpload] FFprobe failed for video ${videoId}:`, err));
+            });
           }
 
           await drizzle

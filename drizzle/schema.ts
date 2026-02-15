@@ -507,6 +507,11 @@ export const videos = mysqlTable("videos", {
   thumbnailUrl: text("thumbnailUrl"), // S3 URL for video thumbnail
   thumbnailKey: varchar("thumbnailKey", { length: 512 }), // S3 key for thumbnail
   
+  // HLS adaptive bitrate streaming
+  hlsUrl: text("hlsUrl"), // S3 URL for master HLS playlist (.m3u8)
+  hlsKey: varchar("hlsKey", { length: 512 }), // S3 key prefix for HLS files
+  hlsStatus: mysqlEnum("hlsStatus", ["none", "pending", "processing", "completed", "failed"]).default("none"),
+  
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

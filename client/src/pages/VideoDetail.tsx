@@ -190,6 +190,18 @@ export default function VideoDetail() {
     onError: (err) => toast.error(`Transcoding failed: ${err.message}`),
   });
 
+  const hlsMutation = trpc.videos.requestHls.useMutation({
+    onSuccess: (data) => {
+      if (data.alreadyTranscoded) {
+        toast.info("HLS stream already available");
+      } else {
+        toast.success("HLS transcoding started. This may take a few minutes.");
+      }
+      refetch();
+    },
+    onError: (err) => toast.error(`HLS transcoding failed: ${err.message}`),
+  });
+
   // Track video currentTime for subtitle overlay
   useEffect(() => {
     const video = videoRef.current;
@@ -364,6 +376,8 @@ export default function VideoDetail() {
                 id={`video-detail-${videoData.id}`}
                 url={videoData.url}
                 transcodedUrl={(videoData as any).transcodedUrl}
+                hlsUrl={(videoData as any).hlsUrl}
+                hlsStatus={(videoData as any).hlsStatus}
                 mimeType={videoData.filename?.endsWith('.webm') ? 'video/webm' : 'video/mp4'}
                 thumbnailUrl={(videoData as any).thumbnailUrl}
                 duration={videoData.duration}
@@ -436,6 +450,42 @@ export default function VideoDetail() {
                   onClick={() => transcodeMutation.mutate({ videoId: videoData.id })}
                 >
                   <AlertCircle className="h-3 w-3" /> Transcode Failed
+                  <RotateCcw className="h-3 w-3 ml-1" />
+                </Badge>
+              )}
+              {/* HLS Adaptive Streaming Controls */}
+              {(videoData as any).hlsStatus !== "completed" && (videoData as any).hlsStatus !== "processing" && (videoData as any).hlsStatus !== "pending" && videoData.url.startsWith('http') && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => hlsMutation.mutate({ videoId: videoData.id })}
+                  disabled={hlsMutation.isPending}
+                  className="gap-1.5"
+                >
+                  {hlsMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Video className="h-3.5 w-3.5" />
+                  )}
+                  Generate HLS Stream
+                </Button>
+              )}
+              {((videoData as any).hlsStatus === "processing" || (videoData as any).hlsStatus === "pending") && (
+                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Generating HLS...
+                </Badge>
+              )}
+              {(videoData as any).hlsStatus === "completed" && (videoData as any).hlsUrl && (
+                <Badge className="bg-teal-500/20 text-teal-400 border-teal-500/30 gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> Adaptive Streaming
+                </Badge>
+              )}
+              {(videoData as any).hlsStatus === "failed" && (
+                <Badge
+                  className="bg-red-500/20 text-red-400 border-red-500/30 gap-1 cursor-pointer"
+                  onClick={() => hlsMutation.mutate({ videoId: videoData.id })}
+                >
+                  <AlertCircle className="h-3 w-3" /> HLS Failed
                   <RotateCcw className="h-3 w-3 ml-1" />
                 </Badge>
               )}

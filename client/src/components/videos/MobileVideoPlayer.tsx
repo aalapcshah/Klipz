@@ -1,10 +1,13 @@
 import { useRef, useState, useCallback, useEffect } from "react";
-import { SkipBack, SkipForward, Play, Pause, Volume2, VolumeX, Maximize } from "lucide-react";
+import { SkipBack, SkipForward, Play, Pause, Volume2, VolumeX, Maximize, Wifi } from "lucide-react";
+import Hls from "hls.js";
 
 interface MobileVideoPlayerProps {
   id: string;
   url: string;
   transcodedUrl?: string;
+  hlsUrl?: string | null;
+  hlsStatus?: string | null;
   mimeType?: string;
   thumbnailUrl?: string;
   duration?: number;
@@ -12,10 +15,21 @@ interface MobileVideoPlayerProps {
   onVideoRef?: (el: HTMLVideoElement | null) => void;
 }
 
+/**
+ * Quality level info for the quality selector UI
+ */
+interface QualityLevel {
+  index: number;
+  height: number;
+  label: string;
+}
+
 export function MobileVideoPlayer({
   id,
   url,
   transcodedUrl,
+  hlsUrl,
+  hlsStatus,
   mimeType,
   thumbnailUrl,
   duration,
@@ -24,6 +38,7 @@ export function MobileVideoPlayer({
 }: MobileVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [videoDuration, setVideoDuration] = useState(duration || 0);
@@ -31,6 +46,11 @@ export function MobileVideoPlayer({
   const [showControls, setShowControls] = useState(true);
   const [showSkipIndicator, setShowSkipIndicator] = useState<"forward" | "backward" | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [isHlsActive, setIsHlsActive] = useState(false);
+  const [qualityLevels, setQualityLevels] = useState<QualityLevel[]>([]);
+  const [currentQuality, setCurrentQuality] = useState(-1); // -1 = auto
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const [currentBandwidth, setCurrentBandwidth] = useState<number | null>(null);
 
   // Touch gesture state
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -38,7 +58,6 @@ export function MobileVideoPlayer({
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Detect mobile
     const checkMobile = () => {
       setIsMobile(window.innerWidth <= 768 || "ontouchstart" in window);
     };
@@ -53,10 +72,109 @@ export function MobileVideoPlayer({
     }
   }, [onVideoRef]);
 
+  // Initialize HLS.js when hlsUrl is available
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !hlsUrl) return;
+
+    // Check if native HLS is supported (Safari, iOS)
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      // Safari handles HLS natively
+      video.src = hlsUrl;
+      setIsHlsActive(true);
+      return;
+    }
+
+    // Use HLS.js for other browsers
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+        startLevel: -1, // Auto quality selection
+        capLevelToPlayerSize: true, // Don't load higher quality than player size
+        maxBufferLength: 30, // Buffer 30 seconds ahead
+        maxMaxBufferLength: 60,
+      });
+
+      hls.loadSource(hlsUrl);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
+        const levels: QualityLevel[] = data.levels.map((level, index) => ({
+          index,
+          height: level.height,
+          label: `${level.height}p`,
+        }));
+        setQualityLevels(levels);
+        setIsHlsActive(true);
+        console.log(`[HLS Player] Loaded ${levels.length} quality levels: ${levels.map(l => l.label).join(", ")}`);
+      });
+
+      hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
+        const level = hls.levels[data.level];
+        if (level) {
+          console.log(`[HLS Player] Quality switched to ${level.height}p`);
+        }
+      });
+
+      hls.on(Hls.Events.FRAG_LOADED, (_event, data) => {
+        if (data.frag.stats) {
+          const bw = Math.round((data.frag.stats.loaded * 8) / (data.frag.stats.loading.end - data.frag.stats.loading.start));
+          setCurrentBandwidth(bw);
+        }
+      });
+
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) {
+          console.error("[HLS Player] Fatal error:", data.type, data.details);
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.log("[HLS Player] Attempting recovery from network error...");
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.log("[HLS Player] Attempting recovery from media error...");
+              hls.recoverMediaError();
+              break;
+            default:
+              console.error("[HLS Player] Unrecoverable error, falling back to direct URL");
+              hls.destroy();
+              setIsHlsActive(false);
+              break;
+          }
+        }
+      });
+
+      hlsRef.current = hls;
+
+      return () => {
+        hls.destroy();
+        hlsRef.current = null;
+        setIsHlsActive(false);
+        setQualityLevels([]);
+      };
+    }
+  }, [hlsUrl]);
+
+  // Handle quality level change
+  const setQuality = useCallback((levelIndex: number) => {
+    const hls = hlsRef.current;
+    if (!hls) return;
+    hls.currentLevel = levelIndex; // -1 for auto
+    setCurrentQuality(levelIndex);
+    setShowQualityMenu(false);
+  }, []);
+
   const formatTime = useCallback((seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
+  }, []);
+
+  const formatBandwidth = useCallback((bps: number) => {
+    if (bps > 1000000) return `${(bps / 1000000).toFixed(1)} Mbps`;
+    if (bps > 1000) return `${(bps / 1000).toFixed(0)} Kbps`;
+    return `${bps} bps`;
   }, []);
 
   const showControlsTemporarily = useCallback(() => {
@@ -65,7 +183,10 @@ export function MobileVideoPlayer({
       clearTimeout(controlsTimeoutRef.current);
     }
     controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying) setShowControls(false);
+      if (isPlaying) {
+        setShowControls(false);
+        setShowQualityMenu(false);
+      }
     }, 3000);
   }, [isPlaying]);
 
@@ -122,7 +243,6 @@ export function MobileVideoPlayer({
       const isLeftSide = relativeX < rect.width / 2;
 
       if (lastTapRef.current && now - lastTapRef.current.time < 300) {
-        // Double tap detected
         e.preventDefault();
         if (isLeftSide) {
           skip(-10);
@@ -132,7 +252,6 @@ export function MobileVideoPlayer({
         lastTapRef.current = null;
       } else {
         lastTapRef.current = { time: now, x: relativeX };
-        // Single tap - toggle controls after a short delay
         setTimeout(() => {
           if (lastTapRef.current && now === lastTapRef.current.time) {
             showControlsTemporarily();
@@ -161,9 +280,8 @@ export function MobileVideoPlayer({
       const deltaY = touch.clientY - touchStartRef.current.y;
       const elapsed = Date.now() - touchStartRef.current.time;
 
-      // Only process horizontal swipes (not vertical scrolls)
       if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 2 && elapsed < 500) {
-        const seekAmount = Math.min(Math.abs(deltaX) / 10, 30); // Max 30s seek
+        const seekAmount = Math.min(Math.abs(deltaX) / 10, 30);
         if (deltaX > 0) {
           skip(seekAmount);
         } else {
@@ -210,7 +328,76 @@ export function MobileVideoPlayer({
 
   const progress = videoDuration > 0 ? (currentTime / videoDuration) * 100 : 0;
 
-  // For non-mobile, use native controls
+  // Quality selector component
+  const QualitySelector = () => {
+    if (!isHlsActive || qualityLevels.length === 0) return null;
+
+    return (
+      <div className="relative">
+        <button
+          className="p-2 active:scale-90 transition-transform flex items-center gap-1"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowQualityMenu(!showQualityMenu);
+          }}
+          onTouchEnd={(e) => e.stopPropagation()}
+        >
+          <Wifi className="w-4 h-4 text-white" />
+          <span className="text-white text-[10px] font-mono">
+            {currentQuality === -1 ? "AUTO" : qualityLevels.find(l => l.index === currentQuality)?.label || "AUTO"}
+          </span>
+        </button>
+
+        {showQualityMenu && (
+          <div className="absolute bottom-full right-0 mb-2 bg-black/90 rounded-lg overflow-hidden min-w-[120px] shadow-xl border border-white/10">
+            <button
+              className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-white/10 ${
+                currentQuality === -1 ? "text-teal-400 font-semibold" : "text-white"
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setQuality(-1);
+              }}
+            >
+              <span>Auto</span>
+              {currentBandwidth && currentQuality === -1 && (
+                <span className="text-[10px] text-white/50">{formatBandwidth(currentBandwidth)}</span>
+              )}
+            </button>
+            {qualityLevels
+              .sort((a, b) => b.height - a.height)
+              .map((level) => (
+                <button
+                  key={level.index}
+                  className={`w-full px-3 py-2 text-left text-xs hover:bg-white/10 ${
+                    currentQuality === level.index ? "text-teal-400 font-semibold" : "text-white"
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setQuality(level.index);
+                  }}
+                >
+                  {level.label}
+                </button>
+              ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // HLS status badge
+  const HlsBadge = () => {
+    if (!isHlsActive) return null;
+    return (
+      <div className="absolute top-2 right-2 bg-black/60 rounded px-1.5 py-0.5 flex items-center gap-1 pointer-events-none">
+        <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+        <span className="text-[9px] text-white/80 font-mono">HLS</span>
+      </div>
+    );
+  };
+
+  // For non-mobile, use native controls with HLS support
   if (!isMobile) {
     return (
       <div className={`relative aspect-video bg-black rounded-lg overflow-hidden ${className}`}>
@@ -226,13 +413,23 @@ export function MobileVideoPlayer({
           poster={thumbnailUrl || undefined}
           crossOrigin="anonymous"
         >
-          {transcodedUrl && <source src={transcodedUrl} type="video/mp4" />}
-          <source
-            src={url}
-            type={mimeType || (url.endsWith(".webm") ? "video/webm" : "video/mp4")}
-          />
+          {/* If HLS is active, hls.js handles the source */}
+          {!isHlsActive && transcodedUrl && <source src={transcodedUrl} type="video/mp4" />}
+          {!isHlsActive && (
+            <source
+              src={url}
+              type={mimeType || (url.endsWith(".webm") ? "video/webm" : "video/mp4")}
+            />
+          )}
           Your browser does not support the video tag.
         </video>
+        <HlsBadge />
+        {/* Desktop quality selector overlay */}
+        {isHlsActive && qualityLevels.length > 0 && (
+          <div className="absolute bottom-12 right-2 z-20">
+            <QualitySelector />
+          </div>
+        )}
       </div>
     );
   }
@@ -266,12 +463,17 @@ export function MobileVideoPlayer({
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
       >
-        {transcodedUrl && <source src={transcodedUrl} type="video/mp4" />}
-        <source
-          src={url}
-          type={mimeType || (url.endsWith(".webm") ? "video/webm" : "video/mp4")}
-        />
+        {/* If HLS is active, hls.js handles the source */}
+        {!isHlsActive && transcodedUrl && <source src={transcodedUrl} type="video/mp4" />}
+        {!isHlsActive && (
+          <source
+            src={url}
+            type={mimeType || (url.endsWith(".webm") ? "video/webm" : "video/mp4")}
+          />
+        )}
       </video>
+
+      <HlsBadge />
 
       {/* Skip indicators */}
       {showSkipIndicator && (
@@ -392,7 +594,10 @@ export function MobileVideoPlayer({
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              {/* Quality selector */}
+              <QualitySelector />
+
               {/* Mute toggle */}
               <button
                 className="p-2 active:scale-90 transition-transform"

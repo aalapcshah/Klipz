@@ -427,6 +427,29 @@ export async function assembleChunksInBackground(
         })
         .where(eq(resumableUploadSessions.id, sessionId));
 
+      // Phase: Extract video metadata via FFprobe (for video files)
+      if (mimeType.startsWith('video/') && videoId) {
+        try {
+          const { extractVideoMetadata } = await import('./ffprobe');
+          const meta = await extractVideoMetadata(finalUrl!);
+          if (meta) {
+            const updates: any = {};
+            if (meta.duration > 0) updates.duration = meta.duration;
+            if (meta.width) updates.width = meta.width;
+            if (meta.height) updates.height = meta.height;
+            if (Object.keys(updates).length > 0) {
+              await db.updateVideo(videoId, updates);
+              console.log(
+                `[BackgroundAssembly] ${sessionToken}: FFprobe metadata for video ${videoId}: ` +
+                `${meta.duration}s, ${meta.width}x${meta.height}, codec=${meta.codec}`
+              );
+            }
+          }
+        } catch (probeErr) {
+          console.warn(`[BackgroundAssembly] ${sessionToken}: FFprobe metadata extraction failed (non-fatal):`, probeErr);
+        }
+      }
+
       // Phase: Generating thumbnail (for video files)
       if (mimeType.startsWith('video/')) {
         await updateAssemblyProgress(sessionId, { assemblyPhase: "generating_thumbnail" });

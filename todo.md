@@ -6823,3 +6823,26 @@ Note: The application already has extensive annotation features including voice 
 - [x] Progress bar with large touch target
 - [x] Auto-hide controls after 3 seconds during playback
 - [x] Falls back to native controls on desktop
+
+## Adaptive Bitrate Streaming (HLS Transcoding)
+- [x] Add HLS-related fields to videos schema (hlsUrl, hlsKey, hlsStatus)
+- [x] Create HLS transcoding service using FFmpeg (server/lib/hlsTranscode.ts)
+- [x] Generate multiple quality variants (360p, 480p, 720p, 1080p based on source resolution)
+- [x] Create master playlist (.m3u8) with all quality levels
+- [x] Upload HLS segments and playlists to S3
+- [x] Add on-demand HLS transcoding trigger (videos.requestHls procedure)
+- [x] Update frontend video player to support HLS playback with hls.js
+- [x] Add quality selector UI for manual quality override (QualitySelector component)
+- [x] Auto-select quality based on network conditions (HLS.js capLevelToPlayerSize)
+- [x] HLS status badge and controls in VideoDetail page
+- [x] Error recovery for network/media errors in HLS player
+
+## Video Duration Extraction via FFprobe
+- [x] Add FFprobe utility module (server/lib/ffprobe.ts) with extractVideoMetadata and extractVideoDuration
+- [x] Extract duration during video auto-detection in resumable upload sync finalize
+- [x] Extract duration during background assembly for large files
+- [x] Extract video resolution (width/height) during upload
+- [x] Update video record with accurate duration, width, height, codec info
+- [x] Handle FFprobe errors gracefully (fallback to duration=0)
+- [x] Run FFprobe asynchronously to not block upload response
+- [x] Updated existing routers.ts auto-detect to use new FFprobe module

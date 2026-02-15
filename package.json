@@ -75,6 +75,7 @@
     "fluent-ffmpeg": "^2.1.3",
     "framer-motion": "^12.23.22",
     "hamming-distance": "^1.0.0",
+    "hls.js": "^1.6.15",
     "image-hash": "^7.0.1",
     "input-otp": "^1.4.2",
     "jose": "6.1.0",

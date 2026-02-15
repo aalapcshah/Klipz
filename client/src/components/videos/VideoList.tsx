@@ -855,6 +855,8 @@ export function VideoList() {
                 id={`video-player-${video.id}`}
                 url={video.url}
                 transcodedUrl={(video as any).transcodedUrl}
+                hlsUrl={(video as any).hlsUrl}
+                hlsStatus={(video as any).hlsStatus}
                 mimeType={video.filename?.endsWith('.webm') ? 'video/webm' : 'video/mp4'}
                 thumbnailUrl={(video as any).thumbnailUrl}
                 duration={video.duration}
