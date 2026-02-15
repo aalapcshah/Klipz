@@ -48,6 +48,7 @@ import { ShareDialog } from "../ShareDialog";
 import { VideoCompressionButton } from "../VideoCompressionButton";
 import { VideoCardDetails, type VideoCardDetailsHandle } from "./VideoCardDetails";
 import { MatchesTimelineWithData } from "./MatchesTimeline";
+import { MobileVideoPlayer } from "./MobileVideoPlayer";
 import {
   Dialog,
   DialogContent,
@@ -849,34 +850,24 @@ export function VideoList() {
             </div>
 
             {/* Video Thumbnail/Player - Click to play/pause */}
-            <div 
-              className="relative aspect-video bg-black rounded-lg overflow-hidden"
-            >
-              {/* Always show video element with native controls */}
-              <video
+            <div className="relative">
+              <MobileVideoPlayer
                 id={`video-player-${video.id}`}
-                className="w-full h-full object-contain"
-                controls
-                preload="metadata"
-                poster={(video as any).thumbnailUrl || undefined}
-                crossOrigin="anonymous"
-              >
-                {/* Prefer transcoded MP4 for cross-browser compatibility */}
-                {(video as any).transcodedUrl && (
-                  <source src={(video as any).transcodedUrl} type="video/mp4" />
-                )}
-                <source src={video.url} type={video.filename?.endsWith('.webm') ? 'video/webm' : video.filename?.endsWith('.mp4') ? 'video/mp4' : 'video/mp4'} />
-                Your browser does not support the video tag.
-              </video>
-              {/* Duration badge */}
+                url={video.url}
+                transcodedUrl={(video as any).transcodedUrl}
+                mimeType={video.filename?.endsWith('.webm') ? 'video/webm' : 'video/mp4'}
+                thumbnailUrl={(video as any).thumbnailUrl}
+                duration={video.duration}
+              />
+              {/* Duration badge (only shown on desktop where native controls handle it) */}
               {video.duration > 0 && (
-                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded pointer-events-none">
+                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded pointer-events-none md:block hidden">
                   {formatDuration(video.duration)}
                 </div>
               )}
               {/* Expand button overlay */}
               <button
-                className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-20"
                 onClick={(e) => {
                   e.stopPropagation();
                   setLocation(`/videos/${video.id}`);

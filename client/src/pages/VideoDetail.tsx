@@ -42,6 +42,7 @@ import { getResolutionLabel, formatDuration } from "@/lib/videoUtils";
 import { VideoTagManager } from "@/components/videos/VideoTagManager";
 import { AnnotationEditor } from "@/components/videos/AnnotationEditor";
 import { ShareDialog } from "@/components/ShareDialog";
+import { MobileVideoPlayer } from "@/components/videos/MobileVideoPlayer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -359,44 +360,18 @@ export default function VideoDetail() {
           <div className="lg:col-span-3 space-y-4">
             {/* Video Player */}
             <div className="rounded-lg overflow-hidden bg-black aspect-video relative">
-              <video
-                ref={videoRef}
-                controls
-                className="w-full h-full object-contain"
-                playsInline
-                crossOrigin="anonymous"
-                onError={(e) => {
-                  const video = e.currentTarget;
-                  // If transcoded URL failed, fall back to original
-                  if ((videoData as any).transcodedUrl && video.src.includes('transcoded')) {
-                    video.src = videoData.url;
-                    return;
-                  }
-                  // Check if the format is unsupported (common with WebM on iOS Safari)
-                  if (video.error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED ||
-                      video.error?.code === MediaError.MEDIA_ERR_DECODE) {
-                    const container = video.parentElement;
-                    if (container && !container.querySelector('.video-error-overlay')) {
-                      const overlay = document.createElement('div');
-                      overlay.className = 'video-error-overlay absolute inset-0 flex flex-col items-center justify-center bg-black/90 text-white p-4 text-center z-10';
-                      overlay.innerHTML = `
-                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-3 opacity-50"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-                        <p class="text-sm font-medium mb-1">Video format not supported</p>
-                        <p class="text-xs text-gray-400 mb-3">This video was recorded in WebM format which may not play on this device.</p>
-                        <a href="${videoData.url}" download="${videoData.filename}" class="text-xs px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors">Download to play externally</a>
-                      `;
-                      container.appendChild(overlay);
-                    }
-                  }
+              <MobileVideoPlayer
+                id={`video-detail-${videoData.id}`}
+                url={videoData.url}
+                transcodedUrl={(videoData as any).transcodedUrl}
+                mimeType={videoData.filename?.endsWith('.webm') ? 'video/webm' : 'video/mp4'}
+                thumbnailUrl={(videoData as any).thumbnailUrl}
+                duration={videoData.duration}
+                onVideoRef={(el) => {
+                  (videoRef as any).current = el;
                 }}
-              >
-                {/* Prefer transcoded MP4 for cross-browser compatibility */}
-                {(videoData as any).transcodedUrl && (
-                  <source src={(videoData as any).transcodedUrl} type="video/mp4" />
-                )}
-                <source src={videoData.url} type={videoData.filename?.endsWith('.webm') ? 'video/webm' : 'video/mp4'} />
-                Your browser does not support the video tag.
-              </video>
+                className="rounded-none"
+              />
               {/* Transcript Subtitle Overlay */}
               {showSubtitles && transcript?.status === "completed" && transcript.segments && (
                 <div className="absolute bottom-12 left-0 right-0 flex justify-center pointer-events-none z-20 px-4">

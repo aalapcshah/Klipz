@@ -3,6 +3,7 @@ import { checkAndResolveAlerts } from "./alertAutoResolution";
 import { sendDailyDigests, sendWeeklyDigests } from "./emailDigest";
 import { processBackgroundEnrichment } from "./backgroundEnrichment";
 import { processScheduledAutoCaptioning } from "./scheduledAutoCaptioning";
+import { checkAndResolveVideoUrls } from "./urlHealthCheck";
 
 /**
  * Initialize all cron jobs for automated monitoring and notifications
@@ -79,10 +80,26 @@ export function initializeCronJobs() {
     }
   });
 
+  // Run URL health check every 6 hours (offset by 3 hours from auto-captioning)
+  cron.schedule("0 3,9,15,21 * * *", async () => {
+    console.log("[CronJobs] Running video URL health check");
+    try {
+      const result = await checkAndResolveVideoUrls();
+      if (result.resolved > 0 || result.failed > 0) {
+        console.log(
+          `[CronJobs] URL health check complete: ${result.checked} checked, ${result.resolved} resolved, ${result.failed} failed`
+        );
+      }
+    } catch (error) {
+      console.error("[CronJobs] Error in URL health check:", error);
+    }
+  });
+
   console.log("[CronJobs] All scheduled tasks initialized successfully");
   console.log("[CronJobs] - Alert auto-resolution: Every hour");
   console.log("[CronJobs] - Daily digests: 9:00 AM daily");
   console.log("[CronJobs] - Weekly digests: 9:00 AM Monday");
   console.log("[CronJobs] - Background enrichment: Every 5 minutes");
   console.log("[CronJobs] - Scheduled auto-captioning: Every 6 hours");
+  console.log("[CronJobs] - URL health check: Every 6 hours (offset)");
 }

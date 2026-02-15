@@ -6799,3 +6799,27 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fix video not playing when uploaded as a regular file (shows 0:00 duration)
 - [x] Investigate video URL serving and content-type for uploaded video files
 - [x] Ensure video player works with S3-hosted video files
+
+## Video Upload Auto-Detection (Files → Video Library)
+- [x] Auto-create Video Library entry when a video file is uploaded through Files section
+- [x] Auto-detect video mime types (video/mp4, video/webm, etc.) in resumable upload finalize
+- [x] Link the file record to the new video entry for unified annotations
+- [x] Works for both sync finalize and chunk-streaming finalize paths
+
+## Streaming URL Health Check (Background Job)
+- [x] Create background cron job to check for videos with stale/broken URLs
+- [x] Re-resolve URLs using resolveFileUrl for any broken entries
+- [x] Update database with fresh URLs when resolution succeeds
+- [x] Log health check results for monitoring
+- [x] Also checks video files in the files table
+- [x] Runs every 6 hours (3, 9, 15, 21) offset from auto-captioning
+
+## Mobile Video Player Improvements
+- [x] Add touch-friendly swipe-to-seek gesture on video player
+- [x] Add double-tap to skip forward/backward (10 seconds)
+- [x] Add visual feedback for touch gestures (skip indicator overlay)
+- [x] Ensure controls are properly sized for touch targets on mobile
+- [x] Custom controls overlay with play/pause, skip, mute, fullscreen
+- [x] Progress bar with large touch target
+- [x] Auto-hide controls after 3 seconds during playback
+- [x] Falls back to native controls on desktop

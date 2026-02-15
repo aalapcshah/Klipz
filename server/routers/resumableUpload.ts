@@ -60,9 +60,9 @@ async function finalizeLargeFileWithStreaming(
     description: metadata.description,
   });
 
-  // Create video record only if uploaded via the Videos section (uploadType === 'video')
+  // Create video record for any video file (auto-detect video uploads from Files section too)
   let videoId: number | undefined;
-  if (session.uploadType === 'video' && session.mimeType.startsWith('video/')) {
+  if (session.mimeType.startsWith('video/')) {
     videoId = await db.createVideo({
       userId,
       fileId,
@@ -74,6 +74,9 @@ async function finalizeLargeFileWithStreaming(
       duration: 0,
       exportStatus: 'draft',
     });
+    if (session.uploadType !== 'video') {
+      console.log(`[ResumableUpload] Auto-detected video file from Files upload: ${session.filename} → video ID ${videoId}`);
+    }
   }
 
   // Update session as completed
@@ -524,8 +527,9 @@ export const resumableUploadRouter = router({
             description: metadata.description,
           });
 
+          // Create video record for any video file (auto-detect video uploads from Files section too)
           let videoId: number | undefined;
-          if (session.uploadType === 'video' && session.mimeType.startsWith('video/')) {
+          if (session.mimeType.startsWith('video/')) {
             videoId = await db.createVideo({
               userId: ctx.user.id,
               fileId,
@@ -537,6 +541,9 @@ export const resumableUploadRouter = router({
               duration: 0,
               exportStatus: 'draft',
             });
+            if (session.uploadType !== 'video') {
+              console.log(`[ResumableUpload] Auto-detected video file from Files upload: ${session.filename} → video ID ${videoId}`);
+            }
           }
 
           await drizzle

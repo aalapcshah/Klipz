@@ -956,6 +956,58 @@ export const appRouter = router({
               }
             }).catch(err => console.error('[Files] Video thumbnail generation failed:', err));
           });
+          
+          // Auto-create Video Library entry for uploaded video files
+          (async () => {
+            try {
+              // Extract video duration using FFprobe
+              let duration = 0;
+              try {
+                const { exec } = await import('child_process');
+                const { promisify } = await import('util');
+                const execAsync = promisify(exec);
+                const { stdout } = await execAsync(
+                  `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${url}"`,
+                  { timeout: 30000 }
+                );
+                duration = Math.round(parseFloat(stdout.trim()) || 0);
+              } catch (probeErr) {
+                console.error('[AutoVideoDetect] FFprobe failed, using 0 duration:', probeErr);
+              }
+              
+              const videoId = await db.createVideo({
+                userId: ctx.user.id,
+                fileId,
+                fileKey: fileKey!,
+                url: url!,
+                filename: input.filename,
+                duration,
+                title: input.title || input.filename.replace(/\.[^.]+$/, ''),
+                description: input.description,
+                exportStatus: 'draft',
+              });
+              console.log(`[AutoVideoDetect] Created video ${videoId} from file ${fileId} (${input.filename})`);
+              
+              // Auto-transcode WebM to MP4 for cross-browser compatibility
+              if (input.mimeType === 'video/webm') {
+                const { transcodeToMp4 } = await import('./videoTranscode');
+                console.log(`[AutoVideoDetect] Starting background transcode for video ${videoId}`);
+                transcodeToMp4(url!, input.filename)
+                  .then(async (result) => {
+                    if (result.success && result.url && result.fileKey) {
+                      await db.updateVideo(videoId, {
+                        transcodedUrl: result.url,
+                        transcodedKey: result.fileKey,
+                      } as any);
+                      console.log(`[AutoVideoDetect] Video ${videoId} transcoded successfully`);
+                    }
+                  })
+                  .catch((err) => console.error(`[AutoVideoDetect] Transcode error:`, err));
+              }
+            } catch (err) {
+              console.error('[AutoVideoDetect] Failed to auto-create video entry:', err);
+            }
+          })();
         }
         
         return { id: fileId };
