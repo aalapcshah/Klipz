@@ -7034,3 +7034,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Add a floating button that appears after scrolling down
 - [x] Smooth scroll back to top on click
 - [x] Position it so it doesn't overlap with the FAB (+) button or bottom nav (left-4, FAB is right-4)
+
+## Bug Fix: React Error #185 on Annotate Click
+- [x] React error #185 is actually "Maximum update depth exceeded" (infinite re-render loop)
+- [x] Root cause: useEffect in VideoPlayerWithAnnotations depended on [visualAnnotations] which got new array ref every render when query data was null/undefined (default `= []` creates new ref), calling setVisibleAnnotationIds with new array -> infinite loop
+- [x] Fix: stable empty array constant outside component, useMemo key for dependency, shallow comparison before setState

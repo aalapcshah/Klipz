@@ -41,6 +41,8 @@ interface VideoPlayerWithAnnotationsProps {
   videoTitle?: string;
 }
 
+const EMPTY_VISUAL_ANNOTATIONS_STABLE: never[] = [];
+
 export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, videoTitle }: VideoPlayerWithAnnotationsProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -278,7 +280,9 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
       toast.info(`${data.userName} left`);
     },
   });
-  const { data: visualAnnotations = [], refetch: refetchVisualAnnotations } = trpc.visualAnnotations.getAnnotations.useQuery({ fileId });
+  const visualAnnotationsQuery = trpc.visualAnnotations.getAnnotations.useQuery({ fileId });
+  const visualAnnotations = visualAnnotationsQuery.data ?? EMPTY_VISUAL_ANNOTATIONS_STABLE;
+  const refetchVisualAnnotations = visualAnnotationsQuery.refetch;
   const visualAnnotationsRef = useRef(visualAnnotations);
   visualAnnotationsRef.current = visualAnnotations;
   const saveAnnotation = trpc.voiceAnnotations.saveAnnotation.useMutation();
@@ -428,6 +432,11 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
 
   // Re-compute visible annotations when annotation data changes (e.g., duration slider updated)
   // This ensures the overlay refreshes even when the video is paused
+  const visualAnnotationsLength = visualAnnotations.length;
+  const visualAnnotationsKey = useMemo(
+    () => visualAnnotations.map(a => `${a.id}:${a.duration}`).join(','),
+    [visualAnnotations]
+  );
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -442,8 +451,13 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
         return time >= startTime && time < endTime;
       })
       .map(ann => ann.id);
-    setVisibleAnnotationIds(visible);
-  }, [visualAnnotations]);
+    setVisibleAnnotationIds(prev => {
+      const prevStr = prev.join(',');
+      const nextStr = visible.join(',');
+      return prevStr === nextStr ? prev : visible;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visualAnnotationsKey, visualAnnotationsLength]);
 
   // Keyboard shortcuts for video navigation
   useEffect(() => {
