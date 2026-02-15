@@ -477,12 +477,9 @@ export function FileDetailDialog({
               </div>
               </CollapsibleSection>
 
-              {/* AI Enrichment */}
+              {/* AI Enrichment Content */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold">
-                    AI Enrichment
-                  </Label>
                   {file.enrichmentStatus === "pending" && (
                     <Button
                       onClick={handleEnrich}

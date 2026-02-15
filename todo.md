@@ -6917,3 +6917,7 @@ Note: The application already has extensive annotation features including voice 
 - [ ] Show tooltip on hover with annotation details (type, duration, text)
 - [ ] Ensure markers scale correctly with video duration
 - [ ] Work with both VideoPlayerWithAnnotations and MobileVideoPlayer
+
+## UI Changes - File Detail Page (Corrected)
+- [x] Remove only the "AI Enrichment" label/heading text (keep the entire section content intact)
+- [x] Move "+ Add Tag" button to the left, directly next to the "Tags" label

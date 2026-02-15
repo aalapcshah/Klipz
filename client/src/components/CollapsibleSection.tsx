@@ -65,7 +65,7 @@ export function CollapsibleSection({
   return (
     <Collapsible open={open} onOpenChange={setOpen} className={className}>
       <div className={cn(
-        "flex items-center justify-between",
+        "flex items-center gap-2",
         !bare && "mb-0",
         headerClassName,
       )}>
