@@ -35,6 +35,7 @@ import {
   FileAudio,
   Subtitles,
   RefreshCw,
+  MoreHorizontal,
 } from "lucide-react";
 import {
   Collapsible,
@@ -72,6 +73,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -1416,24 +1418,7 @@ export default function FileGridEnhanced({
                     Tag
                   </Button>
 
-                  {/* 3. Edit Metadata */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setMetadataDialogOpen(true)}
-                    disabled={batchUpdateMutation.isPending}
-                    className="h-6 px-1.5 text-[10px] md:h-8 md:px-3 md:text-sm gap-1"
-                  >
-                    {batchUpdateMutation.isPending ? (
-                      <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
-                    ) : (
-                      <Edit3 className="h-3 w-3 md:h-4 md:w-4" />
-                    )}
-                    <span className="hidden sm:inline">Edit Metadata</span>
-                    <span className="sm:hidden">Edit</span>
-                  </Button>
-
-                  {/* 4. Enrich (purple) */}
+                  {/* 3. Enrich (purple) */}
                   <Button
                     variant="default"
                     size="sm"
@@ -1450,107 +1435,7 @@ export default function FileGridEnhanced({
                     Enrich
                   </Button>
 
-                  {/* 5. Improve Quality */}
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={handleBulkQualityImprovement}
-                    disabled={enrichMutation.isPending}
-                    className="h-6 px-1.5 text-[10px] md:h-8 md:px-3 md:text-sm gap-1 bg-green-600 hover:bg-green-700"
-                    aria-label={`Automatically improve quality of ${selectedFilesSet.size} selected files`}
-                  >
-                    {enrichMutation.isPending ? (
-                      <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3 w-3 md:h-4 md:w-4" />
-                    )}
-                    <span className="hidden sm:inline">Improve Quality</span>
-                    <span className="sm:hidden">Quality</span>
-                  </Button>
-
-                  {/* 6. Compare Files */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setCompareMode(true);
-                      setSelectedFiles(new Set());
-                    }}
-                    className="h-6 px-1.5 text-[10px] md:h-8 md:px-3 md:text-sm gap-1"
-                  >
-                    <GitCompare className="h-3 w-3 md:h-4 md:w-4" />
-                    <span className="hidden sm:inline">Compare Files</span>
-                    <span className="sm:hidden">Compare</span>
-                  </Button>
-
-                  {/* 7. Export (dropdown) */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={exportMutation.isPending}
-                        aria-label={`Export ${selectedFilesSet.size} selected files`}
-                        className="h-6 px-1.5 text-[10px] md:h-8 md:px-3 md:text-sm gap-1"
-                      >
-                        {exportMutation.isPending ? (
-                          <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
-                        ) : (
-                          <Download className="h-3 w-3 md:h-4 md:w-4" />
-                        )}
-                        Export
-                        <ChevronDown className="h-2.5 w-2.5 md:h-3 md:w-3" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuItem onClick={handleBatchExport}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Export as ZIP
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleExportJSON}>
-                        <FileText className="h-4 w-4 mr-2" />
-                        Export as JSON
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {/* 9. Add to Collection */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCollectionDialogOpen(true)}
-                    disabled={bulkAddToCollectionMutation.isPending}
-                    className="h-6 px-1.5 text-[10px] md:h-8 md:px-3 md:text-sm gap-1"
-                  >
-                    {bulkAddToCollectionMutation.isPending ? (
-                      <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
-                    ) : (
-                      <FolderPlus className="h-3 w-3 md:h-4 md:w-4" />
-                    )}
-                    <span className="hidden sm:inline">Add to Collection</span>
-                    <span className="sm:hidden">Collection</span>
-                  </Button>
-
-                  {/* 10. Retry */}
-                  {enrichmentCounts && enrichmentCounts.failed > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => retryFailedMutation.mutate()}
-                      disabled={retryFailedMutation.isPending}
-                      className="h-6 px-1.5 text-[10px] md:h-8 md:px-3 md:text-sm gap-1 border-red-500 text-red-500 hover:bg-red-500/10 hover:text-red-500"
-                    >
-                      {retryFailedMutation.isPending ? (
-                        <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-3 w-3 md:h-4 md:w-4" />
-                      )}
-                      <span className="hidden sm:inline">Retry ({enrichmentCounts.failed})</span>
-                      <span className="sm:hidden">Retry ({enrichmentCounts.failed})</span>
-                    </Button>
-                  )}
-
-                  {/* 11. Delete (red) */}
+                  {/* 4. Delete (red) */}
                   <Button
                     variant="outline"
                     size="sm"
@@ -1566,6 +1451,179 @@ export default function FileGridEnhanced({
                     )}
                     Delete
                   </Button>
+
+                  {/* 5. More actions dropdown (mobile: shows all secondary actions, desktop: shows inline) */}
+                  {/* Desktop-only buttons */}
+                  <div className="hidden md:contents">
+                    {/* Edit Metadata */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setMetadataDialogOpen(true)}
+                      disabled={batchUpdateMutation.isPending}
+                      className="h-8 px-3 text-sm gap-1"
+                    >
+                      {batchUpdateMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Edit3 className="h-4 w-4" />
+                      )}
+                      Edit Metadata
+                    </Button>
+
+                    {/* Improve Quality */}
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleBulkQualityImprovement}
+                      disabled={enrichMutation.isPending}
+                      className="h-8 px-3 text-sm gap-1 bg-green-600 hover:bg-green-700"
+                    >
+                      {enrichMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4" />
+                      )}
+                      Improve Quality
+                    </Button>
+
+                    {/* Compare Files */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setCompareMode(true);
+                        setSelectedFiles(new Set());
+                      }}
+                      className="h-8 px-3 text-sm gap-1"
+                    >
+                      <GitCompare className="h-4 w-4" />
+                      Compare Files
+                    </Button>
+
+                    {/* Export (dropdown) */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={exportMutation.isPending}
+                          className="h-8 px-3 text-sm gap-1"
+                        >
+                          {exportMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
+                          Export
+                          <ChevronDown className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem onClick={handleBatchExport}>
+                          <Download className="h-4 w-4 mr-2" />
+                          Export as ZIP
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleExportJSON}>
+                          <FileText className="h-4 w-4 mr-2" />
+                          Export as JSON
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {/* Add to Collection */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCollectionDialogOpen(true)}
+                      disabled={bulkAddToCollectionMutation.isPending}
+                      className="h-8 px-3 text-sm gap-1"
+                    >
+                      {bulkAddToCollectionMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <FolderPlus className="h-4 w-4" />
+                      )}
+                      Add to Collection
+                    </Button>
+
+                    {/* Retry */}
+                    {enrichmentCounts && enrichmentCounts.failed > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => retryFailedMutation.mutate()}
+                        disabled={retryFailedMutation.isPending}
+                        className="h-8 px-3 text-sm gap-1 border-red-500 text-red-500 hover:bg-red-500/10 hover:text-red-500"
+                      >
+                        {retryFailedMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                        Retry ({enrichmentCounts.failed})
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Mobile-only More dropdown */}
+                  <div className="md:hidden">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 px-1.5 text-[10px] gap-1"
+                        >
+                          <MoreHorizontal className="h-3 w-3" />
+                          More
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-48">
+                        <DropdownMenuItem onClick={() => setMetadataDialogOpen(true)}>
+                          <Edit3 className="h-4 w-4 mr-2" />
+                          Edit Metadata
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleBulkQualityImprovement}>
+                          <Sparkles className="h-4 w-4 mr-2 text-green-500" />
+                          Improve Quality
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => {
+                          setCompareMode(true);
+                          setSelectedFiles(new Set());
+                        }}>
+                          <GitCompare className="h-4 w-4 mr-2" />
+                          Compare Files
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleBatchExport}>
+                          <Download className="h-4 w-4 mr-2" />
+                          Export as ZIP
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleExportJSON}>
+                          <FileText className="h-4 w-4 mr-2" />
+                          Export as JSON
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setCollectionDialogOpen(true)}>
+                          <FolderPlus className="h-4 w-4 mr-2" />
+                          Add to Collection
+                        </DropdownMenuItem>
+                        {enrichmentCounts && enrichmentCounts.failed > 0 && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => retryFailedMutation.mutate()}
+                              className="text-red-500 focus:text-red-500"
+                            >
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              Retry ({enrichmentCounts.failed})
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </div>
             </div>

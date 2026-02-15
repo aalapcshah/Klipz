@@ -7009,3 +7009,8 @@ Note: The application already has extensive annotation features including voice 
 ## UI Change: Move Retry Failed Button to Batch Toolbar
 - [x] Move "Retry Failed" button from Selection Controls area down to the batch action toolbar
 - [x] Rename "Retry Failed (N)" to "Retry (N)" — remove the word "Failed"
+
+## UI Change: Collapse Batch Toolbar on Mobile
+- [x] Group less-used actions (Compare, Export, Collection, Retry, Edit, Quality) into a "More" dropdown on mobile
+- [x] Keep primary actions (Clear, Tag, Enrich, Delete) visible on the main row
+- [x] Ensure toolbar fits on one row on mobile screens
