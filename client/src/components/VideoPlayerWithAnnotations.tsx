@@ -2111,6 +2111,7 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
       <VisualCaptionsPanel
         fileId={fileId}
         currentTime={currentTime}
+        videoUrl={videoUrl}
         onJumpToTimestamp={(timestamp) => {
           if (videoRef.current) {
             videoRef.current.currentTime = timestamp;

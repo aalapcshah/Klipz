@@ -31,10 +31,12 @@ import { toast } from "sonner";
 import { triggerHaptic } from "@/lib/haptics";
 import { FileProcessingBanner, useAutoRetry } from "./FileProcessingBanner";
 import { CollapsibleSection } from "./CollapsibleSection";
+import { extractVideoFrames } from "@/lib/videoFrameExtractor";
 
 interface VisualCaptionsPanelProps {
   fileId: number;
   currentTime: number;
+  videoUrl: string;
   onJumpToTimestamp?: (timestamp: number) => void;
 }
 
@@ -71,9 +73,11 @@ interface FileMatch {
 export function VisualCaptionsPanel({
   fileId,
   currentTime,
+  videoUrl,
   onJumpToTimestamp,
 }: VisualCaptionsPanelProps) {
   const [generating, setGenerating] = useState(false);
+  const [generatingProgress, setGeneratingProgress] = useState("");
   const [matchingFiles, setMatchingFiles] = useState(false);
   const [captionError, setCaptionError] = useState<string | null>(null);
   const [expandedCaption, setExpandedCaption] = useState<number | null>(null);
@@ -104,30 +108,63 @@ export function VisualCaptionsPanel({
     { enabled: !!captionData && captionData.status === "completed" }
   );
 
-  // Generate captions mutation
-  const generateCaptionsMutation =
-    trpc.videoVisualCaptions.generateCaptions.useMutation({
+  // Generate captions from client-extracted frames
+  const generateFromFramesMutation =
+    trpc.videoVisualCaptions.generateCaptionsFromFrames.useMutation({
       onSuccess: (data) => {
         toast.success(
           `Generated ${data.captionCount} visual captions`
         );
         setCaptionError(null);
+        setGeneratingProgress("");
         refetchCaptions();
         setGenerating(false);
       },
       onError: (error) => {
         setCaptionError(error.message);
         toast.error(error.message);
+        setGeneratingProgress("");
         setGenerating(false);
       },
     });
 
-  // Auto-retry logic for caption generation failures
-  const handleRetryCaptions = useCallback(() => {
+  // Client-side frame extraction + server caption generation
+  const handleGenerateCaptionsWithFrames = useCallback(async () => {
     setGenerating(true);
     setCaptionError(null);
-    generateCaptionsMutation.mutate({ fileId, intervalSeconds: 5 });
-  }, [fileId, generateCaptionsMutation]);
+    setGeneratingProgress("Extracting frames from video...");
+    try {
+      const result = await extractVideoFrames(videoUrl, {
+        intervalSeconds: 5,
+        maxFrames: 30,
+        maxWidth: 640,
+        quality: 0.7,
+        onProgress: (current, total) => {
+          setGeneratingProgress(`Extracting frame ${current}/${total}...`);
+        },
+      });
+      setGeneratingProgress(`Analyzing ${result.frames.length} frames with AI...`);
+      generateFromFramesMutation.mutate({
+        fileId,
+        frames: result.frames.map((f) => ({
+          timestamp: f.timestamp,
+          base64: f.base64,
+        })),
+        videoDuration: result.videoDuration,
+      });
+    } catch (err: any) {
+      const msg = err?.message || "Failed to extract frames from video";
+      setCaptionError(msg);
+      toast.error(msg);
+      setGeneratingProgress("");
+      setGenerating(false);
+    }
+  }, [fileId, videoUrl, generateFromFramesMutation]);
+
+  // Auto-retry logic for caption generation failures
+  const handleRetryCaptions = useCallback(() => {
+    handleGenerateCaptionsWithFrames();
+  }, [handleGenerateCaptionsWithFrames]);
 
   const captionAutoRetry = useAutoRetry({
     errorMessage: captionError,
@@ -273,8 +310,7 @@ export function VisualCaptionsPanel({
   }, [activeCaptionIndex, showAllCaptions]);
 
   const handleGenerateCaptions = () => {
-    setGenerating(true);
-    generateCaptionsMutation.mutate({ fileId, intervalSeconds: 5 });
+    handleGenerateCaptionsWithFrames();
   };
 
   const handleGenerateMatches = () => {
@@ -407,7 +443,7 @@ export function VisualCaptionsPanel({
               {generating ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Analyzing Video...
+                  {generatingProgress || "Analyzing Video..."}
                 </>
               ) : (
                 <>

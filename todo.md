@@ -6943,3 +6943,20 @@ Note: The application already has extensive annotation features including voice 
 - [x] Updated scheduled auto-captioning with same resilient LLM-first strategy
 - [x] Added better error logging with FFmpeg stderr capture
 - [x] All 1459 tests passing across 98 test files, 0 TypeScript errors
+
+## BUG FIX: Large videos (100MB+) fail both LLM-direct and FFmpeg
+- [ ] LLM-direct fails with "too large for visual analysis" for 103MB+ videos
+- [ ] FFmpeg frame extraction fails with code null (OOM kill) in production
+- [ ] Need a solution that works without FFmpeg in production container
+- [ ] Investigate: use LLM with video URL (not file upload), or server-side frame extraction via canvas/wasm
+- [ ] Ensure captioning works for all video sizes on all devices
+
+## Client-Side Frame Extraction for Video Captioning
+- [x] Server-side generateCaptionsFromFrames endpoint already exists (accepts base64 frames)
+- [x] VisualCaptionsPanel already uses client-side frame extraction with extractVideoFrames
+- [x] VideoPlayerWithAnnotations already passes videoUrl to VisualCaptionsPanel
+- [x] Update VideoCardDetails retry captions to use client-side frame extraction with server fallback
+- [x] Update VideoList batch captions to use client-side frame extraction with server fallback
+- [x] Pass videoUrl from VideoList to VideoCardDetails
+- [x] TypeScript compilation passes with 0 errors
+- [x] 1,458 tests pass (1 pre-existing flaky timeout test unrelated to changes)

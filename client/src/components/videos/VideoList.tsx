@@ -49,6 +49,7 @@ import { VideoCompressionButton } from "../VideoCompressionButton";
 import { VideoCardDetails, type VideoCardDetailsHandle } from "./VideoCardDetails";
 import { MatchesTimelineWithData } from "./MatchesTimeline";
 import { MobileVideoPlayer } from "./MobileVideoPlayer";
+import { extractVideoFrames } from "@/lib/videoFrameExtractor";
 import {
   Dialog,
   DialogContent,
@@ -175,6 +176,7 @@ export function VideoList() {
   const [transcribingVideos, setTranscribingVideos] = useState<Set<number>>(new Set());
   const [captioningVideos, setCaptioningVideos] = useState<Set<number>>(new Set());
   const generateCaptionsMutation = trpc.videoVisualCaptions.generateCaptions.useMutation();
+  const generateFromFramesMutation = trpc.videoVisualCaptions.generateCaptionsFromFrames.useMutation();
   const trpcUtils = trpc.useUtils();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showBatchCompressDialog, setShowBatchCompressDialog] = useState(false);
@@ -310,7 +312,35 @@ export function VideoList() {
         if (!video.fileId) {
           throw new Error('Video file ID not found');
         }
-        await generateCaptionsMutation.mutateAsync({ fileId: video.fileId, intervalSeconds: 3 });
+
+        // Try client-side frame extraction first (most reliable in production)
+        let captioned = false;
+        if (video.url) {
+          try {
+            const result = await extractVideoFrames(video.url, {
+              intervalSeconds: 5,
+              maxFrames: 30,
+              maxWidth: 640,
+              quality: 0.7,
+            });
+            await generateFromFramesMutation.mutateAsync({
+              fileId: video.fileId,
+              frames: result.frames.map((f) => ({
+                timestamp: f.timestamp,
+                base64: f.base64,
+              })),
+              videoDuration: result.videoDuration,
+            });
+            captioned = true;
+          } catch (clientErr: any) {
+            console.warn(`Client-side extraction failed for ${video.title}, trying server-side:`, clientErr.message);
+          }
+        }
+
+        // Fallback to server-side captioning
+        if (!captioned) {
+          await generateCaptionsMutation.mutateAsync({ fileId: video.fileId, intervalSeconds: 3 });
+        }
         
         newCaptioning.delete(video.id);
         setCaptioningVideos(new Set(newCaptioning));
@@ -1127,6 +1157,7 @@ export function VideoList() {
                 videoId={video.id}
                 fileId={video.fileId}
                 hasTranscript={!!video.transcript}
+                videoUrl={video.url}
                 onExpandedSectionChange={(section) => {
                   if (section === 'matches') {
                     setExpandedMatchesVideoId(video.id);

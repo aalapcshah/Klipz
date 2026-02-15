@@ -17,6 +17,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
+import { extractVideoFrames } from "@/lib/videoFrameExtractor";
 
 export interface VideoCardDetailsHandle {
   handleFindMatches: () => void;
@@ -30,6 +31,7 @@ interface VideoCardDetailsProps {
   videoId: number;
   fileId: number | null;
   hasTranscript: boolean;
+  videoUrl?: string;
   videoRef?: HTMLVideoElement | null;
   onExpandedSectionChange?: (section: "transcript" | "captions" | "matches" | null) => void;
 }
@@ -40,7 +42,7 @@ function formatTimestamp(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDetailsProps>(function VideoCardDetails({ videoId, fileId, hasTranscript, videoRef, onExpandedSectionChange }, ref) {
+export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDetailsProps>(function VideoCardDetails({ videoId, fileId, hasTranscript, videoUrl, videoRef, onExpandedSectionChange }, ref) {
   const [expandedSection, setExpandedSection] = useState<"transcript" | "captions" | "matches" | null>(null);
 
   const utils = trpc.useUtils();
@@ -127,6 +129,20 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
     },
   });
 
+  // Client-side frame extraction + server caption generation (bypasses FFmpeg & LLM URL issues)
+  const generateFromFramesMutation = trpc.videoVisualCaptions.generateCaptionsFromFrames.useMutation({
+    onSuccess: () => {
+      if (fileId) {
+        utils.videoVisualCaptions.getCaptions.invalidate({ fileId });
+      }
+      toast.success("Captioning completed successfully!");
+    },
+    onError: (err) => {
+      toast.error(`Captioning failed: ${err.message}`);
+    },
+  });
+
+  // Fallback: server-side captioning (LLM-direct + FFmpeg fallback)
   const retryCaptionMutation = trpc.videoVisualCaptions.generateCaptions.useMutation({
     onSuccess: () => {
       if (fileId) {
@@ -144,10 +160,37 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
     retryTranscriptMutation.mutate({ fileId });
   };
 
-  const handleRetryCaptions = () => {
+  const handleRetryCaptions = useCallback(async () => {
     if (!fileId) return;
-    retryCaptionMutation.mutate({ fileId });
-  };
+    // If we have a videoUrl, use client-side frame extraction (most reliable)
+    if (videoUrl) {
+      try {
+        toast.info("Extracting frames from video...");
+        const result = await extractVideoFrames(videoUrl, {
+          intervalSeconds: 5,
+          maxFrames: 30,
+          maxWidth: 640,
+          quality: 0.7,
+        });
+        toast.info(`Analyzing ${result.frames.length} frames with AI...`);
+        generateFromFramesMutation.mutate({
+          fileId,
+          frames: result.frames.map((f) => ({
+            timestamp: f.timestamp,
+            base64: f.base64,
+          })),
+          videoDuration: result.videoDuration,
+        });
+      } catch (err: any) {
+        console.warn("Client-side frame extraction failed, falling back to server-side:", err.message);
+        // Fallback to server-side captioning
+        retryCaptionMutation.mutate({ fileId });
+      }
+    } else {
+      // No video URL available, use server-side captioning
+      retryCaptionMutation.mutate({ fileId });
+    }
+  }, [fileId, videoUrl, generateFromFramesMutation, retryCaptionMutation]);
 
   const handleFindMatches = async () => {
     if (!fileId) {
@@ -225,7 +268,7 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
       onExpandedSectionChange?.("transcript");
       return;
     }
-    if (section === "captions" && captions?.status === "failed" && !retryCaptionMutation.isPending) {
+    if (section === "captions" && captions?.status === "failed" && !retryCaptionMutation.isPending && !generateFromFramesMutation.isPending) {
       handleRetryCaptions();
       // Also expand the section to show progress
       setExpandedSection("captions");
@@ -317,21 +360,21 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
               : ""
           }`}
           onClick={() => toggleSection("captions")}
-          disabled={retryCaptionMutation.isPending}
+          disabled={retryCaptionMutation.isPending || generateFromFramesMutation.isPending}
         >
-          {retryCaptionMutation.isPending ? (
+          {(retryCaptionMutation.isPending || generateFromFramesMutation.isPending) ? (
             <Loader2 className="h-3 w-3 animate-spin" />
           ) : captionStatus === "failed" ? (
             <RotateCcw className="h-3 w-3" />
           ) : (
             <Captions className="h-3 w-3" />
           )}
-          {retryCaptionMutation.isPending
-            ? "Retrying..."
+          {(retryCaptionMutation.isPending || generateFromFramesMutation.isPending)
+            ? "Captioning..."
             : captionStatus === "failed"
             ? "Retry Captions"
             : "Captions"}
-          {!retryCaptionMutation.isPending && captionStatus !== "failed" && (
+          {!(retryCaptionMutation.isPending || generateFromFramesMutation.isPending) && captionStatus !== "failed" && (
             expandedSection === "captions" ? (
               <ChevronUp className="h-2.5 w-2.5" />
             ) : (

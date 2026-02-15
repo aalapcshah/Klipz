@@ -1232,6 +1232,230 @@ Focus on: what is shown on screen (text, diagrams, images, UI elements), actions
     }),
 
   /**
+   * Generate captions from client-extracted frames.
+   * The client extracts frames using HTML5 Canvas (works on all devices),
+   * sends them as base64 JPEG, and the server uploads them to S3
+   * then sends the S3 image URLs to the LLM.
+   */
+  generateCaptionsFromFrames: protectedProcedure
+    .input(
+      z.object({
+        fileId: z.number(),
+        intervalSeconds: z.number().min(2).max(30).default(5),
+        videoDuration: z.number().min(0),
+        frames: z.array(
+          z.object({
+            timestamp: z.number(),
+            base64: z.string(), // base64-encoded JPEG without data: prefix
+          })
+        ).min(1).max(60),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Validate the file
+      const file = await db.getFileById(input.fileId);
+      if (!file) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Video file not found" });
+      }
+      if (file.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Permission denied" });
+      }
+      if (!file.mimeType?.startsWith("video/")) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "File is not a video" });
+      }
+
+      // Create or update the visual caption record
+      const existing = await db.getVisualCaptionByFileId(input.fileId);
+      if (existing) {
+        await db.deleteVisualCaptionFileMatches(input.fileId);
+      }
+
+      let captionId: number;
+      if (existing) {
+        await db.updateVisualCaption(existing.id, {
+          status: "processing",
+          intervalSeconds: input.intervalSeconds,
+          errorMessage: null,
+        });
+        captionId = existing.id;
+      } else {
+        captionId = await db.createVisualCaption({
+          fileId: input.fileId,
+          userId: ctx.user.id,
+          intervalSeconds: input.intervalSeconds,
+          status: "processing",
+        });
+      }
+
+      try {
+        console.log(`[CaptionsFromFrames] Processing ${input.frames.length} client-extracted frames for file ${input.fileId}`);
+
+        // Upload frames to S3
+        const { storagePut } = await import("../storage");
+        const { nanoid } = await import("nanoid");
+        const uploadedFrames: Array<{ timestamp: number; url: string }> = [];
+
+        for (const frame of input.frames) {
+          const buffer = Buffer.from(frame.base64, "base64");
+          const key = `caption-frames/${input.fileId}/${nanoid(8)}_${Math.round(frame.timestamp)}s.jpg`;
+          const { url } = await storagePut(key, buffer, "image/jpeg");
+          uploadedFrames.push({ timestamp: frame.timestamp, url });
+        }
+
+        console.log(`[CaptionsFromFrames] Uploaded ${uploadedFrames.length} frames to S3`);
+
+        // Process frames in batches
+        const BATCH_SIZE = 20;
+        const allCaptions: any[] = [];
+        let videoSummary = "";
+
+        for (let batchStart = 0; batchStart < uploadedFrames.length; batchStart += BATCH_SIZE) {
+          const batch = uploadedFrames.slice(batchStart, batchStart + BATCH_SIZE);
+          const batchNum = Math.floor(batchStart / BATCH_SIZE) + 1;
+          const totalBatches = Math.ceil(uploadedFrames.length / BATCH_SIZE);
+          console.log(`[CaptionsFromFrames] Processing batch ${batchNum}/${totalBatches} (${batch.length} frames)`);
+
+          const imageContent: any[] = batch.map((frame) => ({
+            type: "image_url" as const,
+            image_url: {
+              url: frame.url,
+              detail: "low" as const,
+            },
+          }));
+
+          const frameTimestamps = batch.map((f) => `${Math.round(f.timestamp)}s`).join(", ");
+
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `You are an expert video analyst. You will be given ${batch.length} frames extracted from a video at regular intervals.
+The frames are from timestamps: ${frameTimestamps}.
+The total video duration is approximately ${Math.round(input.videoDuration)} seconds.
+${batchStart > 0 ? `This is batch ${batchNum} of ${totalBatches}. Continue captioning from where the previous batch left off.` : ""}
+
+For each frame, provide:
+1. The timestamp (in seconds) matching the frame
+2. A detailed caption describing what is visually happening
+3. Key entities/topics extracted from the visual content
+4. A confidence score (0.0-1.0)
+
+Focus on: what is shown on screen (text, diagrams, charts, images, UI elements), actions being performed, objects, visible text, scene changes, and people.`,
+              },
+              {
+                role: "user",
+                content: [
+                  ...imageContent,
+                  {
+                    type: "text" as const,
+                    text: `These are ${batch.length} frames extracted at ${input.intervalSeconds}-second intervals from timestamps ${frameTimestamps}. Analyze each frame and generate a caption. Return JSON.`,
+                  },
+                ],
+              },
+            ],
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                name: "frame_captions",
+                strict: true,
+                schema: {
+                  type: "object",
+                  properties: {
+                    captions: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          timestamp: { type: "number", description: "Time in seconds" },
+                          caption: { type: "string", description: "Detailed visual description" },
+                          entities: { type: "array", items: { type: "string" }, description: "Key entities" },
+                          confidence: { type: "number", description: "Confidence 0.0-1.0" },
+                        },
+                        required: ["timestamp", "caption", "entities", "confidence"],
+                        additionalProperties: false,
+                      },
+                    },
+                    batchSummary: {
+                      type: "string",
+                      description: "Brief summary of what happens in this batch of frames",
+                    },
+                  },
+                  required: ["captions", "batchSummary"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          });
+
+          if (!response?.choices?.[0]?.message?.content) {
+            console.warn(`[CaptionsFromFrames] Empty LLM response for batch ${batchNum}, skipping`);
+            continue;
+          }
+
+          const content = response.choices[0].message.content;
+          const contentStr = typeof content === "string" ? content : JSON.stringify(content);
+
+          try {
+            const batchResult = JSON.parse(contentStr);
+            if (batchResult.captions) {
+              allCaptions.push(...batchResult.captions);
+            }
+            if (batchResult.batchSummary) {
+              videoSummary += (videoSummary ? " " : "") + batchResult.batchSummary;
+            }
+          } catch {
+            console.warn(`[CaptionsFromFrames] Failed to parse batch ${batchNum} response, skipping`);
+          }
+        }
+
+        // Sort captions by timestamp
+        allCaptions.sort((a: any, b: any) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+
+        // Update the visual caption record
+        await db.updateVisualCaption(captionId, {
+          captions: allCaptions,
+          totalFramesAnalyzed: allCaptions.length,
+          status: "completed",
+        });
+
+        // Auto-match in background
+        runAutoFileMatch({
+          fileId: input.fileId,
+          userId: ctx.user.id,
+          source: "captioning",
+        }).catch((err) => {
+          console.error(`[CaptionsFromFrames] Auto-match failed for file ${input.fileId}:`, err.message);
+        });
+
+        return {
+          captionId,
+          status: "completed",
+          captionCount: allCaptions.length,
+          videoSummary: videoSummary || "Video analyzed via client-side frame extraction",
+          videoDurationEstimate: input.videoDuration,
+          captions: allCaptions,
+        };
+      } catch (error: any) {
+        if (error instanceof TRPCError) {
+          await db.updateVisualCaption(captionId, {
+            status: "failed",
+            errorMessage: error.message,
+          });
+          throw error;
+        }
+        const userMessage = getCaptioningErrorMessage(error.message);
+        await db.updateVisualCaption(captionId, {
+          status: "failed",
+          errorMessage: userMessage,
+        });
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: userMessage,
+        });
+      }
+    }),
+
+  /**
    * Get auto-captioning status (how many videos are uncaptioned, processing, etc.)
    */
   getAutoCaptioningStatus: protectedProcedure.query(async () => {
