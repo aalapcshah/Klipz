@@ -6878,3 +6878,18 @@ Note: The application already has extensive annotation features including voice 
 - [x] Investigated — layout is intact, the timeline/matches grid only appears when transcription/captioning succeeds
 - [x] Root cause was transcription/captioning failures preventing matches from being generated
 - [x] Fixed by the transcription/captioning fixes above
+
+## BUG FIX: FFmpeg ENOENT in Production
+- [x] Installed ffmpeg-static and ffprobe-static npm packages
+- [x] Created centralized path helper (server/lib/ffmpegPaths.ts)
+- [x] Updated all 11 files that spawn ffmpeg/ffprobe to use bundled binary paths
+- [x] Files updated: frameExtraction, audioExtraction, audioChunking, ffprobe, hlsTranscode, videoTranscode, videoCompression, videoThumbnail, videoExport
+- [x] All tests passing
+
+## BUG FIX: Annotation Duration Not Respected
+- [x] Root cause: stale closure on visualAnnotations, no seeked handler, no rAF polling
+- [x] Fixed: use ref for visualAnnotations to avoid stale closures in event handlers
+- [x] Fixed: added seeked event handler to recompute visibility on seek
+- [x] Fixed: added requestAnimationFrame loop for ~60fps annotation timing precision
+- [x] Fixed: immediate visibility computation on mount and data load
+- [x] Annotations now correctly appear/disappear based on their timestamp + duration

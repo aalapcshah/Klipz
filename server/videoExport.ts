@@ -6,6 +6,7 @@ import path from "path";
 import { nanoid } from "nanoid";
 import { storagePut } from "./storage";
 import axios from "axios";
+import { getFFmpegPath } from "./lib/ffmpegPaths";
 
 const execAsync = promisify(exec);
 
@@ -74,7 +75,7 @@ export async function exportVideoWithAnnotations(
 
     // Build FFmpeg command
     const ffmpegCommand = [
-      "ffmpeg",
+      getFFmpegPath(),
       "-i", videoPath,
       ...Array.from(overlayPaths.values()).flatMap(p => ["-i", p]),
       "-filter_complex", filterComplex,
@@ -309,7 +310,7 @@ export async function batchExportVideosWithAnnotations(
 
         // Build FFmpeg command
         const ffmpegCommand = [
-          "ffmpeg",
+          getFFmpegPath(),
           "-i", videoPath,
           ...Array.from(overlayPaths.values()).flatMap(p => ["-i", p]),
           "-filter_complex", filterComplex,

@@ -6,6 +6,7 @@ import path from "path";
 import { nanoid } from "nanoid";
 import { storagePut } from "./storage";
 import axios from "axios";
+import { getFFmpegPath } from "./lib/ffmpegPaths";
 
 const execAsync = promisify(exec);
 
@@ -49,7 +50,7 @@ export async function transcodeToMp4(
     // -crf 23: good quality with reasonable file size
     // -c:a aac: ensure audio is AAC (Safari requires it)
     const ffmpegCommand = [
-      "ffmpeg",
+      getFFmpegPath(),
       "-i", inputPath,
       "-c:v", "libx264",
       "-preset", "fast",

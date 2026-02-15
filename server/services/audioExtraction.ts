@@ -17,6 +17,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import os from "os";
 import { nanoid } from "nanoid";
+import { getFFmpegPath } from "../lib/ffmpegPaths";
 
 export interface AudioExtractionResult {
   audioPath: string;       // Path to the extracted audio file
@@ -72,7 +73,7 @@ export async function extractAudioFromVideo(
     console.log(`[AudioExtraction] Starting FFmpeg: ffmpeg ${args.join(" ").substring(0, 200)}...`);
     const startTime = Date.now();
 
-    const ffmpeg = spawn("ffmpeg", args, {
+    const ffmpeg = spawn(getFFmpegPath(), args, {
       stdio: ["ignore", "pipe", "pipe"],
     });
 

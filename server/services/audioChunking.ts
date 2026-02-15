@@ -15,6 +15,7 @@ import os from "os";
 import { nanoid } from "nanoid";
 import { storagePut } from "../storage";
 import { transcribeAudio } from "../_core/voiceTranscription";
+import { getFFmpegPath, getFFprobePath } from "../lib/ffmpegPaths";
 
 export interface AudioChunk {
   index: number;
@@ -73,7 +74,7 @@ export async function splitAudioIntoChunks(
       outputPattern,
     ];
 
-    const ffmpeg = spawn("ffmpeg", args, {
+    const ffmpeg = spawn(getFFmpegPath(), args, {
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -142,7 +143,7 @@ async function getAudioDuration(filePath: string): Promise<number> {
       filePath,
     ];
 
-    const ffprobe = spawn("ffprobe", args, {
+    const ffprobe = spawn(getFFprobePath(), args, {
       stdio: ["ignore", "pipe", "pipe"],
     });
 

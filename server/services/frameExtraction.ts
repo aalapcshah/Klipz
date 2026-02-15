@@ -19,6 +19,7 @@ import path from "path";
 import os from "os";
 import { nanoid } from "nanoid";
 import { storagePut } from "../storage";
+import { getFFmpegPath } from "../lib/ffmpegPaths";
 
 export interface ExtractedFrame {
   timestamp: number;     // Time in seconds from start of video
@@ -86,7 +87,7 @@ export async function extractFramesFromVideo(
     console.log(`[FrameExtraction] Starting FFmpeg: ffmpeg ${args.slice(0, 6).join(" ")}... → ${tempDir}`);
     const startTime = Date.now();
 
-    const ffmpeg = spawn("ffmpeg", args, {
+    const ffmpeg = spawn(getFFmpegPath(), args, {
       stdio: ["ignore", "pipe", "pipe"],
     });
 

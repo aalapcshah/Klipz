@@ -14,6 +14,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { storagePut } from "../storage";
+import { getFFmpegPath } from "./ffmpegPaths";
 
 const execFileAsync = promisify(execFile);
 
@@ -58,7 +59,7 @@ export async function generateVideoThumbnail(
     // -vframes 1 extracts exactly one frame
     // -vf scale limits the width while maintaining aspect ratio
     // -q:v controls JPEG quality (2=best, 31=worst)
-    await execFileAsync("ffmpeg", [
+    await execFileAsync(getFFmpegPath(), [
       "-ss", String(seekTime),
       "-i", videoUrl,
       "-vframes", "1",

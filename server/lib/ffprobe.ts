@@ -10,6 +10,7 @@
 
 import { exec } from "child_process";
 import { promisify } from "util";
+import { getFFprobePath } from "./ffmpegPaths";
 
 const execAsync = promisify(exec);
 
@@ -54,7 +55,7 @@ export async function extractVideoMetadata(
 
     // Use FFprobe to extract format and stream information in JSON
     const command = [
-      'ffprobe',
+      getFFprobePath(),
       '-v', 'error',
       '-show_entries', 'format=duration,bit_rate',
       '-show_entries', 'stream=width,height,codec_name,codec_type,r_frame_rate',
@@ -141,7 +142,7 @@ export async function extractVideoDuration(
     const timeout = options?.timeout || DEFAULT_TIMEOUT;
 
     const { stdout } = await execAsync(
-      `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${resolvedUrl}"`,
+      `${getFFprobePath()} -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${resolvedUrl}"`,
       { timeout }
     );
 

@@ -8,6 +8,7 @@ import { spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { getFFmpegPath, getFFprobePath } from "../lib/ffmpegPaths";
 
 // Quality presets for server-side compression
 const COMPRESSION_PRESETS = {
@@ -129,7 +130,7 @@ function compressVideoFFmpeg(
       `[VideoCompression] Starting FFmpeg: ffmpeg ${args.join(" ")}`
     );
 
-    const ffmpeg = spawn("ffmpeg", args, {
+    const ffmpeg = spawn(getFFmpegPath(), args, {
       stdio: ["pipe", "pipe", "pipe"],
     });
 
@@ -184,7 +185,7 @@ function compressVideoFFmpeg(
  */
 function hasAudioStream(filePath: string): Promise<boolean> {
   return new Promise((resolve) => {
-    const ffprobe = spawn("ffprobe", [
+    const ffprobe = spawn(getFFprobePath(), [
       "-v", "quiet",
       "-select_streams", "a",
       "-show_entries", "stream=codec_type",
@@ -210,7 +211,7 @@ function hasAudioStream(filePath: string): Promise<boolean> {
  */
 function getVideoDuration(filePath: string): Promise<number> {
   return new Promise((resolve, reject) => {
-    const ffprobe = spawn("ffprobe", [
+    const ffprobe = spawn(getFFprobePath(), [
       "-v",
       "quiet",
       "-print_format",

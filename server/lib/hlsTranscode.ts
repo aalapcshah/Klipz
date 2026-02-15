@@ -26,6 +26,7 @@ import { nanoid } from "nanoid";
 import { storagePut } from "../storage";
 import axios from "axios";
 import * as db from "../db";
+import { getFFmpegPath } from "./ffmpegPaths";
 
 const execAsync = promisify(exec);
 
@@ -127,7 +128,7 @@ export async function transcodeToHls(
     // Build FFmpeg command for multi-variant HLS output
     // Uses a single input with multiple output streams
     const ffmpegArgs: string[] = [
-      "ffmpeg",
+      getFFmpegPath(),
       "-i", inputPath,
       "-y", // Overwrite output files
     ];

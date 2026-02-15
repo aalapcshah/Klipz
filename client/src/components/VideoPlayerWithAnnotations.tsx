@@ -279,6 +279,8 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
     },
   });
   const { data: visualAnnotations = [], refetch: refetchVisualAnnotations } = trpc.visualAnnotations.getAnnotations.useQuery({ fileId });
+  const visualAnnotationsRef = useRef(visualAnnotations);
+  visualAnnotationsRef.current = visualAnnotations;
   const saveAnnotation = trpc.voiceAnnotations.saveAnnotation.useMutation();
   const saveVisualAnnotation = trpc.visualAnnotations.saveAnnotation.useMutation();
   const deleteAnnotation = trpc.voiceAnnotations.deleteAnnotation.useMutation();
@@ -297,21 +299,29 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
     const video = videoRef.current;
     if (!video) return;
 
-    const handleTimeUpdate = () => {
-      const time = video.currentTime;
-      setCurrentTime(time);
-      
-      // Calculate which visual annotations should be visible
-      const visible = visualAnnotations
+    const computeVisibleAnnotations = (time: number) => {
+      const anns = visualAnnotationsRef.current;
+      const visible = anns
         .filter(ann => {
           const startTime = ann.videoTimestamp;
-          const duration = ann.duration || 5;
-          const endTime = startTime + duration;
-          const isVisible = time >= startTime && time < endTime;
-          return isVisible;
+          const dur = ann.duration || 5;
+          const endTime = startTime + dur;
+          return time >= startTime && time < endTime;
         })
         .map(ann => ann.id);
       setVisibleAnnotationIds(visible);
+    };
+
+    const handleTimeUpdate = () => {
+      const time = video.currentTime;
+      setCurrentTime(time);
+      computeVisibleAnnotations(time);
+    };
+
+    const handleSeeked = () => {
+      const time = video.currentTime;
+      setCurrentTime(time);
+      computeVisibleAnnotations(time);
     };
     const handleLoadedMetadata = () => {
       const dur = video.duration;
@@ -348,11 +358,27 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
     const handlePause = () => setIsPlaying(false);
 
     video.addEventListener("timeupdate", handleTimeUpdate);
+    video.addEventListener("seeked", handleSeeked);
     video.addEventListener("loadedmetadata", handleLoadedMetadata);
     video.addEventListener("durationchange", handleDurationChange);
     video.addEventListener("loadeddata", handleLoadedData);
     video.addEventListener("play", handlePlay);
     video.addEventListener("pause", handlePause);
+
+    // Immediately compute visibility at current time
+    computeVisibleAnnotations(video.currentTime);
+
+    // Use requestAnimationFrame for precise annotation timing during playback
+    // timeupdate only fires ~4x/sec; rAF gives ~60fps precision
+    let rafId: number | null = null;
+    const rafLoop = () => {
+      if (video && !video.paused && !video.ended) {
+        computeVisibleAnnotations(video.currentTime);
+        setCurrentTime(video.currentTime);
+      }
+      rafId = requestAnimationFrame(rafLoop);
+    };
+    rafId = requestAnimationFrame(rafLoop);
     
     // Also try to get duration immediately if video is already loaded
     if (video.readyState >= 1 && isFinite(video.duration) && video.duration > 0) {
@@ -387,16 +413,18 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
     const clearPolling = setTimeout(() => clearInterval(pollDuration), 10000);
 
     return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
       clearInterval(pollDuration);
       clearTimeout(clearPolling);
       video.removeEventListener("timeupdate", handleTimeUpdate);
+      video.removeEventListener("seeked", handleSeeked);
       video.removeEventListener("loadedmetadata", handleLoadedMetadata);
       video.removeEventListener("durationchange", handleDurationChange);
       video.removeEventListener("loadeddata", handleLoadedData);
       video.removeEventListener("play", handlePlay);
       video.removeEventListener("pause", handlePause);
     };
-  }, [visualAnnotations]);
+  }, []);
 
   // Keyboard shortcuts for video navigation
   useEffect(() => {
