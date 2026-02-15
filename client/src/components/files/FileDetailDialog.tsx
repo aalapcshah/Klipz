@@ -21,6 +21,7 @@ import {
   Download,
   Trash2,
   History,
+  GitCompare,
   Share2,
 } from "lucide-react";
 import { FileVersionHistory } from "./FileVersionHistory";
@@ -31,6 +32,7 @@ import { SmartTagSuggestions } from "../SmartTagSuggestions";
 import { CollapsibleSection } from "../CollapsibleSection";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
+import { Streamdown } from "streamdown";
 
 interface FileDetailDialogProps {
   fileId: number | null;
@@ -69,6 +71,7 @@ export function FileDetailDialog({
     { enabled: !!fileId }
   );
 
+  const enrichMutation = trpc.files.enrich.useMutation();
   const updateMutation = trpc.files.update.useMutation();
   const createTagMutation = trpc.tags.create.useMutation();
   const linkTagMutation = trpc.tags.linkToFile.useMutation();
@@ -121,6 +124,17 @@ export function FileDetailDialog({
     );
   };
 
+  const handleEnrich = async () => {
+    if (!fileId) return;
+
+    try {
+      await enrichMutation.mutateAsync({ id: fileId });
+      toast.success("File enriched with AI!");
+      refetch();
+    } catch (error) {
+      toast.error("Failed to enrich file");
+    }
+  };
 
   const handleAddTag = async () => {
     if (!fileId || !newTagName.trim()) return;
@@ -462,6 +476,163 @@ export function FileDetailDialog({
                 )}
               </div>
               </CollapsibleSection>
+
+              {/* AI Enrichment */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold">
+                    AI Enrichment
+                  </Label>
+                  {file.enrichmentStatus === "pending" && (
+                    <Button
+                      onClick={handleEnrich}
+                      disabled={enrichMutation.isPending}
+                      size="sm"
+                      className="bg-accent hover:bg-accent/90"
+                    >
+                      {enrichMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 mr-2" />
+                      )}
+                      Enrich with AI
+                    </Button>
+                  )}
+                  {file.enrichmentStatus === "completed" && (
+                    <Badge variant="secondary">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      Enriched
+                    </Badge>
+                  )}
+                  {file.enrichmentStatus === "processing" && (
+                    <Badge variant="secondary">
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      Processing
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Metadata Comparison View */}
+                {file.enrichmentStatus === "completed" && (file.extractedMetadata || file.description || file.title) && (
+                  <div className="border border-border rounded-lg p-4">
+                    <CollapsibleSection
+                      title="Metadata Comparison"
+                      icon={<GitCompare className="h-4 w-4" />}
+                      defaultOpen={false}
+                      bare
+                      storageKey="file-detail-metadata-comparison"
+                    >
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      {/* Original Metadata Column */}
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-muted-foreground">Original Metadata</h4>
+                        {file.description && (
+                          <div className="bg-accent/10 rounded p-2">
+                            <Label className="text-xs">Description</Label>
+                            <p className="text-xs mt-1">{file.description}</p>
+                          </div>
+                        )}
+                        {file.extractedKeywords && file.extractedKeywords.length > 0 && (
+                          <div className="bg-accent/10 rounded p-2">
+                            <Label className="text-xs">Keywords</Label>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {file.extractedKeywords.map((keyword: string, idx: number) => (
+                                <Badge key={idx} variant="secondary" className="text-xs">
+                                  {keyword}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {(() => {
+                          try {
+                            const metadata = file.extractedMetadata ? JSON.parse(file.extractedMetadata) : null;
+                            if (metadata?.Make) {
+                              return (
+                                <div className="bg-accent/10 rounded p-2">
+                                  <Label className="text-xs">Camera</Label>
+                                  <p className="text-xs mt-1">{metadata.Make} {metadata.Model || ''}</p>
+                                </div>
+                              );
+                            }
+                          } catch (e) {
+                            // Invalid JSON, skip
+                          }
+                          return null;
+                        })()}
+                      </div>
+                      
+                      {/* AI-Enriched Column */}
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-primary">AI-Enriched</h4>
+                        {file.aiAnalysis && (
+                          <div className="bg-primary/10 rounded p-2">
+                            <Label className="text-xs">AI Analysis</Label>
+                            <p className="text-xs mt-1 line-clamp-4">{file.aiAnalysis}</p>
+                          </div>
+                        )}
+                        {file.detectedObjects && file.detectedObjects.length > 0 && (
+                          <div className="bg-primary/10 rounded p-2">
+                            <Label className="text-xs">Detected Objects</Label>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {file.detectedObjects.slice(0, 5).map((obj, idx) => (
+                                <Badge key={idx} variant="default" className="text-xs">
+                                  {obj}
+                                </Badge>
+                              ))}
+                              {file.detectedObjects.length > 5 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{file.detectedObjects.length - 5} more
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {file.ocrText && (
+                          <div className="bg-primary/10 rounded p-2">
+                            <Label className="text-xs">Extracted Text (OCR)</Label>
+                            <p className="text-xs mt-1 line-clamp-3">{file.ocrText}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground italic">
+                      💡 Left shows original file metadata, right shows AI-enriched data
+                    </p>
+                    </CollapsibleSection>
+                  </div>
+                )}
+
+                {file.aiAnalysis && (
+                  <CollapsibleSection
+                    title="Full AI Analysis"
+                    icon={<Sparkles className="h-4 w-4 text-primary" />}
+                    defaultOpen={false}
+                    className="p-4 bg-muted rounded-lg"
+                    bare
+                    storageKey="file-detail-ai-analysis"
+                  >
+                    <Streamdown>{file.aiAnalysis}</Streamdown>
+                  </CollapsibleSection>
+                )}
+
+                {file.detectedObjects && file.detectedObjects.length > 0 && (
+                  <CollapsibleSection
+                    title={`Detected Objects (${file.detectedObjects.length})`}
+                    defaultOpen={false}
+                    bare
+                    storageKey="file-detail-detected-objects"
+                  >
+                    <div className="flex flex-wrap gap-2">
+                      {file.detectedObjects.map((obj, idx) => (
+                        <Badge key={idx} variant="outline">
+                          {obj}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CollapsibleSection>
+                )}
+              </div>
 
               {/* Tags + Quality Improvement Side by Side */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
