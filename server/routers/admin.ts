@@ -616,4 +616,39 @@ export const adminRouter = router({
       topUsersByStorage,
     };
   }),
+
+  /**
+   * Check FFmpeg/FFprobe binary availability (admin diagnostic)
+   */
+  ffmpegHealth: adminProcedure.query(async () => {
+    const { getFFmpegPath, getFFprobePath } = await import("../lib/ffmpegPaths");
+    const { execSync } = await import("child_process");
+
+    const ffmpegPath = getFFmpegPath();
+    const ffprobePath = getFFprobePath();
+
+    let ffmpegVersion = "unknown";
+    let ffprobeVersion = "unknown";
+    let ffmpegOk = false;
+    let ffprobeOk = false;
+
+    try {
+      ffmpegVersion = execSync(`"${ffmpegPath}" -version`, { encoding: "utf-8", timeout: 5000 }).split("\n")[0];
+      ffmpegOk = true;
+    } catch (e: any) {
+      ffmpegVersion = `Error: ${e.message}`;
+    }
+
+    try {
+      ffprobeVersion = execSync(`"${ffprobePath}" -version`, { encoding: "utf-8", timeout: 5000 }).split("\n")[0];
+      ffprobeOk = true;
+    } catch (e: any) {
+      ffprobeVersion = `Error: ${e.message}`;
+    }
+
+    return {
+      ffmpeg: { path: ffmpegPath, version: ffmpegVersion, ok: ffmpegOk },
+      ffprobe: { path: ffprobePath, version: ffprobeVersion, ok: ffprobeOk },
+    };
+  }),
 });

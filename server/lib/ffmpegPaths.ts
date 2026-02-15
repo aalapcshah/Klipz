@@ -6,9 +6,15 @@
  * `ffprobe-static`.  In development (or any environment where the
  * system binaries are on $PATH) we prefer them because they are usually
  * newer and match the OS exactly.
+ *
+ * The ffmpeg-static package sometimes doesn't download its binary during
+ * install (pnpm postinstall issue). We detect this and run the install
+ * script on first access.
  */
 
 import { execSync } from "child_process";
+import { existsSync } from "fs";
+import path from "path";
 
 function which(bin: string): string | null {
   try {
@@ -20,6 +26,31 @@ function which(bin: string): string | null {
 
 let _ffmpegPath: string | null = null;
 let _ffprobePath: string | null = null;
+
+/**
+ * Ensure the ffmpeg-static binary exists, downloading it if needed.
+ */
+function ensureFFmpegStaticBinary(staticPath: string): boolean {
+  if (existsSync(staticPath)) return true;
+
+  // The binary wasn't downloaded — try running the install script
+  try {
+    const pkgDir = path.dirname(staticPath);
+    const installScript = path.join(pkgDir, "install.js");
+    if (existsSync(installScript)) {
+      console.log(`[FFmpeg] Binary missing, running install script...`);
+      execSync(`node "${installScript}"`, {
+        cwd: pkgDir,
+        timeout: 120000, // 2 min timeout for download
+        stdio: "pipe",
+      });
+      return existsSync(staticPath);
+    }
+  } catch (err) {
+    console.error(`[FFmpeg] Failed to download binary:`, err);
+  }
+  return false;
+}
 
 /**
  * Return the absolute path to the ffmpeg binary.
@@ -38,9 +69,8 @@ export function getFFmpegPath(): string {
 
   // 2. ffmpeg-static npm package
   try {
-    // ffmpeg-static exports the path as the default export
     const staticPath = require("ffmpeg-static") as string;
-    if (staticPath) {
+    if (staticPath && ensureFFmpegStaticBinary(staticPath)) {
       _ffmpegPath = staticPath;
       console.log(`[FFmpeg] Using ffmpeg-static: ${staticPath}`);
       return staticPath;
@@ -73,7 +103,7 @@ export function getFFprobePath(): string {
   // 2. ffprobe-static npm package
   try {
     const staticMod = require("ffprobe-static") as { path: string };
-    if (staticMod?.path) {
+    if (staticMod?.path && existsSync(staticMod.path)) {
       _ffprobePath = staticMod.path;
       console.log(`[FFprobe] Using ffprobe-static: ${staticMod.path}`);
       return staticMod.path;

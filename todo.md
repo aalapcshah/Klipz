@@ -6884,7 +6884,12 @@ Note: The application already has extensive annotation features including voice 
 - [x] Created centralized path helper (server/lib/ffmpegPaths.ts)
 - [x] Updated all 11 files that spawn ffmpeg/ffprobe to use bundled binary paths
 - [x] Files updated: frameExtraction, audioExtraction, audioChunking, ffprobe, hlsTranscode, videoTranscode, videoCompression, videoThumbnail, videoExport
-- [x] All tests passing
+- [x] ROOT CAUSE: pnpm.onlyBuiltDependencies only listed "sharp" — ffmpeg-static/ffprobe-static postinstall scripts were skipped, so binaries never downloaded
+- [x] FIX: Added ffmpeg-static and ffprobe-static to pnpm.onlyBuiltDependencies in package.json
+- [x] Added auto-download fallback in ffmpegPaths.ts if binary missing on first access
+- [x] Added admin.ffmpegHealth diagnostic endpoint to verify binary availability in production
+- [x] Verified both static binaries exist and execute correctly
+- [x] All 1458 tests passing, 0 TypeScript errors
 
 ## BUG FIX: Annotation Duration Not Respected
 - [x] Root cause: stale closure on visualAnnotations, no seeked handler, no rAF polling
@@ -6893,3 +6898,22 @@ Note: The application already has extensive annotation features including voice 
 - [x] Fixed: added requestAnimationFrame loop for ~60fps annotation timing precision
 - [x] Fixed: immediate visibility computation on mount and data load
 - [x] Annotations now correctly appear/disappear based on their timestamp + duration
+
+## Transcoding Progress Indicator
+- [ ] Add FFmpeg progress parsing to HLS transcoding (parse duration and time from stderr)
+- [ ] Add FFmpeg progress parsing to video compression
+- [ ] Add FFmpeg progress parsing to audio extraction
+- [ ] Create server-side progress tracking with tRPC subscription or polling endpoint
+- [ ] Store transcoding progress in memory (Map of jobId -> progress)
+- [ ] Build frontend progress bar component for transcoding operations
+- [ ] Show progress in VideoDetail page during HLS generation
+- [ ] Show progress during video compression
+- [ ] Auto-refresh when transcoding completes
+
+## Annotation Timeline Scrubber Markers
+- [ ] Add visual annotation markers on the video progress bar
+- [ ] Show different colors for visual annotations vs voice annotations
+- [ ] Make markers clickable to jump to that annotation's timestamp
+- [ ] Show tooltip on hover with annotation details (type, duration, text)
+- [ ] Ensure markers scale correctly with video duration
+- [ ] Work with both VideoPlayerWithAnnotations and MobileVideoPlayer

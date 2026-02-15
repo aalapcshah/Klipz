@@ -2444,6 +2444,7 @@ export const appRouter = router({
             sourceHeight: video.height,
             filename: video.filename,
             userId: ctx.user.id,
+            duration: video.duration || 0,
           }).then(result => {
             if (result.success) {
               console.log(`[HLS] Video ${input.videoId} HLS transcoding completed`);
@@ -2473,6 +2474,27 @@ export const appRouter = router({
         return {
           status: video.hlsStatus || "none",
           hlsUrl: video.hlsUrl || null,
+        };
+      }),
+
+    // Get transcoding progress for a video (polls in-memory job tracker)
+    getTranscodingProgress: protectedProcedure
+      .input(z.object({ videoId: z.number() }))
+      .query(async ({ input }) => {
+        const { getJobsForEntity } = await import('./lib/transcodingProgress');
+        const jobs = getJobsForEntity(input.videoId);
+        return {
+          jobs: jobs.map(j => ({
+            id: j.id,
+            type: j.type,
+            status: j.status,
+            progress: j.progress,
+            stage: j.stage || null,
+            startedAt: j.startedAt,
+            updatedAt: j.updatedAt,
+            completedAt: j.completedAt || null,
+            error: j.error || null,
+          })),
         };
       }),
   }),
