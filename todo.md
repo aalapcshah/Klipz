@@ -6998,3 +6998,10 @@ Note: The application already has extensive annotation features including voice 
 - [x] Root cause: old transcripts created with LLM method (transcriptionMethod: "llm") which couldn't properly process video audio
 - [x] Fix: users need to retry transcription to use new Whisper pipeline for full results
 - [x] New pipeline (extract_then_whisper) properly extracts audio via FFmpeg and transcribes via Whisper API
+
+## UI Change: Move Batch Action Toolbar to Bottom
+- [ ] Move the batch action toolbar (50 selected, Clear, Tag, Edit, Enrich, Quality, Compare, Export, Collection, Delete) from its current position above the file list to the bottom area near Select All / Clear
+
+## UI Change: Make Batch Action Toolbar More Compact
+- [x] Remove "X selected" label from the batch action toolbar to make it smaller
+- [x] Move the selected count to the Select All / Clear area below the toolbar

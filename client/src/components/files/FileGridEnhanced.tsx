@@ -1370,10 +1370,6 @@ export default function FileGridEnhanced({
               )}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 md:gap-4 flex-wrap">
-                  <span className="text-xs md:text-sm font-medium shrink-0">
-                    {selectedFilesSet.size} selected
-                  </span>
-
                   {/* 1. Clear Selected */}
                   <Button
                     variant="ghost"
@@ -1577,12 +1573,17 @@ export default function FileGridEnhanced({
               <span className="text-sm text-muted-foreground">Select All</span>
             </div>
             {selectedFilesSet.size > 0 && (
-              <button
-                onClick={() => setSelectedFiles(new Set())}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Clear ({selectedFilesSet.size})
-              </button>
+              <>
+                <span className="text-sm font-medium text-primary">
+                  {selectedFilesSet.size} selected
+                </span>
+                <button
+                  onClick={() => setSelectedFiles(new Set())}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Clear ({selectedFilesSet.size})
+                </button>
+              </>
             )}
           </div>
         )}
