@@ -222,15 +222,16 @@ export async function cleanupAudioFile(audioPath: string): Promise<void> {
  * @returns The recommended transcription strategy
  */
 export function getTranscriptionStrategy(fileSizeBytes: number | null): {
-  method: "whisper_direct" | "llm_then_extract" | "extract_then_whisper";
+  method: "whisper_direct" | "extract_then_whisper";
   reason: string;
 } {
   // Strategy:
-  // - Small files (<=16MB): Try Whisper directly (best quality), LLM and FFmpeg as fallbacks
-  // - Larger files (>16MB): Try LLM first (no FFmpeg needed), FFmpeg extraction as fallback
-  //   This avoids depending on FFmpeg in production where it may crash due to memory limits.
+  // - Small files (<=16MB): Try Whisper directly (best quality), FFmpeg extraction as fallback
+  // - Larger files (>16MB): Extract audio with FFmpeg first, then send to Whisper
+  // NOTE: LLM cannot reliably transcribe audio from video files — it's a vision model,
+  // not a speech-to-text model. Always use Whisper for transcription.
   if (!fileSizeBytes || fileSizeBytes === 0) {
-    return { method: "llm_then_extract", reason: "File size unknown, trying LLM first (FFmpeg extraction as fallback)" };
+    return { method: "extract_then_whisper", reason: "File size unknown, extracting audio then using Whisper" };
   }
 
   const sizeMB = fileSizeBytes / (1024 * 1024);
@@ -239,8 +240,8 @@ export function getTranscriptionStrategy(fileSizeBytes: number | null): {
     return { method: "whisper_direct", reason: `File is ${sizeMB.toFixed(1)}MB (≤16MB), using Whisper directly` };
   }
 
-  // For ALL files >16MB: try LLM first, FFmpeg extraction as fallback
-  return { method: "llm_then_extract", reason: `File is ${sizeMB.toFixed(1)}MB (>16MB), trying LLM first (FFmpeg extraction as fallback)` };
+  // For ALL files >16MB: extract audio with FFmpeg, then use Whisper
+  return { method: "extract_then_whisper", reason: `File is ${sizeMB.toFixed(1)}MB (>16MB), extracting audio then using Whisper` };
 }
 
 /**

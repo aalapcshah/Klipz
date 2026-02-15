@@ -225,9 +225,14 @@ async function transcribeWithExtractedAudio(
 
     if ("error" in extractResult) {
       console.log(`[Transcription] Audio extraction failed for file ${file.id}: ${extractResult.error}`);
-      // Fall back to LLM if extraction fails
-      console.log(`[Transcription] Falling back to LLM for file ${file.id}`);
-      return await transcribeWithLLM(file, transcriptId, origin, userId);
+      const userMessage = getTranscriptionErrorMessage(
+        `Audio extraction failed: ${extractResult.error}. ${extractResult.details || 'The video may be too large or corrupted.'}`
+      );
+      await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: userMessage,
+      });
     }
 
     audioPath = extractResult.audioPath;
@@ -284,11 +289,16 @@ async function transcribeWithExtractedAudio(
         };
       } catch (chunkError: any) {
         console.error(`[Transcription] Chunked transcription failed for file ${file.id}:`, chunkError.message);
-        // Last resort: try LLM (may fail for very large files but worth trying)
-        console.log(`[Transcription] Falling back to LLM for file ${file.id}`);
         if (audioPath) await cleanupAudioFile(audioPath);
         audioPath = null;
-        return await transcribeWithLLM(file, transcriptId, origin, userId);
+        const userMessage = getTranscriptionErrorMessage(
+          `Chunked audio transcription failed: ${chunkError.message}`
+        );
+        await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: userMessage,
+        });
       }
     }
 
@@ -484,7 +494,7 @@ export const videoTranscriptionRouter = router({
 
         switch (strategy.method) {
           case "whisper_direct": {
-            // Small files (<=16MB): use Whisper directly, fall back to LLM then FFmpeg
+            // Small files (<=16MB): use Whisper directly, fall back to FFmpeg extraction
             await updateTranscriptionPhase(transcriptId, "transcribing_whisper", "whisper");
 
             const result = await transcribeAudio({
@@ -495,15 +505,10 @@ export const videoTranscriptionRouter = router({
             // Check for transcription errors
             if ("error" in result) {
               if (result.code === "FILE_TOO_LARGE") {
-                console.log(`[Transcription] File ${input.fileId} too large for Whisper (${result.details}), trying LLM`);
-                // Try LLM first before FFmpeg extraction
-                try {
-                  return await transcribeWithLLM(file, transcriptId, origin, ctx.user.id);
-                } catch (llmError: any) {
-                  console.warn(`[Transcription] LLM also failed for file ${input.fileId}: ${llmError.message}`);
-                  console.log(`[Transcription] Last resort: trying FFmpeg audio extraction for file ${input.fileId}`);
-                  return await transcribeWithExtractedAudio(file, transcriptId, origin, ctx.user.id);
-                }
+                console.log(`[Transcription] File ${input.fileId} too large for Whisper (${result.details}), falling back to FFmpeg audio extraction`);
+                // Reset status and try FFmpeg extraction
+                await db.updateVideoTranscriptStatus(transcriptId, "processing");
+                return await transcribeWithExtractedAudio(file, transcriptId, origin, ctx.user.id);
               }
               const userMessage = getTranscriptionErrorMessage(result.error, result.code);
               await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
@@ -561,35 +566,9 @@ export const videoTranscriptionRouter = router({
             };
           }
 
-          case "llm_then_extract": {
-            // Larger files (>16MB or unknown): Try LLM first (no FFmpeg needed),
-            // fall back to FFmpeg audio extraction if LLM fails
-            console.log(`[Transcription] Trying LLM transcription first for file ${input.fileId}...`);
-            try {
-              return await transcribeWithLLM(file, transcriptId, origin, ctx.user.id);
-            } catch (llmError: any) {
-              console.warn(`[Transcription] LLM transcription failed for file ${input.fileId}: ${llmError.message}`);
-              console.log(`[Transcription] Falling back to FFmpeg audio extraction for file ${input.fileId}...`);
-              // Reset status since transcribeWithLLM may have set it to failed
-              await db.updateVideoTranscriptStatus(transcriptId, "processing");
-              try {
-                return await transcribeWithExtractedAudio(file, transcriptId, origin, ctx.user.id);
-              } catch (extractError: any) {
-                console.error(`[Transcription] Both LLM and FFmpeg extraction failed for file ${input.fileId}`);
-                const userMessage = getTranscriptionErrorMessage(
-                  `Transcription failed. LLM error: ${llmError.message}. Audio extraction error: ${extractError.message}`
-                );
-                await db.updateVideoTranscriptStatus(transcriptId, "failed", userMessage);
-                throw new TRPCError({
-                  code: "INTERNAL_SERVER_ERROR",
-                  message: userMessage,
-                });
-              }
-            }
-          }
-
           case "extract_then_whisper": {
-            // Legacy fallback: extract audio, then try Whisper
+            // Larger files (>16MB): Extract audio with FFmpeg, then transcribe with Whisper
+            console.log(`[Transcription] Extracting audio for file ${input.fileId} before Whisper transcription...`);
             return await transcribeWithExtractedAudio(file, transcriptId, origin, ctx.user.id);
           }
 
@@ -635,6 +614,23 @@ export const videoTranscriptionRouter = router({
       }
 
       return transcript;
+    }),
+
+  /**
+   * Get transcription status/phase for progress tracking (lightweight, no full text)
+   */
+  getTranscriptionStatus: protectedProcedure
+    .input(z.object({ fileId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const transcript = await db.getVideoTranscriptByFileId(input.fileId);
+      if (!transcript) return null;
+      if (transcript.userId !== ctx.user.id) return null;
+      return {
+        status: transcript.status,
+        phase: transcript.transcriptionPhase,
+        method: transcript.transcriptionMethod,
+        error: transcript.errorMessage,
+      };
     }),
 
   /**

@@ -1,0 +1,21 @@
+{
+  "query": "SELECT vt.id, vt.status, vt.transcriptionPhase, vt.transcriptionMethod, vt.confidence, vt.language, LENGTH(vt.fullText) as textLength, JSON_LENGTH(vt.segments) as segmentCount, LEFT(vt.fullText, 300) as textPreview FROM video_transcripts vt JOIN files f ON f.id = vt.fileId WHERE f.title LIKE '%Reel 3%' ORDER BY vt.id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT vt.id, vt.status, vt.transcriptionPhase, vt.transcriptionMethod, vt.confidence, vt.language, LENGTH(vt.fullText) as textLength, JSON_LENGTH(vt.segments) as segmentCount, LEFT(vt.fullText, 300) as textPreview FROM video_transcripts vt JOIN files f ON f.id = vt.fileId WHERE f.title LIKE '%Reel 3%' ORDER BY vt.id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "240009",
+      "status": "completed",
+      "transcriptionPhase": "completed",
+      "transcriptionMethod": "llm",
+      "confidence": "85",
+      "language": "en",
+      "textLength": "89",
+      "segmentCount": "3",
+      "textPreview": "This isn't just theory. We've seen reporting bias warp entire fields. Take antidepressant"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tstatus\ttranscriptionPhase\ttranscriptionMethod\tconfidence\tlanguage\ttextLength\tsegmentCount\ttextPreview\n240009\tcompleted\tcompleted\tllm\t85\ten\t89\t3\tThis isn't just theory. We've seen reporting bias warp entire fields. Take antidepressant\n",
+  "stderr": "",
+  "execution_time_ms": 63
+}

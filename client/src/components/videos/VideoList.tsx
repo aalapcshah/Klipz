@@ -49,6 +49,7 @@ import { VideoCompressionButton } from "../VideoCompressionButton";
 import { VideoCardDetails, type VideoCardDetailsHandle } from "./VideoCardDetails";
 import { MatchesTimelineWithData } from "./MatchesTimeline";
 import { MobileVideoPlayer } from "./MobileVideoPlayer";
+import { TranscriptionProgressBadge } from "../TranscriptionProgressBadge";
 import { extractVideoFrames } from "@/lib/videoFrameExtractor";
 import {
   Dialog,
@@ -948,10 +949,7 @@ export function VideoList() {
               {((video as any).transcriptionStatus === 'processing' || (video as any).transcriptionStatus === 'pending' || (video as any).transcriptionStatus === 'failed' || (video as any).captioningStatus === 'processing' || (video as any).captioningStatus === 'pending' || (video as any).captioningStatus === 'failed') && (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {((video as any).transcriptionStatus === 'processing' || (video as any).transcriptionStatus === 'pending') && (
-                    <Badge variant="outline" className="text-xs flex items-center gap-1 text-amber-500 border-amber-500/30 bg-amber-500/5">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Transcribing...
-                    </Badge>
+                    <TranscriptionProgressBadge fileId={video.id} compact />
                   )}
                   {((video as any).captioningStatus === 'processing' || (video as any).captioningStatus === 'pending') && (
                     <Badge variant="outline" className="text-xs flex items-center gap-1 text-purple-500 border-purple-500/30 bg-purple-500/5">

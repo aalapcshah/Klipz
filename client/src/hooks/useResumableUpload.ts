@@ -308,6 +308,10 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   const chunkDelayRef = useRef(options.chunkDelayMs ?? 0);
   const speedLimitRef = useRef<SpeedLimitOption>(speedLimit);
   const concurrencyRef = useRef<ConcurrencyOption>(concurrency);
+  // Live speed tracking via ref — immune to React state race conditions
+  // This is the authoritative source of speed data during active uploads
+  const liveSpeedMapRef = useRef<Map<string, { speed: number; recentSpeeds: number[]; eta: number; lastUpdate: number }>>(new Map());
+
   // Adaptive upload settings per session
   const adaptiveSettingsRef = useRef<Map<string, AdaptiveSettings>>(new Map());
   // Network quality tracking: rolling window of chunk speeds (bytes/sec)
@@ -924,6 +928,16 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
             lastBytesForSpeed = completedBytes;
           }
 
+          // Update live speed ref (immune to React state race conditions)
+          const existingLive = liveSpeedMapRef.current.get(session.sessionToken);
+          const updatedRecentSpeeds = [...(existingLive?.recentSpeeds || []).slice(-9), chunkSpeed];
+          liveSpeedMapRef.current.set(session.sessionToken, {
+            speed,
+            recentSpeeds: updatedRecentSpeeds,
+            eta,
+            lastUpdate: now,
+          });
+
           setSessionsRef.current(prev => {
             const updated = prev.map(s =>
               s.sessionToken === session.sessionToken
@@ -936,7 +950,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
                     eta,
                     error: undefined,
                     networkQuality,
-                    recentSpeeds: [...(s.recentSpeeds || []).slice(-9), chunkSpeed],
+                    recentSpeeds: updatedRecentSpeeds,
                   }
                 : s
             );
@@ -1155,6 +1169,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
     } finally {
       activeUploadsRef.current.delete(session.sessionToken);
       abortControllersRef.current.delete(session.sessionToken);
+      liveSpeedMapRef.current.delete(session.sessionToken);
     }
   }, [readChunkAsBase64]);
 
@@ -1538,6 +1553,7 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
   return {
     sessions,
     isLoading,
+    liveSpeedMapRef,
     startUpload,
     pauseUpload,
     resumeUpload,

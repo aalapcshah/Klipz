@@ -6965,3 +6965,36 @@ Note: The application already has extensive annotation features including voice 
 - [x] Investigate why upload speed graph shows flat 0/s during active chunked uploads
 - [x] Fix speed calculation/tracking in upload speed component (3 root causes fixed)
 - [x] Verify graph updates in real-time during uploads (0 TS errors, 1459 tests pass)
+
+## Bug Reports - Feb 14 2026 (Batch 2)
+- [x] Upload speed graph STILL showing 0/s flat line after 59 seconds of active upload (fixed with liveSpeedMapRef)
+- [ ] Upload times out after 59 seconds
+- [x] Annotation duration slider does not update visually until user leaves tab and returns
+- [x] Analytics page "Loading analytics..." has spinner/loading indicator (already implemented with animated spinning circle)
+- [x] Transcription pipeline fixed: removed LLM, now uses extract_then_whisper for all file sizes
+
+## Bug Fix: Transcription Failing - Use Whisper API
+- [x] Fix transcription to use Whisper API (transcribeAudio) instead of LLM for audio extraction
+- [x] Ensure retry transcript button uses the correct transcription pipeline
+
+## Bug Fix: Transcription Progress Bar
+- [x] Show transcription progress bar with phase info (extracting_audio, uploading, transcribing, processing)
+- [x] Map transcription phases to percentage progress
+- [x] Poll for transcription status updates during processing
+
+## Bug Fix: Annotation Duration Not Updating
+- [x] Fix annotation overlay not refreshing when duration changes while video is paused
+- [x] Add useEffect to re-run computeVisibleAnnotations when annotation data changes
+
+## Bug Fix: Analytics Loading Spinner
+- [x] Analytics page already has animated spinning circle loading indicator (verified)
+
+## Bug Fix: Transcription Pipeline - Remove LLM
+- [x] Remove LLM as transcription method (LLM cannot transcribe audio from video)
+- [x] Change strategy to always use extract_then_whisper for files >16MB
+- [x] Remove LLM fallback from extraction failure path
+
+## Bug Fix: Truncated Transcription
+- [x] Root cause: old transcripts created with LLM method (transcriptionMethod: "llm") which couldn't properly process video audio
+- [x] Fix: users need to retry transcription to use new Whisper pipeline for full results
+- [x] New pipeline (extract_then_whisper) properly extracts audio via FFmpeg and transcribes via Whisper API

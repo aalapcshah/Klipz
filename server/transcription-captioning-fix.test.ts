@@ -253,27 +253,27 @@ describe("Frame Extraction Service", () => {
 
 // ===== Audio Extraction Strategy Tests =====
 describe("Audio Extraction Strategy - Large File Support", () => {
-  it("should use llm_then_extract for large files (LLM first, FFmpeg fallback)", async () => {
+  it("should use extract_then_whisper for large files (FFmpeg + Whisper, no LLM)", async () => {
     const { getTranscriptionStrategy } = await import("./services/audioExtraction");
     
-    // 500MB: try LLM first, FFmpeg extraction as fallback
+    // 500MB: extract audio with FFmpeg, transcribe with Whisper
     const strategy500 = getTranscriptionStrategy(500 * 1024 * 1024);
-    expect(strategy500.method).toBe("llm_then_extract");
+    expect(strategy500.method).toBe("extract_then_whisper");
     
     // 5GB: same strategy
     const strategy5G = getTranscriptionStrategy(5 * 1024 * 1024 * 1024);
-    expect(strategy5G.method).toBe("llm_then_extract");
+    expect(strategy5G.method).toBe("extract_then_whisper");
     
     // 10GB: same strategy
     const strategy10G = getTranscriptionStrategy(10 * 1024 * 1024 * 1024);
-    expect(strategy10G.method).toBe("llm_then_extract");
+    expect(strategy10G.method).toBe("extract_then_whisper");
   });
 
-  it("should use llm_then_extract for null/unknown file size", async () => {
+  it("should use extract_then_whisper for null/unknown file size", async () => {
     const { getTranscriptionStrategy } = await import("./services/audioExtraction");
     
     const strategy = getTranscriptionStrategy(null);
-    expect(strategy.method).toBe("llm_then_extract");
+    expect(strategy.method).toBe("extract_then_whisper");
   });
 });
 
@@ -292,7 +292,7 @@ describe("Scheduled Auto-Captioning with Frame Extraction", () => {
 
 // ===== Integration: Strategy → Pipeline =====
 describe("Large File Pipeline Integration", () => {
-  it("large files should go through llm_then_extract (LLM first, FFmpeg fallback)", async () => {
+  it("large files should go through extract_then_whisper (FFmpeg + Whisper, no LLM)", async () => {
     const { getTranscriptionStrategy } = await import("./services/audioExtraction");
     const { getExtractionTimeout } = await import("./services/audioExtraction");
     
@@ -300,7 +300,7 @@ describe("Large File Pipeline Integration", () => {
     const strategy = getTranscriptionStrategy(fileSize);
     const timeout = getExtractionTimeout(fileSize);
     
-    expect(strategy.method).toBe("llm_then_extract");
+    expect(strategy.method).toBe("extract_then_whisper");
     expect(timeout).toBeGreaterThanOrEqual(600);
   });
 
@@ -320,7 +320,7 @@ describe("Large File Pipeline Integration", () => {
     const fileSize = 10 * 1024 * 1024 * 1024; // 10GB
     
     const transcriptionStrategy = getTranscriptionStrategy(fileSize);
-    expect(transcriptionStrategy.method).toBe("llm_then_extract");
+    expect(transcriptionStrategy.method).toBe("extract_then_whisper");
     
     const captioningStrategy = getCaptioningStrategy(fileSize);
     expect(captioningStrategy.method).toBe("llm_direct");

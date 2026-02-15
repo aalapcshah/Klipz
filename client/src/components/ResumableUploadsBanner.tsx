@@ -131,6 +131,7 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
   const {
     sessions,
     isLoading,
+    liveSpeedMapRef,
     pauseUpload,
     resumeUpload,
     cancelUpload,
@@ -210,8 +211,8 @@ export function ResumableUploadsBanner({ onUploadComplete }: ResumableUploadsBan
     s => s.status === "active" || s.status === "paused" || s.status === "error" || s.status === "finalizing"
   );
 
-  // Aggregated speed for the speed graph
-  const { totalSpeed, isActive: hasActiveUploads } = useAggregatedUploadSpeed(sessions);
+  // Aggregated speed for the speed graph — uses liveSpeedMapRef as authoritative source
+  const { totalSpeed, isActive: hasActiveUploads } = useAggregatedUploadSpeed(sessions, liveSpeedMapRef);
 
   // Don't show if no resumable sessions
   if (isLoading || resumableSessions.length === 0) {

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { extractVideoFrames } from "@/lib/videoFrameExtractor";
+import { TranscriptionProgressBadge } from "../TranscriptionProgressBadge";
 
 export interface VideoCardDetailsHandle {
   handleFindMatches: () => void;
@@ -435,9 +436,8 @@ export const VideoCardDetails = forwardRef<VideoCardDetailsHandle, VideoCardDeta
               )}
             </div>
           ) : transcript && transcript.status === "processing" ? (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Transcription in progress...
+            <div className="py-2">
+              <TranscriptionProgressBadge fileId={fileId} />
             </div>
           ) : transcript && transcript.status === "failed" ? (
             <div className="space-y-1 py-2">

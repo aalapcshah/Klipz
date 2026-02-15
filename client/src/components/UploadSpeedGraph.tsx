@@ -364,29 +364,55 @@ export function UploadSpeedGraph({
 /**
  * Hook to collect speed data from multiple upload sessions
  * and provide aggregated speed for the graph.
- * Uses recentSpeeds array as a fallback when instantaneous speed is 0
- * (which happens between chunk completions).
+ * Uses liveSpeedMapRef as the authoritative source of speed data,
+ * falling back to session state and recentSpeeds.
  */
 export function useAggregatedUploadSpeed(
-  sessions: Array<{ speed: number; status: string; recentSpeeds?: number[] }>
+  sessions: Array<{ speed: number; status: string; sessionToken?: string; recentSpeeds?: number[] }>,
+  liveSpeedMapRef?: React.RefObject<Map<string, { speed: number; recentSpeeds: number[]; eta: number; lastUpdate: number }> | null>
 ): { totalSpeed: number; isActive: boolean } {
+  // Use a polling interval to read from the ref since refs don't trigger re-renders
+  const [tick, setTick] = useState(0);
+  const isActive = sessions.some(s => s.status === "active");
+
+  useEffect(() => {
+    if (!isActive) return;
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [isActive]);
+
   const totalSpeed = useMemo(() => {
+    const liveMap = liveSpeedMapRef?.current;
     return sessions
       .filter(s => s.status === "active")
       .reduce((sum, s) => {
-        // Use the session's current speed if available
+        // Priority 1: Use live speed from ref (immune to React state race conditions)
+        if (liveMap && s.sessionToken) {
+          const live = liveMap.get(s.sessionToken);
+          if (live) {
+            const age = (Date.now() - live.lastUpdate) / 1000;
+            // If the live data is recent (< 15s), use it
+            if (age < 15) {
+              if (live.speed > 0) return sum + live.speed;
+              // Use recent speeds average as fallback
+              if (live.recentSpeeds.length > 0) {
+                const avg = live.recentSpeeds.reduce((a, b) => a + b, 0) / live.recentSpeeds.length;
+                return sum + avg;
+              }
+            }
+          }
+        }
+        // Priority 2: Use the session's current speed from React state
         if (s.speed > 0) return sum + s.speed;
-        // Fallback: use the average of recent chunk speeds if available
-        // This provides a reasonable estimate between chunk completions
+        // Priority 3: Use the average of recent chunk speeds
         if (s.recentSpeeds && s.recentSpeeds.length > 0) {
           const recentAvg = s.recentSpeeds.reduce((a, b) => a + b, 0) / s.recentSpeeds.length;
           return sum + recentAvg;
         }
         return sum;
       }, 0);
-  }, [sessions]);
-
-  const isActive = sessions.some(s => s.status === "active");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessions, tick]);
 
   return { totalSpeed, isActive };
 }

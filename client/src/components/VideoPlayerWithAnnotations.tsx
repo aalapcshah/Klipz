@@ -426,6 +426,25 @@ export function VideoPlayerWithAnnotations({ fileId, videoUrl, initialTime, vide
     };
   }, []);
 
+  // Re-compute visible annotations when annotation data changes (e.g., duration slider updated)
+  // This ensures the overlay refreshes even when the video is paused
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    // Recompute which annotations are visible at the current time
+    const anns = visualAnnotationsRef.current;
+    const time = video.currentTime;
+    const visible = anns
+      .filter(ann => {
+        const startTime = ann.videoTimestamp;
+        const dur = ann.duration || 5;
+        const endTime = startTime + dur;
+        return time >= startTime && time < endTime;
+      })
+      .map(ann => ann.id);
+    setVisibleAnnotationIds(visible);
+  }, [visualAnnotations]);
+
   // Keyboard shortcuts for video navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

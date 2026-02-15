@@ -1,0 +1,23 @@
+{
+  "query": "SELECT vt.id, vt.fileId, vt.status, vt.transcriptionPhase, vt.transcriptionMethod, vt.confidence, vt.language, LEFT(vt.fullText, 200) as textPreview, LENGTH(vt.fullText) as textLength, JSON_LENGTH(vt.segments) as segmentCount, f.title FROM video_transcripts vt JOIN files f ON f.id = vt.fileId WHERE f.title LIKE '%Reel 3%' ORDER BY vt.id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2nXHNKWaT6KdAop.2df66c7cd877 --database SaoZcd7riW2zyxorRaqL7d --execute SELECT vt.id, vt.fileId, vt.status, vt.transcriptionPhase, vt.transcriptionMethod, vt.confidence, vt.language, LEFT(vt.fullText, 200) as textPreview, LENGTH(vt.fullText) as textLength, JSON_LENGTH(vt.segments) as segmentCount, f.title FROM video_transcripts vt JOIN files f ON f.id = vt.fileId WHERE f.title LIKE '%Reel 3%' ORDER BY vt.id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "240009",
+      "fileId": "1772523",
+      "status": "completed",
+      "transcriptionPhase": "completed",
+      "transcriptionMethod": "llm",
+      "confidence": "85",
+      "language": "en",
+      "textPreview": "This isn't just theory. We've seen reporting bias warp entire fields. Take antidepressant",
+      "textLength": "89",
+      "segmentCount": "3",
+      "title": "Video 7C_Reel 3"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfileId\tstatus\ttranscriptionPhase\ttranscriptionMethod\tconfidence\tlanguage\ttextPreview\ttextLength\tsegmentCount\ttitle\n240009\t1772523\tcompleted\tcompleted\tllm\t85\ten\tThis isn't just theory. We've seen reporting bias warp entire fields. Take antidepressant\t89\t3\tVideo 7C_Reel 3\n",
+  "stderr": "",
+  "execution_time_ms": 102
+}

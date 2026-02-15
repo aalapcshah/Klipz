@@ -15,43 +15,43 @@ describe("Audio Extraction & Transcription Strategy", () => {
       expect(result.method).toBe("whisper_direct");
     });
 
-    it("should use llm_then_extract for files >16MB (LLM first, FFmpeg fallback)", () => {
+    it("should use extract_then_whisper for files >16MB (FFmpeg + Whisper)", () => {
       const result = getTranscriptionStrategy(50 * 1024 * 1024); // 50MB
-      expect(result.method).toBe("llm_then_extract");
+      expect(result.method).toBe("extract_then_whisper");
       expect(result.reason).toContain("50.0MB");
     });
 
-    it("should use llm_then_extract for files just over 16MB", () => {
+    it("should use extract_then_whisper for files just over 16MB", () => {
       const result = getTranscriptionStrategy(17 * 1024 * 1024); // 17MB
-      expect(result.method).toBe("llm_then_extract");
+      expect(result.method).toBe("extract_then_whisper");
     });
 
-    it("should use llm_then_extract for exactly 100MB", () => {
+    it("should use extract_then_whisper for exactly 100MB", () => {
       const result = getTranscriptionStrategy(100 * 1024 * 1024); // 100MB
-      expect(result.method).toBe("llm_then_extract");
+      expect(result.method).toBe("extract_then_whisper");
     });
 
-    it("should use llm_then_extract for files > 100MB", () => {
+    it("should use extract_then_whisper for files > 100MB", () => {
       const result = getTranscriptionStrategy(200 * 1024 * 1024); // 200MB
-      expect(result.method).toBe("llm_then_extract");
+      expect(result.method).toBe("extract_then_whisper");
       expect(result.reason).toContain(">16MB");
     });
 
-    it("should use llm_then_extract for the 295MB test video", () => {
+    it("should use extract_then_whisper for the 295MB test video", () => {
       const result = getTranscriptionStrategy(309186340); // 294.86MB
-      expect(result.method).toBe("llm_then_extract");
+      expect(result.method).toBe("extract_then_whisper");
       expect(result.reason).toContain("294.9MB");
     });
 
-    it("should use llm_then_extract for null file size (unknown)", () => {
+    it("should use extract_then_whisper for null file size (unknown)", () => {
       const result = getTranscriptionStrategy(null);
-      expect(result.method).toBe("llm_then_extract");
+      expect(result.method).toBe("extract_then_whisper");
       expect(result.reason).toContain("unknown");
     });
 
-    it("should use llm_then_extract for zero file size (unknown)", () => {
+    it("should use extract_then_whisper for zero file size (unknown)", () => {
       const result = getTranscriptionStrategy(0);
-      expect(result.method).toBe("llm_then_extract");
+      expect(result.method).toBe("extract_then_whisper");
       expect(result.reason).toContain("unknown");
     });
 
@@ -60,14 +60,14 @@ describe("Audio Extraction & Transcription Strategy", () => {
       expect(result.method).toBe("whisper_direct");
     });
 
-    it("should use llm_then_extract for very large files (1GB+)", () => {
+    it("should use extract_then_whisper for very large files (1GB+)", () => {
       const result = getTranscriptionStrategy(1024 * 1024 * 1024); // 1GB
-      expect(result.method).toBe("llm_then_extract");
+      expect(result.method).toBe("extract_then_whisper");
     });
 
-    it("should use llm_then_extract for 10GB files", () => {
+    it("should use extract_then_whisper for 10GB files", () => {
       const result = getTranscriptionStrategy(10 * 1024 * 1024 * 1024); // 10GB
-      expect(result.method).toBe("llm_then_extract");
+      expect(result.method).toBe("extract_then_whisper");
     });
   });
 
@@ -144,14 +144,14 @@ describe("Audio Extraction & Transcription Strategy", () => {
       expect(strategy.method).toBe("whisper_direct");
     });
 
-    it("llm_then_extract should be for medium files (LLM first, FFmpeg fallback)", () => {
+    it("extract_then_whisper should be for medium files (FFmpeg + Whisper)", () => {
       const strategy = getTranscriptionStrategy(50 * 1024 * 1024); // 50MB
-      expect(strategy.method).toBe("llm_then_extract");
+      expect(strategy.method).toBe("extract_then_whisper");
     });
 
-    it("llm_then_extract should be used for large files too", () => {
+    it("extract_then_whisper should be used for large files too", () => {
       const strategy = getTranscriptionStrategy(200 * 1024 * 1024); // 200MB
-      expect(strategy.method).toBe("llm_then_extract");
+      expect(strategy.method).toBe("extract_then_whisper");
     });
   });
 
@@ -188,19 +188,19 @@ describe("Audio Extraction & Transcription Strategy", () => {
     it("should handle boundary just over 16MB", () => {
       const justOver16MB = 16 * 1024 * 1024 + 1;
       const result = getTranscriptionStrategy(justOver16MB);
-      expect(result.method).toBe("llm_then_extract");
+      expect(result.method).toBe("extract_then_whisper");
     });
 
     it("should handle boundary at exactly 100MB", () => {
       const exactly100MB = 100 * 1024 * 1024;
       const result = getTranscriptionStrategy(exactly100MB);
-      expect(result.method).toBe("llm_then_extract");
+      expect(result.method).toBe("extract_then_whisper");
     });
 
     it("should handle boundary just over 100MB", () => {
       const justOver100MB = 100 * 1024 * 1024 + 1;
       const result = getTranscriptionStrategy(justOver100MB);
-      expect(result.method).toBe("llm_then_extract");
+      expect(result.method).toBe("extract_then_whisper");
     });
   });
 
