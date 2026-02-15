@@ -1374,8 +1374,12 @@ export default function FileGridEnhanced({
           </div>
         </div>
 
-        {/* Search Bar - rendered from parent */}
-        {searchBar}
+        {/* Search Bar - sticky on mobile for easy access while scrolling */}
+        {searchBar && (
+          <div className="sticky top-0 z-20 md:static md:z-auto bg-background pb-1 -mx-1 px-1 md:mx-0 md:px-0">
+            {searchBar}
+          </div>
+        )}
         
         {/* Search Results Banner - rendered from parent */}
         {searchResultsBanner}

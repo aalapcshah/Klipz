@@ -7024,3 +7024,8 @@ Note: The application already has extensive annotation features including voice 
 ## UI Change: Swap Search Bar and Filters & Sort Rows
 - [x] Move Filters & Sort above the search bar
 - [x] Move search bar below Filters & Sort
+
+## UI Feature: Sticky Search Bar on Mobile
+- [x] Make the search bar sticky on mobile so it stays visible when scrolling through files
+- [x] Ensure it doesn't overlap with other sticky elements (header, bottom nav)
+- [x] Add proper z-index and background to prevent content showing through
