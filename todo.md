@@ -6921,3 +6921,10 @@ Note: The application already has extensive annotation features including voice 
 ## UI Changes - File Detail Page (Corrected)
 - [x] Remove only the "AI Enrichment" label/heading text (keep the entire section content intact)
 - [x] Move "+ Add Tag" button to the left, directly next to the "Tags" label
+
+## BUG FIX: Re-apply FFmpeg ENOENT Production Fix (lost during rollback)
+- [x] Add ffmpeg-static and ffprobe-static to pnpm.onlyBuiltDependencies in package.json
+- [x] ROOT CAUSE: esbuild ESM bundle breaks bare require() for ffmpeg-static — createRequire(import.meta.url) needed
+- [x] Rewrote ffmpegPaths.ts to use createRequire + manual node_modules walking as fallback
+- [x] Prioritized ffmpeg-static over system binary (production has no system ffmpeg)
+- [x] All 1458 tests passing, 0 TypeScript errors
