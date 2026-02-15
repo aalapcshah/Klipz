@@ -332,27 +332,45 @@ export const videoVisualCaptionsRouter = router({
         const accessibleUrl = await resolveFileUrl(file, { origin });
         console.log(`[VisualCaptions] Resolved URL for file ${input.fileId}: ${accessibleUrl.substring(0, 80)}...`);
 
-        // Determine captioning strategy based on file size
+        // Strategy: ALWAYS try LLM-direct first for all file sizes.
+        // The LLM vision API can handle video URLs of any size by streaming them.
+        // FFmpeg frame extraction is only used as a fallback if LLM-direct fails.
         const strategy = getCaptioningStrategy(file.fileSize);
-        console.log(`[VisualCaptions] Strategy for file ${input.fileId}: ${strategy.method} — ${strategy.reason}`);
+        console.log(`[VisualCaptions] Strategy for file ${input.fileId}: ${strategy.method} \u2014 ${strategy.reason}`);
 
         let result: any;
 
-        if (strategy.method === "frame_extraction") {
-          // FRAME EXTRACTION: Extract frames with FFmpeg, upload to S3, send images to LLM
-          result = await captionViaFrameExtraction(
-            accessibleUrl,
-            input.fileId,
-            input.intervalSeconds,
-            file.fileSize
-          );
-        } else {
-          // LLM DIRECT: Send the video directly to LLM vision API (small files only)
+        // Step 1: Try LLM-direct (works for all file sizes, no FFmpeg needed)
+        try {
+          console.log(`[VisualCaptions] Trying LLM-direct for file ${input.fileId}...`);
           result = await captionViaDirectLLM(
             accessibleUrl,
             file.mimeType || "video/mp4",
             input.intervalSeconds
           );
+          console.log(`[VisualCaptions] LLM-direct succeeded for file ${input.fileId}`);
+        } catch (directError: any) {
+          // Step 2: If LLM-direct fails, try FFmpeg frame extraction as fallback
+          console.warn(`[VisualCaptions] LLM-direct failed for file ${input.fileId}: ${directError.message}`);
+          console.log(`[VisualCaptions] Falling back to frame extraction for file ${input.fileId}...`);
+          try {
+            result = await captionViaFrameExtraction(
+              accessibleUrl,
+              input.fileId,
+              input.intervalSeconds,
+              file.fileSize
+            );
+            console.log(`[VisualCaptions] Frame extraction fallback succeeded for file ${input.fileId}`);
+          } catch (frameError: any) {
+            // Both methods failed — throw the original LLM error with context
+            console.error(`[VisualCaptions] Both LLM-direct and frame extraction failed for file ${input.fileId}`);
+            console.error(`[VisualCaptions] LLM error: ${directError.message}`);
+            console.error(`[VisualCaptions] Frame extraction error: ${frameError.message}`);
+            throw new Error(
+              `Captioning failed. LLM analysis error: ${directError.message}. ` +
+              `Frame extraction fallback also failed: ${frameError.message}`
+            );
+          }
         }
 
         const captions = result.captions || [];

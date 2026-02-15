@@ -6928,3 +6928,18 @@ Note: The application already has extensive annotation features including voice 
 - [x] Rewrote ffmpegPaths.ts to use createRequire + manual node_modules walking as fallback
 - [x] Prioritized ffmpeg-static over system binary (production has no system ffmpeg)
 - [x] All 1458 tests passing, 0 TypeScript errors
+
+## BUG FIX: FFmpeg exited with code null in production
+- [x] Investigate why ffmpeg-static binary crashes during frame extraction (code null = killed by signal)
+- [x] ROOT CAUSE: Production container has limited memory, FFmpeg-static gets OOM-killed
+- [x] SOLUTION: Made LLM-direct the primary strategy for all file sizes, FFmpeg as optional fallback
+- [x] Added better error logging to capture stderr output from FFmpeg
+
+## Comprehensive Video Processing Fix - All Devices, All Sizes, All Upload Methods
+- [x] Restructure captioning: LLM-direct as primary strategy, FFmpeg frame extraction as optional fallback
+- [x] Restructure transcription: Whisper/LLM as primary (llm_then_extract), FFmpeg audio extraction as fallback
+- [x] URL resolution already handles all upload types (direct upload, URL import, chunked upload)
+- [x] Mobile compatibility: all processing is server-side, works regardless of client device
+- [x] Updated scheduled auto-captioning with same resilient LLM-first strategy
+- [x] Added better error logging with FFmpeg stderr capture
+- [x] All 1459 tests passing across 98 test files, 0 TypeScript errors

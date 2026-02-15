@@ -59,7 +59,16 @@ export async function extractAudioFromVideo(
   options?.onProgress?.("Downloading and extracting audio track...");
 
   return new Promise((resolve) => {
+    // Memory-saving flags for production containers:
+    // -threads 1: Use single thread to limit memory usage
+    // -nostdin: Don't read from stdin
+    // -probesize 5000000: Limit probe size to 5MB
+    // -analyzeduration 5000000: Limit analysis to 5 seconds
     const args = [
+      "-threads", "1",
+      "-nostdin",
+      "-probesize", "5000000",
+      "-analyzeduration", "5000000",
       "-i", videoUrl,           // Input from URL (FFmpeg handles the download)
       "-vn",                     // No video
       "-acodec", "libmp3lame",   // MP3 codec
@@ -118,7 +127,7 @@ export async function extractAudioFromVideo(
       });
     }, timeoutMs);
 
-    ffmpeg.on("close", async (code) => {
+    ffmpeg.on("close", async (code, signal) => {
       clearTimeout(timeout);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
@@ -137,11 +146,22 @@ export async function extractAudioFromVideo(
           return;
         }
 
-        console.error(`[AudioExtraction] FFmpeg failed with code ${code} (${elapsed}s): ${stderr.substring(stderr.length - 500)}`);
+        // Log full stderr for debugging
+        const stderrTail = stderr.substring(Math.max(0, stderr.length - 1000));
+        console.error(`[AudioExtraction] FFmpeg failed — code: ${code}, signal: ${signal}, elapsed: ${elapsed}s`);
+        console.error(`[AudioExtraction] FFmpeg stderr (last 1000 chars): ${stderrTail}`);
+
+        let details = `FFmpeg exited with code ${code}`;
+        if (signal === "SIGKILL" || code === null) {
+          details = "FFmpeg was killed (likely out of memory). The video may be too large for audio extraction in this environment.";
+        } else if (signal) {
+          details = `FFmpeg was killed by signal ${signal}`;
+        }
+
         resolve({
           error: "Audio extraction failed",
           code: "EXTRACTION_FAILED",
-          details: `FFmpeg exited with code ${code}`,
+          details,
         });
         return;
       }
@@ -202,12 +222,15 @@ export async function cleanupAudioFile(audioPath: string): Promise<void> {
  * @returns The recommended transcription strategy
  */
 export function getTranscriptionStrategy(fileSizeBytes: number | null): {
-  method: "whisper_direct" | "extract_then_whisper";
+  method: "whisper_direct" | "llm_then_extract" | "extract_then_whisper";
   reason: string;
 } {
+  // Strategy:
+  // - Small files (<=16MB): Try Whisper directly (best quality), LLM and FFmpeg as fallbacks
+  // - Larger files (>16MB): Try LLM first (no FFmpeg needed), FFmpeg extraction as fallback
+  //   This avoids depending on FFmpeg in production where it may crash due to memory limits.
   if (!fileSizeBytes || fileSizeBytes === 0) {
-    // Unknown size — try audio extraction to be safe
-    return { method: "extract_then_whisper", reason: "File size unknown, extracting audio first" };
+    return { method: "llm_then_extract", reason: "File size unknown, trying LLM first (FFmpeg extraction as fallback)" };
   }
 
   const sizeMB = fileSizeBytes / (1024 * 1024);
@@ -216,8 +239,8 @@ export function getTranscriptionStrategy(fileSizeBytes: number | null): {
     return { method: "whisper_direct", reason: `File is ${sizeMB.toFixed(1)}MB (≤16MB), using Whisper directly` };
   }
 
-  // For ALL files >16MB (up to 10GB), extract audio first then chunk if needed
-  return { method: "extract_then_whisper", reason: `File is ${sizeMB.toFixed(1)}MB (>16MB), extracting audio first (will chunk if needed)` };
+  // For ALL files >16MB: try LLM first, FFmpeg extraction as fallback
+  return { method: "llm_then_extract", reason: `File is ${sizeMB.toFixed(1)}MB (>16MB), trying LLM first (FFmpeg extraction as fallback)` };
 }
 
 /**

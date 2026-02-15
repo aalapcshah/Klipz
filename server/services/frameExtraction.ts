@@ -8,9 +8,8 @@
  * streams the video and only decodes the frames it needs, rather than
  * loading the entire file into memory.
  *
- * Typical output:
- * - 57s video at 5s intervals → ~12 frames, ~50-200KB each
- * - 10min video at 5s intervals → ~120 frames, batched into groups
+ * Production note: The ffmpeg-static binary runs in a memory-constrained
+ * container. We use -threads 1 and conservative settings to avoid OOM kills.
  */
 
 import { spawn } from "child_process";
@@ -72,10 +71,26 @@ export async function extractFramesFromVideo(
 
   options?.onProgress?.("Extracting video frames...");
 
+  // Resolve FFmpeg path upfront so we get a clear error if it's missing
+  const ffmpegBin = getFFmpegPath();
+  console.log(`[FrameExtraction] Using FFmpeg binary: ${ffmpegBin}`);
+
   return new Promise((resolve) => {
     // Use the fps filter to extract 1 frame every N seconds,
-    // scale down to maxWidth, and output as JPEG
+    // scale down to maxWidth, and output as JPEG.
+    //
+    // Memory-saving flags for production:
+    // -threads 1: Use single thread to limit memory usage
+    // -loglevel warning: Reduce output (but still capture errors)
+    // -nostdin: Don't read from stdin
+    // -probesize 5000000: Limit probe size to 5MB (default is much larger)
+    // -analyzeduration 5000000: Limit analysis to 5 seconds
     const args = [
+      "-threads", "1",
+      "-loglevel", "warning",
+      "-nostdin",
+      "-probesize", "5000000",
+      "-analyzeduration", "5000000",
       "-i", videoUrl,
       "-vf", `fps=1/${interval},scale='min(${maxWidth},iw)':-1`,
       "-qscale:v", quality.toString(),
@@ -84,10 +99,10 @@ export async function extractFramesFromVideo(
       path.join(tempDir, "frame_%04d.jpg"),
     ];
 
-    console.log(`[FrameExtraction] Starting FFmpeg: ffmpeg ${args.slice(0, 6).join(" ")}... → ${tempDir}`);
+    console.log(`[FrameExtraction] Starting FFmpeg with memory-safe flags: ${ffmpegBin} -threads 1 -i <url> → ${tempDir}`);
     const startTime = Date.now();
 
-    const ffmpeg = spawn(getFFmpegPath(), args, {
+    const ffmpeg = spawn(ffmpegBin, args, {
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -131,7 +146,7 @@ export async function extractFramesFromVideo(
       });
     }, timeoutMs);
 
-    ffmpeg.on("close", async (code) => {
+    ffmpeg.on("close", async (code, signal) => {
       clearTimeout(timeout);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
@@ -147,11 +162,23 @@ export async function extractFramesFromVideo(
           return;
         }
 
-        console.error(`[FrameExtraction] FFmpeg failed with code ${code} (${elapsed}s): ${stderr.substring(stderr.length - 500)}`);
+        // Log the full stderr for debugging
+        const stderrTail = stderr.substring(Math.max(0, stderr.length - 1000));
+        console.error(`[FrameExtraction] FFmpeg failed — code: ${code}, signal: ${signal}, elapsed: ${elapsed}s`);
+        console.error(`[FrameExtraction] FFmpeg stderr (last 1000 chars): ${stderrTail}`);
+
+        // Provide a more specific error message based on the signal
+        let details = `FFmpeg exited with code ${code}`;
+        if (signal === "SIGKILL" || code === null) {
+          details = "FFmpeg was killed (likely out of memory). The video may be too large for frame extraction in this environment.";
+        } else if (signal) {
+          details = `FFmpeg was killed by signal ${signal}`;
+        }
+
         resolve({
           error: "Frame extraction failed",
           code: "EXTRACTION_FAILED",
-          details: `FFmpeg exited with code ${code}`,
+          details,
         });
         return;
       }
@@ -260,26 +287,21 @@ export function getCaptioningStrategy(fileSizeBytes: number | null): {
   method: "llm_direct" | "frame_extraction";
   reason: string;
 } {
+  // ALWAYS try LLM-direct first for all file sizes.
+  // The LLM vision API can handle video URLs of any size by streaming them.
+  // FFmpeg frame extraction is only used as a fallback if LLM-direct fails,
+  // because FFmpeg-static may crash in memory-constrained production containers.
   if (!fileSizeBytes || fileSizeBytes === 0) {
-    // Unknown size — use frame extraction to be safe
     return {
-      method: "frame_extraction",
-      reason: "File size unknown, using frame extraction for safety",
+      method: "llm_direct",
+      reason: "File size unknown, trying LLM vision directly (frame extraction available as fallback)",
     };
   }
 
   const sizeMB = fileSizeBytes / (1024 * 1024);
 
-  // LLM vision API can handle small videos directly (under ~20MB)
-  if (sizeMB <= 20) {
-    return {
-      method: "llm_direct",
-      reason: `File is ${sizeMB.toFixed(1)}MB (≤20MB), sending directly to LLM vision`,
-    };
-  }
-
   return {
-    method: "frame_extraction",
-    reason: `File is ${sizeMB.toFixed(1)}MB (>20MB), extracting frames first`,
+    method: "llm_direct",
+    reason: `File is ${sizeMB.toFixed(1)}MB, sending directly to LLM vision (frame extraction available as fallback)`,
   };
 }

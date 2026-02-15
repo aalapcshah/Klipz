@@ -10,7 +10,8 @@ import { storagePut } from "../storage";
 
 const BATCH_SIZE = 3; // Process 3 videos at a time to avoid overloading LLM API
 
-// Videos larger than 20MB should use frame extraction instead of sending the full video
+// Frame extraction is available as a fallback, but LLM-direct is always tried first
+// to avoid FFmpeg crashes in memory-constrained production containers.
 const FRAME_EXTRACTION_THRESHOLD_BYTES = 20 * 1024 * 1024;
 
 /**
@@ -314,33 +315,27 @@ async function captionSingleVideo(
     const accessibleUrl = await resolveFileUrl({ url, fileKey });
     console.log(`[ScheduledAutoCaptioning] Resolved URL for file ${fileId}: ${accessibleUrl.substring(0, 80)}...`);
 
-    // Choose strategy based on file size
-    const fileSizeBytes = fileSize || 0;
+    // Strategy: ALWAYS try LLM-direct first for ALL file sizes.
+    // The LLM can handle video URLs of any size by streaming them.
+    // FFmpeg frame extraction is only used as a fallback if LLM-direct fails,
+    // because FFmpeg-static may crash in memory-constrained production containers.
     let captionResult: { captions: any[]; videoSummary: string };
 
-    if (fileSizeBytes > FRAME_EXTRACTION_THRESHOLD_BYTES || fileSizeBytes === 0) {
-      // Large file or unknown size: use frame extraction
-      // (unknown size defaults to frame extraction to be safe)
+    try {
+      console.log(`[ScheduledAutoCaptioning] Trying LLM-direct for file ${fileId}...`);
+      captionResult = await captionViaDirectLLM(fileId, accessibleUrl);
+      console.log(`[ScheduledAutoCaptioning] LLM-direct succeeded for file ${fileId}`);
+    } catch (directError: any) {
+      console.warn(`[ScheduledAutoCaptioning] LLM-direct failed for file ${fileId}: ${directError.message}`);
+      console.log(`[ScheduledAutoCaptioning] Falling back to frame extraction for file ${fileId}...`);
       try {
         captionResult = await captionViaFrameExtraction(fileId, captionId, accessibleUrl);
+        console.log(`[ScheduledAutoCaptioning] Frame extraction fallback succeeded for file ${fileId}`);
       } catch (frameError: any) {
-        console.warn(`[ScheduledAutoCaptioning] Frame extraction failed for file ${fileId}: ${frameError.message}`);
-        // If frame extraction fails and file is small enough, try direct LLM
-        if (fileSizeBytes > 0 && fileSizeBytes <= FRAME_EXTRACTION_THRESHOLD_BYTES * 2) {
-          console.log(`[ScheduledAutoCaptioning] Falling back to direct LLM for file ${fileId}`);
-          captionResult = await captionViaDirectLLM(fileId, accessibleUrl);
-        } else {
-          throw frameError;
-        }
-      }
-    } else {
-      // Small file: try direct LLM first, fall back to frame extraction
-      try {
-        captionResult = await captionViaDirectLLM(fileId, accessibleUrl);
-      } catch (directError: any) {
-        console.warn(`[ScheduledAutoCaptioning] Direct LLM failed for file ${fileId}: ${directError.message}`);
-        console.log(`[ScheduledAutoCaptioning] Falling back to frame extraction for file ${fileId}`);
-        captionResult = await captionViaFrameExtraction(fileId, captionId, accessibleUrl);
+        console.error(`[ScheduledAutoCaptioning] Both LLM-direct and frame extraction failed for file ${fileId}`);
+        throw new Error(
+          `Captioning failed. LLM error: ${directError.message}. Frame extraction error: ${frameError.message}`
+        );
       }
     }
 
