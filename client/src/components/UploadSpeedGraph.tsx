@@ -45,7 +45,7 @@ interface UploadSpeedGraphProps {
 }
 
 function formatSpeedValue(bytesPerSecond: number): string {
-  if (bytesPerSecond <= 0) return "0 B/s";
+  if (bytesPerSecond <= 0) return "0/s";
   if (bytesPerSecond < 1024) return `${Math.round(bytesPerSecond)} B/s`;
   if (bytesPerSecond < 1024 * 1024) return `${(bytesPerSecond / 1024).toFixed(1)} KB/s`;
   return `${(bytesPerSecond / (1024 * 1024)).toFixed(2)} MB/s`;
@@ -70,15 +70,26 @@ export function UploadSpeedGraph({
   const lastUpdateRef = useRef<number>(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentSpeedRef = useRef(currentSpeed);
+  // Track whether we've ever been active to avoid resetting data on brief flickers
+  const hasBeenActiveRef = useRef(false);
+  // Track the last time we received a non-zero speed to detect stalls vs active uploads
+  const lastNonZeroSpeedRef = useRef<number>(0);
+  const lastNonZeroSpeedValueRef = useRef<number>(0);
 
   // Keep ref in sync
   useEffect(() => {
     currentSpeedRef.current = currentSpeed;
+    if (currentSpeed > 0) {
+      lastNonZeroSpeedRef.current = Date.now();
+      lastNonZeroSpeedValueRef.current = currentSpeed;
+    }
   }, [currentSpeed]);
 
   // Sample speed data every second when active
   useEffect(() => {
     if (isActive) {
+      hasBeenActiveRef.current = true;
+      
       // Add initial point
       const now = Date.now();
       if (now - lastUpdateRef.current >= 900) {
@@ -91,8 +102,24 @@ export function UploadSpeedGraph({
 
       intervalRef.current = setInterval(() => {
         const ts = Date.now();
+        let speedToRecord = currentSpeedRef.current;
+        
+        // If currentSpeed is 0 but we had a non-zero speed recently (within 10s),
+        // use a decaying estimate based on the last known speed.
+        // This handles the gap between chunk completions where speed reads as 0
+        // even though the upload is actively transferring data.
+        if (speedToRecord === 0 && lastNonZeroSpeedRef.current > 0) {
+          const timeSinceLastSpeed = (ts - lastNonZeroSpeedRef.current) / 1000;
+          if (timeSinceLastSpeed < 10) {
+            // Decay the last known speed over time to show the upload is still working
+            // but we don't have a fresh measurement yet
+            const decayFactor = Math.max(0, 1 - (timeSinceLastSpeed / 10));
+            speedToRecord = lastNonZeroSpeedValueRef.current * decayFactor;
+          }
+        }
+        
         setDataPoints(prev => {
-          const newPoints = [...prev, { timestamp: ts, speed: currentSpeedRef.current }];
+          const newPoints = [...prev, { timestamp: ts, speed: speedToRecord }];
           return newPoints.slice(-maxPoints);
         });
         lastUpdateRef.current = ts;
@@ -110,11 +137,23 @@ export function UploadSpeedGraph({
     }
   }, [isActive, maxPoints]);
 
-  // Reset data when upload starts fresh (speed goes from 0 to active)
+  // Only reset data when a genuinely NEW upload starts (not on brief isActive flickers)
+  // We detect a new upload by checking if isActive transitions from false to true
+  // AND we haven't been active recently (> 5 seconds gap)
   const wasActiveRef = useRef(false);
+  const lastActiveTimeRef = useRef(0);
   useEffect(() => {
-    if (isActive && !wasActiveRef.current) {
-      setDataPoints([]);
+    if (isActive) {
+      if (!wasActiveRef.current) {
+        // Transitioning to active — only reset if it's been a while since last active
+        const timeSinceLastActive = Date.now() - lastActiveTimeRef.current;
+        if (timeSinceLastActive > 5000 && !hasBeenActiveRef.current) {
+          // Genuinely new upload session, reset data
+          setDataPoints([]);
+        }
+        // If timeSinceLastActive <= 5000, this is likely a flicker — keep existing data
+      }
+      lastActiveTimeRef.current = Date.now();
     }
     wasActiveRef.current = isActive;
   }, [isActive]);
@@ -324,15 +363,27 @@ export function UploadSpeedGraph({
 
 /**
  * Hook to collect speed data from multiple upload sessions
- * and provide aggregated speed for the graph
+ * and provide aggregated speed for the graph.
+ * Uses recentSpeeds array as a fallback when instantaneous speed is 0
+ * (which happens between chunk completions).
  */
 export function useAggregatedUploadSpeed(
-  sessions: Array<{ speed: number; status: string }>
+  sessions: Array<{ speed: number; status: string; recentSpeeds?: number[] }>
 ): { totalSpeed: number; isActive: boolean } {
   const totalSpeed = useMemo(() => {
     return sessions
       .filter(s => s.status === "active")
-      .reduce((sum, s) => sum + (s.speed || 0), 0);
+      .reduce((sum, s) => {
+        // Use the session's current speed if available
+        if (s.speed > 0) return sum + s.speed;
+        // Fallback: use the average of recent chunk speeds if available
+        // This provides a reasonable estimate between chunk completions
+        if (s.recentSpeeds && s.recentSpeeds.length > 0) {
+          const recentAvg = s.recentSpeeds.reduce((a, b) => a + b, 0) / s.recentSpeeds.length;
+          return sum + recentAvg;
+        }
+        return sum;
+      }, 0);
   }, [sessions]);
 
   const isActive = sessions.some(s => s.status === "active");

@@ -81,9 +81,11 @@ export function GlobalUploadProgress() {
   } = useUploadManager();
 
   // Fetch resumable upload sessions from server
+  // Use longer staleTime to avoid interfering with the live speed tracking
+  // in useResumableUpload (which shares the same query cache)
   const { data: resumableSessions } = trpc.resumableUpload.listActiveSessions.useQuery(
     undefined,
-    { refetchInterval: 5000 } // Poll every 5 seconds
+    { refetchInterval: 15000, staleTime: 10000 } // Poll less frequently to avoid resetting live speed data
   );
 
   const [, navigate] = useLocation();

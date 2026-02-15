@@ -912,7 +912,10 @@ export function useResumableUpload(options: UseResumableUploadOptions = {}) {
           const now = Date.now();
           const timeDiff = (now - lastSpeedUpdate) / 1000;
           const bytesDiff = completedBytes - lastBytesForSpeed;
-          const speed = timeDiff > 0 ? bytesDiff / timeDiff : 0;
+          const rollingSpeed = timeDiff > 0 ? bytesDiff / timeDiff : 0;
+          // Use the better of: per-chunk speed or rolling window speed
+          // This ensures we always have a meaningful speed value
+          const speed = rollingSpeed > 0 ? rollingSpeed : chunkSpeed;
           const remainingBytes = file.size - completedBytes;
           const eta = speed > 0 ? remainingBytes / speed : 0;
 

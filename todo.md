@@ -6960,3 +6960,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Pass videoUrl from VideoList to VideoCardDetails
 - [x] TypeScript compilation passes with 0 errors
 - [x] 1,458 tests pass (1 pre-existing flaky timeout test unrelated to changes)
+
+## Bug Fix: Upload Speed Graph Shows 0/s
+- [x] Investigate why upload speed graph shows flat 0/s during active chunked uploads
+- [x] Fix speed calculation/tracking in upload speed component (3 root causes fixed)
+- [x] Verify graph updates in real-time during uploads (0 TS errors, 1459 tests pass)
