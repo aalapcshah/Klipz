@@ -7014,3 +7014,13 @@ Note: The application already has extensive annotation features including voice 
 - [x] Group less-used actions (Compare, Export, Collection, Retry, Edit, Quality) into a "More" dropdown on mobile
 - [x] Keep primary actions (Clear, Tag, Enrich, Delete) visible on the main row
 - [x] Ensure toolbar fits on one row on mobile screens
+
+## UI Feature: Swipe-to-Delete on File Cards (Mobile)
+- [ ] Add swipe-left gesture on individual file cards to reveal a delete action
+- [ ] Show red delete button/area when swiped
+- [ ] Confirm deletion with a dialog or allow undo via toast
+- [ ] Only enable on mobile (touch devices)
+
+## UI Change: Swap Search Bar and Filters & Sort Rows
+- [x] Move Filters & Sort above the search bar
+- [x] Move search bar below Filters & Sort

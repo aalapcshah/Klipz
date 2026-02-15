@@ -91,6 +91,8 @@ interface FileGridEnhancedProps {
     qualityScore: string[];
   };
   files?: any[]; // Files passed from parent component
+  searchBar?: React.ReactNode; // Search bar to render below Filters & Sort
+  searchResultsBanner?: React.ReactNode; // Search results count banner
 }
 
 interface DeletedFile {
@@ -108,6 +110,8 @@ interface DeletedFile {
 
 export default function FileGridEnhanced({ 
   onFileClick,
+  searchBar,
+  searchResultsBanner,
   selectedFileIds = [],
   onSelectionChange,
   onFilteredCountChange,
@@ -1370,7 +1374,11 @@ export default function FileGridEnhanced({
           </div>
         </div>
 
-
+        {/* Search Bar - rendered from parent */}
+        {searchBar}
+        
+        {/* Search Results Banner - rendered from parent */}
+        {searchResultsBanner}
 
         {/* Batch Actions Toolbar */}
         {selectedFilesSet.size > 0 && (

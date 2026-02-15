@@ -516,28 +516,7 @@ export default function FilesView() {
               </div>
             </div>
             
-            {/* Voice Search Bar */}
-            <div id="search-bar">
-              <VoiceSearchBar
-                onSearch={(results) => setSearchResults(results)}
-                placeholder="Search files with voice or text..."
-              />
-            </div>
-            
-            {searchResults && (
-              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                <span className="text-sm">
-                  Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSearchResults(null)}
-                >
-                  Clear Search
-                </Button>
-              </div>
-            )}
+
           </div>
 
           {/* Selection Controls */}
@@ -606,6 +585,30 @@ export default function FilesView() {
                 onFilteredCountChange={setFilteredCount}
                 advancedFilters={advancedFilters}
                 files={searchResults || filesData?.files}
+                searchBar={
+                  <div id="search-bar">
+                    <VoiceSearchBar
+                      onSearch={(results) => setSearchResults(results)}
+                      placeholder="Search files with voice or text..."
+                    />
+                  </div>
+                }
+                searchResultsBanner={
+                  searchResults ? (
+                    <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                      <span className="text-sm">
+                        Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSearchResults(null)}
+                      >
+                        Clear Search
+                      </Button>
+                    </div>
+                  ) : undefined
+                }
               />
             ) : (
               <FileListView
