@@ -6794,3 +6794,8 @@ Note: The application already has extensive annotation features including voice 
 - [x] Store user preference for min confidence in database or user settings
 - [x] Apply user's confidence threshold to all matching operations
 - [x] Settings UI accessible from the MatchesTimeline header
+
+## Bug Fix - Video Playback for Uploaded Files
+- [x] Fix video not playing when uploaded as a regular file (shows 0:00 duration)
+- [x] Investigate video URL serving and content-type for uploaded video files
+- [x] Ensure video player works with S3-hosted video files

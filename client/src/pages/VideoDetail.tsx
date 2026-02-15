@@ -361,10 +361,10 @@ export default function VideoDetail() {
             <div className="rounded-lg overflow-hidden bg-black aspect-video relative">
               <video
                 ref={videoRef}
-                src={(videoData as any).transcodedUrl || videoData.url}
                 controls
                 className="w-full h-full object-contain"
                 playsInline
+                crossOrigin="anonymous"
                 onError={(e) => {
                   const video = e.currentTarget;
                   // If transcoded URL failed, fall back to original
@@ -389,7 +389,14 @@ export default function VideoDetail() {
                     }
                   }
                 }}
-              />
+              >
+                {/* Prefer transcoded MP4 for cross-browser compatibility */}
+                {(videoData as any).transcodedUrl && (
+                  <source src={(videoData as any).transcodedUrl} type="video/mp4" />
+                )}
+                <source src={videoData.url} type={videoData.filename?.endsWith('.webm') ? 'video/webm' : 'video/mp4'} />
+                Your browser does not support the video tag.
+              </video>
               {/* Transcript Subtitle Overlay */}
               {showSubtitles && transcript?.status === "completed" && transcript.segments && (
                 <div className="absolute bottom-12 left-0 right-0 flex justify-center pointer-events-none z-20 px-4">

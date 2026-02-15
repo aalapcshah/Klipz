@@ -855,12 +855,19 @@ export function VideoList() {
               {/* Always show video element with native controls */}
               <video
                 id={`video-player-${video.id}`}
-                src={video.url}
                 className="w-full h-full object-contain"
                 controls
                 preload="metadata"
                 poster={(video as any).thumbnailUrl || undefined}
-              />
+                crossOrigin="anonymous"
+              >
+                {/* Prefer transcoded MP4 for cross-browser compatibility */}
+                {(video as any).transcodedUrl && (
+                  <source src={(video as any).transcodedUrl} type="video/mp4" />
+                )}
+                <source src={video.url} type={video.filename?.endsWith('.webm') ? 'video/webm' : video.filename?.endsWith('.mp4') ? 'video/mp4' : 'video/mp4'} />
+                Your browser does not support the video tag.
+              </video>
               {/* Duration badge */}
               {video.duration > 0 && (
                 <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded pointer-events-none">

@@ -1968,7 +1968,24 @@ export const appRouter = router({
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         
         const videos = await db.getRecentlyRecordedVideos(ctx.user.id, sevenDaysAgo, 6);
-        return videos;
+        
+        // Resolve video URLs to ensure they are playable
+        const { resolveFileUrl } = await import('./lib/resolveFileUrl');
+        const origin = ctx.req?.headers?.origin || ctx.req?.headers?.referer?.replace(/\/[^/]*$/, '') || undefined;
+        const resolvedVideos = await Promise.all(
+          videos.map(async (video: any) => {
+            try {
+              const resolvedUrl = await resolveFileUrl(
+                { id: video.fileId || undefined, url: video.url, fileKey: video.fileKey },
+                { origin }
+              );
+              return { ...video, url: resolvedUrl };
+            } catch {
+              return video;
+            }
+          })
+        );
+        return resolvedVideos;
       }),
 
     // List all videos
@@ -1996,8 +2013,38 @@ export const appRouter = router({
         // Get paginated videos
         const videos = await db.getVideosByUserId(ctx.user.id, pageSize, offset, sortBy, search, tagIds, tagFilterMode);
         
+        // Resolve video URLs to ensure they are playable (handles chunked uploads, expired presigned URLs, etc.)
+        const { resolveFileUrl } = await import('./lib/resolveFileUrl');
+        const origin = ctx.req?.headers?.origin || ctx.req?.headers?.referer?.replace(/\/[^/]*$/, '') || undefined;
+        const resolvedVideos = await Promise.all(
+          videos.map(async (video: any) => {
+            let resolvedUrl = video.url;
+            let resolvedTranscodedUrl = video.transcodedUrl;
+            try {
+              resolvedUrl = await resolveFileUrl(
+                { id: video.fileId || undefined, url: video.url, fileKey: video.fileKey },
+                { origin }
+              );
+            } catch {
+              // If resolution fails, use original URL as fallback
+            }
+            // Also resolve transcodedUrl if it exists
+            if (video.transcodedKey && video.transcodedUrl) {
+              try {
+                resolvedTranscodedUrl = await resolveFileUrl(
+                  { url: video.transcodedUrl, fileKey: video.transcodedKey },
+                  { origin }
+                );
+              } catch {
+                // If resolution fails, use original URL as fallback
+              }
+            }
+            return { ...video, url: resolvedUrl, transcodedUrl: resolvedTranscodedUrl };
+          })
+        );
+        
         return {
-          videos,
+          videos: resolvedVideos,
           pagination: {
             page,
             pageSize,
@@ -2016,9 +2063,35 @@ export const appRouter = router({
           throw new Error("Video not found");
         }
         
+        // Resolve video URL to ensure it's playable
+        const { resolveFileUrl } = await import('./lib/resolveFileUrl');
+        const origin = ctx.req?.headers?.origin || ctx.req?.headers?.referer?.replace(/\/[^/]*$/, '') || undefined;
+        let resolvedUrl = video.url;
+        try {
+          resolvedUrl = await resolveFileUrl(
+            { id: video.fileId || undefined, url: video.url, fileKey: video.fileKey },
+            { origin }
+          );
+        } catch {
+          // If resolution fails, use original URL as fallback
+        }
+        
+        // Also resolve transcodedUrl if it exists
+        let resolvedTranscodedUrl = (video as any).transcodedUrl;
+        if ((video as any).transcodedKey && (video as any).transcodedUrl) {
+          try {
+            resolvedTranscodedUrl = await resolveFileUrl(
+              { url: (video as any).transcodedUrl, fileKey: (video as any).transcodedKey },
+              { origin }
+            );
+          } catch {
+            // If resolution fails, use original URL as fallback
+          }
+        }
+        
         const annotations = await db.getAnnotationsByVideoId(input.id);
         
-        return { ...video, annotations };
+        return { ...video, url: resolvedUrl, transcodedUrl: resolvedTranscodedUrl, annotations };
       }),
 
     // Create video
